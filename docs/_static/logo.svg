@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="120" viewBox="0 0 560 120" role="img" aria-label="awesome-vunit-vcs">
+  <title>awesome-vunit-vcs</title>
+  <!-- A square wave: simulation timing -->
+  <path d="M8 84 H30 V36 H56 V84 H82 V36 H108" fill="none" stroke="#6ab0de" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="128" y="72" font-family="'DejaVu Sans Mono', 'Liberation Mono', Menlo, Consolas, monospace" font-size="40" font-weight="700" fill="#ffffff">awesome-vunit-vcs</text>
+  <text x="130" y="102" font-family="'DejaVu Sans', 'Liberation Sans', Helvetica, Arial, sans-serif" font-size="17" fill="#b3c7d8">verification components for VUnit</text>
+</svg>

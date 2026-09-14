@@ -1,0 +1,23 @@
+VHDL API reference
+==================
+
+The reference of every VHDL package, context and entity of awesome-vunit-vcs, generated from the
+doc comments of the sources when the documentation is built, so it always matches the code. The
+user guide pages explain how the pieces fit together; this part is for looking things up.
+
+A testbench only needs the context of a family, for example:
+
+.. code-block:: vhdl
+
+   library awesome_vunit_vcs;
+   context awesome_vunit_vcs.ethernet_context;
+
+Declarations can be referenced from anywhere in the documentation with the ``vhdl`` role, for
+example ``:vhdl:`ethernet_pkg.ethernet_check_t``` renders as :vhdl:`ethernet_pkg.ethernet_check_t`.
+They are also listed in the :ref:`general index <genindex>`.
+
+.. toctree::
+   :maxdepth: 2
+
+   ethernet
+   common

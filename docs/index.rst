@@ -38,3 +38,15 @@ statistics, capture to Wireshark files and packet construction are simulator ind
    python_api
    roadmap
    contributing/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: VHDL API reference
+
+   reference/vhdl/index
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Project
+
+   release_notes/index

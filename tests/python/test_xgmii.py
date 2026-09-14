@@ -15,7 +15,7 @@ from helpers import (
     reference_frame,
 )
 
-from awesome_vunit_vcs.ethernet import CheckId, EthernetConfig, EthernetFrame, EthernetMonitor, Violation
+from awesome_vunit_vcs.ethernet.lowlevel import CheckId, EthernetConfig, EthernetFrame, EthernetMonitor, Violation
 from awesome_vunit_vcs.ethernet.phy import WireFrame, XgmiiPhy, create_phy
 from awesome_vunit_vcs.ethernet.source import build_wire_frame
 

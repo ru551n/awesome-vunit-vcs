@@ -12,19 +12,13 @@ Ethernet.
 
 from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import Ether
-from scapy.packet import Raw
 
-from awesome_vunit_vcs.ethernet import MacFrame, append_fcs, build_wire_frame
-from awesome_vunit_vcs.ethernet.scapy_adapter import packet_bytes, to_scapy
+from awesome_vunit_vcs import ethernet as eth
 
-packet = Ether(dst="02:00:00:00:00:01") / IP(dst="192.168.1.10") / UDP(dport=1234) / Raw(b"hello")
+packet = Ether(dst="02:00:00:00:00:01") / IP(dst="192.168.1.10") / UDP(dport=1234) / b"hello"
+frame = eth.Frame.from_packet(packet)
 
-# A packet becomes MAC octets, which is what a source transmits
-wire = build_wire_frame(packet_bytes(packet))
-
-# A received frame, here rebuilt from those octets, decodes back into a packet
-received = to_scapy(MacFrame(append_fcs(packet_bytes(packet))))
+received = eth.decode(eth.GMII, eth.GMII.encode([frame])).frames[0].to_scapy()
 assert received.dst == "02:00:00:00:00:01"
-assert IP in received and UDP in received
-assert received[UDP].dport == 1234
-print(received.summary(), f"({len(wire.octets)} octets on the wire)")
+assert IP in received and received[UDP].dport == 1234
+print(received.summary())

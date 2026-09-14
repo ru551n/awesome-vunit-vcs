@@ -17,6 +17,7 @@ from __future__ import annotations
 import zlib
 from dataclasses import dataclass
 
+from .errors import EthernetValueError
 from .phy.common import PhyFrame
 
 PREAMBLE_OCTET = 0x55
@@ -41,7 +42,7 @@ def append_fcs(data: bytes) -> bytes:
 
 
 @dataclass(slots=True, frozen=True)
-class EthernetConfig:
+class MonitorConfig:
     """
     What a monitor considers a well-formed frame.
 
@@ -60,11 +61,11 @@ class EthernetConfig:
 
     def __post_init__(self) -> None:
         if not 0 <= self.min_preamble_octets <= self.max_preamble_octets:
-            raise ValueError("Require 0 <= min_preamble_octets <= max_preamble_octets")
+            raise EthernetValueError("Require 0 <= min_preamble_octets <= max_preamble_octets")
         if not 0 <= self.min_frame_octets <= self.max_frame_octets:
-            raise ValueError("Require 0 <= min_frame_octets <= max_frame_octets")
+            raise EthernetValueError("Require 0 <= min_frame_octets <= max_frame_octets")
         if self.min_ifg_octets < 0:
-            raise ValueError("min_ifg_octets must not be negative")
+            raise EthernetValueError("min_ifg_octets must not be negative")
 
 
 @dataclass(slots=True, frozen=True)
@@ -138,9 +139,13 @@ class MacFrame:
         return body
 
 
+#: The former name of :class:`MonitorConfig`
+EthernetConfig = MonitorConfig
+
+
 @dataclass(slots=True, frozen=True)
 class EthernetFrame:
-    """A frame observed by a monitor, analyzed against an :class:`EthernetConfig`."""
+    """A frame observed by a monitor, analyzed against a :class:`MonitorConfig`."""
 
     phy: PhyFrame
     #: Number of preamble octets (0x55) before the first other octet

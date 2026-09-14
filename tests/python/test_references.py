@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from helpers import GmiiLine, ethernet_mac_octets
 
-from awesome_vunit_vcs.ethernet import EthernetMonitor, build_wire_frame
+from awesome_vunit_vcs.ethernet.lowlevel import EthernetMonitor, build_wire_frame
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy
 
 

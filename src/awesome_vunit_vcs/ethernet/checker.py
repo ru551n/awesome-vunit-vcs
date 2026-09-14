@@ -13,6 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from ..common.events import Publisher
+from .errors import EthernetValueError
 from .frame import SFD_OCTET, EthernetConfig, EthernetFrame
 from .phy.common import IdleEvent, PhyEvent
 
@@ -60,7 +61,7 @@ class CheckId(str, enum.Enum):
             if name in (member.value, member.name, f"ETH_{member.name}"):
                 return member
         known = ", ".join(member.value for member in cls)
-        raise ValueError(f"Unknown Ethernet check {check!r}, known checks: {known}")
+        raise EthernetValueError(f"Unknown Ethernet check {check!r}, known checks: {known}")
 
 
 @dataclass(slots=True, frozen=True)

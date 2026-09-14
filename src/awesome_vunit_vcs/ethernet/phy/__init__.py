@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..errors import EthernetValueError
 from .common import (
     FrameAssembler,
     IdleEvent,
@@ -30,7 +31,7 @@ def create_phy(interface: str, **options: Any) -> PhyInterface:
         cls = _INTERFACES[interface.lower()]
     except KeyError:
         known = ", ".join(sorted(_INTERFACES))
-        raise ValueError(f"Unknown Ethernet interface {interface!r}, known: {known}") from None
+        raise EthernetValueError(f"Unknown Ethernet interface {interface!r}, known: {known}") from None
     phy: PhyInterface = cls(**options)
     return phy
 

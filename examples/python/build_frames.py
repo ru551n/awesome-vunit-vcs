@@ -3,35 +3,33 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 """
-Build Ethernet frames without a simulator.
+Build Ethernet frames and malformed traffic without a simulator.
 
-A frame is described by its MAC octets, from the destination address up to,
-not including, the FCS. build_wire_frame adds what a transmitter puts on the
-wire around them, including deliberate errors.
+A Frame is the octets from the destination address up to the FCS. to_wire
+adds what a transmitter puts around them; WireOptions describe deliberate
+errors as data, and expected_violations says what a monitor reports for them.
 """
 
-from awesome_vunit_vcs.ethernet import FcsMode, MacFrame, append_fcs, build_wire_frame, fcs32
+from awesome_vunit_vcs import ethernet as eth
 
-# Destination address, source address, the local experimental EtherType, payload
-mac_octets = bytes.fromhex("020000000001 020000000002 88b5") + b"hello"
+# A frame with a correct FCS, and what a transmitter puts on the wire for it
+frame = eth.Frame.from_payload(b"hello")
+wire = frame.to_wire()
+assert frame.fcs_ok and frame.payload == b"hello" and frame.dst == "02:00:00:00:00:01"
+assert wire.octets[:8] == bytes.fromhex("55555555555555d5")  # 7 preamble octets and the SFD
+assert len(wire.octets) == 8 + 64  # padded to the minimum frame size
 
-# The FCS is a CRC-32, transmitted least significant octet first
-frame = MacFrame(append_fcs(mac_octets))
-assert frame.fcs_ok
-assert frame.fcs_received == fcs32(mac_octets)
-assert frame.ethertype == 0x88B5
-assert frame.payload == b"hello"
+# Malformed traffic: a bad FCS, a short preamble, no padding, a short gap and the error signal
+bad = eth.WireOptions(fcs="bad", preamble_octets=5, pad=False, ifg_octets=4, errors=(0,))
+assert frame.to_wire(bad).error_offsets == (0,)  # counted from the first octet after the SFD
+assert eth.expected_violations(frame, bad) == {
+    eth.CheckId.PREAMBLE,
+    eth.CheckId.FCS,
+    eth.CheckId.RUNT,
+    eth.CheckId.PHY_ERROR,
+}
 
-# On the wire: 7 preamble octets, the SFD, the frame padded to 60 octets, the FCS
-wire = build_wire_frame(mac_octets)
-assert wire.octets[:8] == bytes.fromhex("55555555555555d5")
-assert len(wire.octets) == 8 + 64
-assert wire.ifg_octets == 12
-
-# Malformed traffic is intentional: a bad FCS, a short preamble, no padding, a
-# short inter-frame gap, and the error signal with the first octet after the SFD
-bad = build_wire_frame(mac_octets, fcs=FcsMode.BAD, preamble_octets=5, pad=False, ifg_octets=4, error_offsets=[0])
-assert not MacFrame(bad.octets[6:]).fcs_ok
-assert bad.error_offsets == (0,)  # counted from the first octet after the SFD
-assert bad.wire_error_offsets == (6,)  # wire octet index: 5 preamble octets and the SFD come first
-print(f"{len(wire.octets)} octets on the wire, FCS 0x{frame.fcs_received:08X}")
+# Frames are values: they compare and hash by content
+assert eth.Frame.from_bytes(frame.octets) == frame
+assert len({frame, eth.Frame.from_bytes(frame.data, has_fcs=False)}) == 1
+print(f"{len(wire.octets)} octets on the wire, FCS 0x{frame.fcs:08X}")

@@ -36,6 +36,7 @@ from collections.abc import Callable
 
 import numpy as np
 
+from ..errors import EthernetValueError
 from .common import (
     WORD_ERROR,
     WORD_META_CTRL,
@@ -94,11 +95,11 @@ class XgmiiPhy:
         deficit_idle: bool = True,
     ) -> None:
         if lanes not in (4, 8):
-            raise ValueError(f"An XGMII interface has 4 or 8 lanes, got {lanes}")
+            raise EthernetValueError(f"An XGMII interface has 4 or 8 lanes, got {lanes}")
         if link_rate_bps <= 0:
-            raise ValueError(f"link_rate_bps must be positive, got {link_rate_bps}")
+            raise EthernetValueError(f"link_rate_bps must be positive, got {link_rate_bps}")
         if allow_lane4_start and lanes != 8:
-            raise ValueError("allow_lane4_start needs 8 lanes")
+            raise EthernetValueError("allow_lane4_start needs 8 lanes")
         self.link_rate_bps = link_rate_bps
         self.lanes = lanes
         self.octet_period_fs = 8 * 10**15 // link_rate_bps
@@ -323,7 +324,7 @@ class XgmiiPhy:
     def ordered_set_symbols(self, value: int, columns: int = 1) -> Int32Array:
         """Columns carrying a Sequence ordered set on lane 0, for example :data:`LOCAL_FAULT`."""
         if not 0 <= value < 1 << 24:
-            raise ValueError(f"An ordered set value is 24 bits, got 0x{value:X}")
+            raise EthernetValueError(f"An ordered set value is 24 bits, got 0x{value:X}")
         column = np.full(self.lanes, XGMII_IDLE | WORD_CONTROL, dtype=np.int32)
         column[:4] = [XGMII_SEQUENCE | WORD_CONTROL, *value.to_bytes(3, "big")]
         return np.tile(column, columns)
@@ -331,7 +332,7 @@ class XgmiiPhy:
     def column_symbols(self, data: list[int], control: list[int]) -> Int32Array:
         """Raw columns: one data octet and one control bit per lane, lane 0 first."""
         if len(data) != len(control) or len(data) % self.lanes:
-            raise ValueError(
+            raise EthernetValueError(
                 f"Raw columns need as many control bits as data octets, a multiple of {self.lanes}; "
                 f"got {len(data)} data octets and {len(control)} control bits"
             )

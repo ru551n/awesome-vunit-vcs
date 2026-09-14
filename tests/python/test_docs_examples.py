@@ -15,13 +15,17 @@ import pytest
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples" / "python"
 
 #: Examples that need an optional dependency
-NEEDS = {"scapy_packets.py": "scapy"}
+NEEDS = {"scapy_packets.py": "scapy", "property_based.py": "hypothesis"}
 
 
 def test_every_example_is_listed() -> None:
     assert sorted(path.name for path in EXAMPLES.glob("*.py")) == [
         "build_frames.py",
-        "monitor_frames.py",
+        "capture_frames.py",
+        "check_frames.py",
+        "decode_samples.py",
+        "packet_functions.py",
+        "property_based.py",
         "scapy_packets.py",
     ]
 

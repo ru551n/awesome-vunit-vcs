@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from helpers import GmiiLine, ethernet_mac_octets, reference_frame
 
-from awesome_vunit_vcs.ethernet import CaptureOptions, EthernetMonitor
+from awesome_vunit_vcs.ethernet.lowlevel import CaptureOptions, EthernetMonitor
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy
 
 

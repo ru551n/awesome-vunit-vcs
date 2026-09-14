@@ -25,6 +25,8 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
+from ..errors import EthernetValueError
+
 WORD_DATA_MASK = 0xFF
 WORD_VALID = 1 << 8
 WORD_ERROR = 1 << 9
@@ -82,10 +84,10 @@ class WireFrame:
 
     def __post_init__(self) -> None:
         if self.ifg_octets < 0:
-            raise ValueError(f"ifg_octets must not be negative, got {self.ifg_octets}")
+            raise EthernetValueError(f"ifg_octets must not be negative, got {self.ifg_octets}")
         for offset in self.wire_error_offsets:
             if not 0 <= offset < len(self.octets):
-                raise ValueError(f"Error offset {offset} is outside the {len(self.octets)} wire octets")
+                raise EthernetValueError(f"Error offset {offset} is outside the {len(self.octets)} wire octets")
 
     @property
     def mac_offset(self) -> int:

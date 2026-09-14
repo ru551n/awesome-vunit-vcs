@@ -12,6 +12,7 @@ import enum
 from collections.abc import Iterable
 
 from ..common.events import Publisher
+from .errors import EthernetValueError
 from .frame import FCS_OCTETS, MIN_FRAME_OCTETS, MIN_IFG_OCTETS, PREAMBLE_OCTET, PREAMBLE_OCTETS, SFD_OCTET, fcs32
 from .phy.common import Int32Array, PhyInterface, WireFrame
 
@@ -66,9 +67,9 @@ def build_wire_frame(
     """
     mode = FcsMode(fcs)
     if preamble_octets < 0:
-        raise ValueError(f"preamble_octets must not be negative, got {preamble_octets}")
+        raise EthernetValueError(f"preamble_octets must not be negative, got {preamble_octets}")
     if not 0 <= sfd <= 0xFF:
-        raise ValueError(f"sfd must be an octet, got {sfd}")
+        raise EthernetValueError(f"sfd must be an octet, got {sfd}")
     body = bytes(data)
     if mode is not FcsMode.NONE:
         if pad:

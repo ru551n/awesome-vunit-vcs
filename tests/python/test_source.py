@@ -2,8 +2,9 @@ import numpy as np
 import pytest
 from helpers import VALID, ethernet_mac_octets, reference_frame
 
-from awesome_vunit_vcs.ethernet import CheckId, EthernetMonitor, EthernetSource, FcsMode, build_wire_frame
+from awesome_vunit_vcs.ethernet.lowlevel import CheckId, EthernetMonitor, FcsMode, build_wire_frame
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy, WireFrame
+from awesome_vunit_vcs.ethernet.source import EthernetSource
 
 
 def test_wire_frame_matches_reference() -> None:

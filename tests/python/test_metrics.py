@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from helpers import GMII_PERIOD_FS, GmiiLine, ethernet_mac_octets, reference_frame
 
-from awesome_vunit_vcs.ethernet import EthernetMonitor
+from awesome_vunit_vcs.ethernet.lowlevel import EthernetMonitor
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy
 
 

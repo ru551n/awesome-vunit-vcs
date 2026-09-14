@@ -24,6 +24,7 @@ import struct
 from dataclasses import dataclass
 from typing import BinaryIO
 
+from .errors import EthernetValueError
 from .frame import FCS_OCTETS, EthernetFrame
 
 LINKTYPE_ETHERNET = 1
@@ -67,7 +68,7 @@ class CaptureOptions:
 
     def __post_init__(self) -> None:
         if not 0 <= self.timestamp_resolution_exponent <= 15:
-            raise ValueError("timestamp_resolution_exponent must be 0..15 (femtoseconds at most)")
+            raise EthernetValueError("timestamp_resolution_exponent must be 0..15 (femtoseconds at most)")
 
 
 def _pad(data: bytes) -> bytes:

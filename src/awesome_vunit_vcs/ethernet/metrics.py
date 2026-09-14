@@ -68,7 +68,7 @@ class _Accumulator:
 
 
 @dataclass(slots=True, frozen=True)
-class EthernetStatistics:
+class Statistics:
     """
     A snapshot of the traffic a monitor observed, see the module definitions.
 
@@ -101,6 +101,10 @@ class EthernetStatistics:
     ifg_octets: Summary = field(default_factory=Summary)
     ifg_fs: Summary = field(default_factory=Summary)
     size_histogram: tuple[tuple[str, int], ...] = ()
+
+    def __call__(self) -> Statistics:
+        """Return the snapshot itself, so code written for the former ``vc.statistics()`` method keeps working."""
+        return self
 
     @property
     def duration_fs(self) -> int:
@@ -167,6 +171,10 @@ class EthernetStatistics:
                 f"size histogram: {histogram}",
             ]
         )
+
+
+#: The former name of :class:`Statistics`
+EthernetStatistics = Statistics
 
 
 class PerformanceMonitor:

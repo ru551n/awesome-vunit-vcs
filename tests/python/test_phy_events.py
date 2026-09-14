@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from awesome_vunit_vcs.common.vunit_bridge import decode_samples, encode_samples
-from awesome_vunit_vcs.ethernet import CheckId, EthernetMonitor
+from awesome_vunit_vcs.ethernet.lowlevel import CheckId, EthernetMonitor
 from awesome_vunit_vcs.ethernet.phy.common import Int32Array, Int64Array, OctetBatch, PhyEvent, WireFrame
 
 

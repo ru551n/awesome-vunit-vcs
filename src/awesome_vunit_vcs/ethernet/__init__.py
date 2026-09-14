@@ -1,38 +1,114 @@
 """
 Ethernet verification components.
 
-The simulator independent core (frames, checker, statistics, capture, source
-frame building) is usable from plain Python; the VHDL components under
-``vhdl/ethernet`` feed it through :mod:`.vunit_backend`.
+The happy path is importable from here::
+
+    from awesome_vunit_vcs import ethernet as eth
+
+    frame = eth.Frame.from_payload(b"hello")
+    with eth.Monitor(eth.GMII) as rx:
+        rx.feed_frames([frame])
+    assert rx.frames == [frame.padded()]
+
+The simulator independent core is usable from plain Python; the VHDL
+components under ``vhdl/ethernet`` feed the same pipeline through
+:mod:`.vunit_backend`. The building blocks behind it are in :mod:`.lowlevel`,
+and :mod:`.traffic` generates seeded traffic and calls packet functions by name.
 """
 
-from .checker import CheckId, ProtocolChecker, Violation
-from .frame import EthernetConfig, EthernetFrame, FrameDecoder, MacFrame, append_fcs, fcs32
-from .metrics import EthernetStatistics, PerformanceMonitor
-from .monitor import EthernetMonitor
-from .pcap import CaptureOptions, PcapNgWriter
-from .phy import PhyFrame, WireFrame, create_phy
-from .source import EthernetSource, FcsMode, build_wire_frame
+from __future__ import annotations
+
+import importlib
+import warnings
+from typing import Any
+
+from .api import (
+    DEFAULT_DESTINATION,
+    DEFAULT_ETHERTYPE,
+    DEFAULT_SOURCE,
+    FcsKind,
+    Frame,
+    Monitor,
+    Result,
+    WireOptions,
+    decode,
+    expected_violations,
+    mac_address,
+    supported_malformations,
+    write_pcapng,
+)
+from .checker import CheckId, Violation
+from .errors import EthernetValueError
+from .frame import MonitorConfig
+from .interfaces import GMII, INTERFACE_NAMES, MII, XGMII, Interface, Samples
+from .limits import LIMITS, Limits, Malformation
+from .metrics import Statistics
+from .units import bps, fs
 
 __all__ = [
-    "CaptureOptions",
+    "DEFAULT_DESTINATION",
+    "DEFAULT_ETHERTYPE",
+    "DEFAULT_SOURCE",
+    "GMII",
+    "INTERFACE_NAMES",
+    "LIMITS",
+    "MII",
+    "XGMII",
     "CheckId",
-    "EthernetConfig",
-    "EthernetFrame",
-    "EthernetMonitor",
-    "EthernetSource",
-    "EthernetStatistics",
-    "FcsMode",
-    "FrameDecoder",
-    "MacFrame",
-    "PcapNgWriter",
-    "PerformanceMonitor",
-    "PhyFrame",
-    "ProtocolChecker",
+    "EthernetValueError",
+    "FcsKind",
+    "Frame",
+    "Interface",
+    "Limits",
+    "Malformation",
+    "Monitor",
+    "MonitorConfig",
+    "Result",
+    "Samples",
+    "Statistics",
     "Violation",
-    "WireFrame",
-    "append_fcs",
-    "build_wire_frame",
-    "create_phy",
-    "fcs32",
+    "WireOptions",
+    "bps",
+    "decode",
+    "expected_violations",
+    "fs",
+    "mac_address",
+    "supported_malformations",
+    "write_pcapng",
 ]
+
+#: Names importable from here before the happy path, with the module and name they moved to
+_DEPRECATED: dict[str, tuple[str, str]] = {
+    "CaptureOptions": ("lowlevel", "CaptureOptions"),
+    "EthernetConfig": ("lowlevel", "EthernetConfig"),
+    "EthernetFrame": ("lowlevel", "EthernetFrame"),
+    "EthernetMonitor": ("lowlevel", "EthernetMonitor"),
+    "EthernetSource": ("source", "EthernetSource"),
+    "EthernetStatistics": ("lowlevel", "EthernetStatistics"),
+    "FcsMode": ("lowlevel", "FcsMode"),
+    "FrameDecoder": ("lowlevel", "FrameDecoder"),
+    "MacFrame": ("lowlevel", "MacFrame"),
+    "PcapNgWriter": ("lowlevel", "PcapNgWriter"),
+    "PerformanceMonitor": ("lowlevel", "PerformanceMonitor"),
+    "PhyFrame": ("lowlevel", "PhyFrame"),
+    "ProtocolChecker": ("lowlevel", "ProtocolChecker"),
+    "WireFrame": ("lowlevel", "WireFrame"),
+    "append_fcs": ("lowlevel", "append_fcs"),
+    "build_wire_frame": ("lowlevel", "build_wire_frame"),
+    "create_phy": ("lowlevel", "create_phy"),
+    "fcs32": ("lowlevel", "fcs32"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    try:
+        module, attribute = _DEPRECATED[name]
+    except KeyError:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
+    warnings.warn(
+        f"awesome_vunit_vcs.ethernet.{name} is deprecated and will be removed in the next release; "
+        f"import it from awesome_vunit_vcs.ethernet.{module}, or use Frame, Monitor and decode",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return getattr(importlib.import_module(f"{__name__}.{module}"), attribute)

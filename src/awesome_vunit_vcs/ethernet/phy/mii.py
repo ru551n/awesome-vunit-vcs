@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..errors import EthernetValueError
 from .common import (
     WORD_ALIGNMENT,
     WORD_ERROR,
@@ -75,7 +76,7 @@ class MiiPhy:
 
     def __init__(self, link_rate_bps: int = 100_000_000) -> None:
         if link_rate_bps <= 0:
-            raise ValueError(f"link_rate_bps must be positive, got {link_rate_bps}")
+            raise EthernetValueError(f"link_rate_bps must be positive, got {link_rate_bps}")
         self.link_rate_bps = link_rate_bps
         self._in_frame = False
         self._aligned = False

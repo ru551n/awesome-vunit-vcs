@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from helpers import ERROR, GMII_PERIOD_FS, META_CTRL, META_DATA, VALID, GmiiLine, ethernet_mac_octets, reference_frame
 
-from awesome_vunit_vcs.ethernet import CheckId, EthernetConfig, EthernetFrame, EthernetMonitor, Violation
+from awesome_vunit_vcs.ethernet.lowlevel import CheckId, EthernetConfig, EthernetFrame, EthernetMonitor, Violation
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy
 
 

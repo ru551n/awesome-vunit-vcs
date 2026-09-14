@@ -193,6 +193,21 @@ package qspi_flash_cmd_pkg is
     data_lanes : lane_count_t := 1
   );
 
+  -- 0x02 with data, a vector of whole bytes with the byte of addr leftmost,
+  -- for example x"DEADBEEF". The other parameters are those of the
+  -- integer_array_t overload.
+  procedure qspi_flash_page_program(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t;
+    addr : natural;
+    data : std_ulogic_vector;
+    addr_bytes : qspi_flash_addr_bytes_t := 3;
+    opcode : natural := qspi_flash_op_page_program;
+    opcode_lanes : lane_count_t := 1;
+    addr_lanes : lane_count_t := 1;
+    data_lanes : lane_count_t := 1
+  );
+
   -- 0x20: erase the 4 KiB sector at addr.
   procedure qspi_flash_sector_erase(
     signal net : inout network_t;
@@ -578,6 +593,30 @@ package body qspi_flash_cmd_pkg is
 
     deallocate(address);
     deallocate(rd_data);
+  end;
+
+  procedure qspi_flash_page_program(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t;
+    addr : natural;
+    data : std_ulogic_vector;
+    addr_bytes : qspi_flash_addr_bytes_t := 3;
+    opcode : natural := qspi_flash_op_page_program;
+    opcode_lanes : lane_count_t := 1;
+    addr_lanes : lane_count_t := 1;
+    data_lanes : lane_count_t := 1
+  ) is
+    alias bits : std_ulogic_vector(0 to data'length - 1) is data;
+    variable bytes : integer_array_t := new_1d(length => data'length / 8, bit_width => 8, is_signed => false);
+  begin
+    assert data'length mod 8 = 0
+      report "qspi_flash_page_program: vector length " & integer'image(data'length) & " is not a whole number of bytes"
+      severity failure;
+    for idx in 0 to data'length / 8 - 1 loop
+      set(bytes, idx, to_integer(unsigned(bits(8 * idx to 8 * idx + 7))));
+    end loop;
+    qspi_flash_page_program(net, qspi_master, addr, bytes, addr_bytes, opcode, opcode_lanes, addr_lanes, data_lanes);
+    deallocate(bytes);
   end;
 
   procedure run_erase(

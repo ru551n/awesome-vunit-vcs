@@ -545,6 +545,17 @@ def test_clear_statistics_keeps_the_content(fast: FlashBackend) -> None:
     assert fast.clear_statistics() == 1
 
 
+def test_reset_keeps_the_statistics_unless_asked_to_clear_them(fast: FlashBackend) -> None:
+    transaction(fast, [0x06])
+    transaction(fast, [0x02, 0x00, 0x10, 0x00, 0x00])
+    assert fast.reset() == 0
+    assert fast.get_stat("program_count") == 1
+    assert fast.reset(clear_statistics=True) == 0
+    assert fast.get_stat("program_count") == 0
+    assert list(fast.written_regions()) == []
+    assert list(fast.read_back(0x1000, 1)) == [0x00]
+
+
 def test_reports_are_taken_in_order(fast: FlashBackend) -> None:
     fast.get_stat("nope")
     fast.check_content([0x00], 0)

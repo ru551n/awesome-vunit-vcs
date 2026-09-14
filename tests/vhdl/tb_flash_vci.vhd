@@ -75,15 +75,6 @@ architecture tb of tb_flash_vci is
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown flash message");
 
-  impure function bytes_of(bytes : integer_vector) return integer_array_t is
-    variable result : integer_array_t := new_1d(length => bytes'length, bit_width => 8, is_signed => false);
-  begin
-    for idx in 0 to bytes'length - 1 loop
-      set(result, idx, bytes(bytes'low + idx));
-    end loop;
-    return result;
-  end;
-
   procedure check_arrays(got : integer_array_t; expected : integer_array_t; msg : string) is
   begin
     check_equal(length(got), length(expected), msg & ": length");
@@ -192,7 +183,7 @@ begin
         check(protocol_checker(default_flash) = null_qspi_protocol_checker, "no protocol checker");
 
         disable_stop(get_logger(default_flash), error);
-        flash_check_content(net, default_flash, 16#000100#, bytes_of((0 => 16#00#)));
+        flash_check_content(net, default_flash, 16#000100#, new_byte_array((0 => 16#00#)));
         wait_until_idle(net, as_sync(default_flash));
         check_equal(get_log_count(get_logger(default_flash), error), 1, "mismatch on the default logger");
         reset_log_count(get_logger(default_flash), error);
@@ -209,7 +200,7 @@ begin
         check(get_checker(custom_flash) = custom_checker, "checker");
 
         disable_stop(get_logger(custom_checker), error);
-        flash_check_content(net, custom_flash, 16#000100#, bytes_of((0 => 16#00#)));
+        flash_check_content(net, custom_flash, 16#000100#, new_byte_array((0 => 16#00#)));
         -- The flash serves the actor that was passed
         wait_until_idle(net, custom_actor);
         check_equal(get_log_count(get_logger(custom_checker), error), 1, "mismatch on the custom checker");
@@ -242,7 +233,7 @@ begin
 
       elsif run("test_blocking_and_reference_variants_agree") then
         flash_set_timing_enable(net, default_flash, false);
-        expected := bytes_of((16#11#, 16#22#, 16#33#, 16#44#));
+        expected := new_byte_array((16#11#, 16#22#, 16#33#, 16#44#));
         qspi_flash_write_enable(net, default_master);
         qspi_flash_page_program(net, default_master, 16#002000#, expected);
 
@@ -270,11 +261,11 @@ begin
         check_equal(reference_value, value, "program_count by reference");
 
       elsif run("test_reset_of_an_idle_flash_returns_at_once") then
-        flash_preload(net, default_flash, 16#003000#, bytes_of((16#12#, 16#34#)));
+        flash_preload(net, default_flash, 16#003000#, new_byte_array((16#12#, 16#34#)));
         start := now;
         reset(net, default_flash);
         check_equal(now, start, "reset of an idle flash");
-        flash_check_content(net, default_flash, 16#003000#, bytes_of((16#12#, 16#34#)));
+        flash_check_content(net, default_flash, 16#003000#, new_byte_array((16#12#, 16#34#)));
         flash_get_stat(net, default_flash, "wip", value);
         check_equal(value, 0, "wip after a reset");
 

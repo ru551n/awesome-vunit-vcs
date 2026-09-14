@@ -136,15 +136,6 @@ architecture tb of tb_flash is
     return result;
   end;
 
-  impure function bytes_of(bytes : integer_vector) return integer_array_t is
-    variable result : integer_array_t := new_1d(length => bytes'length, bit_width => 8, is_signed => false);
-  begin
-    for idx in 0 to bytes'length - 1 loop
-      set(result, idx, bytes(bytes'low + idx));
-    end loop;
-    return result;
-  end;
-
   procedure check_bytes(got : integer_array_t; expected : integer_array_t; msg : string) is
   begin
     check_equal(length(got), length(expected), msg & ": length");
@@ -359,7 +350,7 @@ begin
       elsif run("test_erased_device_reads_all_ones") then
         -- Nothing was preloaded, so sparse storage must read erased
         qspi_flash_read(net, master_a, 16#123456#, 8, got);
-        expected := bytes_of((16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#));
+        expected := new_byte_array((16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#));
         check_bytes(got, expected, "erased device");
         deallocate(got);
         deallocate(expected);
@@ -416,7 +407,7 @@ begin
         -- No WREN: a real part latches nothing and the array stays erased
         qspi_flash_page_program(net, master_a, 16#006000#, expected);
         poll_until_ready(net);
-        flash_check_content_fill(net, flash_a, 16#006000#, 8, 16#FF#);
+        flash_check_content_fill(net, flash_a, 16#006000#, 8);
         flash_get_stat(net, flash_a, "ignored_command_count", count);
         check(count > 0, "the ignored program should have been counted");
         deallocate(expected);
@@ -430,11 +421,11 @@ begin
         poll_until_ready(net);
 
         qspi_flash_read(net, master_a, 16#007000# + page_bytes - 4, 4, got);
-        check_bytes(got, bytes_of((16#80#, 16#81#, 16#82#, 16#83#)), "tail of the page");
+        check_bytes(got, new_byte_array((16#80#, 16#81#, 16#82#, 16#83#)), "tail of the page");
         deallocate(got);
 
         qspi_flash_read(net, master_a, 16#007000#, 4, got);
-        check_bytes(got, bytes_of((16#84#, 16#85#, 16#86#, 16#87#)), "wrapped to page start");
+        check_bytes(got, new_byte_array((16#84#, 16#85#, 16#86#, 16#87#)), "wrapped to page start");
         deallocate(got);
 
         flash_check_content_fill(net, flash_a, 16#007000# + page_bytes, 4, 16#FF#);
@@ -443,33 +434,33 @@ begin
       elsif run("test_programming_is_and_only") then
         -- NOR cells only go from 1 to 0 outside an erase: 0xFF & 0xA5 & 0x0F = 0x05
         qspi_flash_write_enable(net, master_a);
-        qspi_flash_page_program(net, master_a, 16#008000#, bytes_of((0 => 16#A5#)));
+        qspi_flash_page_program(net, master_a, 16#008000#, x"A5");
         poll_until_ready(net);
         qspi_flash_write_enable(net, master_a);
-        qspi_flash_page_program(net, master_a, 16#008000#, bytes_of((0 => 16#0F#)));
+        qspi_flash_page_program(net, master_a, 16#008000#, x"0F");
         poll_until_ready(net);
-        flash_check_content(net, flash_a, 16#008000#, bytes_of((0 => 16#05#)));
+        flash_check_content(net, flash_a, 16#008000#, x"05");
 
       elsif run("test_sector_erase") then
         -- docs-start: flash_sector_erase
         flash_preload_fill(net, flash_a, 16#009000#, sector_bytes, 16#00#);
         -- The byte just past the sector must survive
-        flash_preload(net, flash_a, 16#009000# + sector_bytes, bytes_of((0 => 16#5A#)));
+        flash_preload(net, flash_a, 16#009000# + sector_bytes, x"5A");
         qspi_flash_write_enable(net, master_a);
         qspi_flash_sector_erase(net, master_a, 16#009000#);
         poll_until_ready(net);
         flash_check_content_fill(net, flash_a, 16#009000#, sector_bytes, 16#FF#);
-        flash_check_content(net, flash_a, 16#009000# + sector_bytes, bytes_of((0 => 16#5A#)));
+        flash_check_content(net, flash_a, 16#009000# + sector_bytes, x"5A");
         -- docs-end: flash_sector_erase
 
       elsif run("test_block_erase") then
         flash_preload_fill(net, flash_a, 16#010000#, block_bytes, 16#00#);
-        flash_preload(net, flash_a, 16#010000# + block_bytes, bytes_of((0 => 16#5A#)));
+        flash_preload(net, flash_a, 16#010000# + block_bytes, new_byte_array((0 => 16#5A#)));
         qspi_flash_write_enable(net, master_a);
         qspi_flash_block_erase(net, master_a, 16#010000#);
         poll_until_ready(net);
         flash_check_content_fill(net, flash_a, 16#010000#, block_bytes, 16#FF#);
-        flash_check_content(net, flash_a, 16#010000# + block_bytes, bytes_of((0 => 16#5A#)));
+        flash_check_content(net, flash_a, 16#010000# + block_bytes, new_byte_array((0 => 16#5A#)));
 
       elsif run("test_chip_erase") then
         flash_preload_fill(net, flash_a, 0, 4 * sector_bytes, 16#00#);
@@ -488,38 +479,38 @@ begin
         qspi_flash_read_status(net, master_a, status);
         check_equal((status / 2) mod 2, 1, "WREN sets WEL");
 
-        qspi_flash_page_program(net, master_a, 16#00A000#, bytes_of((0 => 16#77#)));
+        qspi_flash_page_program(net, master_a, 16#00A000#, new_byte_array((0 => 16#77#)));
         poll_until_ready(net);
         qspi_flash_read_status(net, master_a, status);
         check_equal((status / 2) mod 2, 0, "a program clears WEL");
 
       elsif run("test_protected_region_rejects_program") then
-        flash_set_protection(net, flash_a, 16#00B000#, sector_bytes, locked => true);
+        flash_set_protection(net, flash_a, 16#00B000#, sector_bytes);
         qspi_flash_write_enable(net, master_a);
-        qspi_flash_page_program(net, master_a, 16#00B000#, bytes_of((0 => 16#12#)));
+        qspi_flash_page_program(net, master_a, 16#00B000#, new_byte_array((0 => 16#12#)));
         poll_until_ready(net);
         -- Ignored as by a real part: no error, no change
         flash_check_content_fill(net, flash_a, 16#00B000#, 1, 16#FF#);
 
       elsif run("test_sparse_preload_leaves_the_gap_erased") then
-        flash_preload(net, flash_a, 16#000000#, bytes_of((16#11#, 16#22#)));
-        flash_preload(net, flash_a, 16#400000#, bytes_of((16#33#, 16#44#)));
+        flash_preload(net, flash_a, 16#000000#, new_byte_array((16#11#, 16#22#)));
+        flash_preload(net, flash_a, 16#400000#, new_byte_array((16#33#, 16#44#)));
         qspi_flash_read(net, master_a, 16#000000#, 2, got);
-        check_bytes(got, bytes_of((16#11#, 16#22#)), "first region");
+        check_bytes(got, new_byte_array((16#11#, 16#22#)), "first region");
         deallocate(got);
         qspi_flash_read(net, master_a, 16#400000#, 2, got);
-        check_bytes(got, bytes_of((16#33#, 16#44#)), "second region");
+        check_bytes(got, new_byte_array((16#33#, 16#44#)), "second region");
         deallocate(got);
         -- The 4 MiB between them was never allocated
         qspi_flash_read(net, master_a, 16#200000#, 4, got);
-        check_bytes(got, bytes_of((16#FF#, 16#FF#, 16#FF#, 16#FF#)), "the gap");
+        check_bytes(got, new_byte_array((16#FF#, 16#FF#, 16#FF#, 16#FF#)), "the gap");
         deallocate(got);
 
       elsif run("test_preload_fill_of_one_mebibyte") then
         -- O(1) in its length: materializing a mebibyte would show in the run time
         flash_preload_fill(net, flash_a, 16#100000#, 1024 * 1024, 16#C3#);
         qspi_flash_read(net, master_a, 16#180000#, 4, got);
-        check_bytes(got, bytes_of((16#C3#, 16#C3#, 16#C3#, 16#C3#)), "middle of the fill");
+        check_bytes(got, new_byte_array((16#C3#, 16#C3#, 16#C3#, 16#C3#)), "middle of the fill");
         deallocate(got);
         flash_check_content_fill(net, flash_a, 16#200000#, 4, 16#FF#);
 
@@ -561,7 +552,7 @@ begin
         deallocate(expected);
 
       elsif run("test_erase_takes_its_busy_time") then
-        flash_set_timing_enable(net, flash_a, true);
+        flash_set_timing_enable(net, flash_a);
         flash_set_timing(net, flash_a, "tSE", 100 us);
         qspi_flash_write_enable(net, master_a);
         start := now;
@@ -645,10 +636,10 @@ begin
         qspi_transfer(
           net,
           master_a,
-          cmd => bytes_of((0 => 16#02#)),
+          cmd => new_byte_array((0 => 16#02#)),
           data => got,
           addr => qspi_flash_address_bytes(16#014000#, 3),
-          wr_data => bytes_of((0 => 16#5A#)),
+          wr_data => new_byte_array((0 => 16#5A#)),
           dummy_cycles => 3,
           num_read_bytes => 0
         );
@@ -664,15 +655,15 @@ begin
         check(count > 0, "the truncated program should have been counted as an abort");
 
       elsif run("test_two_instances_are_independent") then
-        flash_preload(net, flash_a, 16#015000#, bytes_of((16#11#, 16#22#)));
-        flash_preload(net, flash_b, 16#015000#, bytes_of((16#33#, 16#44#)));
+        flash_preload(net, flash_a, 16#015000#, new_byte_array((16#11#, 16#22#)));
+        flash_preload(net, flash_b, 16#015000#, new_byte_array((16#33#, 16#44#)));
 
         qspi_flash_read(net, master_a, 16#015000#, 2, got);
-        check_bytes(got, bytes_of((16#11#, 16#22#)), "device A");
+        check_bytes(got, new_byte_array((16#11#, 16#22#)), "device A");
         deallocate(got);
 
         qspi_flash_read(net, master_b, 16#015000#, 2, got);
-        check_bytes(got, bytes_of((16#33#, 16#44#)), "device B");
+        check_bytes(got, new_byte_array((16#33#, 16#44#)), "device B");
         deallocate(got);
 
         qspi_flash_read_id(net, master_a, got, 3);
@@ -687,7 +678,7 @@ begin
         qspi_flash_sector_erase(net, master_a, 16#015000#);
         poll_until_ready(net);
         flash_check_content_fill(net, flash_a, 16#015000#, 2, 16#FF#);
-        flash_check_content(net, flash_b, 16#015000#, bytes_of((16#33#, 16#44#)));
+        flash_check_content(net, flash_b, 16#015000#, new_byte_array((16#33#, 16#44#)));
 
       elsif run("test_protocol_violation_is_reported") then
         -- bad_master deselects CS for 20 ns, not the 5 ns configured: the
@@ -719,7 +710,7 @@ begin
       elsif run("test_commands_are_ignored_while_busy") then
         flash_set_timing_enable(net, flash_a, true);
         flash_set_timing(net, flash_a, "tSE", 200 us);
-        flash_preload(net, flash_a, 16#011000#, bytes_of((0 => 16#AA#)));
+        flash_preload(net, flash_a, 16#011000#, new_byte_array((0 => 16#AA#)));
 
         qspi_flash_write_enable(net, master_a);
         qspi_flash_sector_erase(net, master_a, 16#012000#);
@@ -727,14 +718,14 @@ begin
         -- Issued while the erase runs: a real part drops it, and the VC must
         -- still answer the bus
         qspi_flash_write_enable(net, master_a);
-        qspi_flash_page_program(net, master_a, 16#011000#, bytes_of((0 => 16#00#)));
+        qspi_flash_page_program(net, master_a, 16#011000#, new_byte_array((0 => 16#00#)));
 
         poll_until_ready(net);
-        flash_check_content(net, flash_a, 16#011000#, bytes_of((0 => 16#AA#)));
+        flash_check_content(net, flash_a, 16#011000#, new_byte_array((0 => 16#AA#)));
 
       elsif run("test_content_mismatch_is_a_check_failure") then
         disable_stop(get_logger(flash_a), error);
-        flash_check_content(net, flash_a, 16#000100#, bytes_of((0 => 16#00#)));
+        flash_check_content(net, flash_a, 16#000100#, new_byte_array((0 => 16#00#)));
         -- The check is a message: wait until the VC has handled it
         wait_until_idle(net, as_sync(flash_a));
         check_equal(get_log_count(get_logger(flash_a), error), 1, "content mismatches on erased flash");
@@ -773,29 +764,29 @@ begin
 
       elsif run("test_default_id_instances_are_independent") then
         check(get_id(default_flash_1) /= get_id(default_flash_2), "the default ids differ");
-        flash_preload(net, default_flash_1, 16#016000#, bytes_of((16#5A#, 16#A5#)));
-        flash_preload(net, default_flash_2, 16#016000#, bytes_of((16#C3#, 16#3C#)));
+        flash_preload(net, default_flash_1, 16#016000#, new_byte_array((16#5A#, 16#A5#)));
+        flash_preload(net, default_flash_2, 16#016000#, new_byte_array((16#C3#, 16#3C#)));
 
         qspi_flash_read(net, default_master_1, 16#016000#, 2, got);
-        check_bytes(got, bytes_of((16#5A#, 16#A5#)), "default device 1");
+        check_bytes(got, new_byte_array((16#5A#, 16#A5#)), "default device 1");
         deallocate(got);
 
         qspi_flash_read(net, default_master_2, 16#016000#, 2, got);
-        check_bytes(got, bytes_of((16#C3#, 16#3C#)), "default device 2");
+        check_bytes(got, new_byte_array((16#C3#, 16#3C#)), "default device 2");
         deallocate(got);
 
       elsif run("test_reset_returns_to_standby_mid_transaction") then
         -- A reset while CS is low in the middle of a page program: the flash
         -- ignores the rest of the program, keeps its content and answers the
         -- next command
-        flash_preload(net, flash_a, 16#017000#, bytes_of((16#11#, 16#22#)));
+        flash_preload(net, flash_a, 16#017000#, new_byte_array((16#11#, 16#22#)));
         expected := ramp(64, 16#40#);
         address := qspi_flash_address_bytes(16#017100#, 3);
         qspi_flash_write_enable(net, master_a);
         qspi_transfer(
           net,
           master_a,
-          cmd => bytes_of((0 => qspi_flash_op_page_program)),
+          cmd => new_byte_array((0 => qspi_flash_op_page_program)),
           reference => reference,
           addr => address,
           wr_data => expected
@@ -810,11 +801,11 @@ begin
         poll_until_ready(net);
 
         flash_check_content_fill(net, flash_a, 16#017100#, 64, 16#FF#);
-        flash_check_content(net, flash_a, 16#017000#, bytes_of((16#11#, 16#22#)));
+        flash_check_content(net, flash_a, 16#017000#, new_byte_array((16#11#, 16#22#)));
         flash_get_stat(net, flash_a, "program_count", count);
         check_equal(count, 0, "programs executed after a reset mid-transaction");
         qspi_flash_read(net, master_a, 16#017000#, 2, got);
-        check_bytes(got, bytes_of((16#11#, 16#22#)), "a read after the reset");
+        check_bytes(got, new_byte_array((16#11#, 16#22#)), "a read after the reset");
         deallocate(got);
         deallocate(expected);
         deallocate(address);
@@ -832,6 +823,20 @@ begin
         check_equal(now, start, "a reset and flash_wait_until_ready take no time");
         flash_get_stat(net, flash_a, "wip", count);
         check_equal(count, 0, "the reset ended the busy period");
+
+      elsif run("test_reset_can_clear_the_statistics") then
+        qspi_flash_write_enable(net, master_a);
+        qspi_flash_page_program(net, master_a, 16#01A000#, x"5A");
+        reset(net, flash_a);
+        flash_get_stat(net, flash_a, "program_count", count);
+        check_equal(count, 1, "program_count after a reset that keeps the statistics");
+        reset(net, flash_a, clear_statistics => true);
+        flash_get_stat(net, flash_a, "program_count", count);
+        check_equal(count, 0, "program_count after a reset that clears the statistics");
+        flash_get_written_regions(net, flash_a, regions);
+        check_equal(length(regions), 0, "written regions after a reset that clears the statistics");
+        deallocate(regions);
+        flash_check_content(net, flash_a, 16#01A000#, x"5A");
 
       elsif run("test_timing_disable_ends_the_wait") then
         flash_set_timing_enable(net, flash_a, true);

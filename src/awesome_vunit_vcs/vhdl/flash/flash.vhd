@@ -91,6 +91,7 @@ begin
     variable value : natural;
     variable enable : boolean;
     variable locked : boolean;
+    variable clear_statistics : boolean;
     variable num_reports : natural;
 
     procedure log_waiting_reports(count : natural) is
@@ -139,14 +140,14 @@ begin
 
       handle_sync_message(net, msg_type, msg);
 
-      if msg_type = flash_preload_msg then
+      if msg_type = preload_flash_content_msg then
         address := pop(msg);
         data := pop_integer_array_t_ref(msg);
         num_reports := call("vc.preload", arg(data), arg(address), session => session);
         deallocate(data);
         log_waiting_reports(num_reports);
 
-      elsif msg_type = flash_preload_fill_msg then
+      elsif msg_type = fill_flash_content_msg then
         address := pop(msg);
         num_bytes := pop(msg);
         value := pop(msg);
@@ -158,29 +159,29 @@ begin
           )
         );
 
-      elsif msg_type = flash_load_image_msg then
+      elsif msg_type = load_flash_image_msg then
         log_waiting_reports(backend_integer(session, load_image_expression(msg)));
 
-      elsif msg_type = flash_read_back_msg then
+      elsif msg_type = read_flash_content_msg then
         address := pop(msg);
         num_bytes := pop(msg);
         data := backend_integer_array(
           session, "read_back(" & integer'image(address) & ", " & integer'image(num_bytes) & ")"
         );
         log_waiting_reports(backend_integer(session, "num_reports()"));
-        reply_msg := new_msg(flash_read_back_reply_msg);
+        reply_msg := new_msg(read_flash_content_reply_msg);
         -- The caller owns the data
         push_integer_array_t_ref(reply_msg, data);
         reply(net, msg, reply_msg);
 
-      elsif msg_type = flash_check_content_msg then
+      elsif msg_type = check_flash_content_msg then
         address := pop(msg);
         data := pop_integer_array_t_ref(msg);
         num_reports := call("vc.check_content", arg(data), arg(address), session => session);
         deallocate(data);
         log_waiting_reports(num_reports);
 
-      elsif msg_type = flash_check_content_fill_msg then
+      elsif msg_type = check_flash_content_fill_msg then
         address := pop(msg);
         num_bytes := pop(msg);
         value := pop(msg);
@@ -192,14 +193,14 @@ begin
           )
         );
 
-      elsif msg_type = flash_written_regions_msg then
+      elsif msg_type = get_flash_written_regions_msg then
         data := backend_integer_array(session, "written_regions()");
         log_waiting_reports(backend_integer(session, "num_reports()"));
-        reply_msg := new_msg(flash_written_regions_reply_msg);
+        reply_msg := new_msg(get_flash_written_regions_reply_msg);
         push_integer_array_t_ref(reply_msg, data);
         reply(net, msg, reply_msg);
 
-      elsif msg_type = flash_set_timing_enable_msg then
+      elsif msg_type = set_flash_timing_enable_msg then
         enable := pop(msg);
         log_waiting_reports(backend_integer(session, "set_timing_enable(" & py_bool(enable) & ")"));
         if not enable then
@@ -209,10 +210,10 @@ begin
           end if;
         end if;
 
-      elsif msg_type = flash_set_timing_msg then
+      elsif msg_type = set_flash_timing_msg then
         log_waiting_reports(backend_integer(session, set_timing_expression(msg)));
 
-      elsif msg_type = flash_set_protection_msg then
+      elsif msg_type = set_flash_protection_msg then
         address := pop(msg);
         num_bytes := pop(msg);
         locked := pop(msg);
@@ -224,17 +225,18 @@ begin
           )
         );
 
-      elsif msg_type = flash_wait_until_ready_msg then
+      elsif msg_type = wait_until_flash_ready_msg then
         -- Cannot see a busy time pins has not started yet: a caller racing
         -- the command it just issued polls the status register instead
         if busy_active then
           wait until not busy_active;
         end if;
-        reply_msg := new_msg;
+        reply_msg := new_msg(wait_until_flash_ready_reply_msg);
         reply(net, msg, reply_msg);
 
       elsif msg_type = reset_flash_msg then
-        log_waiting_reports(backend_integer(session, "reset()"));
+        clear_statistics := pop(msg);
+        log_waiting_reports(backend_integer(session, "reset(" & py_bool(clear_statistics) & ")"));
         busy_cancel <= busy_cancel + 1;
         if busy_active then
           wait until not busy_active;
@@ -242,10 +244,10 @@ begin
         reply_msg := new_msg(reset_flash_reply_msg);
         reply(net, msg, reply_msg);
 
-      elsif msg_type = flash_get_stat_msg then
+      elsif msg_type = get_flash_stat_msg then
         value := backend_integer(session, get_stat_expression(msg));
         log_waiting_reports(backend_integer(session, "num_reports()"));
-        reply_msg := new_msg(flash_get_stat_reply_msg);
+        reply_msg := new_msg(get_flash_stat_reply_msg);
         push(reply_msg, value);
         reply(net, msg, reply_msg);
 

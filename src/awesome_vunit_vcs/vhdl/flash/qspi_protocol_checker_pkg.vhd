@@ -220,9 +220,15 @@ package qspi_protocol_checker_pkg is
   ---------------------------------------------------------------------------
 
   -- The message types the procedures above send to the component
-  constant qspi_set_check_enabled_msg : msg_type_t := new_msg_type("set qspi_protocol_checker check enabled");
-  constant qspi_get_check_count_msg : msg_type_t := new_msg_type("get qspi_protocol_checker check count");
-  constant qspi_get_check_count_reply_msg : msg_type_t := new_msg_type("get qspi_protocol_checker check count reply");
+  constant set_qspi_protocol_checker_check_enabled_msg : msg_type_t := new_msg_type(
+    "set qspi_protocol_checker check enabled"
+  );
+  constant get_qspi_protocol_checker_check_count_msg : msg_type_t := new_msg_type(
+    "get qspi_protocol_checker check count"
+  );
+  constant get_qspi_protocol_checker_check_count_reply_msg : msg_type_t := new_msg_type(
+    "get qspi_protocol_checker check count reply"
+  );
   constant reset_qspi_protocol_checker_msg : msg_type_t := new_msg_type("reset qspi_protocol_checker");
   constant reset_qspi_protocol_checker_reply_msg : msg_type_t := new_msg_type("reset qspi_protocol_checker reply");
 
@@ -466,7 +472,7 @@ package body qspi_protocol_checker_pkg is
     check : qspi_check_t;
     enabled : boolean := true
   ) is
-    variable msg : msg_t := new_msg(qspi_set_check_enabled_msg);
+    variable msg : msg_t := new_msg(set_qspi_protocol_checker_check_enabled_msg);
   begin
     push(msg, qspi_check_t'pos(check));
     push(msg, enabled);
@@ -480,7 +486,7 @@ package body qspi_protocol_checker_pkg is
     variable reference : inout qspi_protocol_checker_reference_t
   ) is
   begin
-    reference := new_msg(qspi_get_check_count_msg);
+    reference := new_msg(get_qspi_protocol_checker_check_count_msg);
     push(reference, qspi_check_t'pos(check));
     send(net, get_actor(protocol_checker), reference);
   end;

@@ -39,14 +39,6 @@ architecture tb of tb_qspi_protocol_checker is
   signal master_m2s : qspi_m2s_t := qspi_m2s_init;
   signal master_s2m : qspi_s2m_t := qspi_s2m_init;
 
-  impure function bytes_of(bytes : integer_vector) return integer_array_t is
-    variable result : integer_array_t := new_1d(length => bytes'length, bit_width => 8, is_signed => false);
-  begin
-    for idx in 0 to bytes'length - 1 loop
-      set(result, idx, bytes(bytes'low + idx));
-    end loop;
-    return result;
-  end;
 begin
   -- docs-start: protocol_checker_instance
   raw_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
@@ -278,14 +270,14 @@ begin
         check_equal(get_log_count(get_logger(raw_checker), error), 0, "errors after the reset");
 
       elsif run("test_clean_master_transfer_has_no_violations") then
-        cmd := bytes_of((0 => 16#32#));
-        data := bytes_of((16#12#, 16#34#, 16#56#, 16#78#));
+        cmd := new_byte_array((0 => 16#32#));
+        data := new_byte_array((16#12#, 16#34#, 16#56#, 16#78#));
         for idx in 1 to 3 loop
           qspi_transfer(
             net,
             master,
             cmd => cmd,
-            addr => bytes_of((16#00#, 16#10#, 16#00#)),
+            addr => new_byte_array((16#00#, 16#10#, 16#00#)),
             wr_data => data,
             wr_lanes => 4,
             dummy_cycles => 2

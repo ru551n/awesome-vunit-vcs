@@ -303,14 +303,15 @@ package flash_pkg is
   );
 
   -- Compare num_bytes of content from address with the constant value in
-  -- Python, without an expected array. A mismatch is a check failure on the
-  -- checker of the device naming the first differing address.
+  -- Python, without an expected array; 16#FF#, erased, by default. A mismatch
+  -- is a check failure on the checker of the device naming the first
+  -- differing address.
   procedure flash_check_content_fill(
     signal net : inout network_t;
     flash : flash_t;
     address : natural;
     num_bytes : positive;
-    value : natural range 0 to 255
+    value : natural range 0 to 255 := 16#FF#
   );
 
   -- Blocking: the regions the controller programmed or erased over the bus,
@@ -341,11 +342,13 @@ package flash_pkg is
   -- Configuration
   ---------------------------------------------------------------------------
 
-  -- Switch the busy times on or off; false makes every busy time 0
+  -- Switch the busy times on (the default) or off. false makes every busy
+  -- time 0 and ends a busy period that is running, also for
+  -- :vhdl:`flash_pkg.flash_wait_until_ready`.
   procedure flash_set_timing_enable(
     signal net : inout network_t;
     flash : flash_t;
-    enable : boolean
+    enable : boolean := true
   );
 
   -- Override one busy time: "tPP", "tSE", "tBE32", "tBE64", "tCE", "tW",
@@ -358,7 +361,7 @@ package flash_pkg is
     duration : delay_length
   );
 
-  -- Lock or unlock num_bytes from address. A program or erase touching a
+  -- Lock (the default) or unlock num_bytes from address. A program or erase touching a
   -- locked region is ignored, as by a real part. Preloads are not affected,
   -- and the locks survive a reset.
   procedure flash_set_protection(
@@ -366,7 +369,7 @@ package flash_pkg is
     flash : flash_t;
     address : natural;
     num_bytes : positive;
-    locked : boolean
+    locked : boolean := true
   );
 
   -- Block until a busy time the device has started is over. The default
@@ -385,11 +388,14 @@ package flash_pkg is
   -- busy period ends, so :vhdl:`flash_pkg.flash_wait_until_ready` returns at
   -- once. A transaction in progress is dropped: the flash ignores the rest of
   -- that CS low period, and the next CS fall starts a command normally. The
-  -- content, the regions locked with flash_set_protection, the statistics and
-  -- the written regions are kept.
+  -- content and the regions locked with flash_set_protection are kept. The
+  -- statistics and the written regions are kept too, unless
+  -- clear_statistics, which sets every counter to 0 and forgets the written
+  -- regions.
   procedure reset(
     signal net : inout network_t;
-    flash : flash_t
+    flash : flash_t;
+    clear_statistics : boolean := false
   );
 
   -- Blocking: a counter or piece of state of the model, for example
@@ -478,23 +484,24 @@ package flash_pkg is
   ---------------------------------------------------------------------------
 
   -- The message types the procedures above send to the component
-  constant flash_preload_msg : msg_type_t := new_msg_type("preload flash content");
-  constant flash_preload_fill_msg : msg_type_t := new_msg_type("fill flash content");
-  constant flash_load_image_msg : msg_type_t := new_msg_type("load flash image");
-  constant flash_read_back_msg : msg_type_t := new_msg_type("read flash content");
-  constant flash_read_back_reply_msg : msg_type_t := new_msg_type("read flash content reply");
-  constant flash_check_content_msg : msg_type_t := new_msg_type("check flash content");
-  constant flash_check_content_fill_msg : msg_type_t := new_msg_type("check flash content fill");
-  constant flash_written_regions_msg : msg_type_t := new_msg_type("get flash written regions");
-  constant flash_written_regions_reply_msg : msg_type_t := new_msg_type("get flash written regions reply");
-  constant flash_set_timing_enable_msg : msg_type_t := new_msg_type("set flash timing enable");
-  constant flash_set_timing_msg : msg_type_t := new_msg_type("set flash timing");
-  constant flash_set_protection_msg : msg_type_t := new_msg_type("set flash protection");
-  constant flash_wait_until_ready_msg : msg_type_t := new_msg_type("wait until flash ready");
+  constant preload_flash_content_msg : msg_type_t := new_msg_type("preload flash content");
+  constant fill_flash_content_msg : msg_type_t := new_msg_type("fill flash content");
+  constant load_flash_image_msg : msg_type_t := new_msg_type("load flash image");
+  constant read_flash_content_msg : msg_type_t := new_msg_type("read flash content");
+  constant read_flash_content_reply_msg : msg_type_t := new_msg_type("read flash content reply");
+  constant check_flash_content_msg : msg_type_t := new_msg_type("check flash content");
+  constant check_flash_content_fill_msg : msg_type_t := new_msg_type("check flash content fill");
+  constant get_flash_written_regions_msg : msg_type_t := new_msg_type("get flash written regions");
+  constant get_flash_written_regions_reply_msg : msg_type_t := new_msg_type("get flash written regions reply");
+  constant set_flash_timing_enable_msg : msg_type_t := new_msg_type("set flash timing enable");
+  constant set_flash_timing_msg : msg_type_t := new_msg_type("set flash timing");
+  constant set_flash_protection_msg : msg_type_t := new_msg_type("set flash protection");
+  constant wait_until_flash_ready_msg : msg_type_t := new_msg_type("wait until flash ready");
+  constant wait_until_flash_ready_reply_msg : msg_type_t := new_msg_type("wait until flash ready reply");
   constant reset_flash_msg : msg_type_t := new_msg_type("reset flash");
   constant reset_flash_reply_msg : msg_type_t := new_msg_type("reset flash reply");
-  constant flash_get_stat_msg : msg_type_t := new_msg_type("get flash stat");
-  constant flash_get_stat_reply_msg : msg_type_t := new_msg_type("get flash stat reply");
+  constant get_flash_stat_msg : msg_type_t := new_msg_type("get flash stat");
+  constant get_flash_stat_reply_msg : msg_type_t := new_msg_type("get flash stat reply");
 
   ---------------------------------------------------------------------------
   -- Private, for the component
@@ -750,7 +757,7 @@ package body flash_pkg is
     address : natural;
     data : integer_array_t
   ) is
-    variable msg : msg_t := new_msg(flash_preload_msg);
+    variable msg : msg_t := new_msg(preload_flash_content_msg);
     -- push_integer_array_t_ref takes ownership, so the message carries a copy
     -- and the caller keeps data. The component deallocates the copy.
     variable owned : integer_array_t := copy(data);
@@ -797,7 +804,7 @@ package body flash_pkg is
     num_bytes : positive;
     value : natural range 0 to 255 := 16#FF#
   ) is
-    variable msg : msg_t := new_msg(flash_preload_fill_msg);
+    variable msg : msg_t := new_msg(fill_flash_content_msg);
   begin
     push(msg, address);
     push(msg, num_bytes);
@@ -812,7 +819,7 @@ package body flash_pkg is
     format : string := "auto";
     base_address : natural := 0
   ) is
-    variable msg : msg_t := new_msg(flash_load_image_msg);
+    variable msg : msg_t := new_msg(load_flash_image_msg);
   begin
     push_string(msg, file_name);
     push_string(msg, format);
@@ -828,7 +835,7 @@ package body flash_pkg is
     variable reference : inout flash_reference_t
   ) is
   begin
-    reference := new_msg(flash_read_back_msg);
+    reference := new_msg(read_flash_content_msg);
     push(reference, address);
     push(reference, num_bytes);
     send(net, get_actor(flash), reference);
@@ -866,7 +873,7 @@ package body flash_pkg is
     address : natural;
     expected : integer_array_t
   ) is
-    variable msg : msg_t := new_msg(flash_check_content_msg);
+    variable msg : msg_t := new_msg(check_flash_content_msg);
     -- A copy, as in flash_preload
     variable owned : integer_array_t := copy(expected);
   begin
@@ -892,9 +899,9 @@ package body flash_pkg is
     flash : flash_t;
     address : natural;
     num_bytes : positive;
-    value : natural range 0 to 255
+    value : natural range 0 to 255 := 16#FF#
   ) is
-    variable msg : msg_t := new_msg(flash_check_content_fill_msg);
+    variable msg : msg_t := new_msg(check_flash_content_fill_msg);
   begin
     push(msg, address);
     push(msg, num_bytes);
@@ -908,7 +915,7 @@ package body flash_pkg is
     variable reference : inout flash_reference_t
   ) is
   begin
-    reference := new_msg(flash_written_regions_msg);
+    reference := new_msg(get_flash_written_regions_msg);
     send(net, get_actor(flash), reference);
   end;
 
@@ -939,9 +946,9 @@ package body flash_pkg is
   procedure flash_set_timing_enable(
     signal net : inout network_t;
     flash : flash_t;
-    enable : boolean
+    enable : boolean := true
   ) is
-    variable msg : msg_t := new_msg(flash_set_timing_enable_msg);
+    variable msg : msg_t := new_msg(set_flash_timing_enable_msg);
   begin
     push(msg, enable);
     send(net, get_actor(flash), msg);
@@ -953,7 +960,7 @@ package body flash_pkg is
     name : string;
     duration : delay_length
   ) is
-    variable msg : msg_t := new_msg(flash_set_timing_msg);
+    variable msg : msg_t := new_msg(set_flash_timing_msg);
   begin
     push_string(msg, name);
     push_time(msg, duration);
@@ -965,9 +972,9 @@ package body flash_pkg is
     flash : flash_t;
     address : natural;
     num_bytes : positive;
-    locked : boolean
+    locked : boolean := true
   ) is
-    variable msg : msg_t := new_msg(flash_set_protection_msg);
+    variable msg : msg_t := new_msg(set_flash_protection_msg);
   begin
     push(msg, address);
     push(msg, num_bytes);
@@ -980,7 +987,7 @@ package body flash_pkg is
     flash : flash_t;
     timeout : delay_length := 1 min
   ) is
-    variable request_msg : msg_t := new_msg(flash_wait_until_ready_msg);
+    variable request_msg : msg_t := new_msg(wait_until_flash_ready_msg);
     variable reply_msg : msg_t;
   begin
     -- A timeout is a check failure of com
@@ -990,11 +997,13 @@ package body flash_pkg is
 
   procedure reset(
     signal net : inout network_t;
-    flash : flash_t
+    flash : flash_t;
+    clear_statistics : boolean := false
   ) is
     variable request_msg : msg_t := new_msg(reset_flash_msg);
     variable reply_msg : msg_t;
   begin
+    push(request_msg, clear_statistics);
     -- Blocking, so the first stimulus of a test cannot race the reset
     request(net, get_actor(flash), request_msg, reply_msg);
     delete(reply_msg);
@@ -1007,7 +1016,7 @@ package body flash_pkg is
     variable reference : inout flash_reference_t
   ) is
   begin
-    reference := new_msg(flash_get_stat_msg);
+    reference := new_msg(get_flash_stat_msg);
     push_string(reference, name);
     send(net, get_actor(flash), reference);
   end;

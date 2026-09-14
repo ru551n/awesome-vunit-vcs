@@ -24,7 +24,7 @@ femtoseconds, ``t = hi * 2**30 + lo``, see :mod:`awesome_vunit_vcs.common.vunit_
     cs_assert(hi, lo)                     -> packed directive
     xfer(byte)  or  xfer(byte, hi, lo)    -> packed directive
     cs_deassert(trailing_bits, hi, lo)    -> integer_array_t [busy_hi, busy_lo, num_reports]
-    reset()                               -> num_reports
+    reset(clear_statistics)               -> num_reports
     preload(data, addr)                   -> num_reports (data: integer_array_t)
     preload_fill(addr, num_bytes, value)  -> num_reports
     load_image('<path>', '<fmt>', base)   -> num_reports (fmt 'auto' picks by extension)
@@ -265,17 +265,27 @@ class FlashBackend:
 
     # -- control plane -------------------------------------------------------
 
-    def reset(self) -> int:
+    def reset(self, clear_statistics: bool = False) -> int:
         """
         Power-on reset of the volatile state, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.reset_state`.
 
         The array is untouched: a reset is not an erase. A reset while CS is
         low makes the device ignore the rest of that transaction.
 
+        Args:
+            clear_statistics: Also set the counters to 0 and forget the written
+                regions, as :meth:`clear_statistics` does.
+
         Returns:
             The number of reports waiting.
         """
-        return self._control("reset", self.device.reset_state)
+
+        def run() -> None:
+            self.device.reset_state()
+            if clear_statistics:
+                self.device.clear_statistics()
+
+        return self._control("reset", run)
 
     def preload(self, data: Any, addr: int) -> int:
         """

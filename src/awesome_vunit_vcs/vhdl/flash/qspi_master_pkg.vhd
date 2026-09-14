@@ -149,6 +149,15 @@ package qspi_master_pkg is
   procedure unexpected_msg_type(msg_type : msg_type_t; qspi_master : qspi_master_t);
 
   ---------------------------------------------------------------------------
+  -- Byte arrays
+  ---------------------------------------------------------------------------
+
+  -- A new byte array of values, one byte per element, for the phases of
+  -- qspi_transfer and the data of the flash procedures, for example
+  -- new_byte_array((16#DE#, 16#AD#)). The caller owns the result.
+  impure function new_byte_array(values : integer_vector) return integer_array_t;
+
+  ---------------------------------------------------------------------------
   -- Transactions
   ---------------------------------------------------------------------------
 
@@ -260,9 +269,9 @@ package qspi_master_pkg is
   ---------------------------------------------------------------------------
 
   -- The message types the procedures above send to the component
-  constant qspi_transfer_msg : msg_type_t := new_msg_type("transfer qspi_master data");
-  constant qspi_transfer_reply_msg : msg_type_t := new_msg_type("transfer qspi_master data reply");
-  constant qspi_master_set_sck_period_msg : msg_type_t := new_msg_type("set qspi_master sck period");
+  constant transfer_qspi_master_data_msg : msg_type_t := new_msg_type("transfer qspi_master data");
+  constant transfer_qspi_master_data_reply_msg : msg_type_t := new_msg_type("transfer qspi_master data reply");
+  constant set_qspi_master_sck_period_msg : msg_type_t := new_msg_type("set qspi_master sck period");
   constant reset_qspi_master_msg : msg_type_t := new_msg_type("reset qspi_master");
   constant reset_qspi_master_reply_msg : msg_type_t := new_msg_type("reset qspi_master reply");
 
@@ -362,6 +371,15 @@ package body qspi_master_pkg is
     end if;
   end;
 
+  impure function new_byte_array(values : integer_vector) return integer_array_t is
+    variable result : integer_array_t := new_1d(length => values'length, bit_width => 8, is_signed => false);
+  begin
+    for idx in 0 to values'length - 1 loop
+      set(result, idx, values(values'low + idx));
+    end loop;
+    return result;
+  end;
+
   -- Bytes go into the message one integer at a time rather than by reference:
   -- pushing an integer_array_t would hand ownership of the caller's array to
   -- the VC, and a caller that composes a command from a constant array would
@@ -396,7 +414,7 @@ package body qspi_master_pkg is
   ) is
     alias request_msg : msg_t is reference;
   begin
-    request_msg := new_msg(qspi_transfer_msg);
+    request_msg := new_msg(transfer_qspi_master_data_msg);
 
     push_byte_phase(request_msg, cmd, cmd_lanes);
     push_byte_phase(request_msg, addr, addr_lanes);
@@ -506,7 +524,7 @@ package body qspi_master_pkg is
     variable request_msg : msg_t;
     variable ack : boolean;
   begin
-    request_msg := new_msg(qspi_master_set_sck_period_msg);
+    request_msg := new_msg(set_qspi_master_sck_period_msg);
     push_time(request_msg, period);
     request(net, get_actor(qspi_master), request_msg, ack);
     assert ack report "Failed on set_sck_period command" severity failure;

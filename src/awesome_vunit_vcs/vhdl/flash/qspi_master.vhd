@@ -276,9 +276,9 @@ begin
     begin
       while not is_empty(pending) loop
         msg := pop(pending);
-        if message_type(msg) = qspi_transfer_msg then
+        if message_type(msg) = transfer_qspi_master_data_msg then
           no_data := new_1d(length => 0, bit_width => 8, is_signed => false);
-          reply_msg := new_msg(qspi_transfer_reply_msg);
+          reply_msg := new_msg(transfer_qspi_master_data_reply_msg);
           push_ref(reply_msg, no_data);
           reply(net, msg, reply_msg);
           num_dropped := num_dropped + 1;
@@ -325,7 +325,7 @@ begin
       if msg_type = null_msg_type then
         null;
 
-      elsif msg_type = qspi_transfer_msg then
+      elsif msg_type = transfer_qspi_master_data_msg then
         pop_byte_phase(msg, cmd, cmd_lanes);
         pop_byte_phase(msg, addr, addr_lanes);
         pop_byte_phase(msg, wr_data, wr_lanes);
@@ -362,11 +362,11 @@ begin
 
         -- Ownership of the read data moves to the caller, which redeems it with
         -- await_qspi_transfer_reply.
-        reply_msg := new_msg(qspi_transfer_reply_msg);
+        reply_msg := new_msg(transfer_qspi_master_data_reply_msg);
         push_ref(reply_msg, rd_data);
         reply(net, msg, reply_msg);
 
-      elsif msg_type = qspi_master_set_sck_period_msg then
+      elsif msg_type = set_qspi_master_sck_period_msg then
         period := pop_time(msg);
         debug(logger, "SCK period set to " & to_string(period));
         acknowledge(net, msg, true);

@@ -7,7 +7,8 @@ The first release is being prepared. Nothing has been released yet.
   and x4 I/O, QPI, 3- and 4-byte addressing, continuous read, SFDP, status register and region
   protection, busy times, and erase sizes and addressing modes from the configuration), a QSPI master
   VC with a JEDEC command layer, and a QSPI protocol checker VC for the pin timing of the master.
-  Every flash VC has ``reset(net, handle)``; the master's aborts a transfer in progress.
+  Every flash VC has ``reset(net, handle)``; the master's aborts a transfer in progress. Bytes can be
+  given as ``std_ulogic_vector`` literals such as ``x"DEADBEEF"``, or with ``new_byte_array``.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
 
 VHDL API

@@ -100,15 +100,6 @@ architecture tb of tb_qspi_master is
   -- The length of the read a reset aborts
   constant long_read_bytes : positive := 4096;
 
-  impure function to_byte_array(values : integer_vector) return integer_array_t is
-    variable result : integer_array_t := new_1d(length => values'length, bit_width => 8, is_signed => false);
-  begin
-    for index in 0 to values'length - 1 loop
-      set(result, index, values(values'low + index));
-    end loop;
-
-    return result;
-  end;
 begin
   io <= qspi_io_value(m2s, s2m);
 
@@ -396,7 +387,7 @@ begin
         for period_idx in periods'range loop
           use_sck_period(period_idx);
           configure_slave(cmd_bytes => 2, cmd_lanes => 1);
-          cmd := to_byte_array(pattern);
+          cmd := new_byte_array(pattern);
           qspi_transfer(net => net, qspi_master => master, cmd => cmd, cmd_lanes => 1);
 
           -- One bit per cycle on IO0, most significant first. Only IO0 is
@@ -417,7 +408,7 @@ begin
         for period_idx in periods'range loop
           use_sck_period(period_idx);
           configure_slave(cmd_bytes => 2, cmd_lanes => 2);
-          cmd := to_byte_array(pattern);
+          cmd := new_byte_array(pattern);
           qspi_transfer(net => net, qspi_master => master, cmd => cmd, cmd_lanes => 2);
 
           -- Two bits per cycle on IO1:IO0, most significant pair first:
@@ -435,7 +426,7 @@ begin
         for period_idx in periods'range loop
           use_sck_period(period_idx);
           configure_slave(cmd_bytes => 2, cmd_lanes => 4);
-          cmd := to_byte_array(pattern);
+          cmd := new_byte_array(pattern);
           qspi_transfer(net => net, qspi_master => master, cmd => cmd, cmd_lanes => 4);
 
           -- One nibble per cycle on IO3:IO0, high nibble first.
@@ -456,7 +447,7 @@ begin
           -- so a wrong count would shift the read phase and corrupt the data.
           configure_slave(cmd_bytes => 1, cmd_lanes => 1, dummy_cycles => 8, rd_bytes => 2, rd_lanes => 4);
           load_tx((16#5A#, 16#C3#));
-          cmd := to_byte_array((0 => 16#6B#));
+          cmd := new_byte_array((0 => 16#6B#));
           qspi_transfer(
             net => net,
             qspi_master => master,
@@ -494,7 +485,7 @@ begin
           use_sck_period(period_idx);
           configure_slave(cmd_bytes => 1, cmd_lanes => 1, rd_bytes => 2, rd_lanes => 1);
           load_tx((16#5A#, 16#C3#));
-          cmd := to_byte_array((0 => 16#03#));
+          cmd := new_byte_array((0 => 16#03#));
           qspi_transfer(
             net => net,
             qspi_master => master,
@@ -530,7 +521,7 @@ begin
           use_sck_period(period_idx);
           configure_slave(cmd_bytes => 1, cmd_lanes => 1, dummy_cycles => 4, rd_bytes => 2, rd_lanes => 2);
           load_tx((16#5A#, 16#C3#));
-          cmd := to_byte_array((0 => 16#3B#));
+          cmd := new_byte_array((0 => 16#3B#));
           qspi_transfer(
             net => net,
             qspi_master => master,
@@ -553,7 +544,7 @@ begin
           use_sck_period(period_idx);
           configure_slave(cmd_bytes => 1, cmd_lanes => 4, rd_bytes => 4, rd_lanes => 4);
           load_tx((16#00#, 16#FF#, 16#5A#, 16#C3#));
-          cmd := to_byte_array((0 => 16#0B#));
+          cmd := new_byte_array((0 => 16#0B#));
           qspi_transfer(
             net => net,
             qspi_master => master,
@@ -612,7 +603,7 @@ begin
           assertions_before := cs_assert_count;
 
           configure_slave(cmd_bytes => 1, cmd_lanes => 1);
-          cmd := to_byte_array((0 => 16#06#));
+          cmd := new_byte_array((0 => 16#06#));
           qspi_transfer(net => net, qspi_master => master, cmd => cmd, cmd_lanes => 1);
 
           check(m2s.cs_n = '1', at_period("CS must be high between transactions"));
@@ -642,7 +633,7 @@ begin
           -- prove wait_until_idle does not return until the bus has actually
           -- run them.
           for index in references'range loop
-            cmd := to_byte_array((0 => 16#06# + index));
+            cmd := new_byte_array((0 => 16#06# + index));
             qspi_transfer(
               net => net, qspi_master => master, cmd => cmd, reference => references(index), cmd_lanes => 1
             );
@@ -669,7 +660,7 @@ begin
           set_sck_period(net, master, 2 * period);
 
           configure_slave(cmd_bytes => 1, cmd_lanes => 1);
-          cmd := to_byte_array((0 => 16#9F#));
+          cmd := new_byte_array((0 => 16#9F#));
           qspi_transfer(net => net, qspi_master => master, cmd => cmd, reference => reference, cmd_lanes => 1);
 
           wait until rising_edge(m2s.sck);
@@ -691,7 +682,7 @@ begin
           for index in 1 to long_read_bytes loop
             push_integer(tx_queue, 16#A5#);
           end loop;
-          cmd := to_byte_array((0 => 16#03#));
+          cmd := new_byte_array((0 => 16#03#));
           qspi_transfer(
             net => net,
             qspi_master => master,
@@ -728,7 +719,7 @@ begin
           -- The next transfer runs normally
           configure_slave(cmd_bytes => 1, cmd_lanes => 1, rd_bytes => 2, rd_lanes => 1);
           load_tx((16#5A#, 16#C3#));
-          cmd := to_byte_array((0 => 16#03#));
+          cmd := new_byte_array((0 => 16#03#));
           qspi_transfer(net => net, qspi_master => master, cmd => cmd, data => read_data, num_read_bytes => 2);
           check_received((0 => 16#03#), "transfer after a reset");
           check_read_data(read_data, (16#5A#, 16#C3#), "transfer after a reset");
@@ -742,7 +733,7 @@ begin
         set_sck_period(net, master, period);
         sck_period_in_use <= period;
         configure_slave(cmd_bytes => 1, cmd_lanes => 1);
-        cmd := to_byte_array((0 => 16#9F#));
+        cmd := new_byte_array((0 => 16#9F#));
         qspi_transfer(net => net, qspi_master => master, cmd => cmd, reference => reference, cmd_lanes => 1);
 
         wait until rising_edge(m2s.sck);
@@ -791,7 +782,7 @@ begin
           configure_slave(
             cmd_bytes => 1, cmd_lanes => 1, addr_bytes => 3, addr_lanes => 1, wr_bytes => 3, wr_lanes => 1
           );
-          data := to_byte_array((16#DE#, 16#AD#, 16#BE#));
+          data := new_byte_array((16#DE#, 16#AD#, 16#BE#));
           qspi_flash_page_program(net => net, qspi_master => master, addr => 16#00A000#, data => data, addr_bytes => 3);
           deallocate(data);
           check_received((16#02#, 16#00#, 16#A0#, 16#00#, 16#DE#, 16#AD#, 16#BE#), "page program");

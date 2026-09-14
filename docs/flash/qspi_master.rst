@@ -157,7 +157,8 @@ Transactions
 
 The optional parameters of ``qspi_transfer`` are ``cmd_lanes``, ``addr``, ``addr_lanes``,
 ``wr_data``, ``wr_lanes``, ``dummy_cycles``, ``num_read_bytes`` and ``read_lanes``; the lane widths
-default to 1 and the counts to 0.
+default to 1 and the counts to 0. :vhdl:`new_byte_array <qspi_master_pkg.new_byte_array>` makes a
+byte array of integer literals, such as ``new_byte_array((16#06#, 16#A5#))``; the caller deallocates it.
 
 JEDEC command layer
 ~~~~~~~~~~~~~~~~~~~
@@ -193,7 +194,8 @@ cycles default to the JEDEC values and are parameters, since parts can differ.
      -
    * - ``qspi_flash_page_program``
      - ``0x02``
-     - ``opcode => qspi_flash_op_quad_page_program, data_lanes => 4`` for ``0x32``
+     - ``data`` is a byte array or a ``std_ulogic_vector`` of whole bytes, such as ``x"DEADBEEF"``;
+       ``opcode => qspi_flash_op_quad_page_program, data_lanes => 4`` for ``0x32``
    * - ``qspi_flash_sector_erase``
      - ``0x20``
      -

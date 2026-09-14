@@ -102,7 +102,7 @@ begin
 
       handle_sync_message(net, msg_type, msg);
 
-      if msg_type = qspi_set_check_enabled_msg then
+      if msg_type = set_qspi_protocol_checker_check_enabled_msg then
         idx := pop(msg);
         if pop_boolean(msg) then
           set(enabled, idx, 1);
@@ -110,9 +110,9 @@ begin
           set(enabled, idx, 0);
         end if;
 
-      elsif msg_type = qspi_get_check_count_msg then
+      elsif msg_type = get_qspi_protocol_checker_check_count_msg then
         idx := pop(msg);
-        reply_msg := new_msg(qspi_get_check_count_reply_msg);
+        reply_msg := new_msg(get_qspi_protocol_checker_check_count_reply_msg);
         push(reply_msg, get(counts, idx));
         reply(net, msg, reply_msg);
 

@@ -457,7 +457,7 @@ Content
      - Compare the content with ``expected`` in Python, an ``integer_array_t`` the caller keeps or a
        ``std_ulogic_vector`` of whole bytes with the byte of ``address`` leftmost
    * - ``flash_check_content_fill(net, flash, address, num_bytes, value)``
-     - Compare a region with a constant, for example to prove an erase
+     - Compare a region with a constant, ``16#FF#`` (erased) by default, for example to prove an erase
    * - :vhdl:`flash_get_written_regions <flash_pkg.flash_get_written_regions>`
      - Blocking: a flat ``[address, length, ...]`` array of everything programmed or erased over the
        bus, coalesced; also non-blocking with ``await_flash_get_written_regions_reply``
@@ -513,13 +513,15 @@ Configuration and state
      - Purpose
    * - ``flash_set_timing_enable(net, flash, enable)``
      - False makes every busy time 0 and also ends a busy period that is running, so WIP reads clear
-       from then on; true applies the busy times to commands that follow
+       and ``flash_wait_until_ready`` returns; true, the default, applies the busy times to commands
+       that follow
    * - ``flash_set_timing(net, flash, name, duration)``
      - Override one busy time: ``"tPP"``, ``"tSE"``, ``"tBE32"``, ``"tBE64"``, ``"tCE"``, ``"tW"``,
        ``"tRST"``, ``"tRES1"`` or ``"tRES2"``. It applies to busy periods that start afterwards; another
        name is a failure on the logger that lists the valid ones
    * - ``flash_set_protection(net, flash, address, num_bytes, locked)``
-     - Lock or unlock a region in addition to the status register protection. Locks survive a
+     - Lock (``locked => true``, the default) or unlock a region in addition to the status register
+       protection. Locks survive a
        ``reset``
    * - ``flash_wait_until_ready(net, flash, timeout)``
      - Blocking: wait until a busy time the component started is over. ``timeout`` defaults to 1 min,
@@ -529,7 +531,8 @@ Configuration and state
        mode, continuous read, deep power-down and the status register protection return to their
        defaults, and a busy period ends, so ``flash_wait_until_ready`` returns at once. A reset while
        CS is low drops that transaction: the flash ignores the rest of it, and the next CS fall starts
-       a command normally. Content, locks, statistics and written regions are kept
+       a command normally. Content and locks are kept, and so are the statistics and written regions
+       unless ``clear_statistics => true``
    * - :vhdl:`flash_get_stat <flash_pkg.flash_get_stat>`
      - Blocking: one statistic or piece of state, read at the current simulation time; also
        non-blocking with ``await_flash_get_stat_reply``
@@ -642,8 +645,8 @@ lists the valid names, and returns 0.
 
 A real part refuses a command without a trace on the wire, and so does the model: when a controller
 seems to do nothing, ``ignored_command_count`` and the reject counters say why. The counters and the
-written regions accumulate for the whole simulation; ``reset`` keeps them, and no VHDL procedure
-clears them.
+written regions accumulate for the whole simulation, and
+``reset(net, flash, clear_statistics => true)`` sets the counters to 0 and forgets the written regions.
 
 Python backend
 --------------
@@ -657,9 +660,9 @@ in integer femtoseconds. The pin timing, the protocol checker and the output del
 
 On the wire the flash calls ``cs_assert`` when CS falls, ``xfer`` after every byte and
 ``cs_deassert`` when CS rises, which returns the busy time and the number of waiting reports. The
-procedures above call the other methods, and a backend method never raises into the bridge. The
-backend also has ``clear_statistics``, which no VHDL procedure calls; a testbench can reach it through
-the Python bridge in the session of the flash.
+procedures above call the other methods, and a backend method never raises into the bridge.
+``reset`` with ``clear_statistics => true`` calls the backend's ``reset(True)``, which also clears
+the statistics.
 
 ``cs_assert`` and ``xfer`` return one packed directive, an integer that says what to do with the next
 byte:
@@ -743,7 +746,7 @@ A CS deselect time below the ``t_shsl`` of the flash's protocol checker:
    :end-before: -- docs-end: flash_protocol_violation
    :dedent: 8
 
-``poll_until_ready``, ``bytes_of`` and ``send_raw_byte`` are helpers of the testbench.
+``poll_until_ready`` and ``send_raw_byte`` are helpers of the testbench.
 
 Limitations
 -----------
@@ -758,6 +761,5 @@ Limitations
    * **Limited 4-byte command set**, no program or erase suspend, and fixed dummy cycles per opcode.
    * **Deep power-down** takes no time to enter.
    * **Released I/Os are metavalues** when the flash samples them for data in.
-   * **Statistics are never cleared from VHDL.**
 
    These are also listed, with details, in :ref:`limitations-flash`.

@@ -62,14 +62,6 @@ architecture tb of tb_qspi_master_vci is
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown qspi_master message");
 
-  impure function bytes_of(bytes : integer_vector) return integer_array_t is
-    variable result : integer_array_t := new_1d(length => bytes'length, bit_width => 8, is_signed => false);
-  begin
-    for idx in 0 to bytes'length - 1 loop
-      set(result, idx, bytes(bytes'low + idx));
-    end loop;
-    return result;
-  end;
 begin
   default_master_inst : entity awesome_vunit_vcs.qspi_master
     generic map (
@@ -127,7 +119,7 @@ begin
     variable start : time;
   begin
     test_runner_setup(runner, runner_cfg);
-    cmd := bytes_of((0 => 16#9F#));
+    cmd := new_byte_array((0 => 16#9F#));
 
     while test_suite loop
       if run("test_default_id_is_enumerated") then

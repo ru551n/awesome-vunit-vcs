@@ -179,63 +179,89 @@ def test_readme_has_no_code_beyond_the_install_line() -> None:
     assert all(block.strip().startswith("pip install") for block in blocks)
 
 
-#: What names the flash family, which counts bytes rather than octets
-_FLASH = re.compile(r"flash|qspi", re.IGNORECASE)
-#: The underline of a reStructuredText section title
-_UNDERLINE = re.compile(r"^([=\-~^\"'`#*+])\1{2,}\s*$")
+#: A count of data in bytes, which Ethernet material gives in octets
 _BYTE = re.compile(r"\bbytes?\b")
+#: In Python sources ``bytes`` is also the name of a type, so only a byte and a number of bytes count
+_PYTHON_BYTE = re.compile(r"\bbyte\b|\d[\d_,]*[\s-]+bytes\b")
+#: Inline code, which names objects such as ``bytes()`` rather than counting data
+_CODE_SPAN = re.compile(r"``.*?``", re.DOTALL)
+#: The Ethernet pages outside ``docs/ethernet``, by name
+_ETHERNET_PAGES = (
+    "gmii.rst",
+    "notes-gmii.md",
+    "notes-mii.md",
+    "notes-xgmii.md",
+    "vhdl_api.rst",
+    "reference/vhdl/ethernet.rst",
+)
+_ETHERNET_SUFFIXES = {".md", ".py", ".rst", ".vhd"}
 
 
-def _without_flash(text: str) -> str:
+def _ethernet_material(repo: Path) -> list[Path]:
     """
-    The text of a page without what belongs to the flash family, which counts bytes: sections whose
-    title names the flash or QSPI, down to the next title of the same or a higher level, and
-    paragraphs that name them.
+    The documentation and sources of the Ethernet family: ``docs/ethernet``, the Ethernet pages that are
+    not there yet, and the Python and VHDL sources of the family.
     """
-    lines = text.splitlines()
-    levels: list[str] = []
-    flash_level: int | None = None
-    kept: list[str] = []
-    for index, line in enumerate(lines):
-        below = lines[index + 1] if index + 1 < len(lines) else ""
-        if line.strip() and not _UNDERLINE.match(line) and _UNDERLINE.match(below):
-            char = below.strip()[0]
-            if char not in levels:
-                levels.append(char)
-            level = levels.index(char)
-            if flash_level is not None and level <= flash_level:
-                flash_level = None
-            if flash_level is None and _FLASH.search(line):
-                flash_level = level
-        if flash_level is None:
-            kept.append(line)
-    paragraphs = re.split(r"\n\s*\n", "\n".join(kept))
-    return "\n\n".join(paragraph for paragraph in paragraphs if not _FLASH.search(paragraph))
+    docs = repo / "docs"
+    package = repo / "src" / "awesome_vunit_vcs"
+    trees = [docs / "ethernet", package / "ethernet", package / "vhdl" / "ethernet"]
+    files = {
+        path
+        for tree in trees
+        if tree.is_dir()
+        for path in tree.rglob("*")
+        if path.is_file() and path.suffix in _ETHERNET_SUFFIXES
+    }
+    files |= {docs / name for name in _ETHERNET_PAGES if (docs / name).is_file()}
+    return sorted(files)
 
 
-def test_flash_text_is_left_out_of_the_octet_check_and_ethernet_text_is_not() -> None:
-    page = (
-        "Limitations\n===========\n\nEthernet\n--------\n\nA frame of 64 bytes.\n\n"
-        "Flash\n-----\n\nOne call per byte.\n\nDetails\n~~~~~~~\n\nA 4-byte address.\n\n"
-        "MII\n---\n\nA nibble per byte.\n\nThe flash reads bytes too.\n"
+def _octet_offenders(repo: Path) -> list[str]:
+    """The Ethernet material of repo that counts data in bytes."""
+    offenders = []
+    for path in _ethernet_material(repo):
+        text = _CODE_SPAN.sub("", path.read_text(encoding="utf-8"))
+        pattern = _PYTHON_BYTE if path.suffix == ".py" else _BYTE
+        if pattern.search(text):
+            offenders.append(path.relative_to(repo).as_posix())
+    return offenders
+
+
+def _write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def test_the_octet_guardrail_checks_ethernet_material(tmp_path: Path) -> None:
+    package = tmp_path / "src" / "awesome_vunit_vcs"
+    _write(tmp_path / "docs" / "ethernet" / "checks.rst", "A frame of 64 bytes.\n")
+    _write(tmp_path / "docs" / "gmii.rst", "One byte per clock cycle.\n")
+    _write(tmp_path / "docs" / "notes-mii.md", "Frames are counted in octets.\n")
+    _write(package / "vhdl" / "ethernet" / "gmii_pkg.vhd", "-- A preamble of 7 bytes\n")
+    _write(package / "ethernet" / "frame.py", '"""A 4-byte FCS."""\n\n\ndef fcs(data: bytes) -> bytes: ...\n')
+    _write(
+        package / "ethernet" / "api.py", 'def frame(data: bytes) -> None:\n    """Anything ``bytes()`` accepts."""\n'
     )
-    text = _without_flash(page)
-    assert "64 bytes" in text
-    assert "A nibble per byte" in text
-    assert "One call per byte" not in text
-    assert "4-byte address" not in text
-    assert "The flash reads bytes" not in text
+    assert set(_octet_offenders(tmp_path)) == {
+        "docs/ethernet/checks.rst",
+        "docs/gmii.rst",
+        "src/awesome_vunit_vcs/vhdl/ethernet/gmii_pkg.vhd",
+        "src/awesome_vunit_vcs/ethernet/frame.py",
+    }
+
+
+def test_the_octet_guardrail_leaves_out_the_flash_family(tmp_path: Path) -> None:
+    package = tmp_path / "src" / "awesome_vunit_vcs"
+    _write(tmp_path / "docs" / "flash" / "qspi_flash.rst", "A 16 MiB part holds 16777216 bytes.\n")
+    _write(tmp_path / "docs" / "explanation" / "limitations.rst", "One bridge call per byte on the bus.\n")
+    _write(package / "vhdl" / "flash" / "flash_pkg.vhd", "-- A vector of whole bytes\n")
+    _write(package / "flash" / "device.py", "# One byte at a time\n")
+    assert _octet_offenders(tmp_path) == []
 
 
 def test_ethernet_data_is_counted_in_octets() -> None:
-    checker = REPO / "src" / "awesome_vunit_vcs" / "ethernet" / "checker.py"
-    offenders = [checker] if _BYTE.search(checker.read_text(encoding="utf-8")) else []
-    offenders += [
-        path
-        for path in DOCS.rglob("*.rst")
-        if "_generated" not in path.parts and _BYTE.search(_without_flash(path.read_text(encoding="utf-8")))
-    ]
-    assert not [path.relative_to(REPO).as_posix() for path in offenders]
+    assert _ethernet_material(REPO), "No Ethernet material found"
+    assert not _octet_offenders(REPO)
 
 
 def _literalincludes() -> list[tuple[Path, Path, dict[str, str]]]:

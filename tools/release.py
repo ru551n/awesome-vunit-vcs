@@ -29,6 +29,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO / "pyproject.toml"
 INIT = REPO / "src" / "awesome_vunit_vcs" / "__init__.py"
+# A tagged release needs docs/release_notes/<version>.rst, which is not empty
+RELEASE_NOTES = REPO / "docs" / "release_notes"
 
 # Final releases are refused until the dependencies can be installed from PyPI: the
 # package needs vunit_hdl>=5.0.0.dev12 with package setup hooks (VUnit PR #1221, PyPI
@@ -72,6 +74,7 @@ def validate(
     pyproject: Path = PYPROJECT,
     init: Path = INIT,
     allow_final: bool = ALLOW_FINAL_RELEASES,
+    release_notes: Path = RELEASE_NOTES,
 ) -> str:
     """
     Fail unless the version, and the tag naming it when there is one, are what a release
@@ -103,6 +106,15 @@ def validate(
             f"The tag {tag!r} does not name the version of {pyproject.name}, which is {project_version!r}. "
             f"Expected the tag v{project_version}."
         )
+
+    if tag is not None:
+        notes = release_notes / f"{project_version}.rst"
+        if not notes.is_file() or not notes.read_text(encoding="utf-8").strip():
+            raise ReleaseError(
+                f"A release needs its release notes in {notes.relative_to(release_notes.parent.parent)}. "
+                "Rename docs/release_notes/unreleased.rst to it, start a new empty unreleased.rst and "
+                "include the new file in docs/release_notes/index.rst."
+            )
 
     return project_version
 

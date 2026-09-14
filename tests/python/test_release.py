@@ -31,6 +31,9 @@ def _project(tmp_path: Path, project_version: str, package_version: str | None =
     )
     init = tmp_path / "__init__.py"
     init.write_text(f'"""Docs."""\n\n__version__ = "{package_version or project_version}"\n', encoding="utf-8")
+    notes = tmp_path / "docs" / "release_notes"
+    notes.mkdir(parents=True)
+    (notes / f"{project_version}.rst").write_text("* A change.\n", encoding="utf-8")
     return pyproject, init
 
 
@@ -57,14 +60,28 @@ def test_is_prerelease(project_version: str, expected: bool) -> None:
 @pytest.mark.parametrize("project_version", ["0.1.0a1", "0.1.0rc2", "0.1.0.dev3"])
 def test_validate_accepts_prereleases_with_matching_tag(tmp_path: Path, project_version: str) -> None:
     pyproject, init = _project(tmp_path, project_version)
-    assert release.validate(f"v{project_version}", pyproject=pyproject, init=init) == project_version
+    assert (
+        release.validate(
+            f"v{project_version}", pyproject=pyproject, init=init, release_notes=tmp_path / "docs" / "release_notes"
+        )
+        == project_version
+    )
 
 
 def test_validate_refuses_final_release_while_gated(tmp_path: Path) -> None:
     pyproject, init = _project(tmp_path, "0.1.0")
     with pytest.raises(release.ReleaseError, match="final releases are not allowed yet"):
         release.validate("v0.1.0", pyproject=pyproject, init=init, allow_final=False)
-    assert release.validate("v0.1.0", pyproject=pyproject, init=init, allow_final=True) == "0.1.0"
+    assert (
+        release.validate(
+            "v0.1.0",
+            pyproject=pyproject,
+            init=init,
+            allow_final=True,
+            release_notes=tmp_path / "docs" / "release_notes",
+        )
+        == "0.1.0"
+    )
 
 
 def test_validate_refuses_wrong_tag(tmp_path: Path) -> None:
@@ -115,3 +132,16 @@ def test_main_reports_errors_without_traceback(capsys: pytest.CaptureFixture[str
     assert capsys.readouterr().out.strip() == release.version()
     assert release.main(["validate", "--tag", "v0.0.0-wrong"]) == 1
     assert "error:" in capsys.readouterr().err
+
+
+def test_validate_requires_release_notes_for_a_tag(tmp_path: Path) -> None:
+    pyproject, init = _project(tmp_path, "0.1.0a1")
+    notes = tmp_path / "docs" / "release_notes"
+    (notes / "0.1.0a1.rst").write_text("\n", encoding="utf-8")
+    with pytest.raises(release.ReleaseError, match="release notes"):
+        release.validate("v0.1.0a1", pyproject=pyproject, init=init, release_notes=notes)
+    (notes / "0.1.0a1.rst").unlink()
+    with pytest.raises(release.ReleaseError, match="release notes"):
+        release.validate("v0.1.0a1", pyproject=pyproject, init=init, release_notes=notes)
+    # Without a tag, as in a rehearsal, no release notes are needed
+    assert release.validate(None, pyproject=pyproject, init=init, release_notes=notes) == "0.1.0a1"

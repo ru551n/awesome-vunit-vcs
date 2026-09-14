@@ -29,7 +29,7 @@ Supported opcodes: 0x9F RDID, 0x5A RDSFDP, 0x03 READ, 0x0B FAST_READ,
 0xEB READ_QUAD_IO, 0x13 READ4B, 0x0C FAST_READ4B, 0x02 PP, 0x32 PP_QUAD,
 0x12 PP4B, 0x20 SE, 0x52 BE32, 0xD8 BE64, 0xDC BE64_4B, 0xC7 CE,
 0x60 CE_ALT, 0x06 WREN, 0x04 WRDI, 0x05 RDSR1, 0x35 RDSR2, 0x15 RDSR3,
-0x01 WRSR, 0x38 QPI_ENTER, 0xFF QPI_EXIT, 0xB7 EN4B, 0xE9 EX4B, 0x66 RSTEN,
+0x01 WRSR, 0x31 WRSR2, 0x11 WRSR3, 0x38 QPI_ENTER, 0xFF QPI_EXIT, 0xB7 EN4B, 0xE9 EX4B, 0x66 RSTEN,
 0x99 RST, 0xB9 DPD and 0xAB RELEASE_DPD. Any other opcode is ignored.
 
 The table is the same for every device. What one device supports and how
@@ -167,8 +167,9 @@ class Command:
             should fail in simulation, not silently work.
         erase: What an erase command erases, None for other commands. The
             size in bytes depends on the device, see :meth:`erase_size`.
-        status_index: The status register a read-status command returns, 0
-            for SR1 to 2 for SR3, None for other commands.
+        status_index: The status register a read-status command returns, or
+            the first one a write-status command writes, 0 for SR1 to 2 for
+            SR3, None for other commands.
         busy: The busy-time name of
             :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS` the command
             starts, or None for an instantaneous command.
@@ -361,14 +362,37 @@ COMMAND_TABLE: tuple[Command, ...] = (
     _derive(_STATUS_BASE, 0x05, "RDSR1", status_index=0),
     _derive(_STATUS_BASE, 0x35, "RDSR2", status_index=1),
     _derive(_STATUS_BASE, 0x15, "RDSR3", status_index=2),
+    # 0x01 writes up to three registers starting at SR1; 0x31 and 0x11 write
+    # one byte into SR2 and SR3.
     Command(
         0x01,
         "WRSR",
         Op.WRITE_STATUS,
         direction=Direction.IN,
         needs_wel=True,
+        status_index=0,
         busy="tW",
         max_data_bytes=3,
+    ),
+    Command(
+        0x31,
+        "WRSR2",
+        Op.WRITE_STATUS,
+        direction=Direction.IN,
+        needs_wel=True,
+        status_index=1,
+        busy="tW",
+        max_data_bytes=1,
+    ),
+    Command(
+        0x11,
+        "WRSR3",
+        Op.WRITE_STATUS,
+        direction=Direction.IN,
+        needs_wel=True,
+        status_index=2,
+        busy="tW",
+        max_data_bytes=1,
     ),
     # -- mode control -------------------------------------------------------
     Command(0x38, "QPI_ENTER", Op.ENTER_QPI, needs_qe=True),

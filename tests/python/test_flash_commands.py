@@ -45,6 +45,8 @@ REQUIRED = {
     0x35: "RDSR2",
     0x15: "RDSR3",
     0x01: "WRSR",
+    0x31: "WRSR2",
+    0x11: "WRSR3",
     0x38: "QPI_ENTER",
     0xFF: "QPI_EXIT",
     0xB7: "EN4B",

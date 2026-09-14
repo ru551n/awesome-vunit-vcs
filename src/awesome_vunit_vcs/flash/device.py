@@ -54,7 +54,7 @@ from .mode import ProtocolMode
 from .protection import Protection
 from .timing import Timing
 
-#: The bits of SR1, SR2 and SR3 that WRSR may change. These are SR1 bits 7..2
+#: The bits of SR1, SR2 and SR3 that a status write (0x01, 0x31, 0x11) may change. These are SR1 bits 7..2
 #: (SRP, SEC, TB, BP2..BP0), SR2 bits 6, 1 and 0 (CMP, QE, SRL) and SR3 bits
 #: 7..5 and 2.
 #: WIP and WEL are read-only status, the lock bits are one-time-programmable,
@@ -658,7 +658,8 @@ class FlashDevice:
         self.wel = False
         if not self._wrsr:
             return None
-        for index, value in enumerate(self._wrsr):
+        first = cmd.status_index or 0
+        for index, value in enumerate(self._wrsr, start=first):
             mask = WRSR_MASK[index]
             self._sr[index] = (self._sr[index] & ~mask) | (value & mask)
         self._sync_protection()
@@ -695,7 +696,7 @@ class FlashDevice:
         * ``program_count``: page programs committed to the array.
         * ``erase_count``: erases executed, including chip erases.
         * ``chip_erase_count``: chip erases executed.
-        * ``wrsr_count``: status register writes executed.
+        * ``wrsr_count``: status register writes (0x01, 0x31 and 0x11) executed.
         * ``reset_count``: software resets (0x66 then 0x99) executed.
         * ``protect_reject_count``: programs and erases refused because they
           touch a protected region.

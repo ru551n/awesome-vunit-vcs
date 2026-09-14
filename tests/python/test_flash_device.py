@@ -383,6 +383,48 @@ def test_wrsr_writes_all_three_registers(fast: Host) -> None:
     assert fast.status(2)[0] & 0x04 == 0x04  # WPS set
 
 
+def test_wrsr_with_two_bytes_writes_sr1_and_sr2(fast: Host) -> None:
+    fast.wren()
+    fast.command(0x01, data=[0b0000_0100, 0x40])
+    assert fast.status(0) == [0b0000_0100]
+    assert fast.status(1) == [0x40]  # CMP set, QE cleared
+    assert fast.status(2) == [0x00]
+
+
+def test_wrsr2_writes_the_qe_bit(host: Host) -> None:
+    host.at(SEC).wren()
+    result = host.at(SEC).command(0x31, data=[0x00])
+    assert result.busy == host.dev.timing.busy_fs("tW")
+    assert host.at(SEC).status(0) == [0x01], "busy for tW, and WEL is cleared"
+    host.at(2 * SEC)
+    assert host.status(1) == [0x00]
+    assert host.dev.get_stat("qe") == 0
+    assert host.command(0x6B, addr=0, read=1).out == []
+    assert host.dev.get_stat("qe_reject_count") == 1
+    host.wren()
+    host.command(0x31, data=[0xFF, 0x00])  # a second byte is ignored
+    assert host.at(3 * SEC).status(1) == [0x43]  # only CMP, QE and SRL are writable
+    assert host.status(0) == [0x00]
+    assert host.command(0x6B, addr=0, read=1).out == [0xFF]
+    assert host.dev.get_stat("wrsr_count") == 2
+
+
+def test_wrsr3_writes_only_sr3(fast: Host) -> None:
+    fast.wren()
+    fast.command(0x11, data=[0xFF])
+    assert fast.status(2) == [0xE4]  # ADS follows the addressing mode, not the write
+    assert fast.status(1) == [0x02]
+    assert fast.status(0) == [0x00]
+    assert fast.dev.get_stat("wel") == 0
+
+
+@pytest.mark.parametrize("opcode", [0x31, 0x11])
+def test_wrsr2_and_wrsr3_need_write_enable(fast: Host, opcode: int) -> None:
+    fast.command(opcode, data=[0x00])
+    assert fast.status(1) == [0x02]
+    assert fast.dev.get_stat("wel_reject_count") == 1
+
+
 def test_wrsr_needs_write_enable(fast: Host) -> None:
     fast.command(0x01, data=[0xFC])
     assert fast.status(0) == [0x00]

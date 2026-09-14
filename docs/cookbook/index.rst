@@ -19,6 +19,7 @@ Install the package as :doc:`../getting_started/installation` shows, then run an
 repository root. VUnit picks the simulator from ``VUNIT_SIMULATOR``:
 
 .. code-block:: console
+   :caption: Terminal
 
    $ VUNIT_SIMULATOR=nvc python examples/cookbook/run.py
 

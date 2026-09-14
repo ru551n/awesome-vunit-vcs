@@ -28,6 +28,7 @@ flash at reset.
 **Full example:** :repo-file:`tests/vhdl/tb_flash_boot_example.vhd`
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python tests/vhdl/run.py "lib.tb_flash_boot_example.*"
 
@@ -67,6 +68,7 @@ else.
 ``test_content_mismatch_is_a_check_failure``
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python tests/vhdl/run.py "lib.tb_flash.test_written_regions*"
    $ python tests/vhdl/run.py "lib.tb_flash.test_content_mismatch*"
@@ -121,6 +123,7 @@ not accept.
 ``test_check_procedures_forward_to_the_protocol_checker``
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python tests/vhdl/run.py "lib.tb_flash.test_protocol_violation*"
    $ python tests/vhdl/run.py "lib.tb_flash_vci.test_check_procedures*"
@@ -175,6 +178,7 @@ transfer or a busy period unfinished.
 and ``test_reset_clears_counts_and_timing_history``
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python tests/vhdl/run.py "lib.tb_flash.test_reset*"
    $ python tests/vhdl/run.py "lib.tb_qspi_master.test_reset*"
@@ -220,6 +224,7 @@ sequence the command layer lacks, such as a read without an opcode in continuous
 ``test_reset_returns_to_standby_mid_transaction``
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python tests/vhdl/run.py "lib.tb_flash.test_page_program_then_read_back"
    $ python tests/vhdl/run.py "lib.tb_flash.test_reset_returns*"

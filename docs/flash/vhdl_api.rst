@@ -8,6 +8,7 @@ the components explain how the pieces fit together; this part is for looking thi
 A testbench only needs the context of the family:
 
 .. code-block:: vhdl
+   :caption: Testbench context clause
 
    library awesome_vunit_vcs;
    context awesome_vunit_vcs.flash_context;

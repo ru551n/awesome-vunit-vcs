@@ -39,3 +39,5 @@ PHY decoders
 .. automodule:: awesome_vunit_vcs.ethernet.phy.common
 
 .. automodule:: awesome_vunit_vcs.ethernet.phy.gmii
+
+.. automodule:: awesome_vunit_vcs.ethernet.phy.xgmii

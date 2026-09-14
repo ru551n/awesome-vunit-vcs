@@ -28,7 +28,7 @@ use work.vcs_python_pkg.py_str;
 package ethernet_pkg is
   -- The PHY interfaces with a VHDL frontend. The image of a value names the
   -- Python PHY decoder.
-  type ethernet_phy_t is (gmii);
+  type ethernet_phy_t is (gmii, xgmii);
 
   -- Protocol checks, named like the check IDs of the Python checker
   type ethernet_check_t is (
@@ -80,6 +80,9 @@ package ethernet_pkg is
     p_std_cfg : std_cfg_t;
     p_phy : ethernet_phy_t;
     p_link_rate_mbps : positive;
+    p_lanes : positive;
+    p_both_edges : boolean;
+    p_allow_lane4_start : boolean;
     p_min_preamble_octets : natural;
     p_max_preamble_octets : natural;
     p_min_frame_octets : natural;
@@ -97,6 +100,9 @@ package ethernet_pkg is
     p_std_cfg : std_cfg_t;
     p_phy : ethernet_phy_t;
     p_link_rate_mbps : positive;
+    p_lanes : positive;
+    p_both_edges : boolean;
+    p_deficit_idle : boolean;
   end record;
 
   constant ethernet_provider : string := "awesome_vunit_vcs";
@@ -116,10 +122,17 @@ package ethernet_pkg is
   -- batch_length samples, and at the end of every frame when
   -- flush_at_frame_end. Sample times are kept with a resolution of
   -- delta_unit. log_frames logs every received frame at debug level.
+  --
+  -- lanes, both_edges and allow_lane4_start describe interfaces with several
+  -- lanes per clock edge, see xgmii_pkg; one-octet-per-cycle PHYs such as
+  -- GMII ignore them.
   impure function new_ethernet_monitor(
     phy : ethernet_phy_t;
     id : id_t := null_id;
     link_rate_mbps : positive := 1000;
+    lanes : positive := 1;
+    both_edges : boolean := false;
+    allow_lane4_start : boolean := false;
     min_preamble_octets : natural := 7;
     max_preamble_octets : natural := 7;
     min_frame_octets : natural := 64;
@@ -139,6 +152,9 @@ package ethernet_pkg is
     phy : ethernet_phy_t;
     id : id_t := null_id;
     link_rate_mbps : positive := 1000;
+    lanes : positive := 1;
+    both_edges : boolean := false;
+    deficit_idle : boolean := true;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return ethernet_source_t;
 
@@ -300,6 +316,9 @@ package body ethernet_pkg is
     phy : ethernet_phy_t;
     id : id_t := null_id;
     link_rate_mbps : positive := 1000;
+    lanes : positive := 1;
+    both_edges : boolean := false;
+    allow_lane4_start : boolean := false;
     min_preamble_octets : natural := 7;
     max_preamble_octets : natural := 7;
     min_frame_octets : natural := 64;
@@ -322,6 +341,9 @@ package body ethernet_pkg is
       ),
       p_phy => phy,
       p_link_rate_mbps => link_rate_mbps,
+      p_lanes => lanes,
+      p_both_edges => both_edges,
+      p_allow_lane4_start => allow_lane4_start,
       p_min_preamble_octets => min_preamble_octets,
       p_max_preamble_octets => max_preamble_octets,
       p_min_frame_octets => min_frame_octets,
@@ -339,6 +361,9 @@ package body ethernet_pkg is
     phy : ethernet_phy_t;
     id : id_t := null_id;
     link_rate_mbps : positive := 1000;
+    lanes : positive := 1;
+    both_edges : boolean := false;
+    deficit_idle : boolean := true;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return ethernet_source_t is
   begin
@@ -350,7 +375,10 @@ package body ethernet_pkg is
         unexpected_msg_type_policy => unexpected_msg_type_policy
       ),
       p_phy => phy,
-      p_link_rate_mbps => link_rate_mbps
+      p_link_rate_mbps => link_rate_mbps,
+      p_lanes => lanes,
+      p_both_edges => both_edges,
+      p_deficit_idle => deficit_idle
     );
   end;
 
@@ -394,6 +422,27 @@ package body ethernet_pkg is
     return integer'image(link_rate_mbps) & "_000_000";
   end;
 
+  -- The options of the Python PHY decoder that the PHY has
+  impure function phy_options(monitor : ethernet_monitor_t) return string is
+  begin
+    if monitor.p_phy = xgmii then
+      return
+        ", phy_options={'lanes': " & integer'image(monitor.p_lanes) &
+        ", 'allow_lane4_start': " & py_bool(monitor.p_allow_lane4_start) & "}";
+    end if;
+    return "";
+  end;
+
+  impure function phy_options(source : ethernet_source_t) return string is
+  begin
+    if source.p_phy = xgmii then
+      return
+        ", phy_options={'lanes': " & integer'image(source.p_lanes) &
+        ", 'deficit_idle': " & py_bool(source.p_deficit_idle) & "}";
+    end if;
+    return "";
+  end;
+
   impure function backend_arguments(monitor : ethernet_monitor_t) return string is
   begin
     return
@@ -406,7 +455,8 @@ package body ethernet_pkg is
       ", max_frame_octets=" & integer'image(monitor.p_max_frame_octets) &
       ", min_ifg_octets=" & integer'image(monitor.p_min_ifg_octets) &
       ", has_fcs=" & py_bool(monitor.p_has_fcs) &
-      ", log_frames=" & py_bool(monitor.p_log_frames);
+      ", log_frames=" & py_bool(monitor.p_log_frames) &
+      phy_options(monitor);
   end;
 
   impure function backend_arguments(source : ethernet_source_t) return string is
@@ -414,7 +464,8 @@ package body ethernet_pkg is
     return
       py_str(full_name(get_id(source))) & ", " &
       py_str(ethernet_phy_t'image(source.p_phy)) &
-      ", link_rate_bps=" & link_rate_bps(source.p_link_rate_mbps);
+      ", link_rate_bps=" & link_rate_bps(source.p_link_rate_mbps) &
+      phy_options(source);
   end;
 
   procedure request_integer(

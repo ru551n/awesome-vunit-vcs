@@ -26,7 +26,7 @@ from .frame import FCS_OCTETS, EthernetConfig, EthernetFrame
 from .metrics import EthernetStatistics
 from .monitor import EthernetMonitor
 from .pcap import CaptureOptions
-from .phy import create_phy
+from .phy import XgmiiPhy, create_phy
 from .source import EthernetSource, build_wire_frame
 
 #: Largest value a VHDL integer holds; statistics saturate at it
@@ -77,11 +77,12 @@ class MonitorBackend:
         link_rate_bps: int = 0,
         keep_frames: int = 256,
         log_frames: bool = False,
+        phy_options: dict[str, Any] | None = None,
     ) -> None:
         self.name = name
         self.reports = ReportQueue()
         self.log_frames = log_frames
-        phy_options = {"link_rate_bps": link_rate_bps} if link_rate_bps else {}
+        phy_options = {**(phy_options or {}), **({"link_rate_bps": link_rate_bps} if link_rate_bps else {})}
         config = EthernetConfig(
             min_preamble_octets=min_preamble_octets,
             max_preamble_octets=max_preamble_octets,
@@ -267,10 +268,26 @@ class MonitorBackend:
 
 
 class SourceBackend:
-    def __init__(self, name: str, interface: str, *, link_rate_bps: int = 0) -> None:
+    def __init__(
+        self, name: str, interface: str, *, link_rate_bps: int = 0, phy_options: dict[str, Any] | None = None
+    ) -> None:
         self.name = name
-        phy_options = {"link_rate_bps": link_rate_bps} if link_rate_bps else {}
+        phy_options = {**(phy_options or {}), **({"link_rate_bps": link_rate_bps} if link_rate_bps else {})}
         self.source = EthernetSource(create_phy(interface, **phy_options), name=name)
+
+    def _xgmii(self) -> XgmiiPhy:
+        phy = self.source.phy
+        if not isinstance(phy, XgmiiPhy):
+            raise TypeError(f"{self.name} is a {phy.name} source; only XGMII sources send ordered sets and raw columns")
+        return phy
+
+    def ordered_set_symbols(self, value: int, columns: int = 1) -> npt.NDArray[np.int32]:
+        """Columns carrying a Sequence ordered set, for example 1 for local fault."""
+        return self._xgmii().ordered_set_symbols(value, columns)
+
+    def column_symbols(self, data: Sequence[int], control: Sequence[int]) -> npt.NDArray[np.int32]:
+        """Raw XGMII columns, lane 0 first."""
+        return self._xgmii().column_symbols(list(data), list(control))
 
     def queue_bytes(self, data: bytes, **options: Any) -> int:
         return self.source.queue(build_wire_frame(data, **options))

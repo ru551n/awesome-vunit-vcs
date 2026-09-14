@@ -25,5 +25,14 @@ vu.add_package("awesome-vunit-vcs")
 lib = vu.add_library("lib")
 lib.add_source_files(ROOT / "*.vhd")
 
+# The XGMII family: 4-lane single edge (32-bit SDR), 4-lane both edges
+# (Clause 46 XGMII) and 8 lanes (64-bit variants, XLGMII, CGMII)
+tb_xgmii = lib.test_bench("tb_xgmii")
+for lanes, both_edges in ((4, False), (4, True), (8, False)):
+    tb_xgmii.add_config(
+        name=f"{lanes}_lanes_{'both_edges' if both_edges else 'rising_edge'}",
+        generics={"lanes": lanes, "both_edges": both_edges},
+    )
+
 if __name__ == "__main__":
     vu.main()

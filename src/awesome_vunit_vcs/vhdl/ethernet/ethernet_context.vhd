@@ -16,4 +16,5 @@ context ethernet_context is
   library awesome_vunit_vcs;
   use awesome_vunit_vcs.ethernet_pkg.all;
   use awesome_vunit_vcs.gmii_pkg.all;
+  use awesome_vunit_vcs.xgmii_pkg.all;
 end context;

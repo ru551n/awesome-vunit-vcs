@@ -1,0 +1,9 @@
+[package]
+# The Python bridge (python_pkg sessions, integer_array_t arguments) is part of
+# VUnit PR #1220, which does not yet have a version number of its own.
+requires-vunit = ">=5.0.0.dev12"
+requires-vhdl = ">=2008"
+library = "awesome_vunit_vcs"
+
+[[package.sources]]
+include = ["vhdl/common/*.vhd", "vhdl/ethernet/*.vhd"]

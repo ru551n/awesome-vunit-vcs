@@ -30,9 +30,14 @@ context vunit_lib.com_context;
 use vunit_lib.integer_array_pkg.all;
 use vunit_lib.sync_pkg.all;
 use vunit_lib.vc_pkg.all;
+use vunit_lib.dict_pkg.all;
+
+library python_bridge;
+context python_bridge.python_context;
 
 use work.qspi_pkg.all;
 use work.qspi_protocol_checker_pkg.all;
+use work.vcs_python_pkg.new_vc_session;
 use work.vcs_python_pkg.py_bool;
 use work.vcs_python_pkg.py_str;
 
@@ -513,6 +518,11 @@ package flash_pkg is
   constant flash_backend_module : string := "awesome_vunit_vcs.flash.vunit_backend";
   constant flash_backend_class : string := "FlashBackend";
 
+  -- Private. The Python session of a flash, identified by its id. Two flashes
+  -- with the same id would share one Python backend, which is a failure on
+  -- the logger of the flash.
+  impure function new_vc_session(flash : flash_t) return python_session_t;
+
   -- Private. The constructor arguments of the backend.
   impure function backend_arguments(flash : flash_t) return string;
 
@@ -532,6 +542,25 @@ end package;
 
 package body flash_pkg is
   constant time_split : time := 1073741824 fs;
+
+  -- The full names of the ids with a Python session. The guard mirrors
+  -- new_vc_session of ethernet_vc_pkg and should move to
+  -- common/vcs_python_pkg, a follow-up for the maintainer.
+  constant vc_sessions : dict_t := new_dict;
+
+  impure function new_vc_session(flash : flash_t) return python_session_t is
+    constant name : string := full_name(flash.p_id);
+  begin
+    if has_key(vc_sessions, name) then
+      failure(
+        flash.p_logger,
+        "Two verification components have the id " & name & " and would share one Python backend"
+      );
+    else
+      set_string(vc_sessions, name, "");
+    end if;
+    return new_vc_session(flash.p_id);
+  end;
 
   impure function new_flash(
     size_bytes : positive := 16 * 1024 * 1024;

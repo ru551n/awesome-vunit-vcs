@@ -4,11 +4,15 @@
 --
 -- Verification component interface (VCI) conformance of the flash VC: ids,
 -- loggers, actors and checkers, unexpected messages, sync_pkg, and the
--- blocking and non-blocking variants of the procedures that return a value.
+-- blocking and non-blocking variants of the procedures that return a value,
+-- independent Python backends and the guard against two flashes with one id.
 --
 -- Expected values that involve a default id are taken from the handle, never
 -- written as enumerated literals, except the first default flash of this
 -- architecture.
+
+library python_bridge;
+context python_bridge.python_context;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.flash_context;
@@ -73,6 +77,38 @@ architecture tb of tb_flash_vci is
 
   signal idle_m2s : qspi_m2s_t := qspi_m2s_init;
 
+  -- Two flashes with one id and actors of their own, instantiated only for
+  -- test_a_duplicate_id_is_a_failure
+  constant duplicate_id : id_t := get_id("tb_flash_vci:duplicate_flash");
+  constant duplicate_flash : flash_t := new_flash(
+    id => duplicate_id,
+    actor => new_actor("tb_flash_vci:duplicate_actor")
+  );
+  constant second_duplicate_flash : flash_t := new_flash(
+    id => duplicate_id,
+    actor => new_actor("tb_flash_vci:second_duplicate_actor")
+  );
+  signal duplicate_s2m : qspi_s2m_t := qspi_s2m_init;
+  signal second_duplicate_s2m : qspi_s2m_t := qspi_s2m_init;
+
+  -- Whether text contains part, such as a test name in runner_cfg
+  function contains(text : string; part : string) return boolean is
+  begin
+    for idx in text'low to text'high - part'length + 1 loop
+      if text(idx to idx + part'length - 1) = part then
+        return true;
+      end if;
+    end loop;
+    return false;
+  end;
+
+  -- Mock the failures of logger, during elaboration
+  impure function mock_failures(logger : logger_t) return boolean is
+  begin
+    mock(logger, failure);
+    return true;
+  end;
+
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown flash message");
 
   procedure check_arrays(got : integer_array_t; expected : integer_array_t; msg : string) is
@@ -136,6 +172,30 @@ begin
       m2s => default_checked_m2s,
       s2m => default_checked_s2m
     );
+
+  duplicate_gen : if contains(runner_cfg, "test_a_duplicate_id_is_a_failure") generate
+    -- The second flash fails when it creates its Python session, while it is
+    -- elaborated, so the logger is mocked before
+    constant mocked : boolean := mock_failures(get_logger(duplicate_flash));
+  begin
+    duplicate_flash_inst : entity awesome_vunit_vcs.flash
+      generic map (
+        flash => duplicate_flash
+      )
+      port map (
+        m2s => idle_m2s,
+        s2m => duplicate_s2m
+      );
+
+    second_duplicate_flash_inst : entity awesome_vunit_vcs.flash
+      generic map (
+        flash => second_duplicate_flash
+      )
+      port map (
+        m2s => idle_m2s,
+        s2m => second_duplicate_s2m
+      );
+  end generate;
 
   main : process
     variable reference : flash_reference_t;
@@ -231,6 +291,22 @@ begin
         check_unexpected_message(get_actor(ignoring_flash), get_logger(ignoring_flash), expect_failure => false);
         flash_get_stat(net, ignoring_flash, "program_count", value);
         check_equal(value, 0, "the flash answers after the unexpected message");
+
+      elsif run("test_default_instances_have_independent_backends") then
+        -- Once the backends exist
+        wait_until_idle(net, as_sync(default_flash));
+        wait_until_idle(net, as_sync(default_checked_flash));
+        exec("vc.tb_marker = 'first'", new_session(get_id(default_flash)));
+        check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(default_checked_flash))));
+
+      elsif run("test_a_duplicate_id_is_a_failure") then
+        check(get_actor(duplicate_flash) /= get_actor(second_duplicate_flash), "distinct actors");
+        check_only_log(
+          get_logger(duplicate_flash),
+          "Two verification components have the id tb_flash_vci:duplicate_flash and would share one Python backend",
+          failure
+        );
+        unmock(get_logger(duplicate_flash));
 
       elsif run("test_wait_until_idle_and_wait_for_time") then
         start := now;

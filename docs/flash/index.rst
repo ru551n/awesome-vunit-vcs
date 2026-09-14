@@ -104,7 +104,10 @@ are passed explicitly. Log messages therefore name the component they come from:
      - Its own id; the handle is used unchanged
 
 The flash is also the identity of its Python session: reports of its backend start with the full name
-of its id, for example ``tb:boot_flash: flash content mismatch at 0x00001000 ...``.
+of its id, for example ``tb:boot_flash: flash content mismatch at 0x00001000 ...``. Two flashes with
+the same id would share one Python backend, so the second is a failure on its logger while it is
+elaborated: ``Two verification components have the id tb:boot_flash and would share one Python
+backend``. Give every flash its own id, or leave the ids out.
 
 Checks
 ------
@@ -173,6 +176,10 @@ default the first error stops the simulation, as any VUnit check failure does.
      - ``flash``, on its logger
      - A request the model cannot carry out: an invalid configuration, a range outside the device, a
        value that is not a byte, an unknown timing or stat name, an image that cannot be read
+   * - Duplicate id
+     -
+     - ``flash``, on its logger
+     - A second flash with the id of another, which would share its Python backend, at elaboration
    * - Unexpected message
      -
      - All three

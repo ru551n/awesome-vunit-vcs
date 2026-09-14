@@ -62,7 +62,8 @@ end entity;
 architecture a of flash is
   constant logger : logger_t := get_logger(flash);
   constant checker : checker_t := get_checker(flash);
-  constant session : python_session_t := new_vc_session(get_id(flash));
+  -- A failure on the logger when another flash has the same id
+  constant session : python_session_t := new_vc_session(flash);
 
   -- Raised when the backend exists; pins must not call it before
   signal initialized : boolean := false;

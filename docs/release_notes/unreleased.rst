@@ -151,3 +151,5 @@ Breaking changes
   the first to that group.
 * Flash: a message of an unknown type is a check failure ``Got unexpected message <type>`` on the
   checker of the VC, as for the Ethernet VCs, instead of a failure on its logger.
+* Flash: two flashes with the same id, which would share one Python backend, are a failure on the
+  logger of the second, as for the Ethernet VCs.

@@ -396,7 +396,8 @@ configuration so that the calls that follow stay harmless.
    * - ``id``
      - ``id_t``
      - ``null_id``
-     - ``awesome_vunit_vcs:flash:<n>`` when not given; also the identity of the Python session
+     - ``awesome_vunit_vcs:flash:<n>`` when not given; also the identity of the Python session, so
+       two flashes with the same id are a failure on the logger
    * - ``logger``
      - ``logger_t``
      - ``null_logger``
@@ -584,6 +585,10 @@ the backend go to its logger.
      - ``<id>: <method> raised <exception>: <message>``, for example an invalid configuration, a range
        outside the device, a value that is not a byte, an unknown timing or stat name or an image that
        cannot be read
+   * - Duplicate id
+     - Logger
+     - ``Two verification components have the id <id> and would share one Python backend``, when a
+       second flash with the same id is elaborated
    * - Unexpected message
      - Checker
      - ``Got unexpected message <type>`` with the ``fail`` policy

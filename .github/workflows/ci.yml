@@ -111,6 +111,8 @@ jobs:
           pip install -e ".[scapy]" hypothesis
       - name: Run tests/vhdl
         run: python tests/vhdl/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out"
+      - name: Run examples/quickstart
+        run: python examples/quickstart/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_quickstart"
       - name: Run examples/gmii
         run: python examples/gmii/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_gmii"
       - name: Run examples/property

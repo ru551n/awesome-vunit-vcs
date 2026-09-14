@@ -4,7 +4,9 @@
 
 library vunit_lib;
 context vunit_lib.vunit_context;
-context vunit_lib.python_context;
+
+library python_bridge;
+context python_bridge.python_context;
 
 library awesome_vunit_vcs;
 use awesome_vunit_vcs.vcs_python_pkg.all;

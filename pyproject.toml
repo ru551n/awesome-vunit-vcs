@@ -22,10 +22,14 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
     "Topic :: Software Development :: Testing",
 ]
-# NumPy arrives with VUnit's embedded-Python bridge; it is listed because the
-# backends use it directly for the bulk observation arrays.
+# Neither VUnit with package setup hooks (VUnit PR #1221, branch
+# feature/package-setup-hooks of github.com/ru551n/vunit) nor vunit-python-bridge
+# is released yet: tests/packaging/unreleased-requirements.txt pins both.
+# NumPy is listed because the backends use it directly for the bulk observation
+# arrays.
 dependencies = [
     "vunit_hdl>=5.0.0.dev12",
+    "vunit-python-bridge>=0.1.0",
     "numpy>=1.24",
 ]
 

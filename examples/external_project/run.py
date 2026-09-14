@@ -7,10 +7,13 @@ External project
 ----------------
 
 A project using awesome-vunit-vcs the way a user does: ``add_package`` finds
-the installed package, so neither this script nor its testbench knows where
+the installed packages, so neither this script nor its testbench knows where
 the VHDL files or the Python backend modules of the package are installed.
 Install the package (``pip install awesome-vunit-vcs`` or an editable
 install of the repository) and run this script from any directory.
+
+awesome-vunit-vcs needs the Python bridge, the ``vunit-python-bridge``
+package, which is added the same way.
 """
 
 from pathlib import Path
@@ -24,7 +27,7 @@ def main():
     vu = VUnit.from_argv()
     vu.add_vhdl_builtins()
     vu.add_verification_components()
-    vu.add_python()
+    vu.add_package("vunit-python-bridge")
     vu.add_package("awesome-vunit-vcs")
 
     lib = vu.add_library("lib")

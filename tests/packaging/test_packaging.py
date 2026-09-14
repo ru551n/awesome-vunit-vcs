@@ -5,8 +5,8 @@ Not part of the default test run (``testpaths``); run them with::
 
     pytest tests/packaging
 
-Set ``AWESOME_VUNIT_VCS_VUNIT`` to the pip requirement VUnit is installed from,
-for example ``-e /path/to/vunit``.
+Set ``AWESOME_VUNIT_VCS_REQUIREMENTS`` to the pip arguments installing VUnit and
+vunit-python-bridge, for example ``-e /path/to/vunit -e /path/to/vunit-python-bridge``.
 """
 
 from __future__ import annotations

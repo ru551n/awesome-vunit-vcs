@@ -2,7 +2,7 @@
 Packaging check: build the distributions, install them into clean virtual
 environments and prove that VUnit finds the package there.
 
-    python tests/packaging/check_package.py [--vunit REQUIREMENT] [--run-example]
+    python tests/packaging/check_package.py [--requirements PIP_ARGUMENTS] [--run-example]
 
 Steps:
 
@@ -16,9 +16,10 @@ Steps:
 4. With ``--run-example``, copy ``examples/external_project`` outside the
    repository and run it with the wheel environment (needs a simulator).
 
-VUnit is installed first from ``--vunit`` (any pip requirement, for example
-``-e ~/git/vunit``), default :data:`DEFAULT_VUNIT`, since the Python bridge the
-package needs is not released yet.
+The unreleased dependencies, VUnit with package setup hooks and
+vunit-python-bridge, are installed first from ``--requirements`` (pip
+arguments, for example ``-e ~/git/vunit -e ~/git/vunit-python-bridge``),
+default ``-r`` :data:`UNRELEASED_REQUIREMENTS`.
 """
 
 from __future__ import annotations
@@ -39,8 +40,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 PACKAGE_DIR = REPO / "src" / "awesome_vunit_vcs"
 
-#: VUnit PR #1220 (python_pkg on a native bridge), head of ru551n/vunit master
-DEFAULT_VUNIT = "git+https://github.com/ru551n/vunit.git@6f34c380a160b0adae9a742c5044b1773aebf03a"
+#: The pins of the unreleased dependencies, shared with CI
+UNRELEASED_REQUIREMENTS = Path(__file__).resolve().parent / "unreleased-requirements.txt"
 
 PROBE = """
 import importlib.util, json, sys
@@ -48,7 +49,7 @@ from vunit import VUnit
 vu = VUnit.from_argv(argv=["--output-path", sys.argv[1]])
 vu.add_vhdl_builtins()
 vu.add_verification_components()
-vu.add_python()
+vu.add_package("vunit-python-bridge")
 vu.add_package("awesome-vunit-vcs")
 spec = importlib.util.find_spec("awesome_vunit_vcs")
 print(json.dumps({
@@ -124,7 +125,7 @@ def check_archives(wheel: Path, sdist: Path) -> None:
     print(f"Wheel and sdist carry all {len(expected)} package files")
 
 
-def create_environment(root: Path, vunit: str, package: list[str]) -> Environment:
+def create_environment(root: Path, requirements: str, package: list[str]) -> Environment:
     env = Environment(root)
     if shutil.which("uv"):
         run(["uv", "venv", "--python", sys.executable, root])
@@ -132,7 +133,7 @@ def create_environment(root: Path, vunit: str, package: list[str]) -> Environmen
     else:
         run([sys.executable, "-m", "venv", root])
         install = [env.python, "-m", "pip", "install", "--progress-bar", "off"]
-    run([*install, *shlex.split(vunit)])
+    run([*install, *shlex.split(requirements)])
     run([*install, *package])
     return env
 
@@ -168,7 +169,11 @@ def run_example(env: Environment, work_dir: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--vunit", default=os.environ.get("AWESOME_VUNIT_VCS_VUNIT", DEFAULT_VUNIT))
+    parser.add_argument(
+        "--requirements",
+        default=os.environ.get("AWESOME_VUNIT_VCS_REQUIREMENTS", shlex.join(["-r", str(UNRELEASED_REQUIREMENTS)])),
+        help="pip arguments installing the unreleased dependencies",
+    )
     parser.add_argument("--work-dir", type=Path, help="Keep the environments here instead of a temporary directory")
     parser.add_argument("--skip-editable", action="store_true")
     parser.add_argument("--run-example", action="store_true", help="Run examples/external_project (needs a simulator)")
@@ -181,11 +186,11 @@ def main(argv: list[str] | None = None) -> int:
             wheel, sdist = build(work_dir / "dist")
             check_archives(wheel, sdist)
 
-            wheel_env = create_environment(work_dir / "wheel_env", args.vunit, [str(wheel)])
+            wheel_env = create_environment(work_dir / "wheel_env", args.requirements, [str(wheel)])
             check_probe(probe(wheel_env, work_dir), editable=False)
 
             if not args.skip_editable:
-                editable_env = create_environment(work_dir / "editable_env", args.vunit, ["-e", str(REPO)])
+                editable_env = create_environment(work_dir / "editable_env", args.requirements, ["-e", str(REPO)])
                 check_probe(probe(editable_env, work_dir), editable=True)
 
             if args.run_example:

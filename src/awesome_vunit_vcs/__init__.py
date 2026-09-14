@@ -5,8 +5,11 @@ Add the HDL side to a VUnit project with::
 
     vu.add_vhdl_builtins()
     vu.add_verification_components()
-    vu.add_python()
+    vu.add_package("vunit-python-bridge")
     vu.add_package("awesome-vunit-vcs")
+
+The VHDL components call Python through the ``python_bridge`` library of the
+``vunit-python-bridge`` package, so a run script adds that package too.
 
 VHDL owns simulation semantics and pin timing; the Python subpackages
 (:mod:`awesome_vunit_vcs.ethernet`, ...) own verification semantics and are

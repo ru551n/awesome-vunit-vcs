@@ -61,6 +61,8 @@ from .timing import Timing
 #: and ADS follows EN4B/EX4B.
 WRSR_MASK = (0xFC, 0x43, 0xE4)
 
+_FS_PER_US = 10**9
+
 #: The Quad Enable bit of SR2
 SR2_QE = 0x02
 #: The complement protect bit of SR2
@@ -143,7 +145,8 @@ class FlashDevice:
         sfdp_image: The SFDP image, see :func:`~awesome_vunit_vcs.flash.sfdp.build`.
         jedec_bytes: The three bytes 0x9F returns.
         electronic_id: The byte 0xAB returns.
-        stats: The counters of :meth:`get_stat` by name. They are never reset.
+        stats: The counters of :meth:`get_stat` by name. Only
+            :meth:`clear_statistics` resets them.
         now_fs: The latest simulation time in fs VHDL passed.
         wel: The write enable latch.
         dpd: Whether the device is in deep power-down.
@@ -237,6 +240,17 @@ class FlashDevice:
             True while the busy deadline has not passed.
         """
         return self.timing.is_busy(self.now_fs if now_fs is None else now_fs)
+
+    def advance_time(self, now_fs: int) -> None:
+        """
+        Move :attr:`now_fs` forward, so that WIP and the status registers are
+        evaluated at a later time without a transaction.
+
+        Args:
+            now_fs: The simulation time in fs. A time before :attr:`now_fs`
+                is ignored: the time never moves backwards.
+        """
+        self.now_fs = max(self.now_fs, int(now_fs))
 
     def status_byte(self, index: int) -> int:
         """
@@ -687,7 +701,8 @@ class FlashDevice:
         """
         One counter or one integer of observable state.
 
-        Counters, since the device was created:
+        Counters, since the device was created or :meth:`clear_statistics`
+        was last called:
 
         * ``cmd_count``: opcodes decoded, including unsupported and refused
           ones, plus transactions continuing a continuous read.
@@ -720,12 +735,15 @@ class FlashDevice:
           1 when set, 0 otherwise.
         * ``addr_bytes``: the current addressing mode, 3 or 4.
         * ``sr1``, ``sr2`` and ``sr3``: the status registers.
-        * ``busy_deadline_fs``: the time in fs at which WIP clears.
+        * ``busy_remaining_us``: the time until WIP clears in microseconds,
+          rounded up so that it is 0 exactly when WIP is clear. A 32-bit
+          integer holds more than 35 minutes.
         * ``timing_enabled``: 1 when busy times apply.
         * ``materialized_pages`` and ``run_count``: the memory use of the array.
 
-        ``wip`` and ``sr1`` are evaluated at :attr:`now_fs`, the latest time
-        VHDL passed, not at the time of the call.
+        ``wip``, ``sr1`` and ``busy_remaining_us`` are evaluated at
+        :attr:`now_fs`, the latest time VHDL passed, not at the time of the
+        call; see :meth:`advance_time`.
 
         Args:
             name: The name of the counter or value.
@@ -751,7 +769,7 @@ class FlashDevice:
             "sr1": lambda: self.status_byte(0),
             "sr2": lambda: self.status_byte(1),
             "sr3": lambda: self.status_byte(2),
-            "busy_deadline_fs": self.timing.deadline_fs,
+            "busy_remaining_us": lambda: -(-max(0, self.timing.deadline_fs() - self.now_fs) // _FS_PER_US),
             "timing_enabled": lambda: int(self.timing.enabled),
             "materialized_pages": lambda: self.array.materialized_pages,
             "run_count": lambda: self.array.run_count,
@@ -759,6 +777,16 @@ class FlashDevice:
         if name not in derived:
             raise KeyError(f"unknown stat {name!r}; known: {sorted(set(self.stats) | set(derived))}")
         return int(derived[name]())
+
+    def clear_statistics(self) -> None:
+        """
+        Reset every counter of :meth:`get_stat` to 0 and forget the written regions.
+
+        The content, the status registers, the lock map and every other piece
+        of device state are unchanged.
+        """
+        self.stats = dict.fromkeys(_COUNTERS, 0)
+        self.array.clear_written_regions()
 
     # -- test-facing control plane ---------------------------------------------
 
@@ -930,8 +958,8 @@ class FlashDevice:
         The regions the *device* modified by program or erase.
 
         Preloading and image loading are excluded: they model how the part
-        arrived, not what the DUT did to it. The regions accumulate for the
-        life of the device; a reset does not clear them.
+        arrived, not what the DUT did to it. The regions accumulate until
+        :meth:`clear_statistics`; a reset does not clear them.
 
         Returns:
             Sorted, coalesced ``(addr, length)`` pairs in bytes.

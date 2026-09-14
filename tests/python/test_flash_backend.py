@@ -228,8 +228,7 @@ def test_wip_follows_the_time_vhdl_sends() -> None:
     transaction(backend, [0x06])
     transaction(backend, [0x02, 0, 0, 0, 0x00], now_fs=SEC)
     assert backend.get_stat("wip") == 1
-    # Past 2**31 fs, so read from the device: get_stat refuses what VHDL cannot hold
-    assert backend.device.get_stat("busy_deadline_fs") == SEC + 700 * US
+    assert backend.get_stat("busy_remaining_us") == 700
     # A status read at a later time, passed on the volatile xfer, sees WIP clear
     out, _ = transaction(backend, [0x05], read=1, now_fs=SEC + 699 * US)
     assert out == [0x01]
@@ -290,6 +289,7 @@ def test_invalid_time_halves_are_failure_reports(fast: FlashBackend) -> None:
         lambda b: b.set_timing_enable(True),
         lambda b: b.set_timing("tPP", *split_time(US)),
         lambda b: b.set_protection(0, 16, True),
+        lambda b: b.clear_statistics(),
     ],
 )
 def test_control_calls_return_the_number_of_waiting_reports(fast: FlashBackend, call: Any) -> None:
@@ -479,15 +479,49 @@ def test_a_stat_beyond_32_bits_is_a_failure_report_and_returns_0() -> None:
     backend.set_timing("tSE", *split_time(MS))
     transaction(backend, [0x06], now_fs=SEC)
     transaction(backend, [0x20, 0, 0, 0], now_fs=SEC)
+    backend.device.stats["bytes_read"] = 2**31
     assert backend.num_reports() == 0
-    assert backend.get_stat("busy_deadline_fs") == 0
+    assert backend.get_stat("bytes_read") == 0
     message = only_report(backend, Severity.FAILURE)
     assert message.startswith(f"{NAME}: get_stat raised ValueError: ")
-    assert "'busy_deadline_fs'" in message
-    assert str(SEC + MS) in message
+    assert "'bytes_read'" in message
+    assert str(2**31) in message
     # A value that fits is returned unchanged
     assert backend.get_stat("wip") == 1
     assert backend.num_reports() == 0
+
+
+def test_get_stat_with_a_time_advances_the_device_time() -> None:
+    backend = make()
+    transaction(backend, [0x06], now_fs=SEC)
+    transaction(backend, [0x02, 0, 0, 0, 0x00], now_fs=SEC)
+    # Without a time, the stat is evaluated at the last time VHDL sent
+    assert backend.get_stat("wip") == 1
+    assert backend.get_stat("busy_remaining_us", *split_time(SEC + 200 * US)) == 500
+    assert backend.get_stat("sr1", *split_time(SEC + 700 * US)) == 0x00
+    assert backend.get_stat("wip") == 0
+    # An earlier time does not move the device time back
+    assert backend.get_stat("wip", *split_time(SEC)) == 0
+    assert backend.device.now_fs == SEC + 700 * US
+    assert backend.num_reports() == 0
+
+
+def test_get_stat_with_invalid_time_halves_is_a_failure_report(fast: FlashBackend) -> None:
+    assert fast.get_stat("wip", 0, 1 << 30) == 0
+    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: get_stat raised ValueError: ")
+
+
+def test_clear_statistics_keeps_the_content(fast: FlashBackend) -> None:
+    transaction(fast, [0x06])
+    transaction(fast, [0x02, 0x00, 0x10, 0x00, 0x00])
+    transaction(fast, [0x77])
+    assert fast.clear_statistics() == 0
+    assert fast.get_stat("program_count") == 0
+    assert fast.get_stat("unknown_opcode_count") == 0
+    assert list(fast.written_regions()) == []
+    assert list(fast.read_back(0x1000, 1)) == [0x00]
+    fast.get_stat("nope")
+    assert fast.clear_statistics() == 1
 
 
 def test_reports_are_taken_in_order(fast: FlashBackend) -> None:

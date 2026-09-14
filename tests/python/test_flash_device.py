@@ -892,12 +892,47 @@ def test_fills_need_at_least_one_byte(host: Host, num_bytes: int) -> None:
         host.dev.check_content_fill(0, num_bytes, 0xFF)
 
 
-def test_busy_deadline_is_reported_in_femtoseconds(host: Host) -> None:
+def test_busy_remaining_is_reported_in_whole_microseconds(host: Host) -> None:
+    assert host.dev.get_stat("busy_remaining_us") == 0
     host.at(SEC).wren()
     host.at(SEC).command(0x02, addr=0, data=[0x00])
-    assert host.dev.get_stat("busy_deadline_fs") == SEC + 700 * US
+    assert host.dev.get_stat("busy_remaining_us") == 700
+    host.dev.advance_time(SEC + 200 * US + 1)
+    # Rounded up, so it is 0 exactly when WIP is clear
+    assert host.dev.get_stat("busy_remaining_us") == 500
+    host.dev.advance_time(SEC + 700 * US - 1)
+    assert host.dev.get_stat("busy_remaining_us") == 1
+    assert host.dev.get_stat("wip") == 1
+    host.dev.advance_time(SEC + 700 * US)
+    assert host.dev.get_stat("busy_remaining_us") == 0
+    assert host.dev.get_stat("wip") == 0
     with pytest.raises(KeyError):
-        host.dev.get_stat("busy_deadline_ps")
+        host.dev.get_stat("busy_deadline_fs")
+
+
+def test_advance_time_never_moves_the_time_backwards(host: Host) -> None:
+    host.dev.advance_time(5 * SEC)
+    host.dev.advance_time(SEC)
+    assert host.dev.now_fs == 5 * SEC
+
+
+def test_clear_statistics_keeps_content_and_state(fast: Host) -> None:
+    fast.dev.set_protection(0x8000, 16, True)
+    program(fast, 0x100, b"\x00")
+    fast.command(0x77)
+    fast.wren()
+    fast.command(0x20, addr=0x1000)
+    fast.wren()
+    fast.dev.clear_statistics()
+    assert all(fast.dev.get_stat(name) == 0 for name in fast.dev.stats)
+    assert fast.dev.get_stat("ignored_command_count") == 0
+    assert fast.dev.written_regions() == []
+    assert fast.dev.read_back(0x100, 1) == b"\x00"
+    assert fast.dev.get_stat("wel") == 1
+    assert fast.dev.protection.locked_regions() == [(0x8000, 16)]
+    program(fast, 0x200, b"\x00")
+    assert fast.dev.get_stat("program_count") == 1
+    assert fast.dev.written_regions() == [(0x200, 1)]
 
 
 def test_xfer_without_cs_assert_raises(host: Host) -> None:

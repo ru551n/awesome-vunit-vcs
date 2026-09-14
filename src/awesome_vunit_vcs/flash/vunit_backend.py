@@ -35,7 +35,8 @@ femtoseconds, ``t = hi * 2**30 + lo``, see :mod:`awesome_vunit_vcs.common.vunit_
     set_timing_enable(enable)             -> num_reports
     set_timing('<name>', hi, lo)          -> num_reports
     set_protection(addr, num_bytes, locked) -> num_reports
-    get_stat('<name>')                    -> integer
+    get_stat('<name>')  or  get_stat('<name>', hi, lo) -> integer
+    clear_statistics()                    -> num_reports
 
 Addresses and lengths are in bytes.
 
@@ -376,6 +377,16 @@ class FlashBackend:
         regions = self._guard("written_regions", self.device.written_regions, no_regions)
         return _int32([value for region in regions for value in region])
 
+    def clear_statistics(self) -> int:
+        """
+        Reset the counters and forget the written regions, see
+        :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.clear_statistics`.
+
+        Returns:
+            The number of reports waiting.
+        """
+        return self._control("clear_statistics", self.device.clear_statistics)
+
     def set_timing_enable(self, enable: bool) -> int:
         """
         Enable or disable busy times; ``False`` collapses every busy time to zero.
@@ -416,7 +427,7 @@ class FlashBackend:
         """
         return self._control("set_protection", lambda: self.device.set_protection(addr, num_bytes, bool(locked)))
 
-    def get_stat(self, name: str) -> int:
+    def get_stat(self, name: str, hi: int = -1, lo: int = 0) -> int:
         """
         One counter or piece of observable state.
 
@@ -425,14 +436,21 @@ class FlashBackend:
 
         Args:
             name: A name listed by :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.get_stat`.
+            hi: The upper half of the simulation time in fs, or negative for no
+                time. With a time, the device time first advances to it, see
+                :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.advance_time`,
+                so ``wip``, ``sr1`` and ``busy_remaining_us`` are current;
+                without, they are evaluated at the last time VHDL sent.
+            lo: The lower half of the simulation time in fs.
 
         Returns:
-            The value. 0, with a failure report, for an unknown name or a value
-            a VHDL integer cannot hold; ``busy_deadline_fs`` passes ``2**31 - 1``
-            fs after about 2.1 microseconds of simulation time.
+            The value. 0, with a failure report, for an unknown name, invalid
+            time halves or a value a VHDL integer cannot hold.
         """
 
         def stat() -> int:
+            if hi >= 0:
+                self.device.advance_time(join_time(hi, lo))
             value = self.device.get_stat(name)
             if not -(2**31) <= value < 2**31:
                 raise ValueError(f"stat {name!r} = {value} does not fit a signed 32-bit integer")

@@ -1,5 +1,5 @@
-Python guide
-============
+Ethernet in Python
+==================
 
 The Python side of awesome-vunit-vcs owns the verification semantics: frames, checks, statistics,
 captures and packets. It is used in two ways.
@@ -41,7 +41,7 @@ content, so a received frame equals the frame that was sent.
 SFD, error signal and gap, and :func:`~awesome_vunit_vcs.ethernet.api.expected_violations` names
 the checks a monitor reports for it.
 
-.. literalinclude:: ../examples/python/build_frames.py
+.. literalinclude:: ../../examples/python/build_frames.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -58,7 +58,7 @@ An :class:`~awesome_vunit_vcs.ethernet.interfaces.Interface` is a value too: ``e
 VHDL monitor records (sample words and their times), and
 :func:`~awesome_vunit_vcs.ethernet.api.decode` runs them through the monitor pipeline.
 
-.. literalinclude:: ../examples/python/decode_samples.py
+.. literalinclude:: ../../examples/python/decode_samples.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -75,7 +75,7 @@ frames, and it returns the frames completed, collects every
 :class:`~awesome_vunit_vcs.ethernet.metrics.Statistics`. Use it as a context manager, so a frame
 still in progress is reported and captures are closed at the end.
 
-.. literalinclude:: ../examples/python/check_frames.py
+.. literalinclude:: ../../examples/python/check_frames.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -89,7 +89,7 @@ Subscribers
 A subscriber is a function a monitor calls as it finds things, so a test can react while traffic is
 fed instead of inspecting ``rx.frames`` and ``rx.violations`` afterwards.
 
-.. literalinclude:: ../examples/python/monitor_subscribers.py
+.. literalinclude:: ../../examples/python/monitor_subscribers.py
    :language: python
    :start-after: # docs-start: subscribers
    :end-before: # docs-end: subscribers
@@ -120,7 +120,7 @@ Captures
 and ``Monitor.capture`` writes what a monitor receives. A capture never contains the preamble or the
 SFD; timestamps are those of the first octet after the SFD, in nanoseconds by default.
 
-.. literalinclude:: ../examples/python/capture_frames.py
+.. literalinclude:: ../../examples/python/capture_frames.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -131,13 +131,13 @@ Packets with Scapy
 Scapy is optional (``pip install awesome-vunit-vcs[scapy]``). It is not needed to monitor, check or
 capture frames; it adds the protocol layers above Ethernet.
 
-.. literalinclude:: ../examples/python/scapy_packets.py
+.. literalinclude:: ../../examples/python/scapy_packets.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
 
-Property-based testing
-----------------------
+Strategies for your own Hypothesis tests
+----------------------------------------
 
 awesome-vunit-vcs does not depend on `Hypothesis <https://hypothesis.readthedocs.io>`__, but its API
 is shaped for it:
@@ -157,7 +157,7 @@ is shaped for it:
 
 Strategies are then a few lines each:
 
-.. literalinclude:: ../examples/python/property_based.py
+.. literalinclude:: ../../examples/python/property_based.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -213,12 +213,12 @@ A subscriber in a simulation reports what it finds in one of two ways:
        in the subscriber itself.
 
 Annotate ``vc`` as :class:`~awesome_vunit_vcs.ethernet.vunit_backend.MonitorBackend` to get type
-checking in the subscriber module, as below. See :doc:`ethernet/monitors` for creating the monitor in
+checking in the subscriber module, as below. See :doc:`monitors` for creating the monitor in
 VHDL.
 
 This file, ``examples/gmii/python/frame_sizes.py``, runs in the session of a monitor:
 
-.. literalinclude:: ../examples/gmii/python/frame_sizes.py
+.. literalinclude:: ../../examples/gmii/python/frame_sizes.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -226,7 +226,7 @@ This file, ``examples/gmii/python/frame_sizes.py``, runs in the session of a mon
 The testbench executes it with ``exec_file`` from the Python bridge and reads the result back with
 ``eval``, from ``examples/gmii/tb_gmii_example.vhd``:
 
-.. literalinclude:: ../examples/gmii/tb_gmii_example.vhd
+.. literalinclude:: ../../examples/gmii/tb_gmii_example.vhd
    :language: vhdl
    :start-after: elsif run("test_python_subscriber") then
    :end-before: elsif run("test_scapy_packet") then
@@ -254,7 +254,7 @@ long sequence costs few bridge calls. :mod:`awesome_vunit_vcs.ethernet.traffic` 
 machinery for Python code: :func:`~awesome_vunit_vcs.ethernet.traffic.call_packet_function`,
 :func:`~awesome_vunit_vcs.ethernet.traffic.sequence` and the seeded generators.
 
-.. literalinclude:: ../examples/python/packet_functions.py
+.. literalinclude:: ../../examples/python/packet_functions.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -263,8 +263,7 @@ Reproducible traffic from VUnit's seed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 VUnit gives every test run a base seed through ``runner_cfg``, and ``get_seed(runner_cfg, salt)``
-derives seeds from it (``vunit/vhdl/run/src/run_api.vhd``; the string form is 16 hexadecimal
-digits). Pass it to a sequence, and the source hands it to the function as its ``seed`` argument:
+derives seeds from it. Pass it to a sequence, and the source hands it to the function as its ``seed`` argument:
 
 .. code-block:: vhdl
 
@@ -288,27 +287,4 @@ what the source sent, and a failing run repeats with the seed VUnit printed. VUn
 
 The seeded generators in :mod:`awesome_vunit_vcs.ethernet.traffic` draw from the same
 :data:`~awesome_vunit_vcs.ethernet.limits.LIMITS` a Hypothesis strategy builds on: one definition
-of the parameter space, with Hypothesis in tests and :mod:`random` in simulations. Generation
-inside a simulation deliberately does not use Hypothesis: its public API draws examples only inside
-``@given`` tests, and ``strategy.example()`` is documented as unsuitable for anything but
-interactive exploration.
-
-Rules for Python in a simulation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* **Python never touches signals.** It sees what a VHDL component recorded (frames, events) and
-  returns what the component should drive (symbols). Pin timing stays in VHDL.
-* **Errors become VUnit failures.** A violation is logged as an error on the checker of the
-  component. An exception raised by a subscriber, or while processing samples, is caught and logged
-  as a failure on the logger of the component; it never ends the simulation with a Python traceback.
-* **Keep subscribers fast.** They run while the monitor processes a batch of samples.
-
-The VHDL side of the bridge
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Verification components in this repository talk to their backends only through
-``awesome_vunit_vcs.vc_python_pkg``, which isolates the bridge API. It is meant for writing new
-components (see :doc:`contributing/index`); testbenches use the component procedures and, where
-needed, the bridge directly as shown above. The batch encoding on the Python side is
-:mod:`awesome_vunit_vcs.common.vunit_bridge`, and the report queue the backends log through is
-:mod:`awesome_vunit_vcs.common.reports`.
+of the parameter space, with Hypothesis in tests and :mod:`random` in simulations.

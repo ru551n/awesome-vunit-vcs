@@ -7,6 +7,7 @@ lands so the guardrail blocks regressions.
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import re
 import sys
@@ -37,13 +38,84 @@ def _families() -> list[Path]:
     return sorted(path for path in VHDL.iterdir() if path.is_dir())
 
 
-@pytest.mark.parametrize("family", _families(), ids=lambda path: path.name)
-def test_every_vhdl_family_has_a_reference_page(family: Path) -> None:
-    page = DOCS / "reference" / "vhdl" / f"{family.name}.rst"
-    assert page.is_file(), f"Add {page.relative_to(REPO)} including /_generated/vhdl/{family.name}.inc"
-    assert f"/_generated/vhdl/{family.name}.inc" in page.read_text(encoding="utf-8")
-    index = (DOCS / "reference" / "vhdl" / "index.rst").read_text(encoding="utf-8")
-    assert re.search(rf"^\s+{family.name}$", index, re.MULTILINE), f"Add {family.name} to the reference toctree"
+#: The documentation section of every component family, holding its VHDL and Python API pages
+SECTIONS = ("ethernet", "property_testing", "common")
+
+
+def _generated_includes() -> set[str]:
+    includes: set[str] = set()
+    for page in DOCS.rglob("*.rst"):
+        if "_generated" not in page.parts and "_build" not in page.parts:
+            includes |= set(re.findall(r"^\.\. include:: /_generated/vhdl/(\S+)\.inc$", page.read_text(), re.MULTILINE))
+    return includes
+
+
+def test_every_vhdl_package_group_is_in_the_reference() -> None:
+    includes = _generated_includes()
+    missing = [
+        f"{family.name}.{path.stem.split('_')[0]}"
+        for family in _families()
+        for path in sorted(family.glob("*.vhd"))
+        if family.name not in includes and f"{family.name}.{path.stem.split('_')[0]}" not in includes
+    ]
+    assert not missing, "Include these generated groups in a VHDL API page: " + ", ".join(sorted(set(missing)))
+
+
+@pytest.mark.parametrize("section", SECTIONS)
+def test_every_section_has_its_vhdl_and_python_api(section: str) -> None:
+    index = (DOCS / section / "index.rst").read_text(encoding="utf-8")
+    for page in ("vhdl_api", "python_api"):
+        assert (DOCS / section / f"{page}.rst").is_file(), f"Add docs/{section}/{page}.rst"
+        assert re.search(rf"^\s+{page}$", index, re.MULTILINE), f"Add {page} to the toctree of docs/{section}/index.rst"
+
+
+#: Public Python modules whose ``__all__`` must appear in a Python API page
+PUBLIC_MODULES = (
+    "awesome_vunit_vcs.ethernet",
+    "awesome_vunit_vcs.ethernet.lowlevel",
+    "awesome_vunit_vcs.common.property",
+    "awesome_vunit_vcs.records",
+    "awesome_vunit_vcs.gen_vhdl",
+)
+
+
+@pytest.mark.parametrize("module_name", PUBLIC_MODULES)
+def test_every_public_python_name_is_in_the_api_reference(module_name: str) -> None:
+    module = importlib.import_module(module_name)
+    pages = [(DOCS / section / "python_api.rst").read_text(encoding="utf-8") for section in SECTIONS]
+    automodules = set(
+        re.findall(
+            r"^\.\. automodule:: (\S+)\n(?:   :[\w-]+:[^\n]*\n)*?   :members:\s*$", "\n".join(pages), re.MULTILINE
+        )
+    )
+    if module_name in automodules:
+        return
+    text = "\n".join(pages)
+    missing = [name for name in module.__all__ if not re.search(rf"\b{re.escape(name)}\b", text)]
+    assert not missing, f"Document in a python_api.rst page: {', '.join(missing)}"
+
+
+def test_no_concepts_section() -> None:
+    assert not (DOCS / "explanation").exists(), "Technical concepts belong in ARCHITECTURE.md"
+
+
+def test_docs_hold_no_benchmarks_design_records_or_spec_citations() -> None:
+    patterns = {
+        "benchmark timing": r"\b\d+(\.\d+)?\s*(µs|us per|ms per)\b|[Ww]all clock",
+        "design decision records": r"^Design decisions?\n[=~-]{3,}$",
+        "specification clause citations": r"IEEE 802\.3[a-z]*\s+(Clause|Table|\d+\.\d)|JESD216[A-Z]?\s+(section|table)",
+    }
+    offenders = []
+    for page in sorted(DOCS.rglob("*.rst")):
+        if "_generated" in page.parts or "_build" in page.parts:
+            continue
+        text = page.read_text(encoding="utf-8")
+        offenders += [
+            f"{page.relative_to(REPO)}: {what}"
+            for what, pattern in patterns.items()
+            if re.search(pattern, text, re.MULTILINE)
+        ]
+    assert not offenders, "Move these to ARCHITECTURE.md: " + "; ".join(offenders)
 
 
 def test_every_vhdl_file_parses_into_a_design_unit() -> None:

@@ -1,7 +1,7 @@
 """
 Run the Python examples the documentation includes.
 
-Every file in examples/python is shown in docs/python_guide.rst, so a change
+Every file in examples/python is shown in docs/ethernet/python.rst, so a change
 that breaks an example fails here instead of in a reader's hands.
 """
 

@@ -49,8 +49,7 @@ Ethernet interfaces
      - Planned
 
 The XGMII family is one component with lane count (4 or 8), clocking and link rate settings, so
-2.5GMII and 5GMII (IEEE 802.3bz), XGMII, 25GMII, XLGMII, CGMII, and 200GMII and 400GMII
-(IEEE 802.3bs) need no components of their own.
+2.5GMII, 5GMII, XGMII, 25GMII, XLGMII, CGMII, 200GMII and 400GMII need no components of their own.
 The GMII component likewise takes a link rate, which covers the overclocked 2.5G GMII some FPGA MACs
 use.
 

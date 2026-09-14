@@ -7,10 +7,9 @@ Ethernet is the first family.
 
 **VHDL handles simulation timing. Python handles verification semantics.**
 
-The VHDL components sample and drive the pins at the right simulation edges and exchange batched
-observations with Python through the VUnit Python bridge. Frame reconstruction, protocol checks,
-statistics, Wireshark captures and packet construction are simulator independent Python, and a test
-never has to write Python.
+The VHDL components connect to the pins of your design. Frame reconstruction, protocol checks,
+statistics, Wireshark captures and packet construction happen in Python behind them, and a test never
+has to write Python.
 
 .. grid:: 1 1 3 3
    :gutter: 2
@@ -27,11 +26,11 @@ never has to write Python.
 
       Sources, monitors and protocol checkers for MII, GMII and the XGMII family.
 
-   .. grid-item-card:: API reference
-      :link: reference/vhdl/index
+   .. grid-item-card:: Property-based testing
+      :link: property_testing/index
       :link-type: doc
 
-      Every VHDL declaration, generated from the sources, and the Python API.
+      Let Hypothesis find the smallest input that breaks your design, inside the simulation.
 
 Status
 ------
@@ -79,7 +78,7 @@ Tested with GHDL and NVC in CI.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Examples library
+   :caption: Cookbook
    :hidden:
 
    cookbook/index
@@ -93,43 +92,25 @@ Tested with GHDL and NVC in CI.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Python
+   :caption: Property-based testing
    :hidden:
 
-   python_guide
-   property_testing
-   python_api
+   property_testing/index
 
 .. toctree::
    :maxdepth: 2
-   :caption: VHDL API reference
+   :caption: Common
    :hidden:
 
-   reference/vhdl/index
+   common/index
 
 .. toctree::
    :maxdepth: 1
-   :caption: Concepts
-   :hidden:
-
-   explanation/architecture
-   explanation/design_decisions
-   explanation/performance
-   explanation/limitations
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Help
+   :caption: Help and project
    :hidden:
 
    troubleshooting
    glossary
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Project
-   :hidden:
-
+   contributing/index
    roadmap
    release_notes/index
-   contributing/index

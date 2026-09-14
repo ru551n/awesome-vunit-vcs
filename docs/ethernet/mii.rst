@@ -1,7 +1,7 @@
 MII
 ===
 
-MII (IEEE 802.3 Clause 22) carries 10 and 100 Mbit/s Ethernet, one nibble per clock cycle, least
+MII carries 10 and 100 Mbit/s Ethernet, one nibble per clock cycle, least
 significant nibble of each octet first.
 
 At a glance
@@ -74,8 +74,7 @@ How nibbles become octets
    * - Odd preamble
      - An unpaired leading preamble nibble is dropped, so 15 preamble nibbles count as 7 octets.
    * - Trailing nibble
-     - A frame ending with an unpaired nibble is an ``ETH_TERMINATION`` violation (an alignment error,
-       IEEE 802.3 4.2.4.2.1); the incomplete octet also fails ``ETH_FCS``.
+     - A frame ending with an unpaired nibble is an ``ETH_TERMINATION`` violation (an alignment error); the incomplete octet also fails ``ETH_FCS``.
    * - Error and metavalue
      - Flags on either nibble mark the octet.
    * - Batches

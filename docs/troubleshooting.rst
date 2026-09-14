@@ -78,7 +78,7 @@ Performance
    * - Symptom
      - Cause and fix
    * - A slow simulation with many small frames
-     - Keep the default ``batch_length`` and ``flush_at_frame_end``; see :doc:`explanation/performance`.
+     - Keep the default ``batch_length`` and ``flush_at_frame_end``.
    * - Large output directories
      - Captures grow with the traffic; capture only the tests you inspect. See :doc:`ethernet/captures`.
 

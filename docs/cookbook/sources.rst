@@ -96,7 +96,7 @@ headers, or packets made with Scapy.
 
 **Full example:** ``test_send_a_packet_from_python``
 
-**See also:** :doc:`../ethernet/packets_and_sequences`, :doc:`../python_guide`
+**See also:** :doc:`../ethernet/packets_and_sequences`, :doc:`../ethernet/python`
 
 How do I send a reproducible random sequence?
 ---------------------------------------------

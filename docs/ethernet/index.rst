@@ -20,6 +20,28 @@ interface applies to all of them.
    * - ``<interface>_protocol_checker``
      - Observes one direction and checks the protocol. A monitor creates one when asked.
 
+What's here
+-----------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Page
+     - What's here
+   * - :doc:`gmii`, :doc:`xgmii`, :doc:`mii`
+     - One page per interface: pins, constructors and options
+   * - :doc:`monitors`, :doc:`packets_and_sequences`
+     - Receiving and sending frames
+   * - :doc:`checks`, :doc:`scoreboard`, :doc:`statistics`, :doc:`captures`
+     - What a monitor gives you
+   * - :doc:`python`
+     - Frames, monitors and subscribers in Python, and your own Hypothesis strategies
+   * - :doc:`vhdl_api`
+     - Every VHDL package, context and entity of the family
+   * - :doc:`python_api`
+     - Every public Python name of ``awesome_vunit_vcs.ethernet``
+
 Interfaces
 ----------
 
@@ -129,7 +151,7 @@ aborts the frame in progress at a symbol boundary; a monitor forgets the frame i
 pops and expected frames (statistics are kept unless ``clear_statistics => true``); a protocol checker
 forgets the frame in progress and keeps its counts.
 
-Every declaration is listed in the :doc:`../reference/vhdl/ethernet` reference.
+Every declaration is listed in the :doc:`vhdl_api`.
 
 .. toctree::
    :maxdepth: 1
@@ -144,3 +166,6 @@ Every declaration is listed in the :doc:`../reference/vhdl/ethernet` reference.
    statistics
    captures
    packets_and_sequences
+   python
+   vhdl_api
+   python_api

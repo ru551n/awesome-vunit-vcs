@@ -89,6 +89,10 @@ nitpick_ignore_regex = [
     (r"py:class", r"TypeAliasForwardRef"),
     # autodoc renders the aliases quoted where a module uses them as forward references
     (r"py:class", r"'awesome_vunit_vcs\.ethernet\.phy\.common\.Int(32|64)Array'"),
+    # napoleon reads the first line of this constant's comment as its type
+    (r"py:class", r"The environment variable selecting the example budget"),
+    # a decorator Hypothesis does not list in its inventory
+    (r"py:func", r"hypothesis\.example"),
 ]
 
 myst_heading_anchors = 3
@@ -150,6 +154,7 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "vunit": ("https://vunit.github.io/", None),
     "scapy": ("https://scapy.readthedocs.io/en/latest/", None),
+    "hypothesis": ("https://hypothesis.readthedocs.io/en/latest/", None),
 }
 
 # -- Linkcheck (weekly job in .github/workflows/docs.yml) --------------------

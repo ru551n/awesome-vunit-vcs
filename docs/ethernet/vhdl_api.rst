@@ -1,7 +1,7 @@
-VHDL API reference
-==================
+VHDL API
+========
 
-The reference of every VHDL package, context and entity of awesome-vunit-vcs, generated from the
+The reference of every VHDL package, context and entity of the Ethernet family, generated from the
 doc comments of the sources when the documentation is built, so it always matches the code. The
 user guide pages explain how the pieces fit together; this part is for looking things up.
 
@@ -16,8 +16,7 @@ Declarations can be referenced from anywhere in the documentation with the ``vhd
 example ``:vhdl:`ethernet_pkg.ethernet_check_t``` renders as :vhdl:`ethernet_pkg.ethernet_check_t`.
 They are also listed in the :ref:`general index <genindex>`.
 
-.. toctree::
-   :maxdepth: 2
+The packages, contexts and entities of the Ethernet family, grouped by interface. Testbenches use
+``ethernet_context``; the shared packages hold what every interface has in common.
 
-   ethernet
-   common
+.. include:: /_generated/vhdl/ethernet.inc

@@ -165,4 +165,4 @@ and randomized traffic; ``tests/vhdl/tb_gmii_vci.vhd`` covers the VUnit conventi
 Limitations
 -----------
 
-None beyond those of every Ethernet component; see :doc:`../explanation/limitations`.
+None beyond those of every Ethernet component.

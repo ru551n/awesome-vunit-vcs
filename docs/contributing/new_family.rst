@@ -61,7 +61,7 @@ For a new family ``<family>``:
 
    * Passive components record samples only when something changes or data is valid, and flush at
      batch end or when the backend must be up to date (end of a transfer, ``wait_until_idle``). The
-     benchmark on :doc:`../explanation/performance` shows why.
+     benchmark in `ARCHITECTURE.md <https://github.com/ru551n/awesome-vunit-vcs/blob/main/ARCHITECTURE.md#performance>`__ shows why.
    * An active responder whose next output depends on what it just received (a memory model
      answering an opcode, say) may call the bridge once per transfer unit (octet or word), never per
      clock cycle. Measure that cost, and move bulk content through batched procedures such as preload
@@ -121,7 +121,7 @@ A new component or interface is not done until its documentation is. Before open
   #. Statistics notes.
   #. Python backend: the PHY decoder class and the sample word layout.
   #. Example: an excerpt of a tested testbench.
-  #. Limitations, in a ``note`` admonition, also added to :doc:`../explanation/limitations`.
+  #. Limitations, in a ``note`` admonition, with the technical detail in `ARCHITECTURE.md <https://github.com/ru551n/awesome-vunit-vcs/blob/main/ARCHITECTURE.md>`__.
 
 * **Status** updated in :doc:`../roadmap` and in the README status list.
 * **Release notes** entry for the change.

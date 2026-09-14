@@ -134,7 +134,7 @@ How do I run Python on every received frame?
 
 **When to use this:** when checking a frame needs Python, such as a reference model or packet decoding.
 
-The recipe is in :doc:`../ethernet/monitors` and :doc:`../python_guide`, based on
+The recipe is in :doc:`../ethernet/monitors` and :doc:`../ethernet/python`, based on
 :repo-file:`examples/gmii/python/frame_sizes.py` and the ``test_python_subscriber`` test case of
 :repo-file:`examples/gmii/tb_gmii_example.vhd`.
 

@@ -1,7 +1,7 @@
 Python API
 ==========
 
-The public Python API, grouped by topic. :doc:`python_guide` shows how the pieces fit together.
+The public Python API, grouped by topic. :doc:`python` shows how the pieces fit together.
 
 Everything a test normally needs is importable from one module::
 
@@ -52,9 +52,6 @@ Units and errors
 
 .. automodule:: awesome_vunit_vcs.ethernet.errors
    :members: EthernetValueError
-
-.. automodule:: awesome_vunit_vcs.errors
-   :members: AwesomeVunitVcsError
 
 Traffic
 ~~~~~~~
@@ -139,24 +136,3 @@ Annotate it in your own modules with ``vc: MonitorBackend``.
 
 .. automodule:: awesome_vunit_vcs.ethernet.vunit_backend
    :members: MonitorBackend, ProtocolCheckerBackend, SourceBackend
-
-Common infrastructure
----------------------
-
-Events
-~~~~~~
-
-.. automodule:: awesome_vunit_vcs.common.events
-   :members: Publisher, T, Subscriber, ErrorHandler
-
-Reports
-~~~~~~~
-
-.. automodule:: awesome_vunit_vcs.common.reports
-   :members: Severity, Report, ReportQueue, encode_reports, decode_reports
-
-Bridge encoding
-~~~~~~~~~~~~~~~
-
-.. automodule:: awesome_vunit_vcs.common.vunit_bridge
-   :members: join_time, split_time, decode_samples, encode_samples, bytes_from_unsigned

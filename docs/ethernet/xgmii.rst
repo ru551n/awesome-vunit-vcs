@@ -33,7 +33,7 @@ Configurations
      - ``lanes``
      - ``both_edges``
      - ``link_rate_mbps``
-   * - XGMII (IEEE 802.3 Clause 46)
+   * - XGMII
      - 4
      - true
      - 10000
@@ -57,7 +57,7 @@ Configurations
      - 8
      - false
      - 40000 / 100000
-   * - 200GMII / 400GMII (IEEE 802.3bs)
+   * - 200GMII / 400GMII
      - 8
      - false
      - 200000 / 400000
@@ -151,11 +151,6 @@ Control characters
    * - Sequence
      - ``0x9C``
      - Lane 0, with three data octets: ``00 00 01`` local fault, ``00 00 02`` remote fault
-
-Sources: IEEE 802.3 Table 46-3 and Table 46-5, as reproduced in Xilinx XAPP687 Table 2 and the UNH-IOL
-Clause 49 PCS test suite; the 5-octet minimum receive gap is IEEE 802.3 interpretation 1-11/09 of 4.4.2.
-cocotbext-eth's ``XgmiiCtrl`` uses the same values. 200GMII and 400GMII use the control characters and ordered sets of CGMII (IEEE 802.3bs
-119.2.3.3 to 119.2.3.8, referring to Table 82-1 and 82.2.3.6 to 82.2.3.9).
 
 Violations only control characters can express are ``eth_control`` (Start or Sequence on a wrong lane, an
 unknown or reserved character, Terminate or data outside a frame, an incomplete ordered set),

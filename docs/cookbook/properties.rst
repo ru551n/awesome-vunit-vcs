@@ -27,7 +27,7 @@ How do I write the simplest property?
 
 **Full example:** ``test_scalar``
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I read composite examples?
 ---------------------------------
@@ -47,7 +47,7 @@ frames.
 
 **Full example:** ``test_composite``
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I use a record from a Python dataclass?
 ----------------------------------------------
@@ -72,7 +72,7 @@ repeat.
 
 **Full example:** ``test_generated_record``
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I test a sequence of operations?
 ---------------------------------------
@@ -91,7 +91,7 @@ How do I test a sequence of operations?
 
 **Full example:** ``test_stateful``
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I steer the search towards corner cases?
 -----------------------------------------------
@@ -108,7 +108,7 @@ How do I steer the search towards corner cases?
 
 **Full example:** ``test_score``
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I compare two runs instead of expected values?
 -----------------------------------------------------
@@ -125,7 +125,7 @@ How do I compare two runs instead of expected values?
 
 **Full example:** ``test_metamorphic``
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I generate timing separately from data?
 ----------------------------------------------
@@ -143,7 +143,7 @@ of a transfer.
 
 **Full example:** ``test_timing``
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I test with random feature subsets?
 ------------------------------------------
@@ -161,7 +161,7 @@ feature on its own.
 
 **Full example:** ``test_swarm``
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I handle a DUT that locks up?
 ------------------------------------
@@ -180,7 +180,7 @@ How do I handle a DUT that locks up?
 
 **Full example:** :repo-file:`examples/property/tb_property_lockup.vhd`
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I always test a known failure first?
 -------------------------------------------
@@ -203,7 +203,7 @@ How do I always test a known failure first?
 
    $ AWESOME_VUNIT_VCS_PROPERTY_PROFILE=long python examples/property/run.py
 
-**See also:** :doc:`../property_testing`
+**See also:** :doc:`../property_testing/index`
 
 How do I test Ethernet frames with properties?
 ----------------------------------------------
@@ -220,4 +220,4 @@ How do I test Ethernet frames with properties?
 
 **Full example:** :repo-file:`examples/property/tb_property_ethernet.vhd`
 
-**See also:** :doc:`../property_testing`, :doc:`python`
+**See also:** :doc:`../property_testing/index`, :doc:`python`

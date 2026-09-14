@@ -60,4 +60,4 @@ frames.
 
 Utilization and bit rate come from ``link_rate_mbps``, so set it to the rate of the link. Python users
 get the same statistics, with rates and the histogram, from ``vc.statistics``; see
-:doc:`../python_guide`.
+:doc:`python`.

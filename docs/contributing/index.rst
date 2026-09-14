@@ -20,7 +20,7 @@ The rule every component follows
 VHDL samples and drives pins at the right simulation edges and exchanges batched observations with a
 Python backend object. Python never accesses simulator signals and never schedules simulation time. A
 VHDL user controls a component through VHDL procedures only; Python-specific features are additive.
-:doc:`../explanation/architecture` explains the boundary and :doc:`../explanation/design_decisions`
+`ARCHITECTURE.md <https://github.com/ru551n/awesome-vunit-vcs/blob/main/ARCHITECTURE.md>`__ explains the boundary and
 the reasons for it.
 
 Development setup
@@ -64,7 +64,7 @@ The documentation is built with warnings as errors:
     pip install -r docs/requirements.txt
     sphinx-build -W --keep-going -b html docs docs/_build
 
-The bridge benchmark is not part of CI; see :doc:`../explanation/performance`.
+The bridge benchmark is not part of CI; see `ARCHITECTURE.md <https://github.com/ru551n/awesome-vunit-vcs/blob/main/ARCHITECTURE.md#performance>`__.
 
 Commits and pull requests
 -------------------------

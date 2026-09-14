@@ -54,13 +54,13 @@ VUnit run script with `vu.add_package("vunit-python-bridge")` and `vu.add_packag
 * [`examples/gmii`](examples/gmii): a complete testbench around a small DUT, with a source, monitors,
   the scoreboard, statistics, a capture and Scapy.
 * [`examples/python`](examples/python): the Python core without a simulator, as used in the
-  [Python guide](https://awesome-vunit-vcs.readthedocs.io/en/latest/python_guide.html).
+  [Python guide](https://awesome-vunit-vcs.readthedocs.io/en/latest/ethernet/python.html).
 
 ## Learn more
 
 * [Documentation](https://awesome-vunit-vcs.readthedocs.io): installation, user guides, Python and
   VHDL API reference.
-* [Architecture](https://awesome-vunit-vcs.readthedocs.io/en/latest/explanation/architecture.html):
+* [Architecture](ARCHITECTURE.md):
   how VHDL and Python share the work.
 * [Contributing](CONTRIBUTING.md): development setup, checks and how a new component family fits in.
 

@@ -49,7 +49,7 @@ The parameters used most:
    * - ``log_frames``
      - Log every received frame on the monitor's logger.
 
-Every parameter is listed in the :doc:`../reference/vhdl/ethernet` reference; :doc:`gmii`, :doc:`mii`
+Every parameter is listed in the :doc:`vhdl_api`; :doc:`gmii`, :doc:`mii`
 and :doc:`xgmii` list the parameters of each interface.
 
 The protocol checker a monitor creates is named after the monitor: the checks of

@@ -1,5 +1,5 @@
-Common infrastructure
-=====================
+VHDL API
+========
 
 .. important::
 
@@ -9,4 +9,4 @@ Common infrastructure
 ``vc_python_pkg`` is the only package that uses the VUnit Python bridge. Verification components
 of every family go through it, so a change of the bridge API is absorbed in one place.
 
-.. include:: /_generated/vhdl/common.inc
+.. include:: /_generated/vhdl/common.vc.inc

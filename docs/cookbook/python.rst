@@ -24,7 +24,7 @@ How do I build frames and malformed traffic?
 
 **Full example:** :repo-file:`examples/python/build_frames.py`
 
-**See also:** :doc:`../python_guide`
+**See also:** :doc:`../ethernet/python`
 
 How do I decode samples from any interface?
 -------------------------------------------
@@ -42,7 +42,7 @@ How do I decode samples from any interface?
 
 **Full example:** :repo-file:`examples/python/decode_samples.py`
 
-**See also:** :doc:`../python_guide`
+**See also:** :doc:`../ethernet/python`
 
 How do I check frames and get statistics?
 -----------------------------------------
@@ -60,7 +60,7 @@ How do I check frames and get statistics?
 
 **Full example:** :repo-file:`examples/python/check_frames.py`
 
-**See also:** :doc:`../python_guide`, :doc:`../ethernet/checks`
+**See also:** :doc:`../ethernet/python`, :doc:`../ethernet/checks`
 
 How do I write a PCAPNG file?
 -----------------------------
@@ -97,7 +97,7 @@ How do I react to each frame in Python?
 
 **Full example:** :repo-file:`examples/python/monitor_subscribers.py`
 
-**See also:** :doc:`../python_guide`
+**See also:** :doc:`../ethernet/python`
 
 How do I write my own Hypothesis strategy?
 ------------------------------------------
@@ -120,4 +120,4 @@ How do I write my own Hypothesis strategy?
 
    $ pytest examples/python/property_based.py
 
-**See also:** :doc:`../python_guide`, :doc:`properties`
+**See also:** :doc:`../ethernet/python`, :doc:`properties`

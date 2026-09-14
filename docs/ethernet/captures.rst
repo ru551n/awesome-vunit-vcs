@@ -56,4 +56,4 @@ files, so capture only the tests where you look at the traffic, and use ``includ
 ``stop_capture`` to bound it. VUnit's output path is cleared by ``--clean``.
 
 From Python, ``eth.write_pcapng(path, frames)`` writes frames you built yourself; see
-:doc:`../python_guide`.
+:doc:`python`.

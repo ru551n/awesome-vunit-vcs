@@ -80,8 +80,7 @@ begin
     variable total, expected_count : natural;
 
     -- Seeded random traffic with malformations, see awesome_vunit_vcs.ethernet.traffic.
-    -- Without bad_sfd: after a short gap, the checker does not report the gap before
-    -- octets without an SFD, which expected_violations predicts
+    -- Without bad_sfd: MII realigns nibbles on the SFD, which expected_violations does not predict
     constant traffic_function : string := "awesome_vunit_vcs.ethernet.traffic:random_traffic";
     constant traffic_arguments : string :=
       "count=60, malformations=('bad_fcs', 'short_preamble', 'long_preamble', 'runt', 'giant', " &

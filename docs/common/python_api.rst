@@ -1,7 +1,7 @@
 Python API
 ==========
 
-The Python infrastructure every family shares.
+The Python API every family shares. :doc:`index` shows how to use it.
 
 Errors
 ------

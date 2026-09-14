@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # The Python bridge (VUnit PR #1220) is not released yet: pin its head commit.
+  # Keep in sync with DEFAULT_VUNIT in tests/packaging/check_package.py.
+  VUNIT_REQUIREMENT: vunit_hdl @ git+https://github.com/ru551n/vunit.git@6f34c380a160b0adae9a742c5044b1773aebf03a
+  PIP_PROGRESS_BAR: 'off'
+
+jobs:
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: |
+          pip install "$VUNIT_REQUIREMENT"
+          pip install -e ".[dev]"
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format
+        run: ruff format --check .
+      - name: Mypy
+        run: mypy
+
+  python-tests:
+    name: Python ${{ matrix.python }} unit tests
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest and newest Python VUnit supports
+        python: ['3.10', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: |
+          pip install "$VUNIT_REQUIREMENT"
+          pip install -e ".[test,scapy,reference]"
+      - name: Pytest
+        run: pytest
+
+  packaging:
+    name: Build, install and use the package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v7
+      - uses: nickg/setup-nvc@v1
+        with:
+          version: latest
+      - name: Build and check the distributions
+        run: |
+          uv build --out-dir dist
+          uvx twine check --strict dist/*
+      # Wheel and editable installs into clean environments, add_package
+      # discovery, and examples/external_project run from outside the repository
+      - name: Packaging check with the external project
+        env:
+          VUNIT_SIMULATOR: nvc
+        run: python tests/packaging/check_package.py --run-example
+
+  hdl-tests:
+    name: HDL tests with ${{ matrix.simulator }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        simulator: [ghdl, nvc]
+    env:
+      VUNIT_SIMULATOR: ${{ matrix.simulator }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - if: matrix.simulator == 'ghdl'
+        uses: ghdl/setup-ghdl@v1.5.1
+        with:
+          version: latest
+          backend: mcode
+      - if: matrix.simulator == 'nvc'
+        uses: nickg/setup-nvc@v1
+        with:
+          version: latest
+      - name: Install
+        run: |
+          pip install "$VUNIT_REQUIREMENT"
+          pip install -e ".[scapy]"
+      - name: Run tests/vhdl
+        run: python tests/vhdl/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out"

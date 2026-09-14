@@ -10,6 +10,7 @@ after every byte and cs_deassert when CS rises. cs_assert and xfer return a
 packed directive saying what to do with the next byte.
 """
 
+# docs-start: example
 from awesome_vunit_vcs.flash import FlashConfig, FlashDevice
 from awesome_vunit_vcs.flash.directive import Action, unpack
 
@@ -35,3 +36,4 @@ assert jedec_id == [0xC2, 0x20, 0x18]
 assert device.get_stat("cmd_count") == 1
 
 print("JEDEC ID:", " ".join(f"{byte:02X}" for byte in jedec_id))
+# docs-end: example

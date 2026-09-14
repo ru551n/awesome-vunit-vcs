@@ -1,49 +1,56 @@
 Flash in Python
 ===============
 
-The flash VC is a thin VHDL frontend: it owns the pins and the simulation time, and a Python device
-model decides what every byte on the bus means. The model is plain Python, so it is used in two ways.
-
-* **Standalone**, without a simulator: test an image, a boot sequence or a driver's command order in
-  ``pytest``.
-* **Inside a simulation**, behind every ``flash`` entity. A testbench configures and inspects it with
-  VHDL procedures and never has to write Python.
-
-Everything a test needs is one import:
+Use the flash device model to test an image, a boot sequence or a driver's command order in
+``pytest``, without a simulator. The same model runs behind every ``flash`` entity in a simulation,
+where a testbench drives it with VHDL procedures and never has to write Python.
 
 .. code-block:: python
+   :caption: The one import you need
 
    from awesome_vunit_vcs.flash import FlashConfig, FlashDevice
 
-Addresses and lengths are in bytes, and times are integers in femtoseconds. Every invalid argument or
-configuration raises :class:`~awesome_vunit_vcs.flash.errors.FlashValueError`, and a failed content
-check raises :class:`~awesome_vunit_vcs.flash.errors.ContentMismatch`. Both are a
-:class:`~awesome_vunit_vcs.flash.errors.FlashError`.
+Every example on this page is a file that the test suite runs.
+
+.. list-table::
+   :widths: 30 70
+
+   * - Times
+     - Integers in femtoseconds.
+   * - Addresses and lengths
+     - Bytes.
+   * - Errors
+     - Every invalid argument or configuration raises
+       :class:`~awesome_vunit_vcs.flash.errors.FlashValueError`, and a failed content check raises
+       :class:`~awesome_vunit_vcs.flash.errors.ContentMismatch`. Both are a
+       :class:`~awesome_vunit_vcs.flash.errors.FlashError`.
 
 .. contents:: On this page
    :local:
-   :depth: 2
+   :depth: 1
 
-The device model
-----------------
-
-:class:`~awesome_vunit_vcs.flash.device.FlashDevice` is the device model behind a VHDL flash, built
-from a :class:`~awesome_vunit_vcs.flash.config.FlashConfig` with the same parameters as
-:vhdl:`flash_pkg.new_flash`. It answers the calls the component makes for the bytes on the wire with
-packed directives, which :func:`~awesome_vunit_vcs.flash.directive.unpack` turns back into fields.
-The example reads the JEDEC ID the way a QSPI master would:
+Talk to the device model
+------------------------
 
 .. literalinclude:: ../../examples/python/flash_jedec_id.py
+   :caption: examples/python/flash_jedec_id.py
    :language: python
-   :start-at: from awesome_vunit_vcs.flash import
+   :start-after: # docs-start: example
+   :end-before: # docs-end: example
 
-This file is ``examples/python/flash_jedec_id.py``, which the test suite runs.
+:class:`~awesome_vunit_vcs.flash.device.FlashDevice` is the device model behind a VHDL flash. Build it
+from a :class:`~awesome_vunit_vcs.flash.config.FlashConfig`, which has the same parameters as
+:vhdl:`flash_pkg.new_flash`.
 
-Content without the bus
------------------------
+The model answers the calls the component makes for the bytes on the wire with packed directives.
+:func:`~awesome_vunit_vcs.flash.directive.unpack` turns them back into fields. The example reads the
+:term:`JEDEC` ID the way a QSPI master would.
 
-A test that only cares about the content uses the memory access methods, which the VHDL procedures
-of the same names call:
+Seed and check content without the bus
+---------------------------------------
+
+A test that only cares about the content uses the memory access methods. The VHDL procedures of the
+same names call them.
 
 * :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.preload`,
   :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.preload_fill` and
@@ -56,11 +63,24 @@ of the same names call:
   touched, and :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.get_stat` returns the counters of
   :ref:`flash-statistics`.
 
-In a simulation
+Use the model inside a simulation
+---------------------------------
+
+Every ``flash`` creates one :class:`~awesome_vunit_vcs.flash.vunit_backend.FlashBackend` as the
+:term:`backend` object ``vc``. It lives in a Python :term:`session` with the identity of the flash, so
+two flashes share nothing.
+
+The backend wraps a :class:`~awesome_vunit_vcs.flash.device.FlashDevice` and never raises: an exception
+becomes a report that the VHDL component logs on the logger or checker of the flash.
+:doc:`qspi_flash` lists what is reported where.
+
+Related recipes
 ---------------
 
-Every ``flash`` creates one :class:`~awesome_vunit_vcs.flash.vunit_backend.FlashBackend` as the object
-``vc`` in a Python session with the identity of the flash, so two flashes share nothing. The backend
-wraps a :class:`~awesome_vunit_vcs.flash.device.FlashDevice` and never raises: an exception becomes a
-report that the VHDL component logs on the logger or checker of the flash. :doc:`qspi_flash` lists
-what is reported where.
+* :doc:`../cookbook/flash`: *Preload a flash image and boot from it*, *Check what the DUT wrote to the
+  flash*
+
+API reference
+-------------
+
+:doc:`python_api`

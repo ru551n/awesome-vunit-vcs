@@ -8,12 +8,14 @@ binary values and lists, and ``Choices(...)`` for a fixed set of integers or str
 against the bounds.
 
 .. literalinclude:: ../../examples/property/python/example_records.py
+   :caption: examples/property/python/example_records.py
    :language: python
    :pyobject: Pair
 
 The run script generates a VHDL package from the dataclasses, rewriting it only when it changes:
 
 .. literalinclude:: ../../examples/property/run.py
+   :caption: examples/property/run.py
    :language: python
    :start-after: # docs-start: generate
    :end-before: # docs-end: generate
@@ -22,6 +24,7 @@ The package has a record type ``<name>_t``, a getter ``get_<name>(prop, path)`` 
 ``to_string(value)`` for every dataclass, so a test reads a whole example with one call:
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: generated_record
    :end-before: -- docs-end: generated_record
@@ -30,6 +33,7 @@ The package has a record type ``<name>_t``, a getter ``get_<name>(prop, path)`` 
 The same package can be generated from the command line:
 
 .. code-block:: bash
+   :caption: Terminal
 
    python -m awesome_vunit_vcs.gen_vhdl example_records:Pair --package example_records_pkg \
      --output example_records_pkg.vhd

@@ -1,6 +1,8 @@
 Python API
 ==========
 
+:doc:`index` and :doc:`records` show how to use these modules.
+
 Property runner
 ---------------
 

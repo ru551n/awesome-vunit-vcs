@@ -1,0 +1,281 @@
+QSPI master
+===========
+
+Overview
+--------
+
+The ``qspi_master`` verification component (VC) drives a QSPI bus from a testbench. It knows nothing
+about flash: it runs one transaction shape, whose bytes, lane widths and dummy cycles the caller
+chooses, and owns CS framing, SCK generation, lane placement and tri-stating. ``qspi_flash_cmd_pkg``
+builds the common JEDEC flash commands on top of it. Anything the command layer cannot express, such
+as a vendor command or a malformed frame for a negative test, goes through ``qspi_transfer``.
+
+At a glance
+-----------
+
+.. list-table::
+   :widths: 30 70
+
+   * - Bus
+     - QSPI in SPI mode 0 (CPOL = 0, CPHA = 0): SCK idles low, the master changes its outputs on the
+       falling edge and samples on the rising edge
+   * - Lanes
+     - x1, x2 and x4 per phase; x1 phases drive ``IO0`` (MOSI) and read ``IO1`` (MISO); QPI is x4 on
+       every phase
+   * - Addressing
+     - 3- and 4-byte addresses in the command layer (``addr_bytes``); any bytes with ``qspi_transfer``
+   * - Clocking
+     - ``sck_period`` from the handle, changed at run time with ``set_sck_period``
+   * - Simulators
+     - GHDL and NVC, in CI
+
+A transaction is:
+
+.. code-block:: text
+
+   CS low -> cmd bytes (cmd_lanes) -> addr bytes (addr_lanes) -> wr_data bytes (wr_lanes)
+          -> dummy_cycles with every master I/O released -> num_read_bytes bytes (read_lanes) -> CS high
+
+Any phase may be empty. CS falls half an SCK period before the first rising edge and rises half a
+period after the last falling edge. It then stays high for the longer of one SCK period and
+``cs_deselect_time`` before the next transaction starts. A read beat samples the bus just before the
+rising edge.
+
+Pins
+----
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 12 33 30
+
+   * - Port and field
+     - Direction
+     - Type
+     - Signal
+   * - ``m2s.sck``
+     - out
+     - ``std_ulogic``
+     - ``CLK``
+   * - ``m2s.cs_n``
+     - out
+     - ``std_ulogic``
+     - ``/CS``
+   * - ``m2s.io.value``, ``m2s.io.enable``
+     - out
+     - ``std_ulogic_vector(3 downto 0)`` each
+     - ``IO0`` to ``IO3`` driven by the master
+   * - ``s2m.io.value``, ``s2m.io.enable``
+     - in
+     - ``std_ulogic_vector(3 downto 0)`` each
+     - ``IO0`` to ``IO3`` driven by the device
+
+``m2s`` has the initial value ``qspi_m2s_init``: SCK low, CS high, no lane driven. In a dual or quad
+phase the most significant bit of a beat is on the highest lane. The handle is the only generic:
+``qspi_master : qspi_master_t``.
+
+Constructor parameters
+----------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 20 20 35
+
+   * - Parameter
+     - Type
+     - Default
+     - Meaning
+   * - ``sck_period``
+     - ``delay_length``
+     - 20 ns (``qspi_default_sck_period``)
+     - The SCK period the master starts with
+   * - ``cs_deselect_time``
+     - ``delay_length``
+     - 50 ns (``qspi_default_cs_deselect_time``)
+     - Minimum CS high time between two transactions, above the 30 ns default ``t_shsl`` of a protocol
+       checker
+   * - ``protocol_checker``
+     - ``qspi_protocol_checker_t``
+     - ``null_qspi_protocol_checker``
+     - A protocol checker to instantiate on the pins of the master, see :doc:`qspi_protocol_checker`
+   * - ``id``
+     - ``id_t``
+     - ``null_id``
+     - ``awesome_vunit_vcs:qspi_master:<n>`` when not given
+   * - ``logger``
+     - ``logger_t``
+     - ``null_logger``
+     - The logger of the id when not given
+   * - ``actor``
+     - ``actor_t``
+     - ``null_actor``
+     - A new actor of the id when not given
+   * - ``checker``
+     - ``checker_t``
+     - ``null_checker``
+     - A new checker on the logger when not given
+   * - ``unexpected_msg_type_policy``
+     - ``unexpected_msg_type_policy_t``
+     - ``fail``
+     - ``fail`` logs a message of an unknown type as a failure on the logger, ``ignore`` drops it
+
+Procedures
+----------
+
+Transactions
+~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Procedure
+     - Purpose
+   * - ``qspi_transfer(net, qspi_master, cmd, reference, ...)``
+     - Non-blocking: queue one transaction. ``cmd``, ``addr`` and ``wr_data`` are byte arrays read
+       during the call only, so the caller keeps them; ``null_integer_array`` is an empty phase
+   * - ``await_qspi_transfer_reply(net, reference, data)``
+     - Blocking: wait until the transaction is complete. ``data`` is replaced by a new array of the
+       ``num_read_bytes`` bytes read, which the caller deallocates; an array ``data`` already held is
+       deallocated first. Without ``data``, the read bytes are discarded
+   * - ``qspi_transfer(net, qspi_master, cmd, data, ...)``
+     - Blocking: queue and redeem in one call
+   * - ``qspi_transfer(net, qspi_master, cmd, ...)``
+     - Blocking, for a transaction without read bytes
+   * - ``set_sck_period(net, qspi_master, period)``
+     - Blocking: the SCK period of every transaction queued after the call
+   * - ``get_id``, ``get_logger``, ``get_actor``, ``get_checker``, ``as_sync``
+     - The identity of the master. ``wait_until_idle(net, as_sync(qspi_master))`` waits for every
+       queued transaction
+   * - ``sck_period``, ``cs_deselect_time``, ``protocol_checker``
+     - The values of the handle. ``sck_period`` is the initial period, not one set later
+
+The optional parameters of ``qspi_transfer`` are ``cmd_lanes``, ``addr``, ``addr_lanes``,
+``wr_data``, ``wr_lanes``, ``dummy_cycles``, ``num_read_bytes`` and ``read_lanes``; the lane widths
+default to 1 and the counts to 0.
+
+JEDEC command layer
+~~~~~~~~~~~~~~~~~~~
+
+``qspi_flash_cmd_pkg`` wraps one command per blocking procedure. Every procedure takes
+``opcode_lanes`` (4 in QPI mode), and every one with an address takes ``addr_bytes`` (3 or 4). Dummy
+cycles default to the JEDEC values and are parameters, since parts can differ.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 38 20 42
+
+   * - Procedure
+     - Opcode
+     - Shape
+   * - ``qspi_flash_read_id``
+     - ``0x9F``
+     - ``num_bytes`` ID bytes, 3 by default
+   * - ``qspi_flash_read``
+     - ``0x03``
+     - Address and data on ``lanes``
+   * - ``qspi_flash_fast_read``
+     - ``0x0B``
+     - Address and data on ``lanes``, 8 dummy cycles
+   * - ``qspi_flash_quad_output_read``
+     - ``0x6B``
+     - Address x1, 8 dummy cycles, data x4
+   * - ``qspi_flash_quad_io_read``
+     - ``0xEB``
+     - Address and ``mode_byte`` x4 (``send_mode_byte => false`` omits it), 4 dummy cycles, data x4
+   * - ``qspi_flash_write_enable``
+     - ``0x06``
+     -
+   * - ``qspi_flash_page_program``
+     - ``0x02``
+     - ``opcode => qspi_flash_op_quad_page_program, data_lanes => 4`` for ``0x32``
+   * - ``qspi_flash_sector_erase``
+     - ``0x20``
+     -
+   * - ``qspi_flash_block_erase``
+     - ``0xD8``
+     - ``opcode => qspi_flash_op_block_erase_32k`` for ``0x52``
+   * - ``qspi_flash_chip_erase``
+     - ``0xC7``
+     -
+   * - ``qspi_flash_read_status``
+     - ``0x05``, ``0x35``, ``0x15``
+     - Status register ``register_index`` 1, 2 or 3
+   * - ``qspi_flash_write_status``
+     - ``0x01``, ``0x31``, ``0x11``
+     - One byte to status register ``register_index`` 1, 2 or 3
+   * - ``qspi_flash_enter_4byte``, ``qspi_flash_exit_4byte``
+     - ``0xB7``, ``0xE9``
+     -
+   * - ``qspi_flash_enter_qpi``, ``qspi_flash_exit_qpi``
+     - ``0x38``, ``0xFF``
+     - ``qspi_flash_exit_qpi`` sends its opcode on four lanes by default
+
+The package also has the opcode constants (``qspi_flash_op_*``), the default dummy cycle counts, and
+``qspi_flash_opcode_bytes`` and ``qspi_flash_address_bytes`` to build byte arrays for
+``qspi_transfer``. Its commands target the :doc:`qspi_flash` model; the supported opcodes are listed
+there.
+
+Checks
+------
+
+* **Metavalues on read lanes.** A ``U``, ``X``, ``Z``, ``W`` or ``-`` sampled on a data lane in a read
+  phase is a check failure on the checker of the master, ``Read byte <n> beat <m>: the far end drove
+  <value> on the data lanes``, and counts as ``0``.
+* **Unexpected messages**, as set by ``unexpected_msg_type_policy``.
+* **Pin timing** of the master's own outputs, only with a ``protocol_checker``. Its violations go to
+  the checker of the protocol checker, ``<master id>:protocol_checker`` unless it has its own id.
+
+Statistics notes
+----------------
+
+The master keeps no statistics. With a protocol checker, ``get_check_count`` on
+``protocol_checker(master)`` counts violations per rule.
+
+Python backend
+--------------
+
+None. The master is VHDL only and makes no Python bridge calls.
+
+Example
+-------
+
+``tests/vhdl/tb_flash.vhd`` connects a master to a flash on one bus. The handles and signals:
+
+.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
+   :language: vhdl
+   :start-after: -- docs-start: flash_constructors
+   :end-before: -- docs-end: flash_constructors
+   :dedent: 2
+
+.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
+   :language: vhdl
+   :start-after: -- docs-start: flash_instances
+   :end-before: -- docs-end: flash_instances
+   :dedent: 2
+
+The command layer and ``qspi_transfer`` together, arming continuous read with ``0xEB`` and then
+reading without an opcode:
+
+.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
+   :language: vhdl
+   :start-after: -- docs-start: qspi_master_continuous_read
+   :end-before: -- docs-end: qspi_master_continuous_read
+   :dedent: 8
+
+``ramp`` and ``check_bytes`` are helpers of the testbench. ``tests/vhdl/tb_qspi_master.vhd`` checks
+the master bit by bit against a stub device.
+
+Limitations
+-----------
+
+.. note::
+
+   * **SPI mode 0 only.** Mode 3 (SCK idling high) is not supported.
+   * **Fixed CS framing.** CS setup and hold are half an SCK period; only the deselect time is a
+     parameter.
+   * **Half periods.** Each half of an SCK cycle is ``sck_period / 2``, so a period that is an odd
+     number of simulator resolution units is driven one unit short.
+   * **Addresses up to 2 GiB.** The command layer takes addresses as a ``natural``.
+   * **One device per bus.** CS is a single line.
+
+   These are also listed in :ref:`limitations-flash`.

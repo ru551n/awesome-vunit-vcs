@@ -3,9 +3,10 @@ The first release is being prepared. Nothing has been released yet.
 * Ethernet: GMII, MII and XGMII-family sources, monitors and protocol checkers (the XGMII family
   from 2.5GMII up to 200GMII and 400GMII), with frame
   reconstruction, protocol checks, statistics, PCAPNG capture and packets from Python functions.
-* Flash: a QSPI NOR flash VC with a simulator independent Python device model (x1, x2 and x4 I/O,
-  3- and 4-byte addressing, QPI, continuous read, SFDP, protection, busy timing and pin-level
-  checks), and a QSPI master VC with a JEDEC command layer.
+* Flash: a QSPI NOR flash VC with a simulator independent Python device model (SPI mode 0, x1, x2
+  and x4 I/O, QPI, 3- and 4-byte addressing, continuous read, SFDP, status register and region
+  protection, busy times, and erase sizes and addressing modes from the configuration), a QSPI master
+  VC with a JEDEC command layer, and a QSPI protocol checker VC for the pin timing of the master.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
 
 VHDL API
@@ -135,11 +136,14 @@ Breaking changes
   arguments from ``args``/``kwargs`` or ``set_arguments``; ``packet_symbols`` (a Scapy expression) is
   removed.
 * ``PropertyRunner`` takes the strategy's arguments as a mapping, or later through ``start``.
-* Flash: the flash VC no longer checks the pin timing of the controller by default. Pass
-  ``protocol_checker => new_qspi_protocol_checker(...)`` to ``new_flash`` (or ``new_qspi_master``).
-  ``protocol_checks`` and the pin limits ``t_sck_min`` to ``t_chdx`` moved from ``new_flash`` to
-  ``new_qspi_protocol_checker``, and violations are reported on the checker of the protocol checker,
-  ``<flash id>:protocol_checker``.
+* Flash: the flash VC no longer checks the pin timing of the controller by default: the
+  ``protocol_checker`` parameter of ``new_flash`` and ``new_qspi_master`` defaults to
+  ``null_qspi_protocol_checker``. Pass ``protocol_checker => new_qspi_protocol_checker(...)`` to check
+  it. The pin limits ``t_sck_min`` to ``t_chdx`` moved from ``new_flash`` to
+  ``new_qspi_protocol_checker``, and the switch that disabled every pin check is gone: leave out the
+  protocol checker, or switch single rules off with ``set_check_enabled``. Violations are check
+  failures on the checker of the protocol checker, ``<flash id>:protocol_checker`` unless it has an
+  id of its own, and their messages start with the check ID, such as ``QSPI_CS_DESELECT``.
 * Flash: ``new_flash`` and ``new_qspi_master`` end with ``protocol_checker``, ``id``, ``logger``,
   ``actor``, ``checker`` and ``unexpected_msg_type_policy``, like VUnit's own VCs. ``id`` moved from
   the first to that group.

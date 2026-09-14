@@ -37,6 +37,7 @@ architecture tb of tb_flash is
   constant sector_bytes : positive := 4096;
   constant block_bytes : positive := 65536;
 
+  -- docs-start: flash_constructors
   constant master_a : qspi_master_t := new_qspi_master(sck_period => 20 ns, id => get_id("tb_flash:master_a"));
   constant flash_a : flash_t := new_flash(
     page_bytes => page_bytes,
@@ -48,6 +49,7 @@ architecture tb of tb_flash is
   );
   signal m2s_a : qspi_m2s_t := qspi_m2s_init;
   signal s2m_a : qspi_s2m_t := qspi_s2m_init;
+  -- docs-end: flash_constructors
 
   -- A second device on its own bus. Its state would leak into flash_a if the
   -- backends shared anything.
@@ -175,6 +177,7 @@ architecture tb of tb_flash is
     end loop;
   end;
 begin
+  -- docs-start: flash_instances
   qspi_master_a_inst : entity awesome_vunit_vcs.qspi_master
     generic map (
       qspi_master => master_a
@@ -192,6 +195,7 @@ begin
       m2s => m2s_a,
       s2m => s2m_a
     );
+  -- docs-end: flash_instances
 
   qspi_master_b_inst : entity awesome_vunit_vcs.qspi_master
     generic map (
@@ -455,6 +459,7 @@ begin
         flash_check_content(net, flash_a, 16#008000#, bytes_of((0 => 16#05#)));
 
       elsif run("test_sector_erase") then
+        -- docs-start: flash_sector_erase
         flash_preload_fill(net, flash_a, 16#009000#, sector_bytes, 16#00#);
         -- The byte just past the sector must survive
         flash_preload(net, flash_a, 16#009000# + sector_bytes, bytes_of((0 => 16#5A#)));
@@ -463,6 +468,7 @@ begin
         poll_until_ready(net);
         flash_check_content_fill(net, flash_a, 16#009000#, sector_bytes, 16#FF#);
         flash_check_content(net, flash_a, 16#009000# + sector_bytes, bytes_of((0 => 16#5A#)));
+        -- docs-end: flash_sector_erase
 
       elsif run("test_block_erase") then
         flash_preload_fill(net, flash_a, 16#010000#, block_bytes, 16#00#);
@@ -585,6 +591,7 @@ begin
         check(now - start < 50 us, "with timing disabled the erase still took " & to_string(now - start));
 
       elsif run("test_continuous_read_needs_no_opcode") then
+        -- docs-start: qspi_master_continuous_read
         -- A 0xEB whose mode byte has M5:M4 = 10 arms continuous read: the next
         -- transaction has no opcode and starts with the x4 address
         expected := ramp(8, 16#70#);
@@ -635,6 +642,7 @@ begin
         check_bytes(got, expected, "an ordinary read after leaving continuous mode");
         deallocate(got);
         deallocate(expected);
+        -- docs-end: qspi_master_continuous_read
 
       elsif run("test_partial_byte_aborts_a_page_program") then
         -- A real part abandons a page program whose clock count is not a
@@ -694,6 +702,7 @@ begin
         -- master keeps CS high for at least one SCK period. The violation is in
         -- the gap between two commands, and two commands have one gap: 1 error,
         -- on the logger of the protocol checker of the flash.
+        -- docs-start: flash_protocol_violation
         disable_stop(get_logger(protocol_checker(checked_flash)), error);
         qspi_flash_read_id(net, bad_master, got, 3);
         deallocate(got);
@@ -703,6 +712,7 @@ begin
         get_check_count(net, protocol_checker(checked_flash), qspi_cs_deselect, count);
         check_equal(count, 1, "qspi_cs_deselect count");
         reset_log_count(get_logger(protocol_checker(checked_flash)), error);
+        -- docs-end: flash_protocol_violation
 
       elsif run("test_protocol_checks_can_be_switched_off") then
         -- The same traffic against a device created without a protocol checker
@@ -762,10 +772,12 @@ begin
         reset_log_count(get_logger(protocol_checker(custom_flash)), error);
 
       elsif run("test_metavalue_on_io_is_reported") then
+        -- docs-start: flash_metavalue
         disable_stop(get_logger(raw_flash), error);
         send_raw_byte(metavalue_beat => 3);
         check_equal(get_log_count(get_logger(raw_flash), error), 1, "metavalues on the IOs");
         reset_log_count(get_logger(raw_flash), error);
+        -- docs-end: flash_metavalue
 
       elsif run("test_default_id_instances_are_independent") then
         check(get_id(default_flash_1) /= get_id(default_flash_2), "the default ids differ");

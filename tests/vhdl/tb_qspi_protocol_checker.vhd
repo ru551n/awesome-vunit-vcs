@@ -29,9 +29,11 @@ entity tb_qspi_protocol_checker is
 end entity;
 
 architecture tb of tb_qspi_protocol_checker is
+  -- docs-start: protocol_checker_constructor
   constant raw_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
     id => get_id("tb_qspi_protocol_checker:raw_checker")
   );
+  -- docs-end: protocol_checker_constructor
   constant no_deselect_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
     t_shsl => 0 ns,
     id => get_id("tb_qspi_protocol_checker:no_deselect_checker")
@@ -54,6 +56,7 @@ architecture tb of tb_qspi_protocol_checker is
     return result;
   end;
 begin
+  -- docs-start: protocol_checker_instance
   raw_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
     generic map (
       protocol_checker => raw_checker
@@ -62,6 +65,7 @@ begin
       m2s => raw_m2s,
       s2m => qspi_s2m_init
     );
+  -- docs-end: protocol_checker_instance
 
   no_deselect_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
     generic map (
@@ -212,6 +216,7 @@ begin
         check_one_error;
 
       elsif run("test_cs_deselect_violation") then
+        -- docs-start: protocol_checker_cs_deselect
         -- 20 ns after the first frame and 5 ns before the second
         mock(get_logger(raw_checker), error);
         send_frame(deselect_after => 20 ns);
@@ -224,6 +229,7 @@ begin
         unmock(get_logger(raw_checker));
         check_counts(raw_checker, qspi_cs_deselect, 1);
         reset_log_count(get_logger(raw_checker), error);
+        -- docs-end: protocol_checker_cs_deselect
 
       elsif run("test_data_setup_violation") then
         send_frame;
@@ -244,6 +250,7 @@ begin
         check_no_violations(raw_checker);
 
       elsif run("test_disabled_check_is_not_reported") then
+        -- docs-start: protocol_checker_disable
         set_check_enabled(net, raw_checker, qspi_cs_hold, false);
         send_frame(chsh => 2 ns);
         check_no_violations(raw_checker);
@@ -253,6 +260,7 @@ begin
         send_frame(chsh => 2 ns);
         check_counts(raw_checker, qspi_cs_hold, 1);
         check_one_error;
+        -- docs-end: protocol_checker_disable
 
       elsif run("test_zero_limit_disables_the_check") then
         send_frame(deselect_after => 20 ns);

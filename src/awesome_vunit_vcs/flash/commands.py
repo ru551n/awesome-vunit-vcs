@@ -220,10 +220,9 @@ class Command:
             config: The configuration of the device.
 
         Returns:
-            The erase size in bytes: ``size_bytes`` for a chip erase, the
-            configured sector or block size otherwise. None when the command is
-            not an erase, or erases 32 KiB blocks and the device has none
-            (``block32_bytes`` is 0).
+            ``size_bytes`` for a chip erase and the configured sector or block
+            size in bytes otherwise, or None when the command is not an erase or
+            erases 32 KiB blocks and the device has none (``block32_bytes`` is 0).
         """
         if self.erase is None:
             return None

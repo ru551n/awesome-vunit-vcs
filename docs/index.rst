@@ -130,7 +130,7 @@ Components
    :caption: Flash / QSPI
    :hidden:
 
-   flash
+   flash/index
 
 .. toctree::
    :maxdepth: 2

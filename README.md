@@ -272,7 +272,7 @@ from awesome_vunit_vcs.ethernet.phy import GmiiPhy
 from awesome_vunit_vcs.ethernet.scapy_adapter import to_scapy
 
 phy = GmiiPhy()
-payload = bytes.fromhex("020000000001" "020000000002" "88b5") + b"hello"
+payload = bytes.fromhex("02000000000102000000000288b5") + b"hello"
 words = np.concatenate([phy.encode(build_wire_frame(payload)), phy.encode(build_wire_frame(payload, fcs="bad"))])
 times_fs = np.arange(words.size, dtype=np.int64) * 8_000_000  # 125 MHz
 

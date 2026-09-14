@@ -26,7 +26,7 @@ os.environ["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT / "python"), o
 vu = VUnit.from_argv()
 vu.add_vhdl_builtins()
 vu.add_verification_components()
-vu.add_package("vunit-python-bridge")
+vu.add_package("vunit-python-bridge", allow_setup=True)
 vu.add_package("awesome-vunit-vcs")
 
 lib = vu.add_library("lib")

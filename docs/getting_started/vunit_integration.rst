@@ -16,7 +16,7 @@ Add the packages to your run script
    vu = VUnit.from_argv()
    vu.add_vhdl_builtins()
    vu.add_verification_components()
-   vu.add_package("vunit-python-bridge")
+   vu.add_package("vunit-python-bridge", allow_setup=True)
    vu.add_package("awesome-vunit-vcs")
 
    lib = vu.add_library("lib")
@@ -31,8 +31,9 @@ Add the packages to your run script
      - First, as for any VUnit package.
    * - ``add_verification_components()``
      - Required. The components build on VUnit's verification components.
-   * - ``add_package("vunit-python-bridge")``
-     - The Python bridge. Don't call ``add_python()``.
+   * - ``add_package("vunit-python-bridge", allow_setup=True)``
+     - The Python bridge. ``allow_setup=True`` is required: adding the bridge runs its setup, which
+       builds its simulator library. Don't call ``add_python()``.
    * - ``add_package("awesome-vunit-vcs")``
      - This package. The two ``add_package`` calls work in either order.
 

@@ -16,8 +16,10 @@ Installing and compiling
    * - ``design unit COM_CONTEXT not found in library VUNIT_LIB`` or ``VC_PKG not found``
      - ``vu.add_verification_components()`` is missing from the run script.
    * - ``library python_bridge`` not found
-     - ``vu.add_package("vunit-python-bridge")`` is missing.
-   * - An error about package setup hooks, or ``add_package`` rejecting ``setup``
+     - ``vu.add_package("vunit-python-bridge", allow_setup=True)`` is missing.
+   * - ``Package vunit_python_bridge requires running Python code when it is added``
+     - Add ``allow_setup=True``: ``vu.add_package("vunit-python-bridge", allow_setup=True)``.
+   * - An error about package setup hooks, or ``add_package`` rejecting ``setup`` or ``allow_setup``
      - VUnit is too old. Install the pinned VUnit from ``tests/packaging/unreleased-requirements.txt``.
    * - The bridge library fails to compile
      - Linux and macOS need a C compiler and the Python development headers (``python3-dev``), and a

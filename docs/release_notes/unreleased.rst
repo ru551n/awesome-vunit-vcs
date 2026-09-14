@@ -125,6 +125,9 @@ Python API
 Breaking changes
 ~~~~~~~~~~~~~~~~
 
+* Add ``allow_setup=True`` when adding vunit-python-bridge:
+  ``vu.add_package("vunit-python-bridge", allow_setup=True)``. The pinned VUnit and bridge now refuse to
+  run a package's setup function without it. ``vu.add_package("awesome-vunit-vcs")`` is unchanged.
 * Error offsets count from the first octet after the SFD in every public API.
   ``WireFrame.error_offsets`` used to be wire indexes; those are now ``wire_error_offsets``, as
   are ``PhyFrame.error_offsets``.

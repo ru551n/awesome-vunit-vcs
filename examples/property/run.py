@@ -34,7 +34,7 @@ write_vhdl([Pair], "example_records_pkg", ROOT / "generated" / "example_records_
 vu = VUnit.from_argv()
 vu.add_vhdl_builtins()
 vu.add_verification_components()
-vu.add_package("vunit-python-bridge")
+vu.add_package("vunit-python-bridge", allow_setup=True)
 vu.add_package("awesome-vunit-vcs")
 
 lib = vu.add_library("lib")

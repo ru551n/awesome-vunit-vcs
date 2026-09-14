@@ -49,7 +49,7 @@ from vunit import VUnit
 vu = VUnit.from_argv(argv=["--output-path", sys.argv[1]])
 vu.add_vhdl_builtins()
 vu.add_verification_components()
-vu.add_package("vunit-python-bridge")
+vu.add_package("vunit-python-bridge", allow_setup=True)
 vu.add_package("awesome-vunit-vcs")
 spec = importlib.util.find_spec("awesome_vunit_vcs")
 print(json.dumps({

@@ -2,6 +2,6 @@
 # tests/packaging/check_package.py. Remove once both are released on PyPI.
 #
 # VUnit with package setup hooks (VUnit PR #1221), branch feature/package-setup-hooks
-vunit_hdl @ git+https://github.com/ru551n/vunit.git@1ecac0017fc7408fa0738bccf16dda69bd9a18be
+vunit_hdl @ git+https://github.com/ru551n/vunit.git@d7b6adb32ed6c2940f500261614be3057b51ce6c
 # The VHDL to Python bridge as a VUnit package, v0.1.0
-vunit-python-bridge @ git+https://github.com/ru551n/vunit-python-bridge.git@28ff9b46be6f6521552d8f729b0b5282ec39b597
+vunit-python-bridge @ git+https://github.com/ru551n/vunit-python-bridge.git@6e89231fe5ce5a4e4616c4a1dbf41cf15b3836bd

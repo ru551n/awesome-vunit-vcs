@@ -23,7 +23,7 @@ WHOLE_FRAME = 2**31 - 1
 vu = VUnit.from_argv()
 vu.add_vhdl_builtins()
 vu.add_verification_components()
-vu.add_package("vunit-python-bridge")
+vu.add_package("vunit-python-bridge", allow_setup=True)
 vu.add_package("awesome-vunit-vcs")
 
 lib = vu.add_library("bench")

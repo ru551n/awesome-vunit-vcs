@@ -1,6 +1,6 @@
 [package]
 # The VHDL sources use the Python bridge, the vunit-python-bridge package, which
-# a run script adds with add_package("vunit-python-bridge") next to this one.
+# a run script adds with add_package("vunit-python-bridge", allow_setup=True) next to this one.
 # A package cannot depend on another package here, and a setup function could
 # only add it through private VUnit state, so the run script adds both.
 requires-vunit = ">=5.0.0.dev12"

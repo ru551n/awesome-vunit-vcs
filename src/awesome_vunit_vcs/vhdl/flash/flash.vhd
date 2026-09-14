@@ -114,7 +114,7 @@ begin
     impure function get_stat_expression(stat_msg : msg_t) return string is
       constant name : string := pop_string(stat_msg);
     begin
-      return "get_stat(" & py_str(name) & ")";
+      return "get_stat(" & py_str(name) & ", " & python_time_arguments(now) & ")";
     end;
   begin
     create_backend(session, flash_backend_module, flash_backend_class, backend_arguments(flash));

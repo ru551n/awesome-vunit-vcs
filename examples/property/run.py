@@ -18,11 +18,22 @@ Hypothesis shrinks a failure to a minimal counterexample through the same loop.
 Needs Hypothesis: ``pip install hypothesis``.
 """
 
+import sys
 from pathlib import Path
 
 from vunit import VUnit
 
+from awesome_vunit_vcs.gen_vhdl import write_vhdl
+
 ROOT = Path(__file__).parent
+
+# docs-start: generate
+# VHDL records of the register operation dataclasses, regenerated when they change
+sys.path.insert(0, str(ROOT / "python"))
+from register_records import OperationSequence  # noqa: E402
+
+write_vhdl([OperationSequence], "register_records_pkg", ROOT / "generated" / "register_records_pkg.vhd")
+# docs-end: generate
 
 vu = VUnit.from_argv()
 vu.add_vhdl_builtins()
@@ -32,6 +43,7 @@ vu.add_package("awesome-vunit-vcs")
 
 lib = vu.add_library("lib")
 lib.add_source_files(ROOT / "src" / "*.vhd")
+lib.add_source_files(ROOT / "generated" / "*.vhd")
 lib.add_source_files(ROOT / "*.vhd")
 
 if __name__ == "__main__":

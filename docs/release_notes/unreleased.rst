@@ -67,6 +67,9 @@ Property-based testing
   examples, and ``check_property`` reports the minimal counterexample Hypothesis shrank to.
 * Composite examples are read by path, such as ``get_integer_vector(prop, "frames(2).payload")``,
   with ``has_field`` for optional fields.
+* Records from Python dataclasses: ``awesome_vunit_vcs.records`` (``Range``, ``Length``,
+  ``Choices``, ``strategy_for``, ``validate``) and ``awesome_vunit_vcs.gen_vhdl``, which generates
+  VHDL record types with ``get_<name>(prop, path)`` and ``to_string`` from the same dataclasses.
 * A lockup is reported with ``timed_out`` as a failure of its own, a design that does not recover
   aborts the property, each example is journaled before it runs, and the smallest failure is
   replayed first on the next run.

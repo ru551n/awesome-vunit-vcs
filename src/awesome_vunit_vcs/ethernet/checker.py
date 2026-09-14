@@ -18,6 +18,13 @@ from .phy.common import IdleEvent, PhyEvent
 
 
 class CheckId(str, enum.Enum):
+    """
+    The stable identifiers of the protocol checks.
+
+    The value is the name used in messages and accepted by VHDL
+    (``eth_fcs``) and Python (``"ETH_FCS"``, ``"FCS"``) alike.
+    """
+
     PREAMBLE = "ETH_PREAMBLE"
     SFD = "ETH_SFD"
     FCS = "ETH_FCS"
@@ -38,6 +45,12 @@ class CheckId(str, enum.Enum):
 
     @classmethod
     def parse(cls, check: CheckId | str) -> CheckId:
+        """
+        Look up a check by member, value or name, case insensitively.
+
+        Raises:
+            ValueError: ``check`` names no check.
+        """
         if isinstance(check, CheckId):
             return check
         name = check.strip().upper()
@@ -50,9 +63,14 @@ class CheckId(str, enum.Enum):
 
 @dataclass(slots=True, frozen=True)
 class Violation:
+    """A failed check, as published by :attr:`ProtocolChecker.violations`."""
+
     check: CheckId
+    #: The check name and a summary on the first line, details on the following lines
     message: str
+    #: Simulation time of the violation in fs
     timestamp_fs: int
+    #: Index of the frame the violation concerns, None outside a frame
     frame_index: int | None = None
 
 
@@ -75,7 +93,17 @@ def _frame_context(frame: EthernetFrame) -> list[str]:
 
 
 class ProtocolChecker:
-    """Check frames and idle events against an :class:`EthernetConfig`."""
+    """
+    Check frames and idle events against an :class:`EthernetConfig`.
+
+    A subscriber of monitor events: :class:`~.monitor.EthernetMonitor`
+    subscribes :meth:`on_frame`, :meth:`on_idle_event` and :meth:`on_phy_event`.
+    Violations of enabled checks are counted and published on
+    :attr:`violations`; all checks are enabled initially.
+
+    Args:
+        config: What a well-formed frame is. The default is IEEE 802.3.
+    """
 
     def __init__(self, config: EthernetConfig | None = None) -> None:
         self.config = config or EthernetConfig()
@@ -84,12 +112,15 @@ class ProtocolChecker:
         self._counts = dict.fromkeys(CheckId, 0)
 
     def enable(self, *checks: CheckId | str) -> None:
+        """Enable checks, given as :class:`CheckId` or names."""
         self._enabled.update(CheckId.parse(check) for check in checks)
 
     def disable(self, *checks: CheckId | str) -> None:
+        """Disable checks; a disabled check neither reports nor counts."""
         self._enabled.difference_update(CheckId.parse(check) for check in checks)
 
     def is_enabled(self, check: CheckId | str) -> bool:
+        """Whether a check is enabled."""
         return CheckId.parse(check) in self._enabled
 
     def count(self, check: CheckId | str) -> int:
@@ -98,10 +129,12 @@ class ProtocolChecker:
 
     @property
     def counts(self) -> dict[CheckId, int]:
+        """Violations of every check, including checks that found none."""
         return dict(self._counts)
 
     @property
     def total(self) -> int:
+        """Violations of all checks."""
         return sum(self._counts.values())
 
     def report(
@@ -129,6 +162,7 @@ class ProtocolChecker:
         self.violations.publish(Violation(check, message, timestamp_fs, index))
 
     def on_frame(self, frame: EthernetFrame) -> None:
+        """Check a received frame: preamble, SFD, FCS, size, PHY errors, metavalues and the gap before it."""
         config = self.config
         phy = frame.phy
         index = frame.index
@@ -247,6 +281,7 @@ class ProtocolChecker:
             )
 
     def on_idle_event(self, event: IdleEvent) -> None:
+        """Check a sample between frames with the error signal asserted or a metavalue."""
         if event.metavalue:
             self._report(
                 CheckId.METAVALUE,
@@ -265,6 +300,7 @@ class ProtocolChecker:
             )
 
     def on_phy_event(self, event: PhyEvent) -> None:
+        """Report a violation a PHY decoder found, such as a misplaced XGMII control character."""
         self._report(
             CheckId.parse(event.check),
             event.message,
@@ -274,6 +310,7 @@ class ProtocolChecker:
         )
 
     def on_unfinished_frame(self, frame: EthernetFrame) -> None:
+        """Report a frame that was still being received when monitoring ended."""
         self._report(
             CheckId.FRAME_STATE,
             f"frame {frame.index} was still in progress when monitoring ended",

@@ -111,10 +111,12 @@ class PhyFrame:
 
     @property
     def timestamp_start_fs(self) -> int:
+        """Time of the first octet in fs."""
         return self.octet_times_fs[0]
 
     @property
     def octet_period_fs(self) -> int | None:
+        """Time between the first two octets in fs, None for a one-octet frame."""
         if len(self.octet_times_fs) < 2:
             return None
         return self.octet_times_fs[1] - self.octet_times_fs[0]
@@ -129,14 +131,17 @@ class IdleEvent:
 
     @property
     def value(self) -> int:
+        """The data bits of the sample."""
         return self.word & WORD_DATA_MASK
 
     @property
     def error(self) -> bool:
+        """Whether the error signal was asserted."""
         return bool(self.word & WORD_ERROR)
 
     @property
     def metavalue(self) -> bool:
+        """Whether a signal had a metavalue (U, X, Z, W or -)."""
         return bool(self.word & WORD_META)
 
 
@@ -146,9 +151,23 @@ class PhyInterface(Protocol):
     name: str
     link_rate_bps: int
 
-    def decode(self, words: Int64Array, times: Int64Array) -> OctetBatch: ...
+    def decode(self, words: Int64Array, times: Int64Array) -> OctetBatch:
+        """
+        Turn sample words into octet words.
 
-    def encode(self, wire: WireFrame) -> Int32Array: ...
+        Args:
+            words: Interface specific sample words as the VHDL monitor records them.
+            times: The time of each sample in fs.
+
+        Returns:
+            One octet word per received octet with the time of its first symbol,
+            and the PHY events found.
+        """
+        ...
+
+    def encode(self, wire: WireFrame) -> Int32Array:
+        """The sample words the VHDL source drives for a frame, one per clock cycle, including the gap."""
+        ...
 
 
 class FrameAssembler:
@@ -168,9 +187,15 @@ class FrameAssembler:
 
     @property
     def in_frame(self) -> bool:
+        """Whether a frame is being assembled."""
         return self._in_frame
 
     def feed(self, batch: OctetBatch) -> list[PhyFrame | IdleEvent]:
+        """
+        Add octet words and return the frames completed and idle events found, in time order.
+
+        A frame is complete at the first word with valid deasserted.
+        """
         words, times = batch.words, batch.times
         count = int(words.size)
         out: list[PhyFrame | IdleEvent] = []

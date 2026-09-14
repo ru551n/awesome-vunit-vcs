@@ -27,7 +27,15 @@ class Publisher(Generic[T]):
         self._on_error = on_error
 
     def subscribe(self, subscriber: Subscriber[T]) -> Callable[[], None]:
-        """Add a subscriber and return a function that removes it again."""
+        """
+        Add a subscriber, called with every event published from now on.
+
+        Args:
+            subscriber: A callable taking one event.
+
+        Returns:
+            A function without arguments that removes the subscriber again.
+        """
         self._subscribers.append(subscriber)
 
         def unsubscribe() -> None:
@@ -37,6 +45,13 @@ class Publisher(Generic[T]):
         return unsubscribe
 
     def publish(self, event: T) -> None:
+        """
+        Deliver an event to every subscriber, in subscription order.
+
+        Raises:
+            Exception: The first exception a subscriber raised, after all
+                subscribers were called, when the publisher has no error handler.
+        """
         first_error: BaseException | None = None
         for subscriber in tuple(self._subscribers):
             try:

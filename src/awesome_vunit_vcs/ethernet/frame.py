@@ -88,12 +88,14 @@ class MacFrame:
 
     @property
     def fcs_received(self) -> int | None:
+        """The FCS at the end of the frame, None without FCS or when the frame is shorter than one."""
         if not self.has_fcs or len(self.data) < FCS_OCTETS:
             return None
         return int.from_bytes(self.data[-FCS_OCTETS:], "little")
 
     @property
     def fcs_expected(self) -> int | None:
+        """The FCS computed over :attr:`mac_octets`, None when there is no FCS to compare with."""
         if not self.has_fcs or len(self.data) < FCS_OCTETS:
             return None
         return fcs32(self.mac_octets)
@@ -106,14 +108,17 @@ class MacFrame:
 
     @property
     def size_with_fcs(self) -> int:
+        """Frame size in octets from the destination address up to and including the FCS."""
         return len(self.data) if self.has_fcs else len(self.data) + FCS_OCTETS
 
     @property
     def destination(self) -> bytes | None:
+        """The destination address, None for a frame shorter than 6 octets."""
         return self.mac_octets[0:6] if len(self.mac_octets) >= 6 else None
 
     @property
     def source(self) -> bytes | None:
+        """The source address, None for a frame shorter than 12 octets."""
         return self.mac_octets[6:12] if len(self.mac_octets) >= 12 else None
 
     @property
@@ -152,18 +157,22 @@ class EthernetFrame:
 
     @property
     def index(self) -> int:
+        """Position of the frame in the order the monitor received frames, from 0."""
         return self.phy.index
 
     @property
     def timestamp_start_fs(self) -> int:
+        """Time of the first octet in fs, normally the first preamble octet."""
         return self.phy.timestamp_start_fs
 
     @property
     def timestamp_end_fs(self) -> int:
+        """Time in fs of the first sample after the frame, where valid was deasserted."""
         return self.phy.timestamp_end_fs
 
     @property
     def timestamp_sfd_fs(self) -> int | None:
+        """Time of the SFD in fs, None without SFD."""
         return None if self.sfd_offset is None else self.phy.octet_times_fs[self.sfd_offset]
 
     @property
@@ -185,10 +194,12 @@ class EthernetFrame:
 
     @property
     def fcs_ok(self) -> bool | None:
+        """Whether the FCS is correct, None without SFD or FCS."""
         return None if self.mac is None else self.mac.fcs_ok
 
     @property
     def has_phy_error(self) -> bool:
+        """Whether the error signal was asserted during the frame."""
         return bool(self.phy.error_offsets)
 
     @property
@@ -199,6 +210,7 @@ class EthernetFrame:
 
     @property
     def is_good(self) -> bool:
+        """Whether no check found anything wrong with the frame itself (the gap before it is not considered)."""
         return (
             self.mac is not None
             and self.preamble_ok
@@ -219,6 +231,13 @@ class FrameDecoder:
         self._last_period_fs: int | None = None
 
     def decode(self, phy: PhyFrame) -> EthernetFrame:
+        """
+        Analyze one PHY frame.
+
+        The inter-frame gap is measured from the last octet of the previous
+        frame, in octet periods of the frame itself (or of the last frame that
+        had more than one octet).
+        """
         config = self.config
         octets = phy.octets
 

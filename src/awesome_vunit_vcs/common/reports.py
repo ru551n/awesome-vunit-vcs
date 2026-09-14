@@ -33,6 +33,8 @@ class Severity(enum.Enum):
 
 @dataclass(slots=True, frozen=True)
 class Report:
+    """One diagnostic message and how VHDL logs it."""
+
     severity: Severity
     message: str
 
@@ -46,9 +48,11 @@ class ReportQueue:
         self._reports: list[Report] = []
 
     def add(self, severity: Severity, message: str) -> None:
+        """Queue a message; it may span several lines."""
         self._reports.append(Report(severity, message))
 
     def take(self) -> list[Report]:
+        """Remove and return the waiting reports, oldest first."""
         reports, self._reports = self._reports, []
         return reports
 

@@ -54,10 +54,15 @@ FLAG_CRC_ERROR = 1 << 24
 
 @dataclass(slots=True, frozen=True)
 class CaptureOptions:
+    """What a capture contains, see the module documentation."""
+
+    #: Write the FCS at the end of every packet
     include_fcs: bool = True
+    #: Write frames that failed a check, flagged with their errors
     include_errored: bool = True
     #: Timestamp resolution 10**-exponent seconds (9: ns, 15: fs)
     timestamp_resolution_exponent: int = 9
+    #: Flag packets preceded by a shorter gap; None never flags the gap
     min_ifg_octets: int | None = 12
 
     def __post_init__(self) -> None:
@@ -112,6 +117,7 @@ class PcapNgWriter:
         self._file.flush()
 
     def on_frame(self, frame: EthernetFrame) -> None:
+        """Write a frame, or count it as skipped when the options exclude it or it has no SFD."""
         options = self.options
         if frame.mac is None or (not options.include_errored and not frame.is_good):
             self.frames_skipped += 1
@@ -158,6 +164,7 @@ class PcapNgWriter:
         self.frames_written += 1
 
     def close(self) -> None:
+        """Close the file; closing twice is harmless."""
         if self._file is not None:
             self._file.close()
             self._file = None

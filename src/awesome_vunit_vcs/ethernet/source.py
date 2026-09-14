@@ -17,6 +17,8 @@ from .phy.common import Int32Array, PhyInterface, WireFrame
 
 
 class FcsMode(str, enum.Enum):
+    """How a source ends a frame."""
+
     #: Pad (if enabled) and append the correct FCS
     APPEND = "append"
     #: Pad (if enabled) and append the inverted FCS
@@ -37,14 +39,29 @@ def build_wire_frame(
     error_offsets: Iterable[int] = (),
 ) -> WireFrame:
     """
-    Build what is transmitted for ``data``, the frame from destination address
-    up to, not including, the FCS.
+    Build what is transmitted for a frame.
 
-    ``error_offsets`` count like ``data``: 0 is the first octet after the SFD,
-    the same offsets ETH_PHY_ERROR reports. Negative offsets reach back into
-    the SFD (-1) and the preamble. Malformed traffic is intentional: every
-    argument may describe a frame the standard forbids (short preamble, wrong
-    SFD, runt, bad FCS, short IFG).
+    Malformed traffic is intentional: every argument may describe a frame the
+    standard forbids (short preamble, wrong SFD, runt, bad FCS, short IFG).
+
+    Args:
+        data: The frame from the destination address up to, not including, the FCS.
+        fcs: Append the correct FCS, an inverted one, or none (``data`` is sent as it is).
+        pad: Pad with zeros to ``min_frame_octets`` before the FCS. Ignored with ``FcsMode.NONE``.
+        min_frame_octets: The minimum frame size including the FCS.
+        preamble_octets: Preamble octets (0x55) before the SFD.
+        sfd: The octet sent as the SFD.
+        ifg_octets: Idle octets after the frame.
+        error_offsets: Octets transmitted with the error signal. They count like
+            ``data``: 0 is the first octet after the SFD, the same offsets
+            ETH_PHY_ERROR reports. Negative offsets reach back into the SFD (-1)
+            and the preamble.
+
+    Returns:
+        The wire frame, whose error offsets are wire octet indexes.
+
+    Raises:
+        ValueError: An argument is out of range, or an error offset is outside the frame.
     """
     mode = FcsMode(fcs)
     if preamble_octets < 0:
@@ -65,7 +82,13 @@ def build_wire_frame(
 
 
 class EthernetSource:
-    """Queue of wire frames waiting for the VHDL transmitter."""
+    """
+    Queue of wire frames waiting for the VHDL transmitter.
+
+    Args:
+        phy: The PHY encoder of the interface, see :func:`~.phy.create_phy`.
+        name: Used in messages.
+    """
 
     def __init__(self, phy: PhyInterface, *, name: str = "ethernet_source") -> None:
         self.name = name
@@ -76,6 +99,7 @@ class EthernetSource:
         self._next_id = 0
 
     def queue(self, wire: WireFrame) -> int:
+        """Queue a frame and return the id :meth:`take_symbols` fetches it with."""
         frame_id = self._next_id
         self._next_id += 1
         self._pending[frame_id] = wire
@@ -93,4 +117,5 @@ class EthernetSource:
 
     @property
     def pending(self) -> int:
+        """Frames queued but not yet taken."""
         return len(self._pending)

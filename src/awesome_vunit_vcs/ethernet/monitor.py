@@ -25,6 +25,30 @@ from .phy.common import FrameAssembler, IdleEvent, Int64Array, PhyEvent, PhyFram
 
 
 class EthernetMonitor:
+    """
+    Reconstruct frames from sample words and publish them to every consumer.
+
+    The pipeline behind a VHDL monitor, usable from plain Python. The checker,
+    the statistics and :attr:`history` are subscribed when the monitor is
+    created; captures and user subscribers are added later.
+
+    Args:
+        phy: The PHY decoder of the interface, see :func:`~.phy.create_phy`.
+        config: What a well-formed frame is. The default is IEEE 802.3.
+        name: Used in messages and as the capture interface name.
+        keep_frames: How many of the most recent frames :attr:`history` keeps.
+        on_subscriber_error: Called with the subscriber and the exception when
+            a subscriber raises. Without it the exception is re-raised by
+            :meth:`feed` after the other subscribers were called.
+
+    Attributes:
+        frames: Publishes every :class:`~.frame.EthernetFrame`.
+        idle_events: Publishes every :class:`~.phy.common.IdleEvent`.
+        checker: The :class:`~.checker.ProtocolChecker`.
+        statistics: The :class:`~.metrics.PerformanceMonitor`.
+        frame_count: Frames received so far.
+    """
+
     def __init__(
         self,
         phy: PhyInterface,
@@ -58,7 +82,16 @@ class EthernetMonitor:
         self.phy_events.subscribe(self.checker.on_phy_event)
 
     def feed(self, words: Int64Array, times: Int64Array) -> None:
-        """Process sample words with their times in fs."""
+        """
+        Process sample words.
+
+        Frames and events are published as soon as they are complete; a frame
+        still in progress at the end of the batch continues in the next one.
+
+        Args:
+            words: Interface specific sample words, see :mod:`.phy.common`.
+            times: The time of each sample in fs, not decreasing.
+        """
         batch = self.phy.decode(words, times)
         # A batch is at most a few frames, so publishing its PHY events first
         # keeps them close enough to the frames they occurred around
@@ -79,14 +112,26 @@ class EthernetMonitor:
 
     @property
     def in_frame(self) -> bool:
+        """Whether a frame is being received."""
         return self._assembler.in_frame
 
     def start_capture(self, path: str | os.PathLike[str], options: CaptureOptions | None = None) -> PcapNgWriter:
+        """
+        Write the frames received from now on to a PCAPNG file.
+
+        Args:
+            path: The file to create; an existing file is overwritten.
+            options: What the capture contains, see :class:`~.pcap.CaptureOptions`.
+
+        Returns:
+            The writer, subscribed to :attr:`frames` until :meth:`stop_captures`.
+        """
         writer = PcapNgWriter(path, options, interface_name=self.name, link_rate_bps=self.phy.link_rate_bps)
         self._captures.append((writer, self.frames.subscribe(writer.on_frame)))
         return writer
 
     def stop_captures(self) -> None:
+        """Unsubscribe and close every capture."""
         for writer, unsubscribe in self._captures:
             unsubscribe()
             writer.close()

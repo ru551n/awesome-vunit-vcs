@@ -63,6 +63,29 @@ def _saturate(value: int | None) -> int:
 
 
 class MonitorBackend:
+    """
+    The Python object behind a VHDL monitor, ``vc`` in the session of the monitor.
+
+    The VHDL monitor creates it with the options of ``new_ethernet_monitor``
+    and calls its methods; a testbench can call them too. Violations and
+    subscriber exceptions are queued as reports that the VHDL monitor logs, so
+    no method raises into VHDL.
+
+    Args:
+        name: The name of the monitor, used in messages.
+        interface: The PHY interface name, see :func:`~.phy.create_phy`.
+        link_rate_bps: The link rate, 0 for the default of the interface.
+        keep_frames: How many recent frames the monitor keeps.
+        log_frames: Log every frame at debug level.
+        phy_options: Further options of the PHY decoder, such as XGMII lanes.
+
+    The other arguments are those of :class:`~.frame.EthernetConfig`.
+
+    Attributes:
+        monitor: The :class:`~.monitor.EthernetMonitor`; subscribe to its
+            ``frames`` to extend the monitor from Python.
+    """
+
     def __init__(
         self,
         name: str,
@@ -169,21 +192,26 @@ class MonitorBackend:
         return len(self.reports)
 
     def take_reports(self) -> str:
+        """The waiting reports, encoded for VHDL."""
         return encode_reports(self.reports.take())
 
     def set_check_enabled(self, check: str, enabled: bool) -> None:
+        """Enable or disable a check given by name."""
         if enabled:
             self.monitor.checker.enable(check)
         else:
             self.monitor.checker.disable(check)
 
     def check_count(self, check: str) -> int:
+        """Violations of a check given by name."""
         return self.monitor.checker.count(CheckId.parse(check))
 
     def frame_count(self) -> int:
+        """Frames received, good or bad."""
         return self.monitor.frame_count
 
     def good_frame_count(self) -> int:
+        """Frames received without errors."""
         return self.statistics().good_frames
 
     def expect_mac_octets(self, data: Sequence[int]) -> None:
@@ -195,6 +223,7 @@ class MonitorBackend:
         return len(self._expected)
 
     def statistics(self) -> EthernetStatistics:
+        """A snapshot of the statistics."""
         return self.monitor.statistics.snapshot()
 
     def statistics_values(self) -> list[int]:
@@ -218,6 +247,7 @@ class MonitorBackend:
         return [_saturate(values[name]) for name in STATISTICS_FIELDS]
 
     def statistics_summary(self) -> str:
+        """The human-readable statistics summary."""
         return self.statistics().summary(self.name)
 
     def last_mac_octets_hex(self) -> str:
@@ -239,6 +269,7 @@ class MonitorBackend:
         include_errored: bool = True,
         timestamp_resolution_exponent: int = 9,
     ) -> None:
+        """Write the frames received from now on to a PCAPNG file, creating its directory."""
         options = CaptureOptions(
             include_fcs=include_fcs,
             include_errored=include_errored,
@@ -249,6 +280,7 @@ class MonitorBackend:
         self.monitor.start_capture(path, options)
 
     def stop_captures(self) -> None:
+        """Close every capture."""
         self.monitor.stop_captures()
 
     def finish(self) -> int:
@@ -269,6 +301,19 @@ class MonitorBackend:
 
 
 class SourceBackend:
+    """
+    The Python object behind a VHDL source, ``vc`` in the session of the source.
+
+    Args:
+        name: The name of the source, used in messages.
+        interface: The PHY interface name, see :func:`~.phy.create_phy`.
+        link_rate_bps: The link rate, 0 for the default of the interface.
+        phy_options: Further options of the PHY encoder, such as XGMII lanes.
+
+    Attributes:
+        source: The :class:`~.source.EthernetSource`.
+    """
+
     def __init__(
         self, name: str, interface: str, *, link_rate_bps: int = 0, phy_options: dict[str, Any] | None = None
     ) -> None:
@@ -291,6 +336,7 @@ class SourceBackend:
         return self._xgmii().column_symbols(list(data), list(control))
 
     def queue_bytes(self, data: bytes, **options: Any) -> int:
+        """Queue a frame with the options of :func:`~.source.build_wire_frame`; returns its id."""
         return self.source.queue(build_wire_frame(data, **options))
 
     def queue_unsigned(self, value: int, length: int, **options: Any) -> int:
@@ -302,6 +348,7 @@ class SourceBackend:
         return self.queue_bytes(bytes(packet), **options)
 
     def take_symbols(self, frame_id: int) -> Any:
+        """The sample words of a queued frame, see :meth:`~.source.EthernetSource.take_symbols`."""
         return self.source.take_symbols(frame_id)
 
     def symbols(self, data: Sequence[int], error_offsets: Sequence[int] = (), **options: Any) -> npt.NDArray[np.int32]:

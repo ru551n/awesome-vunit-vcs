@@ -116,6 +116,7 @@ class XgmiiPhy:
 
     # Decoding
     def decode(self, words: Int64Array, times: Int64Array) -> OctetBatch:
+        """Turn lane words into octet words and PHY events; decoding state carries over between batches."""
         count = int(words.size)
         lanes = self.lanes
         lane_index = (self._lane + np.arange(count, dtype=np.int64)) % lanes
@@ -288,6 +289,11 @@ class XgmiiPhy:
 
     # Encoding
     def encode(self, wire: WireFrame) -> Int32Array:
+        """
+        The lane words for a frame: Start on lane 0, the frame, Terminate, then Idle columns for the gap.
+
+        Error offsets become the Error control character.
+        """
         lanes = self.lanes
         length = len(wire.octets)
         if length == 0:

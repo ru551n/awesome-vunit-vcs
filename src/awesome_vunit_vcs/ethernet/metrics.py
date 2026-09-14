@@ -39,6 +39,8 @@ SIZE_BUCKETS: tuple[tuple[str, int, int | None], ...] = (
 
 @dataclass(slots=True, frozen=True)
 class Summary:
+    """Count, minimum, maximum and mean of a series; None while the count is 0."""
+
     count: int = 0
     minimum: int | None = None
     maximum: int | None = None
@@ -67,6 +69,16 @@ class _Accumulator:
 
 @dataclass(slots=True, frozen=True)
 class EthernetStatistics:
+    """
+    A snapshot of the traffic a monitor observed, see the module definitions.
+
+    Counts are frames, sizes octets, times fs and rates bps. ``frame_size``
+    summarizes frame sizes including the FCS, ``ifg_octets`` and ``ifg_fs`` the
+    gaps between frames, and ``size_histogram`` counts frames per RFC 2819
+    size bucket. The rates and utilizations are None when the observation
+    window is empty, and the utilizations also when the link rate is unknown.
+    """
+
     total_frames: int = 0
     good_frames: int = 0
     bad_frames: int = 0
@@ -92,6 +104,7 @@ class EthernetStatistics:
 
     @property
     def duration_fs(self) -> int:
+        """The observation window in fs: first frame start to last frame end."""
         if self.first_timestamp_fs is None or self.last_timestamp_fs is None:
             return 0
         return self.last_timestamp_fs - self.first_timestamp_fs
@@ -101,19 +114,23 @@ class EthernetStatistics:
 
     @property
     def frames_per_second(self) -> float | None:
+        """Frames per second of simulation time."""
         return self._per_second(self.total_frames)
 
     @property
     def bit_rate_bps(self) -> float | None:
+        """Effective bit rate: frame bits (destination address to FCS) per second."""
         return self._per_second(8 * self.frame_octets)
 
     @property
     def link_utilization(self) -> float | None:
+        """Wire bits per second as a fraction of the link rate."""
         rate = self._per_second(8 * self.wire_octets)
         return None if rate is None or not self.link_rate_bps else rate / self.link_rate_bps
 
     @property
     def payload_utilization(self) -> float | None:
+        """Payload bits per second as a fraction of the link rate."""
         rate = self._per_second(8 * self.payload_octets)
         return None if rate is None or not self.link_rate_bps else rate / self.link_rate_bps
 
@@ -153,11 +170,22 @@ class EthernetStatistics:
 
 
 class PerformanceMonitor:
+    """
+    Accumulate traffic statistics from monitor events.
+
+    A subscriber independent of the checker: :class:`~.monitor.EthernetMonitor`
+    subscribes :meth:`on_frame` and :meth:`on_idle_event`.
+
+    Args:
+        link_rate_bps: The link rate utilization is computed against, 0 when unknown.
+    """
+
     def __init__(self, link_rate_bps: int) -> None:
         self.link_rate_bps = link_rate_bps
         self.reset()
 
     def reset(self) -> None:
+        """Forget everything observed so far."""
         self._total = self._good = 0
         self._wire = self._frame = self._payload = 0
         self._fcs = self._phy_frames = self._phy_symbols = self._idle = 0
@@ -170,6 +198,7 @@ class PerformanceMonitor:
         self._histogram = [0] * len(SIZE_BUCKETS)
 
     def on_frame(self, frame: EthernetFrame) -> None:
+        """Count a received frame."""
         self._total += 1
         self._good += frame.is_good
         if self._first is None:
@@ -201,9 +230,11 @@ class PerformanceMonitor:
                 break
 
     def on_idle_event(self, event: IdleEvent) -> None:
+        """Count an error signal asserted between frames."""
         self._idle += event.error
 
     def snapshot(self) -> EthernetStatistics:
+        """The statistics so far; later frames do not change the returned object."""
         return EthernetStatistics(
             total_frames=self._total,
             good_frames=self._good,

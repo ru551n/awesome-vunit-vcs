@@ -179,14 +179,63 @@ def test_readme_has_no_code_beyond_the_install_line() -> None:
     assert all(block.strip().startswith("pip install") for block in blocks)
 
 
+#: What names the flash family, which counts bytes rather than octets
+_FLASH = re.compile(r"flash|qspi", re.IGNORECASE)
+#: The underline of a reStructuredText section title
+_UNDERLINE = re.compile(r"^([=\-~^\"'`#*+])\1{2,}\s*$")
+_BYTE = re.compile(r"\bbytes?\b")
+
+
+def _without_flash(text: str) -> str:
+    """
+    The text of a page without what belongs to the flash family, which counts bytes: sections whose
+    title names the flash or QSPI, down to the next title of the same or a higher level, and
+    paragraphs that name them.
+    """
+    lines = text.splitlines()
+    levels: list[str] = []
+    flash_level: int | None = None
+    kept: list[str] = []
+    for index, line in enumerate(lines):
+        below = lines[index + 1] if index + 1 < len(lines) else ""
+        if line.strip() and not _UNDERLINE.match(line) and _UNDERLINE.match(below):
+            char = below.strip()[0]
+            if char not in levels:
+                levels.append(char)
+            level = levels.index(char)
+            if flash_level is not None and level <= flash_level:
+                flash_level = None
+            if flash_level is None and _FLASH.search(line):
+                flash_level = level
+        if flash_level is None:
+            kept.append(line)
+    paragraphs = re.split(r"\n\s*\n", "\n".join(kept))
+    return "\n\n".join(paragraph for paragraph in paragraphs if not _FLASH.search(paragraph))
+
+
+def test_flash_text_is_left_out_of_the_octet_check_and_ethernet_text_is_not() -> None:
+    page = (
+        "Limitations\n===========\n\nEthernet\n--------\n\nA frame of 64 bytes.\n\n"
+        "Flash\n-----\n\nOne call per byte.\n\nDetails\n~~~~~~~\n\nA 4-byte address.\n\n"
+        "MII\n---\n\nA nibble per byte.\n\nThe flash reads bytes too.\n"
+    )
+    text = _without_flash(page)
+    assert "64 bytes" in text
+    assert "A nibble per byte" in text
+    assert "One call per byte" not in text
+    assert "4-byte address" not in text
+    assert "The flash reads bytes" not in text
+
+
 def test_ethernet_data_is_counted_in_octets() -> None:
-    sources = [REPO / "src" / "awesome_vunit_vcs" / "ethernet" / "checker.py", *DOCS.rglob("*.rst")]
-    offenders = [
-        path.relative_to(REPO).as_posix()
-        for path in sources
-        if "_generated" not in path.parts and re.search(r"\bbytes?\b", path.read_text(encoding="utf-8"))
+    checker = REPO / "src" / "awesome_vunit_vcs" / "ethernet" / "checker.py"
+    offenders = [checker] if _BYTE.search(checker.read_text(encoding="utf-8")) else []
+    offenders += [
+        path
+        for path in DOCS.rglob("*.rst")
+        if "_generated" not in path.parts and _BYTE.search(_without_flash(path.read_text(encoding="utf-8")))
     ]
-    assert not offenders
+    assert not [path.relative_to(REPO).as_posix() for path in offenders]
 
 
 def _literalincludes() -> list[tuple[Path, Path, dict[str, str]]]:

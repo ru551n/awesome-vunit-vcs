@@ -33,9 +33,7 @@ use work.vcs_python_pkg.all;
 use work.xgmii_pkg.all;
 
 package ethernet_vc_pkg is
-  -- The Python session of a VC, identified by the id of the VC. Two VCs with
-  -- the same id would share their Python state, which is a failure on the
-  -- logger of the VC.
+  -- The Python session of a VC, see :vhdl:`vcs_python_pkg.new_vc_session`
   impure function new_vc_session(vc : ethernet_vc_t) return python_session_t;
 
   -- Handle a message type no handler took, following the unexpected message
@@ -114,23 +112,11 @@ package ethernet_vc_pkg is
 end package;
 
 package body ethernet_vc_pkg is
-  -- The full names of the ids with a Python session
-  constant vc_sessions : dict_t := new_dict;
-
   constant backend_module : string := "awesome_vunit_vcs.ethernet.vunit_backend";
 
   impure function new_vc_session(vc : ethernet_vc_t) return python_session_t is
-    constant name : string := full_name(vc.p_id);
   begin
-    if has_key(vc_sessions, name) then
-      failure(
-        vc.p_logger,
-        "Two verification components have the id " & name & " and would share one Python backend"
-      );
-    else
-      set_string(vc_sessions, name, "");
-    end if;
-    return new_vc_session(vc.p_id);
+    return new_vc_session(vc.p_id, vc.p_logger);
   end;
 
   procedure unexpected_msg_type(msg_type : msg_type_t; vc : ethernet_vc_t) is

@@ -28,7 +28,9 @@ Components should feel like VUnit's own verification components (VCs). The Ether
   and checker derive from that id unless they were given explicitly, so logs trace through the
   entities, for example ``tb_gmii:monitor:protocol_checker``.
 * **Python sessions**: the backend of a VC is the object ``vc`` in the Python session of its id,
-  ``new_session(get_id(handle))``. Two VCs with the same id are an error.
+  created with ``new_vc_session(get_id(handle), get_logger(handle))`` from ``vcs_python_pkg``. That
+  function is also the guard every family inherits: a second session for the same id is a failure on
+  the logger, since the two VCs would share one backend. Families do not keep their own copy.
 * **Protocol checks** run in a separate ``<interface>_protocol_checker`` entity, which a monitor
   instantiates when its handle has one, as ``axi_stream_monitor`` does. The monitor keeps the
   scoreboard.

@@ -32,7 +32,10 @@ context python_bridge.python_context;
 
 package vcs_python_pkg is
   -- The Python session of the VC with id, whose backend is the object vc in it
-  impure function new_vc_session(id : id_t) return python_session_t;
+  -- The Python session of a VC, identified by the id of the VC. Two VCs with the same id would
+  -- share their Python state, so a second session for an id is a failure on logger, or on the
+  -- logger of the id when logger is null_logger.
+  impure function new_vc_session(id : id_t; logger : logger_t := null_logger) return python_session_t;
 
   -- Python literals
   function py_str(value : string) return string;
@@ -98,8 +101,21 @@ package body vcs_python_pkg is
   constant record_separator : character := character'val(30);
   constant field_separator : character := character'val(31);
 
-  impure function new_vc_session(id : id_t) return python_session_t is
+  -- The full names of the ids with a Python session
+  constant vc_sessions : dict_t := new_dict;
+
+  impure function new_vc_session(id : id_t; logger : logger_t := null_logger) return python_session_t is
+    constant name : string := full_name(id);
   begin
+    if has_key(vc_sessions, name) then
+      if logger = null_logger then
+        failure(get_logger(id), "Two verification components have the id " & name & " and would share one Python backend");
+      else
+        failure(logger, "Two verification components have the id " & name & " and would share one Python backend");
+      end if;
+    else
+      set_string(vc_sessions, name, "");
+    end if;
     return new_session(id);
   end;
 

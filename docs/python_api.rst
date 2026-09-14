@@ -53,6 +53,9 @@ Units and errors
 .. automodule:: awesome_vunit_vcs.ethernet.errors
    :members: EthernetValueError
 
+.. automodule:: awesome_vunit_vcs.errors
+   :members: AwesomeVunitVcsError
+
 Traffic
 ~~~~~~~
 

@@ -16,6 +16,10 @@ VHDL owns simulation semantics and pin timing; the Python subpackages
 simulator independent.
 """
 
+from .errors import AwesomeVunitVcsError
+
+__all__ = ["VHDL_LIBRARY_NAME", "VUNIT_PACKAGE_NAME", "AwesomeVunitVcsError", "__version__"]
+
 __version__ = "0.1.0.dev0"
 
 #: Name to pass to ``VUnit.add_package``

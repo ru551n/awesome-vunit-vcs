@@ -109,6 +109,8 @@ Python API
 * In a simulation, a monitor backend offers ``vc.on_frame``, ``vc.frames``, ``vc.statistics`` and
   ``vc.error``, a counted check error.
 * Every invalid argument raises ``EthernetValueError``, a ``ValueError``.
+* ``AwesomeVunitVcsError``, exported from ``awesome_vunit_vcs``, is the base of every error of the
+  package: ``EthernetValueError`` derives from it, and other families will too.
 
 Breaking changes
 ~~~~~~~~~~~~~~~~

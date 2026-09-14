@@ -42,7 +42,7 @@ dev = [
     "awesome-vunit-vcs[scapy,test]",
     "build>=1.2",
     "mypy>=1.10",
-    "ruff>=0.6",
+    "ruff~=0.16.7",
     "twine>=5",
 ]
 

@@ -40,12 +40,11 @@ _S = 10**15
 
 class AddrModes(IntEnum):
     """
-    Addressing modes advertised in SFDP. The values are what VHDL sends.
+    Addressing modes of a device, advertised in SFDP. The values are what VHDL sends.
 
-    The value only changes what SFDP advertises and which
-    :attr:`FlashConfig.addr_bytes` values are accepted. The model accepts
-    EN4B (0xB7), EX4B (0xE9) and the explicit 4-byte opcodes whatever the
-    value is.
+    A 3-byte-only device ignores EN4B (0xB7), EX4B (0xE9) and every opcode
+    with a fixed 4-byte address as unknown opcodes. A 4-byte-only device
+    ignores EX4B, so it never leaves 4-byte addressing.
     """
 
     #: 3- and 4-byte addressing

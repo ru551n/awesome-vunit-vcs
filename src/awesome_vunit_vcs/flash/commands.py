@@ -45,7 +45,7 @@ from dataclasses import dataclass, replace
 from enum import IntEnum
 from typing import Any
 
-from .config import FlashConfig
+from .config import AddrModes, FlashConfig
 
 
 class Op(IntEnum):
@@ -408,6 +408,9 @@ def supported(cmd: Command, config: FlashConfig) -> bool:
 
     A device ignores an unsupported command like an opcode missing from the
     table. The 32 KiB block erase is unsupported when ``block32_bytes`` is 0.
+    With :attr:`~awesome_vunit_vcs.flash.config.AddrModes.THREE_ONLY`, EN4B,
+    EX4B and every command with a fixed 4-byte address are unsupported; with
+    :attr:`~awesome_vunit_vcs.flash.config.AddrModes.FOUR_ONLY`, EX4B is.
 
     Args:
         cmd: The command.
@@ -416,7 +419,13 @@ def supported(cmd: Command, config: FlashConfig) -> bool:
     Returns:
         True when the device executes the command.
     """
-    return not (cmd.erase is EraseUnit.BLOCK32 and not config.block32_bytes)
+    if cmd.erase is EraseUnit.BLOCK32 and not config.block32_bytes:
+        return False
+    if config.addr_modes is AddrModes.THREE_ONLY:
+        return cmd.addr is not AddrLen.FOUR and cmd.op not in (Op.ENTER_4B, Op.EXIT_4B)
+    if config.addr_modes is AddrModes.FOUR_ONLY:
+        return cmd.op is not Op.EXIT_4B
+    return True
 
 
 def lookup(opcode: int, config: FlashConfig | None = None) -> Command | None:

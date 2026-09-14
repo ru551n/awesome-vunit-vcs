@@ -19,8 +19,9 @@ from awesome_vunit_vcs.flash.commands import (
     Op,
     erase_opcode_for,
     lookup,
+    supported,
 )
-from awesome_vunit_vcs.flash.config import KIB, MIB, FlashConfig
+from awesome_vunit_vcs.flash.config import KIB, MIB, AddrModes, FlashConfig
 
 REQUIRED = {
     0x9F: "RDID",
@@ -167,3 +168,24 @@ def test_address_lengths_are_a_closed_set() -> None:
         AddrLen.FOUR,
         AddrLen.CURRENT,
     }
+
+
+FOUR_BYTE_ONLY_OPCODES = {0x13, 0x0C, 0x12, 0xDC, 0xB7, 0xE9}
+
+
+def test_three_byte_only_devices_have_no_four_byte_commands() -> None:
+    config = FlashConfig(addr_modes=AddrModes.THREE_ONLY)
+    unsupported = {cmd.opcode for cmd in COMMAND_TABLE if not supported(cmd, config)}
+    assert unsupported == FOUR_BYTE_ONLY_OPCODES
+    assert all(COMMANDS[opcode].addr is AddrLen.FOUR for opcode in unsupported - {0xB7, 0xE9})
+
+
+def test_four_byte_only_devices_cannot_leave_four_byte_addressing() -> None:
+    config = FlashConfig(size_bytes=32 * MIB, addr_bytes=4, addr_modes=AddrModes.FOUR_ONLY)
+    assert {cmd.opcode for cmd in COMMAND_TABLE if not supported(cmd, config)} == {0xE9}
+    assert lookup(0xE9, config) is None
+    assert lookup(0xB7, config) is COMMANDS[0xB7]
+
+
+def test_devices_with_both_addressing_modes_support_the_whole_table() -> None:
+    assert all(supported(cmd, FlashConfig()) for cmd in COMMAND_TABLE)

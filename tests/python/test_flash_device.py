@@ -468,6 +468,43 @@ def test_four_byte_page_program_and_erase() -> None:
     assert host.dev.written_regions()[-1] == (0x0100_0000, 64 * KIB)
 
 
+@pytest.mark.parametrize(
+    ("opcode", "kwargs"),
+    [
+        (0xB7, {}),
+        (0xE9, {}),
+        (0x13, {"addr": 0, "addr_bytes": 4, "read": 1}),
+        (0x0C, {"addr": 0, "addr_bytes": 4, "read": 1}),
+        (0x12, {"addr": 0, "addr_bytes": 4, "data": [0x00]}),
+        (0xDC, {"addr": 0, "addr_bytes": 4}),
+    ],
+)
+def test_a_three_byte_only_device_ignores_four_byte_commands(opcode: int, kwargs: dict[str, object]) -> None:
+    host = make(addr_modes=3)
+    host.dev.set_timing_enable(False)
+    host.dev.preload_fill(0, 64 * KIB, 0x00)
+    host.wren()
+    result = host.command(opcode, **kwargs)
+    assert result.directives[1].action is Action.IGNORE_REST
+    assert result.out == []
+    assert host.dev.get_stat("unknown_opcode_count") == 1
+    assert host.dev.get_stat("addr_bytes") == 3
+    host.dev.check_content_fill(0, 64 * KIB, 0x00)
+
+
+def test_a_four_byte_only_device_stays_in_four_byte_mode() -> None:
+    host = make(size_bytes=32 * MIB, addr_bytes=4, addr_modes=4)
+    host.dev.set_timing_enable(False)
+    assert host.command(0xE9).directives[1].action is Action.IGNORE_REST
+    assert host.dev.get_stat("unknown_opcode_count") == 1
+    assert host.dev.get_stat("addr_bytes") == 4
+    host.command(0xB7)
+    assert host.dev.get_stat("unknown_opcode_count") == 1, "EN4B is accepted"
+    host.command(0x66)
+    host.command(0x99)
+    assert host.dev.get_stat("addr_bytes") == 4
+
+
 def test_a_config_can_power_up_in_four_byte_mode() -> None:
     host = make(size_bytes=32 * MIB, jedec_id=0xEF4019, addr_bytes=4)
     host.dev.set_timing_enable(False)

@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from awesome_vunit_vcs.flash import sfdp
-from awesome_vunit_vcs.flash.commands import COMMANDS
+from awesome_vunit_vcs.flash.commands import COMMANDS, lookup
 from awesome_vunit_vcs.flash.config import KIB, MIB, AddrModes, FlashConfig
 
 
@@ -148,3 +148,21 @@ def test_dword1_advertises_the_configured_addressing(config: FlashConfig, field:
 def test_a_config_without_32kib_blocks_advertises_no_such_erase_type() -> None:
     table = dwords(FlashConfig(block32_bytes=0))
     assert ((table[7] >> 16) & 0xFF, (table[7] >> 24) & 0xFF) == (0, 0xFF)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        FlashConfig(),
+        FlashConfig(addr_modes=AddrModes.THREE_ONLY),
+        FlashConfig(size_bytes=32 * MIB, addr_bytes=4, addr_modes=AddrModes.FOUR_ONLY),
+        FlashConfig(block32_bytes=0),
+    ],
+    ids=["both", "three_only", "four_only", "no_block32"],
+)
+def test_every_advertised_opcode_is_supported_by_the_device(config: FlashConfig) -> None:
+    table = dwords(config)
+    opcodes = [(table[0] >> 8) & 0xFF, table[2] >> 8 & 0xFF, table[2] >> 24, table[3] >> 8 & 0xFF, table[3] >> 24]
+    opcodes += [opcode for _, opcode in erase_types(table) if opcode != 0xFF]
+    for opcode in opcodes:
+        assert lookup(opcode, config) is not None, f"SFDP advertises unsupported 0x{opcode:02X}"

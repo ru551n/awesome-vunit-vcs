@@ -280,6 +280,8 @@ reading without an opcode:
 ``ramp`` and ``check_bytes`` are helpers of the testbench. ``tests/vhdl/tb_qspi_master.vhd`` checks
 the master bit by bit against a stub device.
 
+**See also:** the recipes in :doc:`../cookbook/flash`.
+
 Limitations
 -----------
 

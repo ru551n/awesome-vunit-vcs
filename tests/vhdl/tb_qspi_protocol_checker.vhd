@@ -271,10 +271,12 @@ begin
       elsif run("test_reset_clears_counts_and_timing_history") then
         send_frame(deselect_after => 20 ns);
         send_frame;
+        -- docs-start: protocol-checker-reset
         check_counts(raw_checker, qspi_cs_deselect, 1);
         check_one_error;
         reset(net, raw_checker);
         check_no_violations(raw_checker);
+        -- docs-end: protocol-checker-reset
 
         -- CS is high for 10 ns around the reset, but the CS rise before it is
         -- forgotten: no tSHSL violation

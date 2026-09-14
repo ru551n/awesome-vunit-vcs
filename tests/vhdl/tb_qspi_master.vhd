@@ -695,8 +695,10 @@ begin
           end loop;
 
           reset_time := now;
+          -- docs-start: qspi-master-reset
           reset(net, master);
           check(m2s.cs_n = '1', at_period("CS is high after the reset"));
+          -- docs-end: qspi-master-reset
           check(m2s.sck = '0', at_period("SCK is idle after the reset"));
           check_equal(qspi_to_natural(m2s.io.enable), 0, at_period("IOs are released after the reset"));
           check(cs_rise_time >= reset_time, at_period("CS rose at the reset"));

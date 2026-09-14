@@ -426,12 +426,14 @@ begin
         deallocate(expected);
 
       elsif run("test_page_program_then_read_back") then
+        -- docs-start: qspi-flash-commands
         expected := ramp(page_bytes, 16#00#);
         qspi_flash_write_enable(net, master_a);
         qspi_flash_page_program(net, master_a, 16#005000#, expected);
         poll_until_ready(net);
         qspi_flash_read(net, master_a, 16#005000#, page_bytes, got);
         check_bytes(got, expected, "page program");
+        -- docs-end: qspi-flash-commands
         deallocate(got);
         deallocate(expected);
 
@@ -566,6 +568,7 @@ begin
         flash_check_content_fill(net, flash_a, 16#200000#, 4, 16#FF#);
 
       elsif run("test_written_regions_reports_only_what_was_programmed") then
+        -- docs-start: flash-written-regions
         qspi_flash_write_enable(net, master_a);
         qspi_flash_page_program(net, master_a, 16#00C000#, ramp(4, 1));
         poll_until_ready(net);
@@ -574,6 +577,7 @@ begin
         check_equal(get(regions, 0), 16#00C000#, "region address");
         check_equal(get(regions, 1), 4, "region length");
         deallocate(regions);
+        -- docs-end: flash-written-regions
 
       elsif run("test_four_byte_addressing_reaches_the_same_data") then
         -- The last 8 bytes of the 16 MiB device, reached with a 4-byte and a
@@ -775,12 +779,14 @@ begin
         flash_check_content(net, flash_a, 16#011000#, new_byte_array((0 => 16#AA#)));
 
       elsif run("test_content_mismatch_is_a_check_failure") then
+        -- docs-start: flash-content-mismatch
         disable_stop(get_logger(flash_a), error);
         flash_check_content(net, flash_a, 16#000100#, new_byte_array((0 => 16#00#)));
         -- The check is a message: wait until the VC has handled it
         wait_until_idle(net, as_sync(flash_a));
         check_equal(get_log_count(get_logger(flash_a), error), 1, "content mismatches on erased flash");
         reset_log_count(get_logger(flash_a), error);
+        -- docs-end: flash-content-mismatch
 
       elsif run("test_non_default_configuration") then
         disable_stop(get_logger(protocol_checker(custom_flash)), error);
@@ -832,6 +838,7 @@ begin
         -- next command
         flash_preload(net, flash_a, 16#017000#, new_byte_array((16#11#, 16#22#)));
         expected := ramp(64, 16#40#);
+        -- docs-start: qspi-transfer
         address := qspi_flash_address_bytes(16#017100#, 3);
         qspi_flash_write_enable(net, master_a);
         qspi_transfer(
@@ -842,6 +849,7 @@ begin
           addr => address,
           wr_data => expected
         );
+        -- docs-end: qspi-transfer
         -- Into the data phase: 8 opcode, 24 address and 96 data cycles
         for cycle in 1 to 128 loop
           wait until rising_edge(m2s_a.sck);
@@ -877,6 +885,7 @@ begin
 
       elsif run("test_reset_can_clear_the_statistics") then
         qspi_flash_write_enable(net, master_a);
+        -- docs-start: flash-reset-statistics
         qspi_flash_page_program(net, master_a, 16#01A000#, x"5A");
         reset(net, flash_a);
         flash_get_stat(net, flash_a, "program_count", count);
@@ -888,6 +897,7 @@ begin
         check_equal(length(regions), 0, "written regions after a reset that clears the statistics");
         deallocate(regions);
         flash_check_content(net, flash_a, 16#01A000#, x"5A");
+        -- docs-end: flash-reset-statistics
 
       elsif run("test_timing_disable_ends_the_wait") then
         flash_set_timing_enable(net, flash_a, true);

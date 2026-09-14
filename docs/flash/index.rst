@@ -25,6 +25,8 @@ What's here
      - What's here
    * - :doc:`qspi_flash`, :doc:`qspi_master`, :doc:`qspi_protocol_checker`
      - One page per VC: pins, constructors, procedures and options
+   * - :doc:`../cookbook/flash`
+     - Recipes: boot from an image, check writes, check pin timing, reset, custom transfers
    * - :doc:`python`
      - The flash device model in Python, without a simulator
    * - :doc:`vhdl_api`

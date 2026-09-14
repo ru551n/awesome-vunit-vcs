@@ -88,6 +88,12 @@ Recipes
 
 .. toctree::
    :maxdepth: 2
+   :caption: Flash and QSPI
+
+   flash
+
+.. toctree::
+   :maxdepth: 2
    :caption: Python and VHDL together
 
    python_and_vhdl

@@ -393,6 +393,7 @@ begin
         disable_stop(get_logger(protocol_checker(checked_flash)), error);
         disable_stop(get_logger(protocol_checker(default_checked_flash)), error);
         deselect_too_briefly;
+        -- docs-start: flash-check-forwarding
         get_check_count(net, checked_flash, qspi_cs_deselect, count);
         check_equal(count, 1, "blocking count through the flash");
         get_check_count(net, checked_flash, qspi_cs_deselect, reference);
@@ -400,6 +401,7 @@ begin
         check_equal(count, 1, "count by reference through the flash");
 
         set_check_enabled(net, checked_flash, qspi_cs_deselect, false);
+        -- docs-end: flash-check-forwarding
         deselect_too_briefly;
         get_check_count(net, protocol_checker(checked_flash), qspi_cs_deselect, count);
         check_equal(count, 1, "switched off through the flash");

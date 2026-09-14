@@ -250,6 +250,8 @@ A rule switched off and on again:
 ``send_frame``, ``check_counts``, ``check_no_violations`` and ``check_one_error`` are helpers of the
 testbench.
 
+**See also:** the recipes in :doc:`../cookbook/flash`.
+
 Limitations
 -----------
 

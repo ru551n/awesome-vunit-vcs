@@ -720,6 +720,8 @@ A CS deselect time below the ``t_shsl`` of the flash's protocol checker:
 
 ``poll_until_ready`` and ``send_raw_byte`` are helpers of the testbench.
 
+**See also:** the recipes in :doc:`../cookbook/flash`.
+
 Limitations
 -----------
 

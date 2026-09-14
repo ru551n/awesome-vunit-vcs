@@ -37,6 +37,7 @@ begin
     variable received : std_ulogic_vector(0 to 8 * 1518 - 1);
     variable length : natural;
     variable fcs_ok : boolean;
+    constant frame_sizes : integer_vector := (60, 100, 1514);
 
     procedure wait_until_idle is
     begin
@@ -141,6 +142,24 @@ begin
         wait_until_idle;
         stop_capture(net, monitor);  -- open frames.pcapng in Wireshark
         -- docs-end: capture
+
+      elsif run("test_call_a_python_function") then
+        -- docs-start: call-python
+        import_module_from_file(tb_path(runner_cfg) & "python/cookbook_model.py", "cookbook_model");
+        check(call_integer_vector("cookbook_model.gain_table", kwarg("length", 4)) = integer_vector'(0, 1, 4, 9));
+        -- docs-end: call-python
+
+      elsif run("test_python_reference_model") then
+        -- docs-start: reference-model
+        import_module_from_file(tb_path(runner_cfg) & "python/cookbook_model.py", "cookbook_model");
+        for idx in frame_sizes'range loop
+          push_ethernet_frame(net, source, frame(0 to 111) & (0 to 8 * (frame_sizes(idx) - 14) - 1 => '1'));
+        end loop;
+        wait_until_idle;
+        get_statistics(net, monitor, statistics);
+        -- The Python model predicts what the monitor must count
+        check_equal(statistics.payload_octets, call("cookbook_model.expected_payload_octets", arg(frame_sizes)));
+        -- docs-end: reference-model
 
       elsif run("test_reset_a_source") then
         -- docs-start: reset

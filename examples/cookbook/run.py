@@ -18,8 +18,10 @@ from vunit import VUnit
 
 ROOT = Path(__file__).parent
 
+# docs-start: python-path
 # The packet and sequence functions in python/ are imported by name in the simulator
 os.environ["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT / "python"), os.environ.get("PYTHONPATH")]))
+# docs-end: python-path
 
 vu = VUnit.from_argv()
 vu.add_vhdl_builtins()

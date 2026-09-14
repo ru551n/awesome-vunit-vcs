@@ -85,3 +85,9 @@ Recipes
    :caption: Property-based testing
 
    properties
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Python and VHDL together
+
+   python_and_vhdl

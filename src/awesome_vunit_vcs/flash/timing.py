@@ -16,7 +16,8 @@ no one -- the only honest representation of "busy until t" is t. It also
 makes the model immune to the testbench polling at arbitrary times, and
 makes ``set_enable(False)`` a one-line change of semantics (every duration
 armed afterwards is 0, so its deadline is already in the past) instead of a
-special case threaded through the state machine.
+special case threaded through the state machine; the device also calls
+:meth:`Timing.end_busy` to cut a running deadline short.
 
 All times are integer femtoseconds (fs).
 """
@@ -87,8 +88,9 @@ class Timing:
         ``False`` collapses every busy time to zero. For the common test that
         cares about protocol, not milliseconds -- and it must collapse *all*
         of them, so no test can accidentally depend on one op still being
-        slow. A deadline armed before the call is kept, so a device that is
-        already busy stays busy until that deadline.
+        slow. This call keeps a deadline armed before it;
+        :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.set_timing_enable`
+        ends it with :meth:`end_busy`.
 
         Args:
             enable: True to apply the busy times, False to use 0 for all of them.
@@ -155,6 +157,16 @@ class Timing:
             busy period and after :meth:`clear_busy`.
         """
         return self._deadline_fs
+
+    def end_busy(self, now_fs: int) -> None:
+        """
+        End a running busy period at ``now_fs``.
+
+        Args:
+            now_fs: The simulation time in fs from which WIP is clear. A
+                deadline already before it is kept, so this never extends one.
+        """
+        self._deadline_fs = min(self._deadline_fs, now_fs)
 
     def clear_busy(self) -> None:
         """Clear WIP immediately. Used by a reset, which aborts whatever was in progress."""

@@ -439,6 +439,27 @@ def test_set_protection(fast: FlashBackend) -> None:
     assert list(fast.read_back(0x1000, 1)) == [0x00]
 
 
+def test_a_reset_while_cs_is_low_is_not_a_failure(fast: FlashBackend) -> None:
+    fast.cs_assert(0, 0)
+    assert unpack(fast.xfer(0x9F)).action is Action.TRANSMIT
+    assert fast.reset() == 0
+    assert fast.xfer(-1) == ignore_rest()
+    assert list(fast.cs_deassert(0, 0, 0)) == [0, 0, 0]
+    out, _ = transaction(fast, [0x9F], read=1)
+    assert out == [0xEF]
+    assert fast.num_reports() == 0
+
+
+def test_timing_off_ends_a_running_busy_period() -> None:
+    backend = make()
+    transaction(backend, [0x06], now_fs=SEC)
+    transaction(backend, [0x20, 0, 0, 0], now_fs=SEC)
+    assert backend.get_stat("wip") == 1
+    assert backend.set_timing_enable(False) == 0
+    assert backend.get_stat("wip") == 0
+    assert backend.get_stat("busy_remaining_us") == 0
+
+
 def test_reset_keeps_the_array_but_drops_the_mode(fast: FlashBackend) -> None:
     fast.preload([0x5A], 0)
     transaction(fast, [0xB7])  # EN4B

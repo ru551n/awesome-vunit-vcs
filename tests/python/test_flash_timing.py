@@ -108,6 +108,20 @@ def test_a_command_with_no_busy_key_never_arms_the_deadline(timing: Timing) -> N
     assert timing.busy_fs(None) == 0
 
 
+def test_end_busy_cuts_a_running_deadline_short(timing: Timing) -> None:
+    timing.start_busy(0, "tCE")
+    timing.end_busy(SEC)
+    assert timing.deadline_fs() == SEC
+    assert not timing.is_busy(SEC)
+    assert timing.is_busy(SEC - 1), "only ended from that time on"
+
+
+def test_end_busy_never_extends_a_deadline(timing: Timing) -> None:
+    timing.start_busy(0, "tPP")
+    timing.end_busy(SEC)
+    assert timing.deadline_fs() == 700 * US
+
+
 def test_clear_busy_drops_the_deadline(timing: Timing) -> None:
     timing.start_busy(0, "tCE")
     timing.clear_busy()

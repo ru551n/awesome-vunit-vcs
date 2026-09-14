@@ -168,6 +168,7 @@ class FlashDevice:
         self.stats: dict[str, int] = dict.fromkeys(_COUNTERS, 0)
         self.now_fs = 0
         self._sr = [0, 0, 0]
+        self._cs_active = False
         self.reset_state()
 
     # -- lifecycle ---------------------------------------------------------
@@ -178,10 +179,11 @@ class FlashDevice:
 
         The status registers return to their defaults, WEL, deep power-down,
         WIP, QPI and continuous read are cleared, the addressing mode returns
-        to the power-up mode and any transaction in progress is dropped. The
-        array, the testbench's explicit lock map and the counters survive,
-        because a reset is not an erase and the lock map models something
-        off-chip.
+        to the power-up mode and any transaction in progress is dropped: when
+        CS is low, the device ignores the rest of that transaction, and the
+        next ``cs_assert`` starts normally. The array, the testbench's
+        explicit lock map and the counters survive, because a reset is not an
+        erase and the lock map models something off-chip.
         """
         self._sr = [
             self.config.sr1_default & 0xFF,
@@ -196,7 +198,10 @@ class FlashDevice:
         self.timing.clear_busy()
         self._sync_protection()
         self._clear_transaction()
-        self._cs_active = False
+        if self._cs_active:
+            # The VC is still in the middle of a transaction: its remaining
+            # bytes are ignored, not a protocol error.
+            self._phase = Phase.IGNORE
 
     def _clear_transaction(self) -> None:
         self._phase = Phase.IDLE
@@ -1001,7 +1006,14 @@ class FlashDevice:
         """
         Enable or disable busy times, see :meth:`~awesome_vunit_vcs.flash.timing.Timing.set_enable`.
 
+        Disabling also ends a busy period that is running: its deadline
+        becomes :attr:`now_fs`, the latest time VHDL passed, so WIP is clear
+        from then on. Enabling again does not restore it.
+
         Args:
-            enable: True to apply the busy times, False to use 0 for all of them.
+            enable: True to apply the busy times, False to use 0 for all of
+                them and end a running busy period.
         """
         self.timing.set_enable(enable)
+        if not enable:
+            self.timing.end_busy(self.now_fs)

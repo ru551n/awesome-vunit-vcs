@@ -269,7 +269,8 @@ class FlashBackend:
         """
         Power-on reset of the volatile state, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.reset_state`.
 
-        The array is untouched: a reset is not an erase.
+        The array is untouched: a reset is not an erase. A reset while CS is
+        low makes the device ignore the rest of that transaction.
 
         Returns:
             The number of reports waiting.
@@ -390,6 +391,10 @@ class FlashBackend:
     def set_timing_enable(self, enable: bool) -> int:
         """
         Enable or disable busy times; ``False`` collapses every busy time to zero.
+
+        Disabling also ends a busy period that is running, from the last time
+        VHDL sent, see
+        :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.set_timing_enable`.
 
         Args:
             enable: Whether busy times apply.

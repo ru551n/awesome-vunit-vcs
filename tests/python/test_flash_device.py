@@ -16,7 +16,7 @@ from flash_harness import Host, frame
 
 from awesome_vunit_vcs.flash.config import FlashConfig
 from awesome_vunit_vcs.flash.device import ContentMismatch, FlashDevice
-from awesome_vunit_vcs.flash.directive import Action
+from awesome_vunit_vcs.flash.directive import Action, ignore_rest
 
 KIB = 1024
 MIB = 1024 * 1024
@@ -710,6 +710,26 @@ def test_set_timing_enable_false_collapses_everything(host: Host) -> None:
     assert host.command(0x02, addr=0, data=[0x00]).busy == 700 * US
 
 
+def test_turning_timing_off_ends_a_running_busy_period(host: Host) -> None:
+    host.at(SEC).wren()
+    host.at(SEC).command(0x20, addr=0)  # 45 ms sector erase
+    assert host.at(SEC + MS).status(0) == [0x01]
+    host.dev.set_timing_enable(False)
+    assert host.dev.get_stat("wip") == 0
+    assert host.dev.get_stat("busy_remaining_us") == 0
+    assert host.at(SEC + MS).read_array(0, 1) == [0xFF]
+    assert host.dev.get_stat("wip_reject_count") == 0
+    # Turning it back on does not resurrect the busy period
+    host.dev.set_timing_enable(True)
+    assert host.at(SEC + MS).status(0) == [0x00]
+
+
+def test_turning_timing_off_when_idle_changes_nothing(host: Host) -> None:
+    host.at(SEC).command(0x9F, read=1)
+    host.dev.set_timing_enable(False)
+    assert host.at(SEC).status(0) == [0x00]
+
+
 def test_an_ignored_command_never_arms_the_deadline(host: Host) -> None:
     host.at(0).wren()
     host.at(0).command(0x20, addr=0)  # 45 ms sector erase
@@ -765,6 +785,28 @@ def test_a_command_between_enable_and_reset_disarms_it(fast: Host) -> None:
     fast.command(0x99)
     assert fast.dev.get_stat("addr_bytes") == 4
     assert fast.dev.get_stat("reset_count") == 0
+
+
+def test_a_reset_while_cs_is_low_ignores_the_rest_of_that_transaction(fast: Host) -> None:
+    fast.wren()
+    fast.dev.cs_assert(0)
+    for byte in (0x02, 0x00, 0x10, 0x00):
+        fast.dev.xfer(byte)
+    fast.dev.reset_state()
+    assert fast.dev.xfer(0x00) == ignore_rest()
+    assert fast.dev.xfer(0x00) == ignore_rest()
+    assert fast.dev.cs_deassert(0, 0) == 0
+    assert fast.dev.read_back(0x1000, 1) == b"\xff", "the program was dropped"
+    assert fast.dev.get_stat("program_count") == 0
+    # The next transaction starts normally
+    assert fast.command(0x9F, read=3).out == [0xEF, 0x40, 0x18]
+
+
+def test_a_reset_with_cs_high_leaves_the_next_transaction_alone(fast: Host) -> None:
+    fast.dev.reset_state()
+    assert fast.command(0x9F, read=1).out == [0xEF]
+    with pytest.raises(RuntimeError, match="without cs_assert"):
+        fast.dev.xfer(0x9F)
 
 
 def test_reset_clears_volatile_state_but_not_the_array(fast: Host) -> None:

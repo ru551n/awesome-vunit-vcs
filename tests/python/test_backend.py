@@ -75,7 +75,7 @@ def test_frame_logging() -> None:
     push_line(backend, line)
     report = decode_reports(backend.take_reports())[0]
     assert report.severity is Severity.DEBUG
-    assert report.message.startswith("frame 0: 64 bytes, dst=02:00:00:00:00:01, fcs_ok=True")
+    assert report.message.startswith("frame 0: 64 octets, dst=02:00:00:00:00:01, fcs_ok=True")
 
 
 def test_independent_backends_do_not_share_state() -> None:
@@ -117,7 +117,7 @@ def test_monitor_backend_scoreboard_compares_mac_octets() -> None:
     reports = decode_reports(backend.take_reports())
     assert reports[0].message.splitlines()[:2] == [
         "ETH_SCOREBOARD: frame 1 is not the expected frame",
-        "expected length=60 bytes",
+        "expected length=60 octets",
     ]
     assert backend.expected_count() == 1
     assert backend.finish() == 1

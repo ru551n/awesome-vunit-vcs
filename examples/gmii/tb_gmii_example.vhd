@@ -19,8 +19,8 @@ library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
 
 -- A gmii_source drives the input of the DUT, a register pipeline. One monitor
--- observes the input and one the output: the frames must leave the DUT as
--- they entered it.
+-- observes the input and one the output, each with a protocol checker: the
+-- frames must leave the DUT as they entered it.
 entity tb_gmii_example is
   generic (runner_cfg : string);
 end entity;
@@ -32,9 +32,13 @@ architecture tb of tb_gmii_example is
   signal in_data, out_data : std_ulogic_vector(7 downto 0);
   signal in_dv, in_er, out_dv, out_er : std_ulogic;
 
-  constant source : ethernet_source_t := new_gmii_source;
-  constant input_monitor : ethernet_monitor_t := new_gmii_monitor;
-  constant output_monitor : ethernet_monitor_t := new_gmii_monitor;
+  constant source : gmii_source_t := new_gmii_source;
+  constant input_monitor : gmii_monitor_t := new_gmii_monitor(
+    protocol_checker => default_gmii_protocol_checker, id => get_id("tb_gmii_example:input_monitor")
+  );
+  constant output_monitor : gmii_monitor_t := new_gmii_monitor(
+    protocol_checker => default_gmii_protocol_checker, id => get_id("tb_gmii_example:output_monitor")
+  );
 begin
   clk <= not clk after clk_period / 2;
 
@@ -65,12 +69,12 @@ begin
         for idx in 1 to 20 loop
           -- The scoreboard compares the next received frame with the expected
           -- one; a difference is an ETH_SCOREBOARD check failure
-          expect_ethernet_frame(net, output_monitor, random_frame(rnd.RandInt(60, 1514)));
+          check_ethernet_frame(net, output_monitor, random_frame(rnd.RandInt(60, 1514)), blocking => false);
         end loop;
         -- Replay the same random sequence for the source
         rnd.InitSeed(get_string_seed(runner_cfg));
         for idx in 1 to 20 loop
-          send_ethernet_frame(net, source, random_frame(rnd.RandInt(60, 1514)));
+          push_ethernet_frame(net, source, random_frame(rnd.RandInt(60, 1514)));
         end loop;
         wait_until_idle(net, as_sync(source));
         wait_until_idle(net, as_sync(input_monitor));
@@ -83,23 +87,24 @@ begin
         log_statistics(net, output_monitor);
 
       elsif run("test_bad_fcs_is_detected_on_both_sides") then
-        -- A deliberate error is logged as an error on each monitor. Count it
-        -- instead of stopping; an error left uncounted still fails the test.
-        disable_stop(get_logger(input_monitor), error);
-        disable_stop(get_logger(output_monitor), error);
+        -- A deliberate error is logged as an error on the protocol checker of
+        -- each monitor. Count it instead of stopping; an error left uncounted
+        -- still fails the test.
+        disable_stop(get_logger(get_protocol_checker(input_monitor)), error);
+        disable_stop(get_logger(get_protocol_checker(output_monitor)), error);
 
-        send_ethernet_frame(net, source, random_frame(100), fcs => fcs_bad);
+        push_ethernet_frame(net, source, random_frame(100), frame_options(fcs => fcs_bad));
         wait_until_idle(net, as_sync(source));
         wait_until_idle(net, as_sync(input_monitor));
         wait_until_idle(net, as_sync(output_monitor));
 
-        get_check_count(net, input_monitor, eth_fcs, count);
+        get_check_count(net, get_protocol_checker(input_monitor), eth_fcs, count);
         check_equal(count, 1);
-        get_check_count(net, output_monitor, eth_fcs, count);
+        get_check_count(net, get_protocol_checker(output_monitor), eth_fcs, count);
         check_equal(count, 1);
-        check_equal(get_log_count(get_logger(output_monitor), error), 1);
-        reset_log_count(get_logger(input_monitor), error);
-        reset_log_count(get_logger(output_monitor), error);
+        check_equal(get_log_count(get_logger(get_protocol_checker(output_monitor)), error), 1);
+        reset_log_count(get_logger(get_protocol_checker(input_monitor)), error);
+        reset_log_count(get_logger(get_protocol_checker(output_monitor)), error);
 
       elsif run("test_python_subscriber") then
         -- The backend of a monitor is the object vc in the Python session
@@ -107,8 +112,8 @@ begin
         -- to the frames it reconstructs.
         exec_file(tb_path(runner_cfg) & "python/frame_sizes.py", new_session(get_id(output_monitor)));
 
-        send_ethernet_frame(net, source, random_frame(60));
-        send_ethernet_frame(net, source, random_frame(200));
+        push_ethernet_frame(net, source, random_frame(60));
+        push_ethernet_frame(net, source, random_frame(200));
         wait_until_idle(net, as_sync(source));
         wait_until_idle(net, as_sync(input_monitor));
         wait_until_idle(net, as_sync(output_monitor));
@@ -120,9 +125,9 @@ begin
         if eval_boolean(
           "__import__('importlib.util').util.find_spec('scapy') is not None", new_session("tb_gmii_example:scapy")
         ) then
-          send_ethernet_packet(
-            net, source, "Ether(dst='02:00:00:00:00:01')/IP(dst='192.168.1.10')/UDP(dport=1234)/Raw(b'hello')"
-          );
+          -- python/packets.py builds the packet; the directory is on the Python path
+          exec("import sys" & LF & "sys.path.insert(0, '" & tb_path(runner_cfg) & "python')");
+          push_ethernet_packet(net, source, "packets:udp_packet", "dport=1234");
           wait_until_idle(net, as_sync(source));
           wait_until_idle(net, as_sync(input_monitor));
           wait_until_idle(net, as_sync(output_monitor));

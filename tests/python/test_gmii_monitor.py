@@ -100,7 +100,7 @@ def test_bad_fcs_message() -> None:
         f"expected=0x{expected:08X}\n"
         f"received=0x{expected ^ 0x10000000:08X}\n"
         f"SFD time={sfd_time} fs\n"
-        f"length=128 bytes"
+        f"length=128 octets"
     )
 
 

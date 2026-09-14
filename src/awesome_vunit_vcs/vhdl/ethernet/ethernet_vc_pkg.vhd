@@ -2,71 +2,56 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this file,
 -- You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- The part of the Ethernet verification component entities that does not
--- depend on the PHY: the messages of a monitor, answering wait_until_idle at
--- the end of a frame, the final checks of a monitor and the backend
--- expression a source transmits for a frame. Testbenches use ethernet_pkg;
--- this package is for the entities.
+-- The implementation of the Ethernet verification component entities that
+-- does not depend on the PHY handle types: the processes of sources, monitors
+-- and protocol checkers of interfaces carrying one symbol per clock cycle
+-- (GMII, MII) and of interfaces carrying columns of lanes (XGMII), and the
+-- message handling they share. Testbenches use ethernet_pkg and the PHY
+-- packages; this package is for the entities.
 
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+use std.textio.all;
+
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
 use vunit_lib.sync_pkg.all;
+use vunit_lib.stream_master_pkg.all;
+use vunit_lib.stream_slave_pkg.all;
 use vunit_lib.vc_pkg.all;
 use vunit_lib.integer_array_pkg.all;
+use vunit_lib.dict_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
 use work.ethernet_pkg.all;
 use work.vcs_python_pkg.all;
+use work.xgmii_pkg.all;
 
 package ethernet_vc_pkg is
-  -- Handle a message sent to a monitor. Everything sampled so far reaches the
-  -- backend first. A wait_until_idle request is answered at once unless
-  -- in_frame, in which case it waits in idle_requests for the end of the frame.
-  procedure handle_monitor_message(
-    signal net : inout network_t;
-    monitor : ethernet_monitor_t;
-    session : python_session_t;
-    variable batch : inout sample_batch_t;
-    idle_requests : queue_t;
-    in_frame : boolean;
-    variable request_msg : inout msg_t
-  );
+  -- The Python session of a VC, identified by the id of the VC. Two VCs with
+  -- the same id would share their Python state, which is a failure on the
+  -- logger of the VC.
+  impure function new_vc_session(vc : ethernet_vc_t) return python_session_t;
 
-  -- A frame ended: send the samples to the backend when the monitor flushes
-  -- at frame ends or someone waits for the frame, then answer the waiting
-  -- wait_until_idle requests
-  procedure end_monitor_frame(
-    signal net : inout network_t;
-    monitor : ethernet_monitor_t;
-    variable batch : inout sample_batch_t;
-    idle_requests : queue_t
-  );
-
-  -- The final checks of a monitor when the test ends
-  procedure finish_monitor(
-    monitor : ethernet_monitor_t;
-    session : python_session_t;
-    variable batch : inout sample_batch_t
-  );
-
-  -- The expression of the source backend that returns the sample words of an
-  -- ethernet_send_frame_msg or ethernet_send_packet_msg
-  impure function transmit_expression(msg_type : msg_type_t; msg : msg_t) return string;
+  -- Handle a message type no handler took, following the unexpected message
+  -- type policy of the VC like vc_pkg.unexpected_msg_type of VUnit: a check
+  -- failure on the checker of the VC unless the policy is ignore or the
+  -- message was already handled
+  procedure unexpected_msg_type(msg_type : msg_type_t; vc : ethernet_vc_t);
 
   -- The octets of a vector, leftmost octet first
   function to_octets(value : std_ulogic_vector) return integer_vector;
-  -- The process of a monitor of an interface carrying one symbol per clock
-  -- cycle with valid and error signals (GMII, MII). data, dv and er are
-  -- sampled on the rising edge of clk. A sample is recorded when valid is
-  -- asserted or the sample word changes, so a long idle period costs one
-  -- sample. Sample words (see awesome_vunit_vcs/ethernet/phy/common.py):
+
+  -- The process of a monitor or protocol checker of an interface carrying one
+  -- symbol per clock cycle with valid and error signals (GMII, MII). data, dv
+  -- and er are sampled on the rising edge of clk. A sample is recorded when
+  -- valid is asserted or the sample word changes, so a long idle period costs
+  -- one sample. Sample words (see awesome_vunit_vcs/ethernet/phy/common.py):
   --
   --   bit 0-7  data (the low data'length bits)
   --   bit 8    dv
@@ -77,11 +62,30 @@ package ethernet_vc_pkg is
   -- Never returns.
   procedure monitor_symbol_interface(
     signal net : inout network_t;
-    monitor : ethernet_monitor_t;
+    vc : ethernet_vc_t;
     signal clk : in std_ulogic;
     signal data : in std_ulogic_vector;
     signal dv : in std_ulogic;
     signal er : in std_ulogic
+  );
+
+  -- The process of a monitor or protocol checker of an XGMII-family interface.
+  -- A column (the lanes of one clock edge) is recorded as one sample word per
+  -- lane, lane 0 first, unless it is an Idle column like the one before it.
+  -- Sample words (see awesome_vunit_vcs/ethernet/phy/xgmii.py):
+  --
+  --   bit 0-7  lane data
+  --   bit 8    lane control
+  --   bit 10   metavalue on the lane data
+  --   bit 11   metavalue on the lane control
+  --
+  -- Never returns.
+  procedure monitor_column_interface(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal data : in std_ulogic_vector;
+    signal ctrl : in std_ulogic_vector
   );
 
   -- The process of a source of an interface carrying one symbol per clock
@@ -90,26 +94,52 @@ package ethernet_vc_pkg is
   -- Never returns.
   procedure drive_symbol_interface(
     signal net : inout network_t;
-    source : ethernet_source_t;
+    vc : ethernet_vc_t;
     signal clk : in std_ulogic;
     signal data : out std_ulogic_vector;
     signal dv : out std_ulogic;
     signal er : out std_ulogic
   );
+
+  -- The process of a source of an XGMII-family interface: a column on every
+  -- rising clock edge, or on both edges, Idle columns when there is nothing
+  -- to transmit. Never returns.
+  procedure drive_column_interface(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal data : out std_ulogic_vector;
+    signal ctrl : out std_ulogic_vector
+  );
 end package;
 
 package body ethernet_vc_pkg is
-  procedure reply_idle(signal net : inout network_t; variable request_msg : inout msg_t) is
-    variable reply_msg : msg_t := new_msg(wait_until_idle_reply_msg);
+  -- The full names of the ids with a Python session
+  constant vc_sessions : dict_t := new_dict;
+
+  constant backend_module : string := "awesome_vunit_vcs.ethernet.vunit_backend";
+
+  impure function new_vc_session(vc : ethernet_vc_t) return python_session_t is
+    constant name : string := full_name(vc.p_id);
   begin
-    reply(net, request_msg, reply_msg);
+    if has_key(vc_sessions, name) then
+      failure(
+        vc.p_logger,
+        "Two verification components have the id " & name & " and would share one Python backend"
+      );
+    else
+      set_string(vc_sessions, name, "");
+    end if;
+    return new_vc_session(vc.p_id);
   end;
 
-  procedure reply_integer(signal net : inout network_t; variable request_msg : inout msg_t; value : integer) is
-    variable reply_msg : msg_t := new_msg(ethernet_reply_msg);
+  procedure unexpected_msg_type(msg_type : msg_type_t; vc : ethernet_vc_t) is
   begin
-    push(reply_msg, value);
-    reply(net, request_msg, reply_msg);
+    if is_already_handled(msg_type) or vc.p_unexpected_msg_type_policy = ignore then
+      null;
+    else
+      check_failed(vc.p_checker, "Got unexpected message " & name(msg_type));
+    end if;
   end;
 
   function to_octets(value : std_ulogic_vector) return integer_vector is
@@ -122,21 +152,349 @@ package body ethernet_vc_pkg is
     return result;
   end;
 
+  function link_rate_bps(link_rate_mbps : positive) return string is
+  begin
+    return integer'image(link_rate_mbps) & "_000_000";
+  end;
+
+  -- The options of the Python PHY decoder or encoder that the interface has
+  impure function phy_options(vc : ethernet_vc_t) return string is
+    constant cfg : ethernet_cfg_t := vc.p_cfg;
+  begin
+    if cfg.p_interface /= xgmii then
+      return "";
+    elsif vc.p_kind = source_vc then
+      return
+        ", phy_options={'lanes': " & integer'image(cfg.p_lanes) &
+        ", 'deficit_idle': " & py_bool(cfg.p_deficit_idle) & "}";
+    end if;
+    return
+      ", phy_options={'lanes': " & integer'image(cfg.p_lanes) &
+      ", 'allow_lane4_start': " & py_bool(cfg.p_allow_lane4_start) & "}";
+  end;
+
+  -- A limit of 0 disables it
+  function max_limit(value : natural) return string is
+  begin
+    if value = 0 then
+      return integer'image(integer'high);
+    end if;
+    return integer'image(value);
+  end;
+
+  procedure create_backend(vc : ethernet_vc_t; session : python_session_t) is
+    constant cfg : ethernet_cfg_t := vc.p_cfg;
+    constant common : string :=
+      py_str(full_name(vc.p_id)) & ", " & py_str(ethernet_interface_t'image(cfg.p_interface)) &
+      ", link_rate_bps=" & link_rate_bps(cfg.p_link_rate_mbps) & phy_options(vc);
+  begin
+    case vc.p_kind is
+      when source_vc =>
+        create_backend(session, backend_module, "SourceBackend", common);
+      when monitor_vc =>
+        create_backend(
+          session, backend_module, "MonitorBackend",
+          common &
+          ", checks=False" &
+          ", min_frame_octets=" & integer'image(cfg.p_min_frame_octets) &
+          ", has_fcs=" & py_bool(cfg.p_has_fcs) &
+          ", log_frames=" & py_bool(cfg.p_log_frames)
+        );
+      when protocol_checker_vc =>
+        create_backend(
+          session, backend_module, "ProtocolCheckerBackend",
+          common &
+          ", min_preamble_octets=" & integer'image(cfg.p_min_preamble_octets) &
+          ", max_preamble_octets=" & max_limit(cfg.p_max_preamble_octets) &
+          ", min_frame_octets=" & integer'image(cfg.p_min_frame_octets) &
+          ", max_frame_octets=" & max_limit(cfg.p_max_frame_octets) &
+          ", min_ifg_octets=" & integer'image(cfg.p_min_ifg_octets) &
+          ", has_fcs=" & py_bool(cfg.p_has_fcs)
+        );
+    end case;
+  end;
+
+  impure function has_subscribers(actor : actor_t) return boolean is
+    variable state : actor_state_t := get_actor_state(actor);
+    variable result : boolean;
+  begin
+    result := state.subscribers /= null;
+    if result then
+      result := state.subscribers.all'length > 0;
+    end if;
+    deallocate(state);
+    return result;
+  end;
+
+  ---------------------------------------------------------------------------
+  -- Monitors and protocol checkers
+  ---------------------------------------------------------------------------
+
+  type monitor_state_t is record
+    session : python_session_t;
+    batch : sample_batch_t;
+    -- wait_until_idle requests waiting for the end of a frame or of pending requests
+    idle_requests : queue_t;
+    -- pop requests (stream_pop_msg, pop_ethernet_frame_msg) in arrival order
+    pop_requests : queue_t;
+    has_pop_request : boolean;
+    pop_request : msg_t;
+    -- blocking check requests and the number of expected frames including theirs
+    check_requests : queue_t;
+    check_numbers : queue_t;
+    has_check_request : boolean;
+    check_request : msg_t;
+    check_number : natural;
+    expected_frames : natural;
+    -- Frames received while a pop was pending, as pop_ethernet_frame_reply_msg
+    frames : queue_t;
+    -- The frame pop_stream reads
+    stream_octets : integer_vector_ptr_t;
+    stream_length : natural;
+    stream_index : natural;
+    -- Whether the backend collects received frames
+    collecting : boolean;
+    -- Messages are not handled before this time (wait_for_time)
+    resume_time : time;
+  end record;
+
+  procedure init_monitor(vc : ethernet_vc_t; variable state : inout monitor_state_t) is
+  begin
+    state.session := new_vc_session(vc);
+    create_backend(vc, state.session);
+    state.batch := new_sample_batch(
+      state.session, vc.p_logger, vc.p_checker, vc.p_cfg.p_batch_length, vc.p_cfg.p_delta_unit
+    );
+    state.idle_requests := new_queue;
+    state.pop_requests := new_queue;
+    state.has_pop_request := false;
+    state.check_requests := new_queue;
+    state.check_numbers := new_queue;
+    state.has_check_request := false;
+    state.check_number := 0;
+    state.expected_frames := 0;
+    state.frames := new_queue;
+    state.stream_octets := null_integer_vector_ptr;
+    state.stream_length := 0;
+    state.stream_index := 0;
+    state.collecting := false;
+    state.resume_time := 0 fs;
+  end;
+
+  impure function pops_pending(state : monitor_state_t) return boolean is
+  begin
+    return state.has_pop_request or not is_empty(state.pop_requests);
+  end;
+
+  impure function checks_pending(state : monitor_state_t) return boolean is
+  begin
+    return state.has_check_request or not is_empty(state.check_requests);
+  end;
+
+  -- The backend collects frames while someone subscribes to them or a pop is pending
+  procedure update_collecting(vc : ethernet_vc_t; variable state : inout monitor_state_t) is
+    variable collecting : boolean := false;
+  begin
+    if vc.p_kind /= monitor_vc then
+      return;
+    end if;
+    collecting := pops_pending(state) or has_subscribers(vc.p_actor);
+    if collecting /= state.collecting then
+      backend_exec(state.session, "collect_frames = " & py_bool(collecting));
+      state.collecting := collecting;
+    end if;
+  end;
+
+  -- Move the frames the backend collected to the subscribers and the frame queue
+  procedure take_frames(signal net : inout network_t; vc : ethernet_vc_t; variable state : inout monitor_state_t) is
+    variable values : integer_array_t;
+    variable idx : natural := 0;
+    variable octets : natural;
+    variable fcs_ok : boolean;
+    variable frame_msg, publish_msg : msg_t;
+    variable subscribed : boolean;
+
+    impure function frame_data(first, num_octets : natural) return std_ulogic_vector is
+      variable result : std_ulogic_vector(0 to 8 * num_octets - 1);
+    begin
+      for octet in 0 to num_octets - 1 loop
+        result(8 * octet to 8 * octet + 7) := std_ulogic_vector(to_unsigned(get(values, first + octet), 8));
+      end loop;
+      return result;
+    end;
+  begin
+    if not state.collecting then
+      return;
+    end if;
+    values := backend_integer_array(state.session, "take_frames()");
+    if length(values) > 0 then
+      subscribed := has_subscribers(vc.p_actor);
+    end if;
+    while idx < length(values) loop
+      octets := get(values, idx);
+      fcs_ok := get(values, idx + 1) = 1;
+      if subscribed then
+        publish_msg := new_msg(ethernet_frame_msg);
+        push(publish_msg, octets);
+        push(publish_msg, fcs_ok);
+        push(publish_msg, frame_data(idx + 2, octets));
+        publish(net, vc.p_actor, publish_msg);
+      end if;
+      if pops_pending(state) then
+        frame_msg := new_msg(pop_ethernet_frame_reply_msg);
+        push(frame_msg, octets);
+        push(frame_msg, fcs_ok);
+        push(frame_msg, frame_data(idx + 2, octets));
+        push(state.frames, frame_msg);
+      end if;
+      idx := idx + 2 + octets;
+    end loop;
+    deallocate(values);
+  end;
+
+  -- Answer the pending pops that the queued frames can answer, in order
+  procedure serve_pops(signal net : inout network_t; variable state : inout monitor_state_t) is
+    variable frame_msg, reply_msg : msg_t;
+    variable octets : natural;
+    variable fcs_ok : boolean;
+
+    procedure load_stream_octets(frame : std_ulogic_vector) is
+      constant values : integer_vector := to_octets(frame);
+    begin
+      for octet in values'range loop
+        set(state.stream_octets, octet, values(octet));
+      end loop;
+    end;
+  begin
+    loop
+      if not state.has_pop_request then
+        exit when is_empty(state.pop_requests);
+        state.pop_request := pop(state.pop_requests);
+        state.has_pop_request := true;
+      end if;
+
+      if message_type(state.pop_request) = stream_pop_msg then
+        if state.stream_length = 0 then
+          exit when is_empty(state.frames);
+          frame_msg := pop(state.frames);
+          octets := pop(frame_msg);
+          fcs_ok := pop(frame_msg);
+          if octets = 0 then
+            delete(frame_msg);
+            next;
+          end if;
+          state.stream_octets := new_integer_vector_ptr(octets);
+          load_stream_octets(pop_std_ulogic_vector(frame_msg));
+          delete(frame_msg);
+          state.stream_length := octets;
+          state.stream_index := 0;
+        end if;
+
+        reply_msg := new_msg;
+        push_std_ulogic_vector(
+          reply_msg, std_ulogic_vector(to_unsigned(get(state.stream_octets, state.stream_index), 8))
+        );
+        state.stream_index := state.stream_index + 1;
+        push_boolean(reply_msg, state.stream_index = state.stream_length);
+        if state.stream_index = state.stream_length then
+          deallocate(state.stream_octets);
+          state.stream_length := 0;
+        end if;
+        reply(net, state.pop_request, reply_msg);
+      else
+        exit when is_empty(state.frames);
+        reply_msg := pop(state.frames);
+        reply(net, state.pop_request, reply_msg);
+      end if;
+      state.has_pop_request := false;
+    end loop;
+  end;
+
+  -- Answer the blocking checks of the expected frames the backend has compared
+  procedure serve_checks(signal net : inout network_t; variable state : inout monitor_state_t) is
+    variable compared : natural;
+    variable reply_msg : msg_t;
+  begin
+    if not checks_pending(state) then
+      return;
+    end if;
+    compared := backend_integer(state.session, "compared_count()");
+    loop
+      if not state.has_check_request then
+        exit when is_empty(state.check_requests);
+        state.check_request := pop(state.check_requests);
+        state.check_number := pop(state.check_numbers);
+        state.has_check_request := true;
+      end if;
+      exit when state.check_number > compared;
+      reply_msg := new_msg(check_ethernet_frame_reply_msg);
+      reply(net, state.check_request, reply_msg);
+      state.has_check_request := false;
+    end loop;
+  end;
+
+  procedure serve_idle_requests(
+    signal net : inout network_t;
+    variable state : inout monitor_state_t;
+    in_frame : boolean
+  ) is
+    variable request_msg, reply_msg : msg_t;
+  begin
+    if in_frame or pops_pending(state) or checks_pending(state) then
+      return;
+    end if;
+    while not is_empty(state.idle_requests) loop
+      request_msg := pop(state.idle_requests);
+      reply_msg := new_msg(wait_until_idle_reply_msg);
+      reply(net, request_msg, reply_msg);
+    end loop;
+  end;
+
+  -- Everything that waits on the backend being up to date
+  procedure serve(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    variable state : inout monitor_state_t;
+    in_frame : boolean
+  ) is
+  begin
+    flush_samples(state.batch);
+    take_frames(net, vc, state);
+    serve_pops(net, state);
+    serve_checks(net, state);
+    update_collecting(vc, state);
+    serve_idle_requests(net, state, in_frame);
+  end;
+
+  -- A frame ended
+  procedure end_monitor_frame(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    variable state : inout monitor_state_t
+  ) is
+  begin
+    update_collecting(vc, state);
+    if vc.p_cfg.p_flush_at_frame_end or state.collecting or not is_empty(state.idle_requests) or
+      checks_pending(state) then
+      serve(net, vc, state, in_frame => false);
+    end if;
+  end;
+
   procedure handle_monitor_message(
     signal net : inout network_t;
-    monitor : ethernet_monitor_t;
-    session : python_session_t;
-    variable batch : inout sample_batch_t;
-    idle_requests : queue_t;
+    vc : ethernet_vc_t;
+    variable state : inout monitor_state_t;
     in_frame : boolean;
     variable request_msg : inout msg_t
   ) is
-    constant msg_type : msg_type_t := message_type(request_msg);
+    variable msg_type : msg_type_t := message_type(request_msg);
+    constant is_monitor : boolean := vc.p_kind = monitor_vc;
+    constant is_protocol_checker : boolean := vc.p_kind = protocol_checker_vc;
     variable check : ethernet_check_t;
     variable enabled : boolean;
     variable level : log_level_t;
     variable values : integer_array_t;
-    variable statistics_reply_msg : msg_t;
+    variable reply_msg : msg_t;
 
     procedure start_capture is
       constant file_name : string := pop_string(request_msg);
@@ -144,140 +502,147 @@ package body ethernet_vc_pkg is
       constant include_errored : boolean := pop(request_msg);
     begin
       backend_exec(
-        session,
+        state.session,
         "start_capture(" & py_str(file_name) &
         ", include_fcs=" & py_bool(include_fcs) &
         ", include_errored=" & py_bool(include_errored) & ")"
       );
     end;
+
+    procedure check_sequence is
+      constant function_name : string := pop_string(request_msg);
+      constant arguments : string := pop_string(request_msg);
+      constant count : natural := pop(request_msg);
+      constant seed : string := pop_string(request_msg);
+    begin
+      state.expected_frames := backend_integer(
+        state.session,
+        "check_sequence(" & py_str(function_name) & ", " & py_str(arguments) & ", " &
+        integer'image(count) & ", " & py_str(seed) & ")"
+      );
+    end;
+
+    procedure check_frame is
+      constant expected : std_ulogic_vector := pop_std_ulogic_vector(request_msg);
+      constant text : string := pop_string(request_msg);
+      constant blocking : boolean := pop(request_msg);
+    begin
+      state.expected_frames := backend_integer(
+        state.session, "check_mac_octets(" & py_int_list(to_octets(expected)) & ", " & py_str(text) & ")"
+      );
+      if blocking then
+        push(state.check_requests, request_msg);
+        push(state.check_numbers, state.expected_frames);
+      end if;
+    end;
   begin
-    flush_samples(batch);
+    flush_samples(state.batch);
 
     if msg_type = wait_until_idle_msg then
-      if in_frame then
-        push(idle_requests, request_msg);
-      else
-        reply_idle(net, request_msg);
-      end if;
+      handle_message(msg_type);
+      push(state.idle_requests, request_msg);
+      serve(net, vc, state, in_frame);
 
-    elsif msg_type = ethernet_set_check_enabled_msg then
+    elsif msg_type = wait_for_time_msg then
+      handle_message(msg_type);
+      state.resume_time := now + pop_time(request_msg);
+      delete(request_msg);
+
+    elsif is_monitor and (msg_type = pop_ethernet_frame_msg or msg_type = stream_pop_msg) then
+      push(state.pop_requests, request_msg);
+      update_collecting(vc, state);
+      serve_pops(net, state);
+
+    elsif is_monitor and msg_type = check_ethernet_frame_msg then
+      check_frame;
+
+    elsif is_monitor and msg_type = check_ethernet_sequence_msg then
+      check_sequence;
+
+    elsif is_monitor and msg_type = get_ethernet_statistics_msg then
+      values := backend_integer_array(state.session, "statistics_values()");
+      reply_msg := new_msg(get_ethernet_statistics_reply_msg);
+      for idx in 0 to length(values) - 1 loop
+        push(reply_msg, get(values, idx));
+      end loop;
+      deallocate(values);
+      reply(net, request_msg, reply_msg);
+
+    elsif is_monitor and msg_type = get_ethernet_frame_count_msg then
+      reply_msg := new_msg(get_ethernet_frame_count_reply_msg);
+      push(reply_msg, backend_integer(state.session, "frame_count()"));
+      reply(net, request_msg, reply_msg);
+
+    elsif is_monitor and msg_type = log_ethernet_statistics_msg then
+      level := log_level_t'val(integer'(pop(request_msg)));
+      log(vc.p_logger, backend_string(state.session, "statistics_summary()"), level);
+
+    elsif is_monitor and msg_type = start_ethernet_capture_msg then
+      start_capture;
+
+    elsif is_monitor and msg_type = stop_ethernet_capture_msg then
+      backend_exec(state.session, "stop_captures()");
+
+    elsif is_protocol_checker and msg_type = set_ethernet_check_enabled_msg then
       check := ethernet_check_t'val(integer'(pop(request_msg)));
       enabled := pop(request_msg);
       backend_exec(
-        session,
+        state.session,
         "set_check_enabled(" & py_str(ethernet_check_t'image(check)) & ", " & py_bool(enabled) & ")"
       );
 
-    elsif msg_type = ethernet_get_check_count_msg then
+    elsif is_protocol_checker and msg_type = get_ethernet_check_count_msg then
       check := ethernet_check_t'val(integer'(pop(request_msg)));
-      reply_integer(
-        net, request_msg, backend_integer(session, "check_count(" & py_str(ethernet_check_t'image(check)) & ")")
-      );
-
-    elsif msg_type = ethernet_get_frame_count_msg then
-      reply_integer(net, request_msg, backend_integer(session, "frame_count()"));
-
-    elsif msg_type = ethernet_get_statistics_msg then
-      values := backend_integer_array(session, "statistics_values()");
-      statistics_reply_msg := new_msg(ethernet_reply_msg);
-      for idx in 0 to length(values) - 1 loop
-        push(statistics_reply_msg, get(values, idx));
-      end loop;
-      deallocate(values);
-      reply(net, request_msg, statistics_reply_msg);
-
-    elsif msg_type = ethernet_log_statistics_msg then
-      level := log_level_t'val(integer'(pop(request_msg)));
-      log(get_logger(monitor), backend_string(session, "statistics_summary()"), level);
-
-    elsif msg_type = ethernet_expect_frame_msg then
-      call("vc.expect_mac_octets", arg(to_octets(pop_std_ulogic_vector(request_msg))), session => session);
-
-    elsif msg_type = ethernet_start_capture_msg then
-      start_capture;
-
-    elsif msg_type = ethernet_stop_capture_msg then
-      backend_exec(session, "stop_captures()");
+      reply_msg := new_msg(get_ethernet_check_count_reply_msg);
+      push(reply_msg, backend_integer(state.session, "check_count(" & py_str(ethernet_check_t'image(check)) & ")"));
+      reply(net, request_msg, reply_msg);
 
     else
-      unexpected_msg_type(msg_type, monitor.p_std_cfg);
+      unexpected_msg_type(msg_type, vc);
     end if;
   end;
 
-  procedure end_monitor_frame(
+  procedure handle_monitor_messages(
     signal net : inout network_t;
-    monitor : ethernet_monitor_t;
-    variable batch : inout sample_batch_t;
-    idle_requests : queue_t
+    vc : ethernet_vc_t;
+    variable state : inout monitor_state_t;
+    in_frame : boolean
   ) is
-    variable request_msg : msg_t;
+    variable msg : msg_t;
   begin
-    if monitor.p_flush_at_frame_end or not is_empty(idle_requests) then
-      flush_samples(batch);
-    end if;
-    while not is_empty(idle_requests) loop
-      request_msg := pop(idle_requests);
-      reply_idle(net, request_msg);
+    while now >= state.resume_time and has_message(vc.p_actor) loop
+      receive(net, vc.p_actor, msg);
+      handle_monitor_message(net, vc, state, in_frame, msg);
     end loop;
   end;
 
-  procedure finish_monitor(
-    monitor : ethernet_monitor_t;
-    session : python_session_t;
-    variable batch : inout sample_batch_t
-  ) is
+  procedure finish_monitor(vc : ethernet_vc_t; variable state : inout monitor_state_t) is
   begin
-    flush_samples(batch);
-    if backend_integer(session, "finish()") > 0 then
-      log_reports(session, get_logger(monitor), get_checker(monitor));
+    flush_samples(state.batch);
+    if backend_integer(state.session, "finish()") > 0 then
+      log_reports(state.session, vc.p_logger, vc.p_checker);
     end if;
   end;
 
-  impure function transmit_expression(msg_type : msg_type_t; msg : msg_t) return string is
-    impure function frame_expression return string is
-      constant frame : std_ulogic_vector := pop_std_ulogic_vector(msg);
-    begin
-      return "symbols(" & py_int_list(to_octets(frame)) & ", " & pop_transmit_options(msg) & ")";
-    end;
-
-    impure function packet_expression return string is
-      constant scapy_expression : string := pop_string(msg);
-    begin
-      return "packet_symbols(" & py_str(scapy_expression) & ", " & pop_transmit_options(msg) & ")";
-    end;
-  begin
-    if msg_type = ethernet_send_frame_msg then
-      return frame_expression;
-    end if;
-    assert msg_type = ethernet_send_packet_msg
-      report "transmit_expression of a message that is not a frame or packet" severity failure;
-    return packet_expression;
-  end;
   procedure monitor_symbol_interface(
     signal net : inout network_t;
-    monitor : ethernet_monitor_t;
+    vc : ethernet_vc_t;
     signal clk : in std_ulogic;
     signal data : in std_ulogic_vector;
     signal dv : in std_ulogic;
     signal er : in std_ulogic
   ) is
-    constant session : python_session_t := new_vc_session(get_id(monitor));
-    constant actor : actor_t := as_sync(monitor);
-    -- wait_until_idle requests waiting for the end of a frame
-    constant idle_requests : queue_t := new_queue;
-
     subtype sample_word_t is natural range 0 to 2 ** 12 - 1;
     constant valid_bit : sample_word_t := 2 ** 8;
     constant error_bit : sample_word_t := 2 ** 9;
     constant data_metavalue_bit : sample_word_t := 2 ** 10;
     constant control_metavalue_bit : sample_word_t := 2 ** 11;
 
-    variable batch : sample_batch_t;
+    variable state : monitor_state_t;
     variable word : sample_word_t;
     variable previous_word : integer := -1;
     variable in_frame : boolean := false;
     variable finished : boolean := false;
-    variable msg : msg_t;
 
     impure function sample_word return sample_word_t is
       variable result : sample_word_t := to_integer(to_01(unsigned(data)));
@@ -303,36 +668,34 @@ package body ethernet_vc_pkg is
     end;
   begin
     assert data'length <= 8 report "At most 8 data bits per symbol" severity failure;
-    create_backend(session, ethernet_backend_module, ethernet_monitor_backend_class, backend_arguments(monitor));
-    batch := new_sample_batch(
-      session, get_logger(monitor), get_checker(monitor), monitor.p_batch_length, monitor.p_delta_unit
-    );
+    init_monitor(vc, state);
 
     while not finished loop
-      wait on clk, net, runner;
+      if state.resume_time > now then
+        wait on clk, net, runner for state.resume_time - now;
+      else
+        wait on clk, net, runner;
+      end if;
 
       if rising_edge(clk) then
         word := sample_word;
         if is_valid(word) or word /= previous_word or word >= error_bit then
-          record_sample(batch, word);
+          record_sample(state.batch, word);
         end if;
 
         if in_frame and not is_valid(word) then
-          end_monitor_frame(net, monitor, batch, idle_requests);
+          end_monitor_frame(net, vc, state);
         end if;
 
         in_frame := is_valid(word);
         previous_word := word;
       end if;
 
-      while has_message(actor) loop
-        receive(net, actor, msg);
-        handle_monitor_message(net, monitor, session, batch, idle_requests, in_frame, msg);
-      end loop;
+      handle_monitor_messages(net, vc, state, in_frame);
 
       -- Final checks when the test ends, within the gates of test_runner_cleanup
       if is_active(runner_phase) and is_within_gates_of(test_runner_cleanup) then
-        finish_monitor(monitor, session, batch);
+        finish_monitor(vc, state);
         finished := true;
       end if;
     end loop;
@@ -340,33 +703,245 @@ package body ethernet_vc_pkg is
     wait;
   end;
 
+  procedure monitor_column_interface(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal data : in std_ulogic_vector;
+    signal ctrl : in std_ulogic_vector
+  ) is
+    constant lanes : positive := ctrl'length;
+    alias data_bits : std_ulogic_vector(8 * lanes - 1 downto 0) is data;
+    alias ctrl_bits : std_ulogic_vector(lanes - 1 downto 0) is ctrl;
+
+    subtype sample_word_t is natural range 0 to 2 ** 12 - 1;
+    type column_t is array (0 to lanes - 1) of sample_word_t;
+    constant control_bit : sample_word_t := 2 ** 8;
+    constant data_metavalue_bit : sample_word_t := 2 ** 10;
+    constant control_metavalue_bit : sample_word_t := 2 ** 11;
+    constant idle_column : column_t := (others => control_bit + 16#07#);
+
+    variable state : monitor_state_t;
+    variable column : column_t;
+    variable previous_column : column_t := idle_column;
+    variable in_frame : boolean := false;
+    variable finished : boolean := false;
+
+    impure function sample_column return column_t is
+      variable lane_data : std_ulogic_vector(7 downto 0);
+      variable result : column_t;
+    begin
+      for lane in result'range loop
+        lane_data := data_bits(8 * lane + 7 downto 8 * lane);
+        result(lane) := to_integer(to_01(unsigned(lane_data)));
+        if to_x01(ctrl_bits(lane)) = '1' then
+          result(lane) := result(lane) + control_bit;
+        end if;
+        if is_x(lane_data) then
+          result(lane) := result(lane) + data_metavalue_bit;
+        end if;
+        if is_x(ctrl_bits(lane)) then
+          result(lane) := result(lane) + control_metavalue_bit;
+        end if;
+      end loop;
+      return result;
+    end;
+  begin
+    assert data'length = 8 * lanes report "XGMII data must have 8 bits per lane" severity failure;
+    init_monitor(vc, state);
+
+    while not finished loop
+      if state.resume_time > now then
+        wait on clk, net, runner for state.resume_time - now;
+      else
+        wait on clk, net, runner;
+      end if;
+
+      if rising_edge(clk) or (vc.p_cfg.p_both_edges and falling_edge(clk)) then
+        column := sample_column;
+        if column /= idle_column or column /= previous_column then
+          for lane in column'range loop
+            record_sample(state.batch, column(lane));
+          end loop;
+        end if;
+
+        -- Anything but an Idle column is traffic: a frame, an ordered set or
+        -- a violation the backend reports
+        if in_frame and column = idle_column then
+          end_monitor_frame(net, vc, state);
+        end if;
+
+        in_frame := column /= idle_column;
+        previous_column := column;
+      end if;
+
+      handle_monitor_messages(net, vc, state, in_frame);
+
+      -- Final checks when the test ends, within the gates of test_runner_cleanup
+      if is_active(runner_phase) and is_within_gates_of(test_runner_cleanup) then
+        finish_monitor(vc, state);
+        finished := true;
+      end if;
+    end loop;
+
+    wait;
+  end;
+
+  ---------------------------------------------------------------------------
+  -- Sources
+  ---------------------------------------------------------------------------
+
+  type source_state_t is record
+    session : python_session_t;
+    -- Octets pushed with push_stream since the last one with last
+    stream_octets : queue_t;
+    stream_length : natural;
+    -- The backend sequence a push_ethernet_sequence transmits
+    sequence_active : boolean;
+    sequence_id : natural;
+  end record;
+
+  procedure init_source(vc : ethernet_vc_t; variable state : inout source_state_t) is
+  begin
+    state.session := new_vc_session(vc);
+    create_backend(vc, state.session);
+    state.stream_octets := new_queue;
+    state.stream_length := 0;
+    state.sequence_active := false;
+    state.sequence_id := 0;
+  end;
+
+  -- Handle the messages every source handles. expression is set to the
+  -- backend expression returning the sample words to transmit, if any.
+  procedure handle_source_message(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    variable state : inout source_state_t;
+    variable msg_type : inout msg_type_t;
+    variable msg : inout msg_t;
+    variable expression : inout line
+  ) is
+    impure function stream_expression return string is
+      variable octets : integer_vector(0 to state.stream_length - 1);
+    begin
+      for idx in octets'range loop
+        octets(idx) := pop(state.stream_octets);
+      end loop;
+      state.stream_length := 0;
+      return "symbols(" & py_int_list(octets) & ")";
+    end;
+
+    procedure push_packet is
+      constant function_name : string := pop_string(msg);
+      constant arguments : string := pop_string(msg);
+    begin
+      expression := new string'(
+        "function_symbols(" & py_str(function_name) & ", " & py_str(arguments) & ", " &
+        pop_transmit_options(msg) & ")"
+      );
+    end;
+
+    procedure push_sequence is
+      constant function_name : string := pop_string(msg);
+      constant arguments : string := pop_string(msg);
+      constant count : natural := pop(msg);
+      constant seed : string := pop_string(msg);
+    begin
+      state.sequence_id := backend_integer(
+        state.session,
+        "start_sequence(" & py_str(function_name) & ", " & py_str(arguments) & ", " &
+        integer'image(count) & ", " & py_str(seed) & ")"
+      );
+      state.sequence_active := true;
+      expression := new string'("sequence_symbols(" & integer'image(state.sequence_id) & ")");
+    end;
+
+    procedure push_stream_octet is
+      constant octet : std_ulogic_vector := pop_std_ulogic_vector(msg);
+      constant last : boolean := pop_boolean(msg);
+    begin
+      if octet'length /= 8 then
+        check_failed(
+          vc.p_checker,
+          "push_stream data of an Ethernet source is one octet, got " & integer'image(octet'length) & " bits"
+        );
+      else
+        push(state.stream_octets, to_integer(to_01(unsigned(octet))));
+        state.stream_length := state.stream_length + 1;
+      end if;
+      if last and state.stream_length > 0 then
+        expression := new string'(stream_expression);
+      end if;
+    end;
+  begin
+    deallocate(expression);
+
+    if msg_type = push_ethernet_frame_msg then
+      handle_message(msg_type);
+      expression := new string'(
+        "symbols(" & py_int_list(to_octets(pop_std_ulogic_vector(msg))) & ", " & pop_transmit_options(msg) & ")"
+      );
+
+    elsif msg_type = push_ethernet_packet_msg then
+      handle_message(msg_type);
+      push_packet;
+
+    elsif msg_type = push_ethernet_sequence_msg then
+      handle_message(msg_type);
+      push_sequence;
+
+    elsif msg_type = stream_push_msg then
+      handle_message(msg_type);
+      push_stream_octet;
+
+    elsif msg_type = wait_until_idle_msg and state.stream_length > 0 then
+      check_failed(
+        vc.p_checker,
+        integer'image(state.stream_length) & " octets were pushed with push_stream without last"
+      );
+      flush(state.stream_octets);
+      state.stream_length := 0;
+    end if;
+  end;
+
+  -- Whether a message transmits, so the line is not returned to idle before it
+  function is_transmit_msg_type(msg_type : msg_type_t) return boolean is
+  begin
+    return msg_type = push_ethernet_frame_msg or msg_type = push_ethernet_packet_msg or
+      msg_type = push_ethernet_sequence_msg or msg_type = stream_push_msg or msg_type = push_xgmii_columns_msg or msg_type = push_xgmii_link_fault_msg;
+  end;
+
   procedure drive_symbol_interface(
     signal net : inout network_t;
-    source : ethernet_source_t;
+    vc : ethernet_vc_t;
     signal clk : in std_ulogic;
     signal data : out std_ulogic_vector;
     signal dv : out std_ulogic;
     signal er : out std_ulogic
   ) is
-    constant session : python_session_t := new_vc_session(get_id(source));
-    constant actor : actor_t := as_sync(source);
-
+    variable state : source_state_t;
     variable msg : msg_t;
     variable msg_type : msg_type_t;
+    variable expression : line;
     variable symbols : integer_array_t;
     variable word : natural range 0 to 2 ** 10 - 1;
     variable valid : boolean := false;
   begin
-    create_backend(session, ethernet_backend_module, ethernet_source_backend_class, backend_arguments(source));
+    init_source(vc, state);
 
     loop
-      receive(net, actor, msg);
+      receive(net, vc.p_actor, msg);
       msg_type := message_type(msg);
 
+      handle_source_message(net, vc, state, msg_type, msg, expression);
       handle_sync_message(net, msg_type, msg);
 
-      if msg_type = ethernet_send_frame_msg or msg_type = ethernet_send_packet_msg then
-        symbols := backend_integer_array(session, transmit_expression(msg_type, msg));
+      -- A frame, or the batches of a sequence until it is exhausted
+      while expression /= null loop
+        symbols := backend_integer_array(state.session, expression.all);
+        if length(symbols) = 0 or not state.sequence_active then
+          deallocate(expression);
+        end if;
         for idx in 0 to length(symbols) - 1 loop
           wait until rising_edge(clk);
           word := get(symbols, idx);
@@ -376,18 +951,150 @@ package body ethernet_vc_pkg is
           er <= '1' when word / 2 ** 9 mod 2 = 1 else '0';
         end loop;
         deallocate(symbols);
+      end loop;
+      state.sequence_active := false;
 
-        -- A frame without IFG is followed by the next frame if there is one
-        if valid and not has_message(actor) then
-          wait until rising_edge(clk);
-          data <= (data'range => '0');
-          dv <= '0';
-          er <= '0';
-          valid := false;
-        end if;
-      else
-        unexpected_msg_type(msg_type, source.p_std_cfg);
+      -- A frame without IFG is followed by the next frame if there is one
+      if valid and not has_message(vc.p_actor) then
+        wait until rising_edge(clk);
+        data <= (data'range => '0');
+        dv <= '0';
+        er <= '0';
+        valid := false;
       end if;
+
+      unexpected_msg_type(msg_type, vc);
+    end loop;
+  end;
+
+  procedure drive_column_interface(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal data : out std_ulogic_vector;
+    signal ctrl : out std_ulogic_vector
+  ) is
+    constant lanes : positive := ctrl'length;
+    constant idle_character : std_ulogic_vector(7 downto 0) := x"07";
+
+    variable state : source_state_t;
+    variable msg : msg_t;
+    variable msg_type : msg_type_t;
+    variable expression : line;
+    variable idle : boolean := true;
+    variable transmitted : boolean;
+
+    procedure wait_for_edge is
+    begin
+      wait until rising_edge(clk) or (vc.p_cfg.p_both_edges and falling_edge(clk));
+    end;
+
+    procedure drive_idle is
+      variable column_data : std_ulogic_vector(8 * lanes - 1 downto 0);
+    begin
+      for lane in 0 to lanes - 1 loop
+        column_data(8 * lane + 7 downto 8 * lane) := idle_character;
+      end loop;
+      data <= column_data;
+      ctrl <= (ctrl'range => '1');
+      idle := true;
+    end;
+
+    procedure drive(symbols : integer_array_t) is
+      variable word : natural range 0 to 2 ** 9 - 1;
+      variable column_data : std_ulogic_vector(8 * lanes - 1 downto 0);
+      variable column_ctrl : std_ulogic_vector(lanes - 1 downto 0);
+    begin
+      for column in 0 to length(symbols) / lanes - 1 loop
+        wait_for_edge;
+        idle := true;
+        for lane in 0 to lanes - 1 loop
+          word := get(symbols, column * lanes + lane);
+          column_data(8 * lane + 7 downto 8 * lane) := std_ulogic_vector(to_unsigned(word mod 2 ** 8, 8));
+          column_ctrl(lane) := '1' when word / 2 ** 8 = 1 else '0';
+          if word /= 2 ** 8 + 16#07# then
+            idle := false;
+          end if;
+        end loop;
+        data <= column_data;
+        ctrl <= column_ctrl;
+      end loop;
+
+      -- Columns that do not end in Idle are followed by the next transmit
+      -- request, or by Idle when there is none
+      if not idle and not has_message(vc.p_actor) then
+        wait_for_edge;
+        drive_idle;
+      end if;
+    end;
+
+    -- Transmit what vc.<backend_expression> returns; transmitted is false when that is nothing
+    procedure transmit(backend_expression : string; variable transmitted : out boolean) is
+      variable symbols : integer_array_t;
+    begin
+      symbols := backend_integer_array(state.session, backend_expression);
+      transmitted := length(symbols) > 0;
+      drive(symbols);
+      deallocate(symbols);
+    end;
+
+    impure function columns_expression(request_msg : msg_t) return string is
+      constant column_data : std_ulogic_vector := pop_std_ulogic_vector(request_msg);
+      constant column_control : std_ulogic_vector := pop_std_ulogic_vector(request_msg);
+      alias control_bits : std_ulogic_vector(0 to column_control'length - 1) is column_control;
+      variable control_values : integer_vector(control_bits'range);
+    begin
+      for idx in control_bits'range loop
+        control_values(idx) := 1 when to_x01(control_bits(idx)) = '1' else 0;
+      end loop;
+      return "column_symbols(" & py_int_list(to_octets(column_data)) & ", " & py_int_list(control_values) & ")";
+    end;
+
+    impure function link_fault_expression(request_msg : msg_t) return string is
+      -- The ordered set value of local fault is 1, of remote fault 2
+      constant fault : xgmii_link_fault_t := xgmii_link_fault_t'val(integer'(pop(request_msg)));
+      constant columns : positive := pop(request_msg);
+    begin
+      return
+        "ordered_set_symbols(" & integer'image(xgmii_link_fault_t'pos(fault) + 1) &
+        ", " & integer'image(columns) & ")";
+    end;
+  begin
+    assert data'length = 8 * lanes report "XGMII data must have 8 bits per lane" severity failure;
+    init_source(vc, state);
+    drive_idle;
+
+    loop
+      receive(net, vc.p_actor, msg);
+      msg_type := message_type(msg);
+
+      -- Any other request, such as wait_until_idle, finds the line Idle, and
+      -- monitors have sampled the last transmitted column when it is handled
+      if not idle and not is_transmit_msg_type(msg_type) then
+        wait_for_edge;
+        drive_idle;
+      end if;
+
+      if msg_type = push_xgmii_columns_msg then
+        handle_message(msg_type);
+        transmit(columns_expression(msg), transmitted);
+      elsif msg_type = push_xgmii_link_fault_msg then
+        handle_message(msg_type);
+        transmit(link_fault_expression(msg), transmitted);
+      else
+        handle_source_message(net, vc, state, msg_type, msg, expression);
+        handle_sync_message(net, msg_type, msg);
+        -- A frame, or the batches of a sequence until it is exhausted
+        while expression /= null loop
+          transmit(expression.all, transmitted);
+          if not transmitted or not state.sequence_active then
+            deallocate(expression);
+          end if;
+        end loop;
+        state.sequence_active := false;
+      end if;
+
+      unexpected_msg_type(msg_type, vc);
     end loop;
   end;
 end package body;

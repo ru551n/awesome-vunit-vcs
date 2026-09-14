@@ -42,6 +42,8 @@ class CheckId(str, enum.Enum):
     LINK_FAULT = "ETH_LINK_FAULT"
     #: A received frame differs from the expected one, or an expected frame never arrived
     SCOREBOARD = "ETH_SCOREBOARD"
+    #: An error reported by user code, such as a Python subscriber of a VC
+    USER = "ETH_USER"
 
     @classmethod
     def parse(cls, check: CheckId | str) -> CheckId:
@@ -86,7 +88,7 @@ def _frame_context(frame: EthernetFrame) -> list[str]:
     else:
         lines.append(f"start time={frame.timestamp_start_fs} fs")
     if frame.mac is not None:
-        lines.append(f"length={frame.mac.size_with_fcs} bytes")
+        lines.append(f"length={frame.mac.size_with_fcs} octets")
     else:
         lines.append(f"wire length={len(frame.phy.octets)} octets")
     return lines
@@ -237,7 +239,7 @@ class ProtocolChecker:
             self._report(
                 CheckId.RUNT,
                 f"runt frame {index}",
-                [f"minimum={config.min_frame_octets} bytes", *context],
+                [f"minimum={config.min_frame_octets} octets", *context],
                 time,
                 index,
             )
@@ -246,7 +248,7 @@ class ProtocolChecker:
             self._report(
                 CheckId.GIANT,
                 f"oversized frame {index}",
-                [f"maximum={config.max_frame_octets} bytes", *context],
+                [f"maximum={config.max_frame_octets} octets", *context],
                 time,
                 index,
             )

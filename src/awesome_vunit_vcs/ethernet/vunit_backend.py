@@ -10,10 +10,13 @@ backend object as ``vc`` in the session of the VC.
 
 from __future__ import annotations
 
+import ast
+import importlib
+import itertools
 import os
 import traceback
 from collections import deque
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any
 
 import numpy as np
@@ -57,6 +60,31 @@ def _exception_summary(exc: BaseException) -> str:
     return f"{type(exc).__name__}: {exc}{where}"
 
 
+def _call_function(function: str, arguments: str, seed: str = "") -> Any:
+    """
+    Call ``"package.module:function"`` with keyword arguments given as Python
+    literals, for example ``"port=1234, size=128"``. A non-empty seed is passed
+    as the ``seed`` keyword argument.
+    """
+    module_name, separator, attribute = function.partition(":")
+    if not separator or not module_name or not attribute:
+        raise ValueError(f"A function is given as 'package.module:function', got {function!r}")
+    target: Any = importlib.import_module(module_name)
+    for name in attribute.split("."):
+        target = getattr(target, name)
+    call = ast.parse(f"f({arguments})", mode="eval").body
+    if not isinstance(call, ast.Call) or call.args:
+        raise ValueError(f"Arguments are keyword arguments, got {arguments!r}")
+    keywords = {}
+    for keyword in call.keywords:
+        if keyword.arg is None:
+            raise ValueError(f"Arguments are keyword arguments, got {arguments!r}")
+        keywords[keyword.arg] = ast.literal_eval(keyword.value)
+    if seed:
+        keywords["seed"] = seed
+    return target(**keywords)
+
+
 def _saturate(value: int | None) -> int:
     """A statistic as a VHDL integer: -1 when there is no value."""
     return -1 if value is None else min(value, VHDL_INTEGER_MAX)
@@ -78,6 +106,9 @@ class MonitorBackend:
         keep_frames: How many recent frames the monitor keeps.
         log_frames: Log every frame at debug level.
         phy_options: Further options of the PHY decoder, such as XGMII lanes.
+        checks: Run the protocol checks. A VHDL monitor runs without them, its
+            protocol checker (:class:`ProtocolCheckerBackend`) runs them; the
+            scoreboard check stays enabled either way.
 
     The other arguments are those of :class:`~.frame.EthernetConfig`.
 
@@ -101,6 +132,7 @@ class MonitorBackend:
         keep_frames: int = 256,
         log_frames: bool = False,
         phy_options: dict[str, Any] | None = None,
+        checks: bool = True,
     ) -> None:
         self.name = name
         self.reports = ReportQueue()
@@ -124,7 +156,16 @@ class MonitorBackend:
         self.monitor.checker.violations.subscribe(self._violation)
         self.monitor.frames.subscribe(self._frame_logger)
         self.monitor.frames.subscribe(self._compare_with_expected)
-        self._expected: deque[bytes] = deque()
+        self.monitor.frames.subscribe(self._collect)
+        if not checks:
+            self.monitor.checker.disable(*(check for check in CheckId if check is not CheckId.SCOREBOARD))
+        #: Collect received frames for :meth:`take_frames`; VHDL sets it while
+        #: the monitor has subscribers or pending pops
+        self.collect_frames = False
+        self._collected: list[EthernetFrame] = []
+        self._expected: deque[tuple[bytes, str]] = deque()
+        self._queued_count = 0
+        self._compared_count = 0
         self._last_time_fs = 0
 
     # Events -> reports
@@ -144,7 +185,7 @@ class MonitorBackend:
         else:
             destination = ":".join(f"{octet:02x}" for octet in (mac.destination or b""))
             text = (
-                f"frame {frame.index}: {mac.size_with_fcs} bytes, dst={destination}, "
+                f"frame {frame.index}: {mac.size_with_fcs} octets, dst={destination}, "
                 f"fcs_ok={mac.fcs_ok}, SFD time={frame.timestamp_sfd_fs} fs"
             )
         self.reports.add(Severity.DEBUG, text)
@@ -158,7 +199,8 @@ class MonitorBackend:
     def _compare_with_expected(self, frame: EthernetFrame) -> None:
         if not self._expected:
             return
-        expected = self._expected.popleft()
+        expected, message = self._expected.popleft()
+        self._compared_count += 1
         received = frame.mac_octets
         if received in (expected, self._padded(expected)):
             return
@@ -168,10 +210,10 @@ class MonitorBackend:
         )
         self.monitor.checker.report(
             CheckId.SCOREBOARD,
-            f"frame {frame.index} is not the expected frame",
+            f"{message}{': ' if message else ''}frame {frame.index} is not the expected frame",
             [
-                f"expected length={len(expected)} bytes",
-                f"received length={len(received)} bytes",
+                f"expected length={len(expected)} octets",
+                f"received length={len(received)} octets",
                 f"first difference at offset {mismatch}",
                 f"SFD time={frame.timestamp_sfd_fs} fs",
             ],
@@ -216,11 +258,55 @@ class MonitorBackend:
 
     def expect_mac_octets(self, data: Sequence[int]) -> None:
         """Queue the frame (destination address up to the FCS) the next received frame must equal."""
-        self._expected.append(bytes(data))
+        self.check_mac_octets(data)
+
+    def check_mac_octets(self, data: Sequence[int], message: str = "") -> int:
+        """
+        Like :meth:`expect_mac_octets`, with a message prefixing a difference.
+
+        Returns:
+            The number of frames expected so far, this one included, which
+            :meth:`compared_count` reaches when this frame is compared.
+        """
+        self._expected.append((bytes(data), message))
+        self._queued_count += 1
+        return self._queued_count
+
+    def check_sequence(self, function: str, arguments: str = "", count: int = 0, seed: str = "") -> int:
+        """
+        Expect the frames the generator ``function`` yields, see ``_call_function``:
+        ``count`` frames, or all when 0. Returns like :meth:`check_mac_octets`.
+        """
+        frames: Iterator[Any] = iter(_call_function(function, arguments, seed))
+        for frame in itertools.islice(frames, count or None):
+            self.check_mac_octets(bytes(frame))
+        return self._queued_count
+
+    def compared_count(self) -> int:
+        """Expected frames compared with a received frame so far."""
+        return self._compared_count
 
     def expected_count(self) -> int:
         """Expected frames not yet received."""
         return len(self._expected)
+
+    def _collect(self, frame: EthernetFrame) -> None:
+        if self.collect_frames and frame.mac is not None:
+            self._collected.append(frame)
+
+    def take_frames(self) -> npt.NDArray[np.int32]:
+        """
+        The frames collected since the last call, for VHDL: for each frame its
+        octet count, 1 when its FCS is good and 0 otherwise, then its octets from
+        the destination address up to the FCS.
+        """
+        values: list[int] = []
+        for frame in self._collected:
+            octets = frame.mac_octets
+            fcs_ok = frame.mac is not None and frame.mac.fcs_ok is not False
+            values.extend((len(octets), int(fcs_ok), *octets))
+        self._collected.clear()
+        return np.array(values, dtype=np.int32)
 
     def statistics(self) -> EthernetStatistics:
         """A snapshot of the statistics."""
@@ -300,6 +386,50 @@ class MonitorBackend:
         return len(self.reports)
 
 
+class ProtocolCheckerBackend:
+    """
+    The Python object behind a VHDL protocol checker, ``vc`` in its session.
+
+    The monitor engine of :class:`MonitorBackend` with the protocol checks
+    enabled and the scoreboard, frame logging and frame collection off. It
+    exposes the calls a protocol checker needs.
+
+    Args:
+        name: The name of the protocol checker, used in messages.
+        interface: The PHY interface name, see :func:`~.phy.create_phy`.
+        options: The keyword arguments of :class:`MonitorBackend`.
+    """
+
+    def __init__(self, name: str, interface: str, **options: Any) -> None:
+        self._backend = MonitorBackend(name, interface, keep_frames=1, **options)
+        self._backend.monitor.checker.disable(CheckId.SCOREBOARD)
+
+    @property
+    def monitor(self) -> EthernetMonitor:
+        """The :class:`~.monitor.EthernetMonitor` running the checks."""
+        return self._backend.monitor
+
+    def push(self, samples: Any, base_hi: int, base_lo: int, delta_unit_fs: int = 1) -> int:
+        """See :meth:`MonitorBackend.push`."""
+        return self._backend.push(samples, base_hi, base_lo, delta_unit_fs)
+
+    def take_reports(self) -> str:
+        """See :meth:`MonitorBackend.take_reports`."""
+        return self._backend.take_reports()
+
+    def set_check_enabled(self, check: str, enabled: bool) -> None:
+        """See :meth:`MonitorBackend.set_check_enabled`."""
+        self._backend.set_check_enabled(check, enabled)
+
+    def check_count(self, check: str) -> int:
+        """See :meth:`MonitorBackend.check_count`."""
+        return self._backend.check_count(check)
+
+    def finish(self) -> int:
+        """See :meth:`MonitorBackend.finish`."""
+        return self._backend.finish()
+
+
 class SourceBackend:
     """
     The Python object behind a VHDL source, ``vc`` in the session of the source.
@@ -320,6 +450,7 @@ class SourceBackend:
         self.name = name
         phy_options = {**(phy_options or {}), **({"link_rate_bps": link_rate_bps} if link_rate_bps else {})}
         self.source = EthernetSource(create_phy(interface, **phy_options), name=name)
+        self._sequences: dict[int, Iterator[Any]] = {}
 
     def _xgmii(self) -> XgmiiPhy:
         phy = self.source.phy
@@ -367,3 +498,27 @@ class SourceBackend:
         exec("from scapy.all import *", namespace)
         packet = eval(expression, namespace)
         return self.symbols(bytes(packet), error_offsets, **options)
+
+    def function_symbols(
+        self, function: str, arguments: str = "", error_offsets: Sequence[int] = (), **options: Any
+    ) -> npt.NDArray[np.int32]:
+        """Like :meth:`symbols` for the frame ``function`` returns, see ``_call_function``."""
+        return self.symbols(bytes(_call_function(function, arguments)), error_offsets, **options)
+
+    def start_sequence(self, function: str, arguments: str = "", count: int = 0, seed: str = "") -> int:
+        """
+        Start transmitting the frames the generator ``function`` yields, ``count``
+        of them or all when 0. Returns the id :meth:`sequence_symbols` takes.
+        """
+        frames: Iterator[Any] = iter(_call_function(function, arguments, seed))
+        sequence_id = len(self._sequences)
+        self._sequences[sequence_id] = itertools.islice(frames, count or None)
+        return sequence_id
+
+    def sequence_symbols(self, sequence_id: int, frames: int = 64) -> npt.NDArray[np.int32]:
+        """The sample words of the next ``frames`` frames of a sequence, empty when it is exhausted."""
+        batch = [self.symbols(bytes(frame)) for frame in itertools.islice(self._sequences[sequence_id], frames)]
+        if not batch:
+            del self._sequences[sequence_id]
+            return np.zeros(0, dtype=np.int32)
+        return np.concatenate(batch).astype(np.int32)

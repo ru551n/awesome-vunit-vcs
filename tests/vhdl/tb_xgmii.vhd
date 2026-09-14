@@ -2,11 +2,12 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this file,
 -- You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- XGMII source and monitor: a source drives an XGMII line at 10 Gbit/s that
--- two monitors observe. The lane count and clocking are generics, run.py
+-- XGMII source, monitors and protocol checkers: a source drives an XGMII line
+-- at 10 Gbit/s that two monitors observe, each with a protocol checker it
+-- instantiates. The lane count and clocking are generics, run.py
 -- runs the tests for 4-lane single edge, 4-lane both edges and 8 lanes.
 -- A test expecting violations counts them, and the errors they log, on both
--- monitors.
+-- protocol checkers.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -40,12 +41,18 @@ architecture tb of tb_xgmii is
   signal data : std_ulogic_vector(8 * lanes - 1 downto 0);
   signal ctrl : std_ulogic_vector(lanes - 1 downto 0);
 
-  constant source : ethernet_source_t := new_xgmii_source(lanes => lanes, both_edges => both_edges);
-  constant monitor : ethernet_monitor_t := new_xgmii_monitor(lanes => lanes, both_edges => both_edges);
-  constant second_monitor : ethernet_monitor_t := new_xgmii_monitor(lanes => lanes, both_edges => both_edges);
+  constant source : xgmii_source_t := new_xgmii_source(lanes => lanes, both_edges => both_edges);
+  constant monitor : xgmii_monitor_t := new_xgmii_monitor(
+    lanes => lanes, both_edges => both_edges, protocol_checker => default_xgmii_protocol_checker,
+    id => get_id("tb_xgmii:monitor")
+  );
+  constant second_monitor : xgmii_monitor_t := new_xgmii_monitor(
+    lanes => lanes, both_edges => both_edges, protocol_checker => default_xgmii_protocol_checker,
+    id => get_id("tb_xgmii:second_monitor")
+  );
 
-  type ethernet_monitor_vec_t is array (natural range <>) of ethernet_monitor_t;
-  constant monitors : ethernet_monitor_vec_t := (monitor, second_monitor);
+  type xgmii_monitor_vec_t is array (natural range <>) of xgmii_monitor_t;
+  constant monitors : xgmii_monitor_vec_t := (monitor, second_monitor);
 begin
   clk <= not clk after clk_period / 2;
 
@@ -107,7 +114,7 @@ begin
         column_data(8 * idx to 8 * idx + 7) := normalized(idx).data;
         column_control(idx) := normalized(idx).control;
       end loop;
-      send_xgmii_columns(net, source, column_data, column_control);
+      push_xgmii_columns(net, source, column_data, column_control);
     end;
 
     procedure wait_until_idle is
@@ -115,16 +122,17 @@ begin
       wait_until_idle(net, as_sync(source));
       for idx in monitors'range loop
         wait_until_idle(net, as_sync(monitors(idx)));
+        wait_until_idle(net, as_sync(get_protocol_checker(monitors(idx))));
       end loop;
     end;
 
-    -- Send a frame both monitors expect to receive unchanged
-    procedure send_expected_frame(frame : std_ulogic_vector; ifg_octets : natural := 12) is
+    -- Push a frame both monitors check that they receive unchanged
+    procedure push_checked_frame(frame : std_ulogic_vector; ifg_octets : natural := 12) is
     begin
       for idx in monitors'range loop
-        expect_ethernet_frame(net, monitors(idx), frame);
+        check_ethernet_frame(net, monitors(idx), frame, blocking => false);
       end loop;
-      send_ethernet_frame(net, source, frame, ifg_octets => ifg_octets);
+      push_ethernet_frame(net, source, frame, frame_options(ifg_octets => ifg_octets));
     end;
 
     -- Check that each monitor found expected violations of check
@@ -133,20 +141,25 @@ begin
     begin
       wait_until_idle;
       for idx in monitors'range loop
-        get_check_count(net, monitors(idx), check, violations);
+        get_check_count(net, get_protocol_checker(monitors(idx)), check, violations);
         check_equal(
           violations, expected, "Violations of " & ethernet_check_t'image(check) & " on monitor " & to_string(idx)
         );
       end loop;
     end;
 
-    -- Check that each monitor logged expected errors since the last check
+    -- Check that each protocol checker logged expected errors since the last
+    -- check, and the monitors none
     procedure check_error_count(expected : natural) is
     begin
       wait_until_idle;
       for idx in monitors'range loop
-        check_equal(get_log_count(get_logger(monitors(idx)), error), expected, "Errors on monitor " & to_string(idx));
-        reset_log_count(get_logger(monitors(idx)), error);
+        check_equal(
+          get_log_count(get_logger(get_protocol_checker(monitors(idx))), error), expected,
+          "Errors on monitor " & to_string(idx)
+        );
+        reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
+        check_equal(get_log_count(get_logger(monitors(idx)), error), 0, "Scoreboard errors on monitor " & to_string(idx));
       end loop;
     end;
   begin
@@ -156,14 +169,14 @@ begin
     -- Errors are expected in some tests; they are counted by check_error_count
     -- and any error left uncounted still fails the test at cleanup
     for idx in monitors'range loop
-      disable_stop(get_logger(monitors(idx)), error);
+      disable_stop(get_logger(get_protocol_checker(monitors(idx))), error);
     end loop;
 
     while test_suite loop
       if run("test_terminate_on_every_lane") then
         -- Start, 7 preamble octets and 64 + idx frame octets put Terminate on lane idx
         for idx in 0 to lanes - 1 loop
-          send_expected_frame(frame_data(60 + idx, seed => idx));
+          push_checked_frame(frame_data(60 + idx, seed => idx));
         end loop;
         check_error_count(0);
         get_statistics(net, monitor, statistics);
@@ -172,12 +185,12 @@ begin
         check_equal(statistics.max_frame_octets, 64 + lanes - 1);
 
       elsif run("test_bad_fcs") then
-        send_ethernet_frame(net, source, frame_data(60), fcs => fcs_bad);
+        push_ethernet_frame(net, source, frame_data(60), frame_options(fcs => fcs_bad));
         check_violation_count(eth_fcs, 1);
         check_error_count(1);
 
       elsif run("test_error_character") then
-        send_ethernet_frame(net, source, frame_data(60), error_offsets => (0 => 20));
+        push_ethernet_frame(net, source, frame_data(60), frame_options(error_offsets => (0 => 20)));
         check_violation_count(eth_phy_error, 1);
         -- The Error character replaces an octet of the frame
         check_violation_count(eth_fcs, 1);
@@ -205,7 +218,7 @@ begin
 
       elsif run("test_legal_ifg") then
         for idx in 1 to 5 loop
-          send_expected_frame(frame_data(60 + idx, seed => idx), ifg_octets => 12);
+          push_checked_frame(frame_data(60 + idx, seed => idx), ifg_octets => 12);
         end loop;
         check_violation_count(eth_ifg, 0);
         check_error_count(0);
@@ -215,22 +228,22 @@ begin
       elsif run("test_short_ifg") then
         -- 8 preamble octets and 68 frame octets end on the last lane of a
         -- column when followed by Terminate and 3 Idle octets
-        send_expected_frame(frame_data(64), ifg_octets => 1);
-        send_expected_frame(frame_data(60));
+        push_checked_frame(frame_data(64), ifg_octets => 1);
+        push_checked_frame(frame_data(60));
         check_violation_count(eth_ifg, 1);
         check_error_count(1);
         get_statistics(net, monitor, statistics);
         check_equal(statistics.min_ifg_octets, 4);
 
       elsif run("test_link_fault") then
-        send_xgmii_link_fault(net, source, local_fault, columns => 4);
-        send_xgmii_link_fault(net, source, remote_fault, columns => 2);
+        push_xgmii_link_fault(net, source, local_fault, columns => 4);
+        push_xgmii_link_fault(net, source, remote_fault, columns => 2);
         check_violation_count(eth_link_fault, 2);
         check_error_count(2);
 
       elsif run("test_transmit_and_reconstruct") then
-        send_expected_frame(frame_data(333, seed => 3));
-        send_expected_frame(frame_data(1514, seed => 4));
+        push_checked_frame(frame_data(333, seed => 3));
+        push_checked_frame(frame_data(1514, seed => 4));
         check_error_count(0);
         get_statistics(net, monitor, statistics);
         check_equal(statistics.good_frames, 2);
@@ -238,24 +251,24 @@ begin
 
       elsif run("test_monitors_are_independent") then
         -- The same line, but only the first monitor checks the FCS
-        set_check_enabled(net, second_monitor, eth_fcs, false);
-        send_ethernet_frame(net, source, frame_data(80), fcs => fcs_bad);
+        set_check_enabled(net, get_protocol_checker(second_monitor), eth_fcs, false);
+        push_ethernet_frame(net, source, frame_data(80), frame_options(fcs => fcs_bad));
         wait_until_idle;
 
-        get_check_count(net, monitor, eth_fcs, count);
+        get_check_count(net, get_protocol_checker(monitor), eth_fcs, count);
         check_equal(count, 1);
-        check_equal(get_log_count(get_logger(monitor), error), 1);
-        reset_log_count(get_logger(monitor), error);
+        check_equal(get_log_count(get_logger(get_protocol_checker(monitor)), error), 1);
+        reset_log_count(get_logger(get_protocol_checker(monitor)), error);
 
-        get_check_count(net, second_monitor, eth_fcs, count);
+        get_check_count(net, get_protocol_checker(second_monitor), eth_fcs, count);
         check_equal(count, 0);
-        check_equal(get_log_count(get_logger(second_monitor), error), 0);
+        check_equal(get_log_count(get_logger(get_protocol_checker(second_monitor)), error), 0);
         check(get_id(monitor) /= get_id(second_monitor));
 
       elsif run("test_randomized_traffic") then
         -- The deficit idle count shortens a gap by up to lanes - 1 octets
         for idx in 1 to 100 loop
-          send_expected_frame(frame_data(rnd.RandInt(60, 1514), seed => idx), ifg_octets => rnd.RandInt(12, 40));
+          push_checked_frame(frame_data(rnd.RandInt(60, 1514), seed => idx), ifg_octets => rnd.RandInt(12, 40));
         end loop;
         check_error_count(0);
         get_statistics(net, monitor, statistics);

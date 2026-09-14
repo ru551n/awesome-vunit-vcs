@@ -11,7 +11,8 @@ context ethernet_context is
   library vunit_lib;
   context vunit_lib.com_context;
   use vunit_lib.sync_pkg.all;
-  use vunit_lib.vc_pkg.all;
+  use vunit_lib.stream_master_pkg.all;
+  use vunit_lib.stream_slave_pkg.all;
 
   library awesome_vunit_vcs;
   use awesome_vunit_vcs.ethernet_pkg.all;

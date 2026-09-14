@@ -6,7 +6,9 @@
 -- sends the same traffic in every configuration (see run.py); the monitor
 -- transfers it to Python with one call per sample, one call per frame or one
 -- call per batch_length samples. Without a monitor it measures the source and
--- the simulation alone. Wall clock time is measured in Python and logged.
+-- the simulation alone; with_protocol_checker adds the protocol checker, which
+-- samples the same pins a second time. Wall clock time is measured in Python
+-- and logged.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -28,6 +30,7 @@ entity tb_bridge_benchmark is
     runner_cfg : string;
     config_name : string := "batched";
     with_monitor : boolean := true;
+    with_protocol_checker : boolean := false;
     batch_length : positive := 4096;
     flush_at_frame_end : boolean := false;
     num_frames : positive := 200;
@@ -42,9 +45,17 @@ architecture tb of tb_bridge_benchmark is
   signal data : std_ulogic_vector(7 downto 0);
   signal dv, er : std_ulogic;
 
-  constant source : ethernet_source_t := new_gmii_source;
-  constant monitor : ethernet_monitor_t := new_gmii_monitor(
-    batch_length => batch_length, flush_at_frame_end => flush_at_frame_end
+  impure function protocol_checker return gmii_protocol_checker_t is
+  begin
+    if with_protocol_checker then
+      return default_gmii_protocol_checker;
+    end if;
+    return null_gmii_protocol_checker;
+  end;
+
+  constant source : gmii_source_t := new_gmii_source;
+  constant monitor : gmii_monitor_t := new_gmii_monitor(
+    batch_length => batch_length, flush_at_frame_end => flush_at_frame_end, protocol_checker => protocol_checker
   );
 begin
   clk <= not clk after clk_period / 2;
@@ -62,11 +73,14 @@ begin
 
     exec("import time" & LF & "start = time.perf_counter()", timer);
     for idx in 1 to num_frames loop
-      send_ethernet_frame(net, source, frame);
+      push_ethernet_frame(net, source, frame);
     end loop;
     wait_until_idle(net, as_sync(source));
     if with_monitor then
       wait_until_idle(net, as_sync(monitor));
+      if with_protocol_checker then
+        wait_until_idle(net, as_sync(get_protocol_checker(monitor)));
+      end if;
       get_frame_count(net, monitor, frames);
       check_equal(frames, num_frames);
     end if;

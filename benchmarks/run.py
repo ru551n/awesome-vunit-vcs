@@ -35,6 +35,7 @@ configs = {
     "per_cycle": {"batch_length": 1, "flush_at_frame_end": False},
     "whole_frame": {"batch_length": WHOLE_FRAME, "flush_at_frame_end": True},
     "batched": {"batch_length": 4096, "flush_at_frame_end": False},
+    "batched_with_protocol_checker": {"batch_length": 4096, "flush_at_frame_end": False, "with_protocol_checker": True},
 }
 for name, generics in configs.items():
     tb.add_config(name=name, generics={"config_name": name, **generics})

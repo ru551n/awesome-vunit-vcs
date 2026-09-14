@@ -628,6 +628,18 @@ class FlashDevice:
             return "tRES2" if self._data_count else "tRES1"
         return None
 
+    def _reject_for_protection(self) -> None:
+        """A program or erase touches a protected region: count it, and clear
+        WEL unless the configuration says the part keeps it.
+
+        Whether a refused program or erase clears WEL is vendor dependent.
+        The default clears it, as every executed program or erase does, so
+        firmware that does not send a new write enable before retrying fails
+        in simulation rather than only on some parts."""
+        self.stats["protect_reject_count"] += 1
+        if not self.config.clear_wel_on_protection_reject:
+            self.wel = True
+
     def _do_program(self, cmd: Command) -> str | None:
         latch, touched = self._pp_latch, self._pp_touched
         self.wel = False
@@ -645,7 +657,7 @@ class FlashDevice:
             else:
                 i += 1
         if any(self.protection.is_protected(self._pp_base + s, e - s) for s, e in runs):
-            self.stats["protect_reject_count"] += 1
+            self._reject_for_protection()
             return None
         for s, e in runs:
             self.array.program(self._pp_base + s, bytes(latch[s:e]))
@@ -663,7 +675,7 @@ class FlashDevice:
             start = (self._addr_value & self.addr_mask) & ~(size - 1)
             length = min(size, self.size_bytes - start)
         if self.protection.is_protected(start, length):
-            self.stats["protect_reject_count"] += 1
+            self._reject_for_protection()
             return None
         self.array.erase(start, length)
         self.stats["erase_count"] += 1

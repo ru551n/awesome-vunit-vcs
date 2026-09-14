@@ -81,6 +81,8 @@ package flash_pkg is
     p_t_res1 : delay_length;
     p_t_res2 : delay_length;
     p_timing_enabled : boolean;
+    -- Protection
+    p_clear_wel_on_protection_reject : boolean;
     -- Output delays of the device
     p_t_clqv : delay_length;
     p_t_shqz : delay_length;
@@ -118,6 +120,7 @@ package flash_pkg is
     p_t_res1 => 0 ns,
     p_t_res2 => 0 ns,
     p_timing_enabled => false,
+    p_clear_wel_on_protection_reject => true,
     p_t_clqv => 0 ns,
     p_t_shqz => 0 ns,
     p_protocol_checker => null_qspi_protocol_checker,
@@ -144,6 +147,11 @@ package flash_pkg is
   -- ``timing_enabled`` = false makes every busy time 0 until
   -- :vhdl:`flash_pkg.flash_set_timing_enable`. ``t_clqv`` and ``t_shqz`` are
   -- the delays of the device's own output after SCK falls and CS rises.
+  --
+  -- ``clear_wel_on_protection_reject`` says whether a program or erase the
+  -- device refuses because it touches a protected region clears the write
+  -- enable latch, as an executed one does. Vendors differ; false keeps WEL
+  -- set.
   --
   -- The pin timing of the controller is not checked unless
   -- ``protocol_checker`` is a
@@ -181,6 +189,7 @@ package flash_pkg is
     t_res1 : delay_length := 3 us;
     t_res2 : delay_length := 1800 ns;
     timing_enabled : boolean := true;
+    clear_wel_on_protection_reject : boolean := true;
     t_clqv : delay_length := 6 ns;
     t_shqz : delay_length := 6 ns;
     protocol_checker : qspi_protocol_checker_t := null_qspi_protocol_checker;
@@ -623,6 +632,7 @@ package body flash_pkg is
     t_res1 : delay_length := 3 us;
     t_res2 : delay_length := 1800 ns;
     timing_enabled : boolean := true;
+    clear_wel_on_protection_reject : boolean := true;
     t_clqv : delay_length := 6 ns;
     t_shqz : delay_length := 6 ns;
     protocol_checker : qspi_protocol_checker_t := null_qspi_protocol_checker;
@@ -655,6 +665,7 @@ package body flash_pkg is
       p_t_res1 => t_res1,
       p_t_res2 => t_res2,
       p_timing_enabled => timing_enabled,
+      p_clear_wel_on_protection_reject => clear_wel_on_protection_reject,
       p_t_clqv => t_clqv,
       p_t_shqz => t_shqz,
       p_protocol_checker => null_qspi_protocol_checker,
@@ -783,7 +794,8 @@ package body flash_pkg is
       ", 'tRST': " & to_python_time(flash.p_t_rst) &
       ", 'tRES1': " & to_python_time(flash.p_t_res1) &
       ", 'tRES2': " & to_python_time(flash.p_t_res2) & "}" &
-      ", timing_enabled=" & py_bool(flash.p_timing_enabled);
+      ", timing_enabled=" & py_bool(flash.p_timing_enabled) &
+      ", clear_wel_on_protection_reject=" & py_bool(flash.p_clear_wel_on_protection_reject);
   end;
 
   -- width bits of a non-negative integer, starting at shift

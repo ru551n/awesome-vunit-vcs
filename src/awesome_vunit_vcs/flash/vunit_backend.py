@@ -17,7 +17,8 @@ femtoseconds, ``t = hi * 2**30 + lo``, see :mod:`awesome_vunit_vcs.common.vunit_
     FlashBackend('<name>', size_bytes=..., page_bytes=..., sector_bytes=...,
                  block32_bytes=..., block_bytes=..., addr_bytes=..., addr_modes=0|3|4,
                  jedec_id=..., electronic_id=-1, sr1_default=..., sr2_default=...,
-                 sr3_default=..., busy={'tPP': (hi, lo), ...}, timing_enabled=True)
+                 sr3_default=..., busy={'tPP': (hi, lo), ...}, timing_enabled=True,
+                 clear_wel_on_protection_reject=True)
     layout_version()                      -> integer
     num_reports()                         -> integer
     take_reports()                        -> string
@@ -135,6 +136,9 @@ class FlashBackend:
             :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS`, mapped to the
             ``(hi, lo)`` halves of its time in fs.
         timing_enabled: Whether busy times apply initially.
+        clear_wel_on_protection_reject: Whether a program or erase refused for
+            protection clears WEL, see
+            :attr:`~awesome_vunit_vcs.flash.config.FlashConfig.clear_wel_on_protection_reject`.
 
     Attributes:
         name: The name of the flash.
@@ -161,6 +165,7 @@ class FlashBackend:
         sr3_default: int,
         busy: Mapping[str, tuple[int, int]],
         timing_enabled: bool,
+        clear_wel_on_protection_reject: bool,
     ) -> None:
         self.name = name
         self.reports = ReportQueue()
@@ -181,6 +186,7 @@ class FlashBackend:
                 sr3_default=sr3_default,
                 busy_fs={key: _join_time(hi, lo) for key, (hi, lo) in busy.items()},
                 timing_enabled=bool(timing_enabled),
+                clear_wel_on_protection_reject=bool(clear_wel_on_protection_reject),
             )
 
         # An invalid configuration is reported, and a default device keeps

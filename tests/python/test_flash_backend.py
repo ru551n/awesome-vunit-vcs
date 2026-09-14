@@ -48,6 +48,7 @@ def backend_options(**overrides: Any) -> dict[str, Any]:
         "sr3_default": 0x00,
         "busy": {key: split_time(DEFAULT_BUSY_FS[key]) for key in BUSY_KEYS},
         "timing_enabled": True,
+        "clear_wel_on_protection_reject": True,
     }
     options.update(overrides)
     return options
@@ -425,6 +426,17 @@ def test_load_image_failure_is_a_report(fast: FlashBackend, tmp_path: Path) -> N
     assert "cannot infer image format" in only_report(fast, Severity.FAILURE)
     assert fast.load_image(str(tmp_path / "image.bin"), "xyz", 0) == 1
     assert "unknown image format" in only_report(fast, Severity.FAILURE)
+
+
+@pytest.mark.parametrize("clear_wel", [True, False])
+def test_clear_wel_on_protection_reject_reaches_the_device(clear_wel: bool) -> None:
+    backend = make(timing_enabled=False, clear_wel_on_protection_reject=clear_wel)
+    assert backend.num_reports() == 0
+    assert backend.device.config.clear_wel_on_protection_reject is clear_wel
+    assert backend.set_protection(0x1000, 0x1000, True) == 0
+    transaction(backend, [0x06])
+    transaction(backend, [0x02, 0x00, 0x10, 0x00, 0x00])
+    assert backend.get_stat("wel") == int(not clear_wel)
 
 
 def test_set_protection(fast: FlashBackend) -> None:

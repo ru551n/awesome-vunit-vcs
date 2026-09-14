@@ -101,6 +101,20 @@ architecture tb of tb_flash is
   signal raw_m2s : qspi_m2s_t := qspi_m2s_init;
   signal raw_s2m : qspi_s2m_t := qspi_s2m_init;
 
+  -- A device that keeps WEL when it refuses a program or erase for protection
+  constant keep_wel_master : qspi_master_t := new_qspi_master(
+    sck_period => 20 ns,
+    id => get_id("tb_flash:keep_wel_master")
+  );
+  constant keep_wel_flash : flash_t := new_flash(
+    timing_enabled => false,
+    clear_wel_on_protection_reject => false,
+    protocol_checker => new_qspi_protocol_checker,
+    id => get_id("tb_flash:keep_wel_flash")
+  );
+  signal keep_wel_m2s : qspi_m2s_t := qspi_m2s_init;
+  signal keep_wel_s2m : qspi_s2m_t := qspi_s2m_init;
+
   -- Two devices with default ids, logger and actor, each on its own bus. Their
   -- Python sessions share nothing only if the default ids differ.
   constant default_master_1 : qspi_master_t := new_qspi_master;
@@ -121,6 +135,7 @@ architecture tb of tb_flash is
     unchecked_flash,
     custom_flash,
     raw_flash,
+    keep_wel_flash,
     default_flash_1,
     default_flash_2
   );
@@ -258,6 +273,24 @@ begin
     port map (
       m2s => raw_m2s,
       s2m => raw_s2m
+    );
+
+  keep_wel_master_inst : entity awesome_vunit_vcs.qspi_master
+    generic map (
+      qspi_master => keep_wel_master
+    )
+    port map (
+      m2s => keep_wel_m2s,
+      s2m => keep_wel_s2m
+    );
+
+  keep_wel_flash_inst : entity awesome_vunit_vcs.flash
+    generic map (
+      flash => keep_wel_flash
+    )
+    port map (
+      m2s => keep_wel_m2s,
+      s2m => keep_wel_s2m
     );
 
   default_master_1_inst : entity awesome_vunit_vcs.qspi_master
@@ -491,6 +524,24 @@ begin
         poll_until_ready(net);
         -- Ignored as by a real part: no error, no change
         flash_check_content_fill(net, flash_a, 16#00B000#, 1, 16#FF#);
+
+      elsif run("test_protection_reject_can_keep_the_write_enable_latch") then
+        -- flash_a clears WEL on the same refusal
+        flash_set_protection(net, flash_a, 16#00B000#, sector_bytes);
+        qspi_flash_write_enable(net, master_a);
+        qspi_flash_page_program(net, master_a, 16#00B000#, new_byte_array((0 => 16#12#)));
+        poll_until_ready(net);
+        qspi_flash_read_status(net, master_a, status);
+        check_equal((status / 2) mod 2, 0, "WEL after a refused program on flash_a");
+
+        flash_set_protection(net, keep_wel_flash, 16#00B000#, sector_bytes);
+        qspi_flash_write_enable(net, keep_wel_master);
+        qspi_flash_page_program(net, keep_wel_master, 16#00B000#, new_byte_array((0 => 16#12#)));
+        qspi_flash_read_status(net, keep_wel_master, status);
+        check_equal((status / 2) mod 2, 1, "WEL after a refused program on keep_wel_flash");
+        flash_check_content_fill(net, keep_wel_flash, 16#00B000#, 1, 16#FF#);
+        flash_get_stat(net, keep_wel_flash, "protect_reject_count", count);
+        check_equal(count, 1, "refused programs");
 
       elsif run("test_sparse_preload_leaves_the_gap_erased") then
         flash_preload(net, flash_a, 16#000000#, new_byte_array((16#11#, 16#22#)));

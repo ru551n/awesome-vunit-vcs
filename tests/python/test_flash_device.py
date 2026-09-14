@@ -336,6 +336,38 @@ def test_a_program_straddling_the_lock_boundary_is_rejected_entirely(fast: Host)
     assert fast.dev.read_back(0x1FF0, 8) == b"\x00" * 8
 
 
+@pytest.mark.parametrize("clear_wel", [True, False], ids=["clears_wel", "keeps_wel"])
+def test_a_program_refused_for_protection_follows_the_wel_option(clear_wel: bool) -> None:
+    host = make(clear_wel_on_protection_reject=clear_wel, timing_enabled=False)
+    host.dev.set_protection(0x1000, 0x1000, True)
+    host.wren()
+    host.command(0x02, addr=0x1000, data=[0x00])
+    assert host.dev.get_stat("protect_reject_count") == 1
+    assert host.dev.get_stat("wel") == int(not clear_wel)
+    assert (host.command(0x05, read=1).out[0] >> 1) & 1 == int(not clear_wel)
+
+
+@pytest.mark.parametrize("clear_wel", [True, False], ids=["clears_wel", "keeps_wel"])
+def test_an_erase_refused_for_protection_follows_the_wel_option(clear_wel: bool) -> None:
+    host = make(clear_wel_on_protection_reject=clear_wel, timing_enabled=False)
+    host.dev.set_protection(0x1800, 16, True)
+    host.wren()
+    host.command(0x20, addr=0x1000)
+    assert host.dev.get_stat("protect_reject_count") == 1
+    assert host.dev.get_stat("wel") == int(not clear_wel)
+
+
+def test_keeping_wel_after_a_protection_reject_lets_the_next_program_run() -> None:
+    host = make(clear_wel_on_protection_reject=False, timing_enabled=False)
+    host.dev.set_protection(0x1000, 0x1000, True)
+    host.wren()
+    host.command(0x02, addr=0x1000, data=[0x00])
+    # No new write enable
+    host.command(0x02, addr=0x2000, data=[0x00])
+    assert host.dev.read_back(0x2000, 1) == b"\x00"
+    assert host.dev.get_stat("wel") == 0, "an executed program still clears WEL"
+
+
 def test_unlocking_restores_programmability(fast: Host) -> None:
     fast.dev.set_protection(0x1000, 0x1000, True)
     fast.wren()

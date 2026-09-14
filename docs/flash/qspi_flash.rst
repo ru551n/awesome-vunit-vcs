@@ -215,8 +215,8 @@ Device behavior
   phase did not complete (except ``0xAB``), is not executed and counts as ``abort_count``.
 * **Refusals are silent.** A command without WEL, while busy, without QE, in deep power-down, or an
   unknown opcode, does nothing and drives nothing, like a real part. So does a program or erase that
-  touches a protected byte; it clears WEL. The :ref:`statistics <flash-statistics>` count every
-  refusal.
+  touches a protected byte; it clears WEL unless ``clear_wel_on_protection_reject`` is false. The
+  :ref:`statistics <flash-statistics>` count every refusal.
 * **NOR semantics.** A page program writes at most ``page_bytes``; bytes past the end of the page wrap
   to the start of the same page, and the last byte written to an offset wins. Programming only clears
   bits; erasing sets ``0xFF`` over the unit that contains the address. Reads continue past the end of
@@ -380,6 +380,11 @@ configuration so that the calls that follow stay harmless.
      - ``boolean``
      - true
      - Whether busy times apply at start; false makes every busy time 0
+   * - ``clear_wel_on_protection_reject``
+     - ``boolean``
+     - true
+     - Whether a program or erase refused because it touches a protected byte clears WEL; false keeps
+       WEL set
    * - ``t_clqv``
      - ``delay_length``
      - 6 ns

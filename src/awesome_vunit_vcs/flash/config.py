@@ -137,6 +137,12 @@ class FlashConfig:
             values; it is copied.
         timing_enabled: Initial state of the busy timing; it can be switched at
             run time.
+        clear_wel_on_protection_reject: Whether a program or erase refused
+            because it touches a protected region still clears WEL. Vendors
+            differ, so a driver that must work on several parts should not
+            rely on either. True, the default, treats the refused command like
+            an executed one; False leaves WEL set, so a following program or
+            erase needs no new write enable.
 
     Raises:
         FlashValueError: A value is out of range: a size that is not a power of two
@@ -161,6 +167,7 @@ class FlashConfig:
     sr3_default: int = 0x00
     busy_fs: Mapping[str, int] = field(default_factory=lambda: dict(DEFAULT_BUSY_FS))
     timing_enabled: bool = True
+    clear_wel_on_protection_reject: bool = True
 
     def __post_init__(self) -> None:
         # A plain copy, so that the frozen instance does not alias the caller's mapping

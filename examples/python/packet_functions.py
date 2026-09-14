@@ -6,12 +6,12 @@
 Packet functions and seeded traffic: what a VHDL source sends, decided in Python.
 
 A testbench names a function ("my_packets:udp_to_dut") and passes literal
-keyword arguments as a string; nothing is evaluated. Generators take an rng,
-so the same seed, such as VUnit's get_seed(runner_cfg), gives the same traffic.
+keyword arguments as a string; nothing is evaluated. Functions that take a
+seed get the seed of the call, so the same seed, such as VUnit's
+get_seed(runner_cfg), gives the same traffic.
 Here the functions live in this file, so their module is __main__.
 """
 
-import random
 from collections.abc import Iterator
 
 from awesome_vunit_vcs import ethernet as eth
@@ -22,7 +22,8 @@ def udp_to_dut(port: int, size: int) -> eth.Frame:
     return eth.Frame.from_payload(port.to_bytes(2, "big") + bytes(size), ethertype=0x0800)
 
 
-def mixed(count: int, rng: random.Random) -> Iterator[tuple[eth.Frame, eth.WireOptions]]:
+def mixed(count: int, seed: str) -> Iterator[tuple[eth.Frame, eth.WireOptions]]:
+    rng = traffic.rng_from(seed)
     for _ in range(count):
         yield traffic.random_frame(rng, max_payload_octets=200), eth.WireOptions(ifg_octets=rng.randint(12, 40))
 
@@ -37,7 +38,7 @@ assert [i.frame for i in traffic.sequence("__main__:mixed", "count=5", seed=seed
 ]
 
 # Built-in random traffic with malformations, checked against the oracle
-items = traffic.random_traffic(20, rng=seed, malformations=("bad_fcs", "runt"), malformed_fraction=0.5)
+items = traffic.random_traffic(20, seed=seed, malformations=("bad_fcs", "runt"), malformed_fraction=0.5)
 with eth.Monitor(eth.GMII) as rx:
     rx.feed_frames(items)
 previous = [None, *items]

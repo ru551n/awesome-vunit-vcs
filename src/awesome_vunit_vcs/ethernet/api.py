@@ -350,6 +350,10 @@ class Frame:
         wire = self.to_wire(WireOptions(min_frame_octets=min_frame_octets))
         return Frame(wire.octets[wire.mac_offset :])
 
+    def __bytes__(self) -> bytes:
+        """The frame without FCS, :attr:`data`, so ``bytes(frame)`` works wherever packets are accepted."""
+        return self.data
+
     def to_scapy(self) -> Any:
         """The frame without FCS as a Scapy ``Ether`` packet (needs the scapy extra)."""
         from .scapy_adapter import to_scapy

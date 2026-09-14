@@ -7,6 +7,11 @@ string (``"port=1234, size=128"``); the source backend calls it through
 :func:`call_packet_function` or :func:`sequence`. The arguments are parsed as
 Python literals, never evaluated.
 
+A function that takes a ``seed`` parameter receives the seed of the call
+(VUnit's ``get_seed(runner_cfg)`` string from a testbench); :func:`rng_from`
+turns it into a :class:`random.Random`. The same convention holds for the
+functions the VHDL source and monitor backends call.
+
 The generators (:func:`random_frame`, :func:`random_wire_options`,
 :func:`random_traffic`) take an explicit seed or :class:`random.Random` and
 draw from the bounds of :class:`~.limits.Limits`, the same parameter space a
@@ -60,6 +65,10 @@ class TrafficItem:
     def to_wire(self) -> WireFrame:
         """What a source puts on the wire."""
         return self.frame.to_wire(self.options)
+
+    def __bytes__(self) -> bytes:
+        """The frame without FCS, as a function result converted with ``bytes()``."""
+        return self.frame.data
 
 
 def rng_from(seed: Seed) -> random.Random:
@@ -178,12 +187,12 @@ def _call(spec: str, arguments: str, seed: Seed | None) -> object:
     kwargs = parse_arguments(arguments)
     if seed is not None:
         try:
-            accepts_rng = "rng" in inspect.signature(function).parameters
+            accepts_seed = "seed" in inspect.signature(function).parameters
         except (TypeError, ValueError):
-            accepts_rng = False
-        if not accepts_rng:
-            raise TrafficError(f"{spec!r} takes no rng parameter, so it cannot use a seed")
-        kwargs["rng"] = rng_from(seed)
+            accepts_seed = False
+        if not accepts_seed:
+            raise TrafficError(f"{spec!r} takes no seed parameter, so it cannot use a seed")
+        kwargs["seed"] = seed
     try:
         inspect.signature(function).bind(**kwargs)
     except TypeError as exc:
@@ -200,8 +209,9 @@ def call_packet_function(spec: str, arguments: str = "", *, seed: Seed | None = 
     Args:
         spec: The function, see :func:`resolve`.
         arguments: Its keyword arguments, see :func:`parse_arguments`.
-        seed: Passed to the function as ``rng=random.Random(seed)``; the
-            function must then take an ``rng`` parameter.
+        seed: Passed to the function as its ``seed`` argument, which it turns
+            into a generator with :func:`rng_from`; the function must take a
+            ``seed`` parameter.
 
     Returns:
         The frame and its wire options; the frame octets are ``item.frame.data`` plus the FCS.
@@ -219,7 +229,7 @@ def sequence(spec: str, arguments: str = "", *, seed: Seed | None = None) -> Ite
     Args:
         spec: A function returning an iterable of packets, ``(packet, WireOptions)`` pairs or items.
         arguments: Its keyword arguments, see :func:`parse_arguments`.
-        seed: Passed as ``rng``, see :func:`call_packet_function`.
+        seed: Passed as ``seed``, see :func:`call_packet_function`.
 
     Raises:
         TrafficError: The function does not return an iterable, or yields something that is not a frame.
@@ -331,7 +341,7 @@ def random_wire_options(
 def random_traffic(
     count: int,
     *,
-    rng: Seed,
+    seed: Seed,
     interface: Interface | str = GMII,
     malformations: Iterable[Malformation | str] = (),
     malformed_fraction: float = 0.0,
@@ -351,7 +361,7 @@ def random_traffic(
 
     Args:
         count: The number of frames.
-        rng: A seed or a generator, see :func:`rng_from`.
+        seed: A seed or a generator, see :func:`rng_from`.
         interface: The interface, or its name, the malformations must be predictable on.
         malformations: The malformations to draw from.
         malformed_fraction: The probability of a malformed frame, 0 to 1.
@@ -364,7 +374,7 @@ def random_traffic(
         raise TrafficError(f"count must not be negative, got {count}")
     if not 0.0 <= malformed_fraction <= 1.0:
         raise TrafficError(f"malformed_fraction must be 0..1, got {malformed_fraction}")
-    generator = rng_from(rng)
+    generator = rng_from(seed)
     if isinstance(interface, str):
         interface = interface_named(interface)
     kinds = sorted({Malformation(kind) for kind in malformations} & supported_malformations(interface))

@@ -37,11 +37,12 @@ def pair_function(ifg: int) -> tuple[eth.Frame, eth.WireOptions]:
     return eth.Frame.from_payload(b"x"), eth.WireOptions(ifg_octets=ifg)
 
 
-def seeded_function(rng: random.Random) -> eth.Frame:
-    return traffic.random_frame(rng, max_payload_octets=64)
+def seeded_function(seed: str) -> eth.Frame:
+    return traffic.random_frame(traffic.rng_from(seed), max_payload_octets=64)
 
 
-def generator_function(count: int, rng: random.Random) -> Iterator[eth.Frame]:
+def generator_function(count: int, seed: int) -> Iterator[eth.Frame]:
+    rng = traffic.rng_from(seed)
     for _ in range(count):
         yield traffic.random_frame(rng, max_payload_octets=64)
 
@@ -113,7 +114,8 @@ def test_seeds_are_reproducible_and_need_an_rng_parameter() -> None:
     first = traffic.call_packet_function(f"{SELF}:seeded_function", seed="8f3a51c0de2b4d17")
     assert first == traffic.call_packet_function(f"{SELF}:seeded_function", seed="8f3a51c0de2b4d17")
     assert first != traffic.call_packet_function(f"{SELF}:seeded_function", seed="8f3a51c0de2b4d18")
-    with pytest.raises(TrafficError, match="rng"):
+    assert bytes(first) == first.frame.data and bytes(first.frame) == first.frame.data
+    with pytest.raises(TrafficError, match="seed"):
         traffic.call_packet_function(f"{SELF}:frame_function", "size=1", seed=1)
     with pytest.raises(TrafficError):
         traffic.rng_from(1.5)  # type: ignore[arg-type]
@@ -156,10 +158,10 @@ def test_random_wire_options_produce_their_malformation(kind: eth.Malformation) 
 @pytest.mark.parametrize("interface", ["gmii", "mii", "xgmii"])
 def test_random_traffic_matches_the_oracle(interface: str) -> None:
     items = traffic.random_traffic(
-        60, rng=interface, interface=interface, malformations=list(eth.Malformation), malformed_fraction=0.5
+        60, seed=interface, interface=interface, malformations=list(eth.Malformation), malformed_fraction=0.5
     )
     assert items == traffic.random_traffic(
-        60, rng=interface, interface=interface, malformations=list(eth.Malformation), malformed_fraction=0.5
+        60, seed=interface, interface=interface, malformations=list(eth.Malformation), malformed_fraction=0.5
     )
     iface = traffic.interface_named(interface)
     with eth.Monitor(iface) as rx:
@@ -170,6 +172,6 @@ def test_random_traffic_matches_the_oracle(interface: str) -> None:
         expected = eth.expected_violations(item.frame, item.options, interface=iface, previous=previous)
         assert {violation.check for violation in frame.violations} == expected, (index, item.options)
     with pytest.raises(TrafficError):
-        traffic.random_traffic(-1, rng=1)
+        traffic.random_traffic(-1, seed=1)
     with pytest.raises(TrafficError):
         traffic.interface_named("sgmii")

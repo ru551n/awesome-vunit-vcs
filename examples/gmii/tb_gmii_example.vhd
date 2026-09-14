@@ -54,13 +54,6 @@ begin
       end loop;
       return result;
     end;
-
-    procedure wait_until_idle is
-    begin
-      wait_until_idle(net, as_sync(source));
-      wait_until_idle(net, as_sync(input_monitor));
-      wait_until_idle(net, as_sync(output_monitor));
-    end;
   begin
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
@@ -79,7 +72,9 @@ begin
         for idx in 1 to 20 loop
           send_ethernet_frame(net, source, random_frame(rnd.RandInt(60, 1514)));
         end loop;
-        wait_until_idle;
+        wait_until_idle(net, as_sync(source));
+        wait_until_idle(net, as_sync(input_monitor));
+        wait_until_idle(net, as_sync(output_monitor));
 
         get_statistics(net, input_monitor, input_statistics);
         get_statistics(net, output_monitor, output_statistics);
@@ -94,7 +89,9 @@ begin
         disable_stop(get_logger(output_monitor), error);
 
         send_ethernet_frame(net, source, random_frame(100), fcs => fcs_bad);
-        wait_until_idle;
+        wait_until_idle(net, as_sync(source));
+        wait_until_idle(net, as_sync(input_monitor));
+        wait_until_idle(net, as_sync(output_monitor));
 
         get_check_count(net, input_monitor, eth_fcs, count);
         check_equal(count, 1);
@@ -112,7 +109,9 @@ begin
 
         send_ethernet_frame(net, source, random_frame(60));
         send_ethernet_frame(net, source, random_frame(200));
-        wait_until_idle;
+        wait_until_idle(net, as_sync(source));
+        wait_until_idle(net, as_sync(input_monitor));
+        wait_until_idle(net, as_sync(output_monitor));
 
         check_equal(eval_integer("len(frame_sizes)", new_session(get_id(output_monitor))), 2);
         check_equal(eval_integer("max(frame_sizes)", new_session(get_id(output_monitor))), 200);
@@ -124,7 +123,9 @@ begin
           send_ethernet_packet(
             net, source, "Ether(dst='02:00:00:00:00:01')/IP(dst='192.168.1.10')/UDP(dport=1234)/Raw(b'hello')"
           );
-          wait_until_idle;
+          wait_until_idle(net, as_sync(source));
+          wait_until_idle(net, as_sync(input_monitor));
+          wait_until_idle(net, as_sync(output_monitor));
           check_equal(eval_integer("vc.last_packet()['UDP'].dport", new_session(get_id(output_monitor))), 1234);
         else
           info("Scapy is not installed (pip install awesome-vunit-vcs[scapy]), nothing to test");

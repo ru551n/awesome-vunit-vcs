@@ -2,7 +2,8 @@
 Ethernet interfaces as values, and the sample words they carry.
 
 An :class:`Interface` names a PHY interface and its configuration: ``GMII``,
-``MII``, ``XGMII(lanes=8, rate="100G")`` and ``AXIS(bytes_per_beat=8)``. It creates the PHY decoder and
+``MII``, ``RGMII``, ``RMII``, ``XGMII(lanes=8, rate="100G")`` and
+``AXIS(bytes_per_beat=8)``. It creates the PHY decoder and
 encoder, knows its clock period and turns frames into :class:`Samples`, the
 sample words a VHDL monitor records, so decoders can be exercised without a
 simulator.
@@ -23,12 +24,14 @@ from .phy.axis import AXIS_READY, AxisPhy
 from .phy.common import Int64Array, PhyInterface, WireFrame
 from .phy.gmii import GmiiPhy
 from .phy.mii import MiiPhy
+from .phy.rgmii import RgmiiPhy
+from .phy.rmii import RmiiPhy
 from .phy.xgmii import WORD_CONTROL, XGMII_IDLE, XgmiiPhy
 from .source import build_wire_frame
 from .units import FS_PER_SECOND, bps
 
 #: The names of the interfaces an :class:`Interface` can describe
-INTERFACE_NAMES = ("gmii", "mii", "xgmii", "axis")
+INTERFACE_NAMES = ("gmii", "mii", "rgmii", "rmii", "xgmii", "axis")
 
 
 @runtime_checkable
@@ -98,8 +101,8 @@ class Interface:
     """
     An Ethernet PHY interface and its configuration.
 
-    Use the predefined :data:`GMII` and :data:`MII`, and :func:`XGMII` for the
-    XGMII family; :meth:`with_rate` changes the link rate.
+    Use the predefined :data:`GMII`, :data:`MII`, :data:`RGMII` and :data:`RMII`,
+    and :func:`XGMII` for the XGMII family; :meth:`with_rate` changes the link rate.
 
     Args:
         name: One of :data:`INTERFACE_NAMES`.
@@ -113,6 +116,8 @@ class Interface:
         ready_low_percent: AXI-Stream: the chance in percent of a clock with
             tready low before a handshake in :meth:`encode`, like a sink applying backpressure.
         seed: AXI-Stream: the seed of those stall patterns.
+        crs_dv_toggle_octets: RMII: toggle valid during the last this many octets
+            of every encoded frame, like a PHY whose carrier ends before its data.
 
     Raises:
         EthernetValueError: The combination is not a valid interface.
@@ -127,6 +132,7 @@ class Interface:
     valid_low_percent: int = 0
     ready_low_percent: int = 0
     seed: int = 0
+    crs_dv_toggle_octets: int = 0
 
     def __post_init__(self) -> None:
         if self.name not in INTERFACE_NAMES:
@@ -145,6 +151,14 @@ class Interface:
             raise EthernetValueError(f"MII runs at 10 or 100 Mb/s, got {self.link_rate_bps} bps")
         if self.name != "axis" and (self.valid_low_percent or self.ready_low_percent):
             raise EthernetValueError("Stall patterns apply to AXI-Stream interfaces only")
+        if self.name == "rgmii" and self.link_rate_bps not in LIMITS.rgmii_rates_bps:
+            raise EthernetValueError(f"RGMII runs at 10 Mb/s, 100 Mb/s or 1 Gb/s, got {self.link_rate_bps} bps")
+        if self.name == "rmii" and self.link_rate_bps not in LIMITS.rmii_rates_bps:
+            raise EthernetValueError(f"RMII runs at 10 or 100 Mb/s, got {self.link_rate_bps} bps")
+        if self.crs_dv_toggle_octets and self.name != "rmii":
+            raise EthernetValueError("crs_dv_toggle_octets is an RMII option")
+        if self.crs_dv_toggle_octets < 0:
+            raise EthernetValueError(f"crs_dv_toggle_octets must not be negative, got {self.crs_dv_toggle_octets}")
         if self.allow_lane4_start and self.lanes != 8:
             raise EthernetValueError("allow_lane4_start needs 8 lanes")
 
@@ -164,8 +178,21 @@ class Interface:
 
     @property
     def clock_period_fs(self) -> int:
-        """The time in fs between recorded clock edges, one octet (GMII), nibble (MII) or column (XGMII) apart."""
-        bits_per_clock = {"gmii": 8, "mii": 4, "xgmii": 8 * self.lanes, "axis": 8 * self.lanes}[self.name]
+        """
+        The time in fs between recorded samples.
+
+        One octet (GMII, RGMII at 1 Gb/s), nibble (MII, RGMII at 10 and 100 Mb/s),
+        dibit (RMII), column (XGMII) or beat (AXI-Stream) apart.
+        """
+        rgmii_bits = 8 if self.link_rate_bps >= 1_000_000_000 else 4
+        bits_per_clock = {
+            "gmii": 8,
+            "mii": 4,
+            "rgmii": rgmii_bits,
+            "rmii": 2,
+            "xgmii": 8 * self.lanes,
+            "axis": 8 * self.lanes,
+        }[self.name]
         return bits_per_clock * FS_PER_SECOND // self.link_rate_bps
 
     @property
@@ -195,6 +222,10 @@ class Interface:
                 ready_low_percent=self.ready_low_percent,
                 seed=self.seed,
             )
+        if self.name == "rgmii":
+            return RgmiiPhy(self.link_rate_bps)
+        if self.name == "rmii":
+            return RmiiPhy(self.link_rate_bps, self.crs_dv_toggle_octets)
         return XgmiiPhy(
             self.link_rate_bps,
             self.lanes,
@@ -272,6 +303,12 @@ GMII = Interface("gmii", 1_000_000_000)
 
 #: MII at 100 Mb/s; ``MII.with_rate("10M")`` for 10 Mb/s
 MII = Interface("mii", 100_000_000)
+
+#: RGMII at 1 Gb/s; ``RGMII.with_rate("100M")`` for 100 Mb/s
+RGMII = Interface("rgmii", 1_000_000_000)
+
+#: RMII at 100 Mb/s; ``RMII.with_rate("10M")`` for 10 Mb/s
+RMII = Interface("rmii", 100_000_000)
 
 
 def XGMII(

@@ -5,13 +5,15 @@
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
 
--- The same frame over MII, XGMII and an AXI-Stream MAC client bus, each source
--- connected straight to a monitor (and a sink on AXI-Stream). run.py runs it at
--- 10M/10G and at 100M/400G.
+-- The same frame over MII, RGMII, RMII, XGMII and an AXI-Stream MAC client bus,
+-- each source connected straight to a monitor (and a sink on AXI-Stream). run.py
+-- runs every interface at two of its rates.
 entity tb_cookbook_interfaces is
   generic (
     runner_cfg : string;
     mii_link_rate_mbps : positive := 100;
+    rgmii_link_rate_mbps : positive := 1000;
+    rmii_link_rate_mbps : positive := 100;
     xgmii_lanes : positive := 4;
     xgmii_link_rate_mbps : positive := 10_000
   );
@@ -30,6 +32,28 @@ architecture tb of tb_cookbook_interfaces is
   signal mii_data : std_ulogic_vector(3 downto 0) := (others => '0');
   signal mii_dv, mii_er : std_ulogic := '0';
   -- docs-end: mii
+
+  -- docs-start: rgmii
+  -- RGMII: both clock edges; 125 MHz at 1000 Mbit/s, 25 MHz at 100, 2.5 MHz at 10
+  constant rgmii_source : rgmii_source_t := new_rgmii_source(link_rate_mbps => rgmii_link_rate_mbps);
+  constant rgmii_monitor : rgmii_monitor_t := new_rgmii_monitor(
+    link_rate_mbps => rgmii_link_rate_mbps, protocol_checker => default_rgmii_protocol_checker
+  );
+  signal rgmii_clk : std_ulogic := '0';
+  signal rgmii_data : std_ulogic_vector(3 downto 0) := (others => '0');
+  signal rgmii_ctl : std_ulogic := '0';
+  -- docs-end: rgmii
+
+  -- docs-start: rmii
+  -- RMII: a 50 MHz reference clock at both 10 and 100 Mbit/s
+  constant rmii_source : rmii_source_t := new_rmii_source(link_rate_mbps => rmii_link_rate_mbps);
+  constant rmii_monitor : rmii_monitor_t := new_rmii_monitor(
+    link_rate_mbps => rmii_link_rate_mbps, protocol_checker => default_rmii_protocol_checker
+  );
+  signal rmii_ref_clk : std_ulogic := '0';
+  signal rmii_data : std_ulogic_vector(1 downto 0) := (others => '0');
+  signal rmii_dv, rmii_er : std_ulogic := '0';
+  -- docs-end: rmii
 
   -- docs-start: xgmii
   -- XGMII family: 4 lanes (XGMII) or 8 lanes (25GMII up to 400GMII); one column per rising edge
@@ -58,6 +82,8 @@ architecture tb of tb_cookbook_interfaces is
   -- docs-end: axis-mac
 begin
   mii_clk <= not mii_clk after (4000 ns / mii_link_rate_mbps) / 2;
+  rgmii_clk <= not rgmii_clk after 4 ns when rgmii_link_rate_mbps = 1000 else not rgmii_clk after (4000 ns / rgmii_link_rate_mbps) / 2;
+  rmii_ref_clk <= not rmii_ref_clk after 10 ns;
   xgmii_clk <= not xgmii_clk after xgmii_clk_period / 2;
   axis_clk <= not axis_clk after 3200 ps;
 
@@ -70,6 +96,18 @@ begin
         push_ethernet_frame(net, mii_source, frame);
         wait_until_idle(net, as_sync(mii_source));
         wait_until_idle(net, as_sync(mii_monitor));
+
+      elsif run("test_rgmii") then
+        check_ethernet_frame(net, rgmii_monitor, frame, blocking => false);
+        push_ethernet_frame(net, rgmii_source, frame);
+        wait_until_idle(net, as_sync(rgmii_source));
+        wait_until_idle(net, as_sync(rgmii_monitor));
+
+      elsif run("test_rmii") then
+        check_ethernet_frame(net, rmii_monitor, frame, blocking => false);
+        push_ethernet_frame(net, rmii_source, frame);
+        wait_until_idle(net, as_sync(rmii_source));
+        wait_until_idle(net, as_sync(rmii_monitor));
 
       elsif run("test_xgmii") then
         check_ethernet_frame(net, xgmii_monitor, frame, blocking => false);
@@ -98,6 +136,26 @@ begin
     generic map (mii_monitor)
     port map (mii_clk, mii_data, mii_dv, mii_er);
   -- docs-end: mii-instances
+
+  -- docs-start: rgmii-instances
+  rgmii_source_inst : entity awesome_vunit_vcs.rgmii_source
+    generic map (rgmii_source)
+    port map (rgmii_clk, rgmii_data, rgmii_ctl);
+
+  rgmii_monitor_inst : entity awesome_vunit_vcs.rgmii_monitor
+    generic map (rgmii_monitor)
+    port map (rgmii_clk, rgmii_data, rgmii_ctl);
+  -- docs-end: rgmii-instances
+
+  -- docs-start: rmii-instances
+  rmii_source_inst : entity awesome_vunit_vcs.rmii_source
+    generic map (rmii_source)
+    port map (rmii_ref_clk, rmii_data, rmii_dv, rmii_er);
+
+  rmii_monitor_inst : entity awesome_vunit_vcs.rmii_monitor
+    generic map (rmii_monitor)
+    port map (rmii_ref_clk, rmii_data, rmii_dv, rmii_er);
+  -- docs-end: rmii-instances
 
   -- docs-start: xgmii-instances
   xgmii_source_inst : entity awesome_vunit_vcs.xgmii_source

@@ -1,6 +1,6 @@
 The first release is being prepared. Nothing has been released yet.
 
-* Ethernet: GMII, MII and XGMII-family sources, monitors and protocol checkers (the XGMII family
+* Ethernet: GMII, MII, RGMII, RMII and XGMII-family sources, monitors and protocol checkers (the XGMII family
   from 2.5GMII up to 200GMII and 400GMII), with frame
   reconstruction, protocol checks, statistics, PCAPNG capture and packets from Python functions.
 * Ethernet: an AXI-Stream MAC client source, sink, monitor and protocol checker for frames without
@@ -19,8 +19,8 @@ VHDL API
 --------
 
 * Every interface has a source, a monitor and a protocol checker with a handle type of its own
-  (``gmii_source_t``, ``gmii_monitor_t``, ``gmii_protocol_checker_t``, and the same for MII and
-  XGMII), created like VUnit's own VCs: the VC configuration, then ``id``, ``logger``, ``actor``,
+  (``gmii_source_t``, ``gmii_monitor_t``, ``gmii_protocol_checker_t``, and the same for MII, RGMII,
+  RMII and XGMII), created like VUnit's own VCs: the VC configuration, then ``id``, ``logger``, ``actor``,
   ``checker`` and ``unexpected_msg_type_policy``. A default id is ``awesome_vunit_vcs:<vc name>:<n>``,
   and a protocol checker given to a monitor gets the id ``<monitor id>:protocol_checker``.
 * Protocol checks run in the ``<interface>_protocol_checker`` entities, which a monitor instantiates

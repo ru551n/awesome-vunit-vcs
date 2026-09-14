@@ -45,6 +45,10 @@ Glossary
    lane
       One octet and its control bit in an XGMII column; lane 0 is in the low bits.
 
+   dibit
+      Two bits: the data an RMII interface carries per symbol, least significant bits of an octet
+      first.
+
    control character
       An XGMII octet with its control bit set: Idle, Start, Terminate, Error or Sequence.
 

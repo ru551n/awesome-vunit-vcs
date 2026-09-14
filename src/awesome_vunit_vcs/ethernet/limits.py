@@ -96,6 +96,10 @@ class Limits:
     gmii_rates_bps: tuple[int, ...] = (1_000_000_000, 2_500_000_000)
     #: The rates of MII
     mii_rates_bps: tuple[int, ...] = (10_000_000, 100_000_000)
+    #: The rates of RGMII
+    rgmii_rates_bps: tuple[int, ...] = (10_000_000, 100_000_000, 1_000_000_000)
+    #: The rates of RMII
+    rmii_rates_bps: tuple[int, ...] = (10_000_000, 100_000_000)
     #: The rates of the XGMII family, from 2.5GMII and 5GMII over XGMII and 25GMII to XLGMII, CGMII,
     #: 200GMII and 400GMII
     xgmii_rates_bps: tuple[int, ...] = (

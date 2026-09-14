@@ -32,6 +32,14 @@ Status
      - 2.5G to 400G
      - Done
      - ``xgmii_source``, ``xgmii_monitor``, ``xgmii_protocol_checker``
+   * - RGMII
+     - 10M, 100M, 1G
+     - Done
+     - ``rgmii_source``, ``rgmii_monitor``, ``rgmii_protocol_checker``
+   * - RMII
+     - 10M, 100M
+     - Done
+     - ``rmii_source``, ``rmii_monitor``, ``rmii_protocol_checker``
    * - QSPI NOR flash
      - x1, x2, x4 lanes
      - Done
@@ -40,10 +48,6 @@ Status
      - Any
      - Done
      - ``axis_mac_source``, ``axis_mac_sink``, ``axis_mac_monitor``, ``axis_mac_protocol_checker``
-   * - RGMII, RMII
-     -
-     - Planned
-     - See the :doc:`roadmap`
 
 Every component is tested with GHDL and NVC.
 

@@ -82,6 +82,7 @@ def _interface(name: str, phy_options: dict[str, Any]) -> Interface:
         "valid_low_percent",
         "ready_low_percent",
         "seed",
+        "crs_dv_toggle_octets",
     )
     return replace(traffic.interface_named(name), **{key: phy_options[key] for key in fields if key in phy_options})
 
@@ -602,6 +603,8 @@ class SourceBackend:
         has_fcs: AXI-Stream: whether frames on the bus carry their FCS, added to ``phy_options``.
         valid_low_percent: AXI-Stream: the tvalid stall percentage, added to ``phy_options``.
         seed: AXI-Stream: the seed of the stall pattern, added to ``phy_options``.
+        crs_dv_toggle_octets: Toggle valid during the last this many octets of
+            every RMII frame, added to ``phy_options``.
 
     Attributes:
         source: The :class:`~.source.EthernetSource`.
@@ -620,6 +623,7 @@ class SourceBackend:
         has_fcs: bool | None = None,
         valid_low_percent: int | None = None,
         seed: int | None = None,
+        crs_dv_toggle_octets: int | None = None,
     ) -> None:
         self.name = name
         phy_options = _phy_options(
@@ -630,6 +634,7 @@ class SourceBackend:
             has_fcs=has_fcs,
             valid_low_percent=valid_low_percent,
             seed=seed,
+            crs_dv_toggle_octets=crs_dv_toggle_octets,
         )
         self.source = EthernetSource(create_phy(interface, **phy_options), name=name)
         self._sequences: dict[int, Iterator[traffic.TrafficItem]] = {}

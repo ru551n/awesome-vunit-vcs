@@ -17,12 +17,16 @@ from .common import (
 )
 from .gmii import GmiiPhy
 from .mii import MiiPhy
+from .rgmii import RgmiiPhy
+from .rmii import RmiiPhy
 from .xgmii import XgmiiPhy
 
 _INTERFACES: dict[str, type[Any]] = {
     "axis": AxisPhy,
     "gmii": GmiiPhy,
     "mii": MiiPhy,
+    "rgmii": RgmiiPhy,
+    "rmii": RmiiPhy,
     "xgmii": XgmiiPhy,
 }
 
@@ -48,6 +52,8 @@ __all__ = [
     "PhyEvent",
     "PhyFrame",
     "PhyInterface",
+    "RgmiiPhy",
+    "RmiiPhy",
     "WireFrame",
     "XgmiiPhy",
     "create_phy",

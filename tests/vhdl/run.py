@@ -69,5 +69,18 @@ for bytes_per_beat, ready_high_percent, valid_low_percent in ((8, 100, 0), (1, 6
         },
     )
 
+# RGMII at its three link rates with centered data, and at 1000 Mbit/s with edge aligned data
+tb_rgmii = lib.test_bench("tb_rgmii")
+for link_rate_mbps, edge_aligned in ((1000, False), (100, False), (10, False), (1000, True)):
+    tb_rgmii.add_config(
+        name=f"{link_rate_mbps}_mbps" + ("_edge_aligned" if edge_aligned else ""),
+        generics={"link_rate_mbps": link_rate_mbps, "edge_aligned": edge_aligned},
+    )
+
+# RMII at both of its link rates
+tb_rmii = lib.test_bench("tb_rmii")
+for link_rate_mbps in (10, 100):
+    tb_rmii.add_config(name=f"{link_rate_mbps}_mbps", generics={"link_rate_mbps": link_rate_mbps})
+
 if __name__ == "__main__":
     vu.main()

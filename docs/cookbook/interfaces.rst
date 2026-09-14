@@ -50,6 +50,73 @@ Use MII at 10 or 100 Mbit/s
 
 **See also:** :doc:`../ethernet/mii`
 
+Use RGMII at 10, 100 or 1000 Mbit/s
+-----------------------------------
+
+**Goal:** RGMII on both clock edges, with the clock for the link rate.
+
+.. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
+   :language: vhdl
+   :start-after: -- docs-start: rgmii
+   :end-before: -- docs-end: rgmii
+   :dedent:
+
+.. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
+   :language: vhdl
+   :start-after: -- docs-start: rgmii-instances
+   :end-before: -- docs-end: rgmii-instances
+   :dedent:
+
+**When to use this:** for designs with an RGMII port, such as an FPGA MAC connected to a gigabit PHY.
+
+* Give the source and the monitor the same ``link_rate_mbps``.
+* Use a 125 MHz clock at 1000 Mbit/s, 25 MHz at 100 and 2.5 MHz at 10.
+* Set ``data_timing => rgmii_edge_aligned`` on a monitor that observes outputs registered on the clock.
+
+**Full example:** ``test_rgmii``
+
+.. code-block:: console
+   :caption: Terminal
+
+   $ python examples/cookbook/run.py "*test_rgmii"
+
+**See also:** :doc:`../ethernet/rgmii`
+
+Use RMII at 10 or 100 Mbit/s
+----------------------------
+
+**Goal:** RMII on its 50 MHz reference clock.
+
+.. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
+   :language: vhdl
+   :start-after: -- docs-start: rmii
+   :end-before: -- docs-end: rmii
+   :dedent:
+
+.. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
+   :language: vhdl
+   :start-after: -- docs-start: rmii-instances
+   :end-before: -- docs-end: rmii-instances
+   :dedent:
+
+**When to use this:** for 10M and 100M designs with an RMII port.
+
+* The reference clock is 50 MHz at both rates; only ``link_rate_mbps`` changes.
+* Set ``crs_dv_toggle_octets`` on a source to test a MAC against a PHY whose ``CRS_DV`` toggles.
+
+**Full example:** ``test_rmii``
+
+.. code-block:: console
+   :caption: Terminal
+
+   $ python examples/cookbook/run.py "*test_rmii"
+
+**See also:** :doc:`../ethernet/rmii`
+
 Use XGMII, from 10G up to 400G
 ------------------------------
 

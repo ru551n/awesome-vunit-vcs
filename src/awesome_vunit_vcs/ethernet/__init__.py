@@ -40,7 +40,7 @@ from .api import (
 from .checker import CheckId, Violation
 from .errors import EthernetValueError
 from .frame import MonitorConfig
-from .interfaces import AXIS, GMII, INTERFACE_NAMES, MII, XGMII, Interface, Samples
+from .interfaces import AXIS, GMII, INTERFACE_NAMES, MII, RGMII, RMII, XGMII, Interface, Samples
 from .limits import LIMITS, Limits, Malformation
 from .metrics import Statistics
 from .units import bps, fs
@@ -54,6 +54,8 @@ __all__ = [
     "INTERFACE_NAMES",
     "LIMITS",
     "MII",
+    "RGMII",
+    "RMII",
     "XGMII",
     "CheckId",
     "EthernetValueError",

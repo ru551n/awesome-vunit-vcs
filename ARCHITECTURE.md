@@ -137,8 +137,8 @@ turn them into failure reports with a one-line summary.
 | GMII | Done | Rising edge sampling and driving, metavalue detection, idle compression, batching | Octet stream, frames, checks, statistics, PCAPNG, scoreboard, Scapy |
 | XGMII family | Done | One word per lane, rising or both edges, 4 or 8 lanes | Control characters, Start alignment, link fault ordered sets, deficit idle on transmit |
 | MII | Done | One nibble per rising edge, shared with GMII | Nibble pairing on the SFD, alignment errors |
-| RGMII | Planned | Both-edge sampling and driving; CTL is DV on the rising edge and DV xor ER on the falling edge | The GMII octet stream |
-| RMII | Planned | Dibit sampling on the 50 MHz reference clock | Dibit assembly, 10x replication at 10 Mbit/s, CRS_DV toggling |
+| RGMII | Done | Both clock edges combined into GMII octets (1G) or MII nibbles (10/100M) before the shared symbol interface, and split again on transmit; centered or edge aligned data | The GMII or MII stream of the rate |
+| RMII | Done | Dibits on the 50 MHz reference clock, every 10th cycle at 10 Mbit/s; frames end after two samples without CRS_DV | Dibit grouping on the SFD, data during CRS_DV toggling, 00 dibits before the preamble, alignment errors |
 | AXI-Stream MAC client | Done | One word per tkeep octet on every clock with tvalid high or a bus change; the source holds each beat until tready; the sink drives tready | Frames without preamble or SFD, optional FCS, the tkeep, stability and tvalid rules |
 
 ## Active sources and responders
@@ -424,6 +424,24 @@ x1 read without a flash, 3.6 s and 3.7 s.
 - The source cannot transmit an odd number of nibbles.
 - `RX_ER` without `RX_DV` is reported like any error outside a frame.
 
+### RGMII
+
+- In-band status on RXD between frames (link, speed, duplex) is neither decoded nor generated.
+- Carrier extend and false carrier encodings between frames are reported like any error outside a
+  frame (`ETH_CARRIER`).
+- The data timing is either centered or edge aligned with a fixed quarter-period sampling delay; board
+  skew beyond that is not modeled.
+- At 10 and 100 Mbit/s only the rising edge nibble is used; a different nibble on the falling edge is
+  not reported.
+
+### RMII
+
+- RMII has no TX_ER; the source drives `er` for errored octets, which emulates RX_ER of a PHY.
+- False carrier (RXD `10` for the whole carrier event) and the RX_ER-driven data replacement are
+  decoded as ordinary dibits, which the checks report as a missing SFD or a bad FCS.
+- The monitor samples every 10th reference clock cycle at 10 Mbit/s from its first cycle; a source that
+  changes a dibit mid-group is not detected.
+
 ### XGMII family
 
 - The source never starts a frame on lane 4 and has no lane-4 deficit alignment.
@@ -485,6 +503,13 @@ x1 read without a flash, 3.6 s and 3.7 s.
 
 - **MII:** IEEE 802.3 Clause 22 (nibble order, 2.5/25 MHz clocks); the trailing half octet as alignment
   error follows 4.2.4.2.1.
+- **RGMII:** RGMII Version 2.0 (Hewlett-Packard et al., 2002-04-01): Table 1 (bits 3:0 on the rising
+  and 7:4 on the falling edge), 3.4 (TXERR/RXERR as TX_ER/RX_ER xor TX_EN/RX_DV), Table 2 note 4
+  (RGMII-ID internal delay), Table 4 and 3.4.1 (optional in-band status), 5.0 (10/100 operation).
+- **RMII:** RMII Specification Rev. 1.2 (RMII Consortium, 1998-03-20): 5.1 (50 MHz REF_CLK), 5.2
+  (CRS_DV toggling on nibble boundaries after carrier loss), 5.3 and 5.3.1 (RXD `00` before the
+  preamble, false carrier `10`), 5.3.2 and 5.5.2 (sampling every 10th cycle at 10 Mb/s), 6.0 (di-bit
+  order, D0 first).
 - **XGMII:** control characters from IEEE 802.3 Table 46-3 and Table 46-5 (Idle 0x07, Start 0xFB,
   Terminate 0xFD, Error 0xFE, Sequence 0x9C; local fault `00 00 01`, remote fault `00 00 02`), as
   reproduced in Xilinx XAPP687 Table 2 and the UNH-IOL Clause 49 PCS test suite. The 5-octet minimum

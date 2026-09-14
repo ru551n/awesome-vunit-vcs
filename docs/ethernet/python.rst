@@ -59,7 +59,8 @@ Decode samples from any interface
    :start-after: # docs-start: example
    :end-before: # docs-end: example
 
-Pick an interface: ``eth.GMII``, ``eth.MII`` or ``eth.XGMII(lanes=8, rate="100G")``. Use
+Pick an interface: ``eth.GMII``, ``eth.MII``, ``eth.RGMII``, ``eth.RMII`` or
+``eth.XGMII(lanes=8, rate="100G")``. Use
 ``with_rate`` for other rates. ``interface.encode(frames)`` gives the pin samples, and
 :func:`~awesome_vunit_vcs.ethernet.api.decode` turns samples back into frames.
 

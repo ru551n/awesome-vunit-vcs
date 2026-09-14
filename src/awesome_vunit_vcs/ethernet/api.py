@@ -624,19 +624,31 @@ def write_pcapng(
     return writer.frames_written
 
 
+def _realigns_on_sfd(interface: Interface) -> bool:
+    """Whether the decoder of an interface groups symbols into octets aligned on the SFD."""
+    return interface.name in ("mii", "rmii") or (interface.name == "rgmii" and interface.link_rate_bps < 1_000_000_000)
+
+
 def supported_malformations(interface: Interface) -> frozenset[Malformation]:
     """
     The malformations whose violations :func:`expected_violations` predicts exactly on an interface.
 
-    MII realigns nibbles on the SFD, so a wrong SFD may be found elsewhere; the
-    XGMII family rounds gaps to whole columns, so a short gap is not exact. AXI-Stream
-    frames have no preamble, SFD or gap.
+    MII, RMII and RGMII below 1 Gb/s realign on the SFD, so a wrong SFD may be
+    found elsewhere; the XGMII family rounds gaps to whole columns, so a short
+    gap is not exact. AXI-Stream frames have no preamble, SFD or gap.
     """
-    unsupported = {
-        "mii": {Malformation.BAD_SFD},
-        "xgmii": {Malformation.SHORT_IFG},
-        "axis": {Malformation.SHORT_PREAMBLE, Malformation.LONG_PREAMBLE, Malformation.BAD_SFD, Malformation.SHORT_IFG},
-    }.get(interface.name, set())
+    unsupported: set[Malformation] = set()
+    if _realigns_on_sfd(interface):
+        unsupported = {Malformation.BAD_SFD}
+    elif interface.name == "xgmii":
+        unsupported = {Malformation.SHORT_IFG}
+    elif interface.name == "axis":
+        unsupported = {
+            Malformation.SHORT_PREAMBLE,
+            Malformation.LONG_PREAMBLE,
+            Malformation.BAD_SFD,
+            Malformation.SHORT_IFG,
+        }
     return frozenset(Malformation) - unsupported
 
 
@@ -681,12 +693,14 @@ def expected_violations(
         raise EthernetValueError("Without a gap two frames are received as one; its violations are not predicted")
     if options.sfd == 0x55:
         raise EthernetValueError("An SFD of 0x55 extends the preamble; its violations are not predicted")
-    if interface.name == "mii" and options.sfd != SFD_OCTET:
-        raise EthernetValueError("MII realigns nibbles on the SFD; a wrong SFD is not predicted")
+    if _realigns_on_sfd(interface) and options.sfd != SFD_OCTET:
+        raise EthernetValueError(f"{interface.name.upper()} realigns on the SFD; a wrong SFD is not predicted")
     if interface.name == "xgmii" and (options.preamble_octets == 0 or 0 in wire.wire_error_offsets):
         raise EthernetValueError("On XGMII Start replaces the first preamble octet, which must be an ordinary one")
-    if interface.name == "mii" and options.preamble_octets > LIMITS.max_preamble_octets:
-        raise EthernetValueError(f"MII preambles longer than {LIMITS.max_preamble_octets} octets are not predicted")
+    if _realigns_on_sfd(interface) and options.preamble_octets > LIMITS.max_preamble_octets:
+        raise EthernetValueError(
+            f"{interface.name.upper()} preambles longer than {LIMITS.max_preamble_octets} octets are not predicted"
+        )
 
     found: set[CheckId] = set()
     if previous is not None:

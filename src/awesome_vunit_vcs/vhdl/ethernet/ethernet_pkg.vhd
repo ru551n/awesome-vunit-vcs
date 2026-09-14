@@ -501,7 +501,7 @@ package ethernet_pkg is
 
   -- Private: the PHY interfaces with a VHDL frontend. The image of a value
   -- names the Python PHY decoder.
-  type ethernet_interface_t is (gmii, xgmii, mii, axis);
+  type ethernet_interface_t is (gmii, xgmii, mii, axis, rgmii, rmii);
 
   -- Private: the kinds of Ethernet VC
   type ethernet_vc_kind_t is (source_vc, monitor_vc, protocol_checker_vc);
@@ -519,6 +519,8 @@ package ethernet_pkg is
     p_both_edges : boolean;
     p_allow_lane4_start : boolean;
     p_deficit_idle : boolean;
+    p_edge_aligned : boolean;
+    p_crs_dv_toggle_octets : natural;
     p_min_preamble_octets : natural;
     p_max_preamble_octets : natural;
     p_min_frame_octets : natural;
@@ -542,6 +544,8 @@ package ethernet_pkg is
     p_both_edges => false,
     p_allow_lane4_start => false,
     p_deficit_idle => false,
+    p_edge_aligned => false,
+    p_crs_dv_toggle_octets => 0,
     p_min_preamble_octets => 0,
     p_max_preamble_octets => 0,
     p_min_frame_octets => 0,
@@ -565,6 +569,8 @@ package ethernet_pkg is
     both_edges : boolean := false;
     allow_lane4_start : boolean := false;
     deficit_idle : boolean := true;
+    edge_aligned : boolean := false;
+    crs_dv_toggle_octets : natural := 0;
     min_preamble_octets : natural := 7;
     max_preamble_octets : natural := 7;
     min_frame_octets : natural := 64;
@@ -642,6 +648,8 @@ package body ethernet_pkg is
     both_edges : boolean := false;
     allow_lane4_start : boolean := false;
     deficit_idle : boolean := true;
+    edge_aligned : boolean := false;
+    crs_dv_toggle_octets : natural := 0;
     min_preamble_octets : natural := 7;
     max_preamble_octets : natural := 7;
     min_frame_octets : natural := 64;
@@ -664,6 +672,8 @@ package body ethernet_pkg is
       p_both_edges => both_edges,
       p_allow_lane4_start => allow_lane4_start,
       p_deficit_idle => deficit_idle,
+      p_edge_aligned => edge_aligned,
+      p_crs_dv_toggle_octets => crs_dv_toggle_octets,
       p_min_preamble_octets => min_preamble_octets,
       p_max_preamble_octets => max_preamble_octets,
       p_min_frame_octets => min_frame_octets,

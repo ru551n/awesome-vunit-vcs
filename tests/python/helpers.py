@@ -127,6 +127,57 @@ class MiiLine:
         self.idle(2 * ifg_octets)
 
 
+RMII_100M_PERIOD_FS = 20_000_000  # a dibit per cycle of the 50 MHz reference clock
+RMII_10M_PERIOD_FS = 200_000_000  # a dibit per 10 cycles
+
+
+@dataclass
+class RmiiLine:
+    """
+    Records RMII samples the way the VHDL monitor does: one word per dibit.
+
+    Octets go on the line least significant dibit first, as the RMII
+    specification 1.2 (section 6.0, figure 5) shows, written out dibit by dibit.
+    """
+
+    period_fs: int = RMII_100M_PERIOD_FS
+    time_fs: int = 0
+    words: list[int] = field(default_factory=list)
+    times: list[int] = field(default_factory=list)
+
+    def cycle(self, word: int) -> None:
+        self.words.append(word)
+        self.times.append(self.time_fs)
+        self.time_fs += self.period_fs
+
+    def idle(self, dibits: int) -> None:
+        for _ in range(dibits):
+            self.cycle(0)
+
+    def dibits(self, dibits: list[int], *, error_at: tuple[int, ...] = (), valid_low_at: tuple[int, ...] = ()) -> None:
+        for index, dibit in enumerate(dibits):
+            valid = 0 if index in valid_low_at else VALID
+            self.cycle(dibit | valid | (ERROR if index in error_at else 0))
+
+    @staticmethod
+    def octet_dibits(octets: bytes) -> list[int]:
+        return [(octet >> shift) & 3 for octet in octets for shift in (0, 2, 4, 6)]
+
+    def frame(
+        self,
+        frame: bytes,
+        *,
+        preamble_dibits: int = 31,
+        leading_zero_dibits: int = 0,
+        extra_dibits: tuple[int, ...] = (),
+        ifg_octets: int = 12,
+    ) -> None:
+        """00 dibits, 01 dibits (31 is standard), the SFD dibit 11, the frame, extra dibits, then IFG."""
+        dibits = [0] * leading_zero_dibits + [1] * preamble_dibits + [3] + self.octet_dibits(frame)
+        self.dibits(dibits + list(extra_dibits))
+        self.idle(4 * ifg_octets)
+
+
 # XGMII control characters, IEEE 802.3 Table 46-3 as reproduced in Xilinx
 # XAPP687 Table 2, and the link fault ordered sets of Table 46-5 as used by the
 # UNH-IOL Clause 49 PCS test suite

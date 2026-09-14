@@ -8,7 +8,7 @@ Cookbook
 
 One short test case per common construct, for the Examples library in the
 documentation: sending frames, checking them, negative tests, statistics,
-captures, subscribers, resets and the MII and XGMII interfaces.
+captures, subscribers, resets and the MII, RGMII, RMII and XGMII interfaces.
 """
 
 import os
@@ -35,12 +35,24 @@ lib.add_source_files(ROOT / "*.vhd")
 # docs-start: interface-configs
 tb = lib.test_bench("tb_cookbook_interfaces")
 tb.add_config(
-    name="mii_10m_xgmii_10g",
-    generics={"mii_link_rate_mbps": 10, "xgmii_lanes": 4, "xgmii_link_rate_mbps": 10_000},
+    name="low_rates",
+    generics={
+        "mii_link_rate_mbps": 10,
+        "rgmii_link_rate_mbps": 100,
+        "rmii_link_rate_mbps": 10,
+        "xgmii_lanes": 4,
+        "xgmii_link_rate_mbps": 10_000,
+    },
 )
 tb.add_config(
-    name="mii_100m_xgmii_400g",
-    generics={"mii_link_rate_mbps": 100, "xgmii_lanes": 8, "xgmii_link_rate_mbps": 400_000},
+    name="high_rates",
+    generics={
+        "mii_link_rate_mbps": 100,
+        "rgmii_link_rate_mbps": 1000,
+        "rmii_link_rate_mbps": 100,
+        "xgmii_lanes": 8,
+        "xgmii_link_rate_mbps": 400_000,
+    },
 )
 # docs-end: interface-configs
 

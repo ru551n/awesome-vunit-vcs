@@ -36,12 +36,12 @@ Ethernet interfaces
      - 4-bit data, CTL
      - 125 MHz on both edges at 1G; 25 or 2.5 MHz; CTL is DV on the rising edge and DV xor ER on the
        falling edge
-     - Planned
+     - Done
    * - RMII
      - 10M, 100M
      - 2-bit data, TX_EN, CRS_DV (RX_ER optional)
      - 50 MHz reference clock; 10x symbol replication at 10M; four dibits per octet
-     - Planned
+     - Done
    * - AXI-Stream MAC client
      - Any
      - tdata, tkeep, tlast, tuser (error)

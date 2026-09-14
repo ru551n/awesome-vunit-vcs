@@ -46,10 +46,14 @@ package ethernet_vc_pkg is
   function to_octets(value : std_ulogic_vector) return integer_vector;
 
   -- The process of a monitor or protocol checker of an interface carrying one
-  -- symbol per clock cycle with valid and error signals (GMII, MII). data, dv
-  -- and er are sampled on the rising edge of clk. A sample is recorded when
-  -- valid is asserted or the sample word changes, so a long idle period costs
-  -- one sample. Sample words (see awesome_vunit_vcs/ethernet/phy/common.py):
+  -- symbol per clock cycle with valid and error signals (GMII, MII, RMII, and
+  -- RGMII after its two clock edges are combined). data, dv and er are sampled
+  -- on the rising edge of clk, and on every 10th rising edge for RMII at 10
+  -- Mbit/s. A sample is recorded when valid is asserted or the sample word
+  -- changes, so a long idle period costs one sample. RMII frames end when
+  -- CRS_DV is low for two samples in a row, since CRS_DV toggles while a PHY
+  -- still delivers data after the carrier ends; both samples are recorded.
+  -- Sample words (see awesome_vunit_vcs/ethernet/phy/common.py):
   --
   --   bit 0-7  data (the low data'length bits)
   --   bit 8    dv
@@ -87,8 +91,10 @@ package ethernet_vc_pkg is
   );
 
   -- The process of a source of an interface carrying one symbol per clock
-  -- cycle with valid and error signals (GMII, MII). The sample words the
-  -- backend returns for a frame are driven one per rising edge of clk.
+  -- cycle with valid and error signals (GMII, MII, RMII, and RGMII before its
+  -- two clock edges are split). The sample words the backend returns for a
+  -- frame are driven one per rising edge of clk, and held for 10 rising edges
+  -- for RMII at 10 Mbit/s.
   -- Never returns.
   procedure drive_symbol_interface(
     signal net : inout network_t;
@@ -97,6 +103,36 @@ package ethernet_vc_pkg is
     signal data : out std_ulogic_vector;
     signal dv : out std_ulogic;
     signal er : out std_ulogic
+  );
+
+  -- Combine the two clock edges of an RGMII line into the symbols of
+  -- monitor_symbol_interface: data holds the lower bits of an octet at the
+  -- rising edge of clk and the upper bits at the falling edge (at 1000
+  -- Mbit/s), ctl the valid signal at the rising edge and valid xor error at the
+  -- falling edge. octet, dv and er change on every falling edge of clk. Never
+  -- returns.
+  procedure combine_double_edges(
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal data : in std_ulogic_vector;
+    signal ctl : in std_ulogic;
+    signal octet : out std_ulogic_vector;
+    signal dv : out std_ulogic;
+    signal er : out std_ulogic
+  );
+
+  -- Split the symbols drive_symbol_interface drives on the rising edges of
+  -- clk into the two clock edges of an RGMII line, the inverse of
+  -- combine_double_edges. Centered data changes on the edge opposite to the one
+  -- it is sampled on, edge aligned data on that edge. Never returns.
+  procedure split_double_edges(
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal octet : in std_ulogic_vector;
+    signal dv : in std_ulogic;
+    signal er : in std_ulogic;
+    signal data : out std_ulogic_vector;
+    signal ctl : out std_ulogic
   );
 
   -- The process of a source of an XGMII-family interface: a column on every
@@ -189,12 +225,24 @@ package body ethernet_vc_pkg is
           kwarg("valid_low_percent", cfg.p_valid_low_percent) & kwarg("seed", cfg.p_seed);
       end if;
       return kwarg("lanes", cfg.p_lanes);
+    elsif cfg.p_interface = rmii and vc.p_kind = source_vc then
+      return kwarg("crs_dv_toggle_octets", cfg.p_crs_dv_toggle_octets);
     elsif cfg.p_interface /= xgmii then
       return null_arg;
     elsif vc.p_kind = source_vc then
       return kwarg("lanes", cfg.p_lanes) & kwarg("deficit_idle", cfg.p_deficit_idle);
     end if;
     return kwarg("lanes", cfg.p_lanes) & kwarg("allow_lane4_start", cfg.p_allow_lane4_start);
+  end;
+
+  -- The clock cycles of a symbol: RMII at 10 Mbit/s holds every dibit for 10
+  -- cycles of its 50 MHz reference clock, every other interface 1
+  function symbol_cycles(vc : ethernet_vc_t) return positive is
+  begin
+    if vc.p_cfg.p_interface = rmii and vc.p_cfg.p_link_rate_mbps = 10 then
+      return 10;
+    end if;
+    return 1;
   end;
 
   -- A limit of 0 disables it
@@ -732,6 +780,14 @@ package body ethernet_vc_pkg is
     variable in_frame : boolean := false;
     variable finished : boolean := false;
 
+    constant is_rmii : boolean := vc.p_cfg.p_interface = rmii;
+    -- RMII at 10 Mbit/s holds every dibit for 10 clock cycles
+    constant cycles_per_sample : positive := symbol_cycles(vc);
+    -- Sample on the first rising edge, so the line is seen idle before a frame
+    variable phase : natural := cycles_per_sample - 1;
+    -- Consecutive samples without valid in a frame
+    variable idle_samples : natural := 0;
+
     impure function sample_word return sample_word_t is
       variable result : sample_word_t := to_integer(to_01(unsigned(data)));
     begin
@@ -766,21 +822,31 @@ package body ethernet_vc_pkg is
       end if;
 
       if rising_edge(clk) then
+        phase := (phase + 1) mod cycles_per_sample;
+      end if;
+
+      if rising_edge(clk) and phase = 0 then
         word := sample_word;
         if state.discard_frame and not is_valid(word) then
           state.discard_frame := false;
         end if;
         if state.discard_frame then
           null;
-        elsif is_valid(word) or word /= previous_word or word >= error_bit then
+        elsif is_valid(word) or word /= previous_word or word >= error_bit or (is_rmii and in_frame) then
           record_sample(state.batch, word);
         end if;
 
-        if in_frame and not is_valid(word) then
-          end_monitor_frame(net, vc, state);
+        if is_valid(word) then
+          in_frame := true;
+          idle_samples := 0;
+        elsif in_frame then
+          idle_samples := idle_samples + 1;
+          if not is_rmii or idle_samples = 2 then
+            end_monitor_frame(net, vc, state);
+            in_frame := false;
+            idle_samples := 0;
+          end if;
         end if;
-
-        in_frame := is_valid(word);
         previous_word := word;
       end if;
 
@@ -1125,6 +1191,8 @@ package body ethernet_vc_pkg is
     variable symbols : integer_array_t;
     variable word : natural range 0 to 2 ** 10 - 1;
     variable valid : boolean := false;
+    -- RMII at 10 Mbit/s holds every dibit for 10 clock cycles
+    constant cycles_per_symbol : positive := symbol_cycles(vc);
 
     -- Wait for the next rising edge, or for a reset, which may arrive while
     -- the clock is stopped
@@ -1187,6 +1255,11 @@ package body ethernet_vc_pkg is
           valid := word / 2 ** 8 mod 2 = 1;
           dv <= '1' when valid else '0';
           er <= '1' when word / 2 ** 9 mod 2 = 1 else '0';
+          for hold in 2 to cycles_per_symbol loop
+            wait_for_edge;
+            exit when state.has_reset;
+          end loop;
+          exit when state.has_reset;
         end loop;
         deallocate(symbols);
         if state.has_reset then
@@ -1206,6 +1279,74 @@ package body ethernet_vc_pkg is
       end if;
 
       unexpected_msg_type(msg_type, vc);
+    end loop;
+  end;
+
+  procedure combine_double_edges(
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal data : in std_ulogic_vector;
+    signal ctl : in std_ulogic;
+    signal octet : out std_ulogic_vector;
+    signal dv : out std_ulogic;
+    signal er : out std_ulogic
+  ) is
+    constant gigabit : boolean := vc.p_cfg.p_link_rate_mbps = 1000;
+    variable low : std_ulogic_vector(data'length - 1 downto 0) := (others => '0');
+    variable rising_ctl : std_ulogic := '0';
+  begin
+    loop
+      wait on clk;
+      if rising_edge(clk) then
+        low := data;
+        rising_ctl := ctl;
+      elsif falling_edge(clk) then
+        -- At 10 and 100 Mbit/s the falling edge may repeat the nibble; only the
+        -- rising edge carries it
+        if gigabit then
+          octet <= data & low;
+        else
+          octet <= (octet'length - 1 downto low'length => '0') & low;
+        end if;
+        dv <= rising_ctl;
+        er <= rising_ctl xor ctl;
+      end if;
+    end loop;
+  end;
+
+  procedure split_double_edges(
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal octet : in std_ulogic_vector;
+    signal dv : in std_ulogic;
+    signal er : in std_ulogic;
+    signal data : out std_ulogic_vector;
+    signal ctl : out std_ulogic
+  ) is
+    constant gigabit : boolean := vc.p_cfg.p_link_rate_mbps = 1000;
+    constant edge_aligned : boolean := vc.p_cfg.p_edge_aligned;
+    -- The symbol of a clock cycle, taken at its first half so both halves match
+    variable symbol : std_ulogic_vector(octet'length - 1 downto 0) := (others => '0');
+    variable symbol_dv, symbol_er : std_ulogic := '0';
+  begin
+    loop
+      wait on clk;
+      -- The rising edge half: the lower bits and valid
+      if (rising_edge(clk) and edge_aligned) or (falling_edge(clk) and not edge_aligned) then
+        symbol := octet;
+        symbol_dv := dv;
+        symbol_er := er;
+        data <= symbol(data'length - 1 downto 0);
+        ctl <= symbol_dv;
+      -- The falling edge half: the upper bits and valid xor error
+      elsif (falling_edge(clk) and edge_aligned) or (rising_edge(clk) and not edge_aligned) then
+        if gigabit then
+          data <= symbol(2 * data'length - 1 downto data'length);
+        else
+          data <= symbol(data'length - 1 downto 0);
+        end if;
+        ctl <= symbol_dv xor symbol_er;
+      end if;
     end loop;
   end;
 

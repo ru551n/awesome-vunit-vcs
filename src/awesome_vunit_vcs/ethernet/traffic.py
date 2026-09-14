@@ -37,7 +37,7 @@ from typing import SupportsBytes
 
 from .api import Frame, WireOptions, supported_malformations
 from .errors import EthernetValueError
-from .interfaces import AXIS, GMII, MII, XGMII, Interface
+from .interfaces import AXIS, GMII, MII, RGMII, RMII, XGMII, Interface
 from .limits import LIMITS, Limits, Malformation
 from .phy.common import WireFrame
 
@@ -369,12 +369,12 @@ def random_traffic(
 
 def interface_named(name: str) -> Interface:
     """
-    The default interface of a name: GMII at 1G, MII at 100M or XGMII with 4 lanes at 10G.
+    The default interface of a name: GMII and RGMII at 1G, MII and RMII at 100M or XGMII with 4 lanes at 10G.
 
     Raises:
         TrafficError: An unknown name.
     """
-    interfaces = {"gmii": GMII, "mii": MII, "xgmii": XGMII(), "axis": AXIS()}
+    interfaces = {"gmii": GMII, "mii": MII, "rgmii": RGMII, "rmii": RMII, "xgmii": XGMII(), "axis": AXIS()}
     try:
         return interfaces[name.lower()]
     except KeyError:

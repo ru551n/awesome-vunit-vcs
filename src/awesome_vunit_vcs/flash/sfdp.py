@@ -11,8 +11,9 @@ configuration and the opcode table* rather than typed in. That is the point of
 the module -- an SFDP blob copied from a datasheet drifts away from the
 model it is supposed to describe, and a driver that trusts SFDP then
 mis-drives the model with no test failing. Here the two cannot disagree,
-because the erase opcodes in DWORD 8 and 9 are literally looked up in
-:data:`~awesome_vunit_vcs.flash.commands.COMMAND_TABLE`.
+because the erase sizes and opcodes in DWORD 8 and 9 are literally looked up
+in :data:`~awesome_vunit_vcs.flash.commands.COMMAND_TABLE`, resolved against
+the configuration.
 
 Layout, with offsets in bytes::
 
@@ -71,13 +72,13 @@ def _dword(fields: list[tuple[int, int, int]], default: int = 0) -> int:
     return word & 0xFFFFFFFF
 
 
-def _erase_type(size_bytes: int | None) -> tuple[int, int]:
+def _erase_type(size_bytes: int | None, config: FlashConfig) -> tuple[int, int]:
     """``(size exponent, opcode)`` for one erase-type slot, or the
     "unsupported" encoding (0, 0xFF) when the device has no such
     granularity."""
     if not size_bytes:
         return 0, 0xFF
-    opcode = erase_opcode_for(size_bytes)
+    opcode = erase_opcode_for(size_bytes, config)
     if opcode is None:
         return 0, 0xFF
     return _log2_exact(size_bytes, "erase size"), opcode
@@ -87,40 +88,37 @@ def basic_parameter_table(config: FlashConfig) -> list[int]:
     """
     The JEDEC basic flash parameter table of a configuration.
 
-    It advertises the 4 KiB erase opcode, the addressing modes of
+    It advertises the 4 KiB erase opcode when an erase of exactly 4 KiB
+    exists, the addressing modes of
     :attr:`~awesome_vunit_vcs.flash.config.FlashConfig.addr_modes`, the
     density, the (1-1-2), (1-2-2), (1-1-4), (1-4-4) and (4-4-4) fast reads,
-    and erase types for ``sector_bytes``, ``block32_bytes`` and
-    ``block_bytes``. A size without an erase opcode of exactly that size is
-    advertised as unsupported.
+    and erase types for ``sector_bytes`` (0x20), ``block32_bytes`` (0x52,
+    unsupported when 0) and ``block_bytes`` (0xD8).
 
     Args:
         config: The device configuration.
 
     Returns:
         The 9 dwords, DWORD 1 first.
-
-    Raises:
-        ValueError: No erase opcode erases exactly ``sector_bytes``.
     """
     size_bytes = config.size_bytes
     sector = config.sector_bytes
     block32 = config.block32_bytes or None
     block = config.block_bytes
-    sector_op = erase_opcode_for(sector)
-    if sector_op is None:
-        raise ValueError(f"sector_bytes={sector} has no erase opcode in the command table")
+    erase_4kib_op = erase_opcode_for(4096, config)
+    # 0b01 = a 4 KiB erase exists; 0b11 = it does not, and its opcode is 0xFF
+    erase_4kib = 0b11 if erase_4kib_op is None else 0b01
     # 0b01 = both 3- and 4-byte addressing; 0b00 = 3 only; 0b10 = 4 only.
     addr_modes = {AddrModes.THREE_ONLY: 0b00, AddrModes.FOUR_ONLY: 0b10}.get(config.addr_modes, 0b01)
 
     dword1 = _dword(
         [
-            (0, 2, 0b01),  # uniform 4 KiB erase available
+            (0, 2, erase_4kib),  # uniform 4 KiB erase availability
             (2, 1, 1),  # write granularity >= 64 bytes (page buffer)
             (3, 1, 0),  # volatile status write enable not required
             (4, 1, 0),  # write enable opcode = 0x06
             (5, 3, 0b111),  # reserved
-            (8, 8, sector_op),  # 4 KiB erase opcode
+            (8, 8, 0xFF if erase_4kib_op is None else erase_4kib_op),  # 4 KiB erase opcode
             (16, 1, 1),  # supports (1-1-2)
             (17, 2, addr_modes),
             (19, 1, 0),  # no DTR
@@ -173,10 +171,10 @@ def basic_parameter_table(config: FlashConfig) -> list[int]:
         default=0x0000FFFF,
     )
 
-    e1_size, e1_op = _erase_type(sector)
-    e2_size, e2_op = _erase_type(block32)
-    e3_size, e3_op = _erase_type(block)
-    e4_size, e4_op = _erase_type(None)
+    e1_size, e1_op = _erase_type(sector, config)
+    e2_size, e2_op = _erase_type(block32, config)
+    e3_size, e3_op = _erase_type(block, config)
+    e4_size, e4_op = _erase_type(None, config)
     dword8 = _dword([(0, 8, e1_size), (8, 8, e1_op), (16, 8, e2_size), (24, 8, e2_op)])
     dword9 = _dword([(0, 8, e3_size), (8, 8, e3_op), (16, 8, e4_size), (24, 8, e4_op)])
 
@@ -194,8 +192,6 @@ def build(config: FlashConfig) -> bytes:
         The SFDP header, one parameter header and the basic parameter table,
         52 bytes.
 
-    Raises:
-        ValueError: See :func:`basic_parameter_table`.
     """
     table = basic_parameter_table(config)
     image = bytearray()

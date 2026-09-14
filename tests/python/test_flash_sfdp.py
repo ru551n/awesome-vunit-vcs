@@ -11,7 +11,7 @@ import pytest
 
 from awesome_vunit_vcs.flash import sfdp
 from awesome_vunit_vcs.flash.commands import COMMANDS
-from awesome_vunit_vcs.flash.config import MIB, AddrModes, FlashConfig
+from awesome_vunit_vcs.flash.config import KIB, MIB, AddrModes, FlashConfig
 
 
 def dwords(config: FlashConfig) -> list[int]:
@@ -62,7 +62,7 @@ def test_erase_types_agree_with_the_command_table() -> None:
     assert types[1] == (15, 0x52)  # 32 KiB
     assert types[2] == (16, 0xD8)  # 64 KiB
     for exponent, opcode in types:
-        assert COMMANDS[opcode].erase_bytes == 1 << exponent
+        assert COMMANDS[opcode].erase_size(FlashConfig()) == 1 << exponent
     # The unused fourth slot is the "no such erase type" encoding.
     assert ((table[8] >> 16) & 0xFF, (table[8] >> 24) & 0xFF) == (0, 0xFF)
 
@@ -107,9 +107,29 @@ def test_reads_past_the_table_return_0xff() -> None:
     assert sfdp.read(image, 0, 4) == b"SFDP"
 
 
-def test_a_config_whose_sector_size_has_no_opcode_is_rejected() -> None:
-    with pytest.raises(ValueError, match="erase opcode"):
-        sfdp.basic_parameter_table(FlashConfig(sector_bytes=1024))
+def erase_types(table: list[int]) -> list[tuple[int, int]]:
+    return [
+        (table[7] & 0xFF, (table[7] >> 8) & 0xFF),
+        ((table[7] >> 16) & 0xFF, (table[7] >> 24) & 0xFF),
+        (table[8] & 0xFF, (table[8] >> 8) & 0xFF),
+        ((table[8] >> 16) & 0xFF, (table[8] >> 24) & 0xFF),
+    ]
+
+
+def test_erase_types_follow_a_non_default_geometry() -> None:
+    config = FlashConfig(sector_bytes=8 * KIB, block32_bytes=16 * KIB, block_bytes=128 * KIB)
+    table = dwords(config)
+    assert erase_types(table) == [(13, 0x20), (14, 0x52), (17, 0xD8), (0, 0xFF)]
+    for exponent, opcode in erase_types(table)[:3]:
+        assert COMMANDS[opcode].erase_size(config) == 1 << exponent
+    # No opcode erases exactly 4 KiB, so DWORD 1 says so
+    assert table[0] & 0b11 == 0b11
+    assert (table[0] >> 8) & 0xFF == 0xFF
+
+
+def test_a_1kib_sector_is_advertised_with_its_opcode() -> None:
+    config = FlashConfig(sector_bytes=1 * KIB)
+    assert erase_types(dwords(config))[0] == (10, 0x20)
 
 
 @pytest.mark.parametrize(

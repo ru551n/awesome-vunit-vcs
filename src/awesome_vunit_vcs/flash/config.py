@@ -57,8 +57,8 @@ class AddrModes(IntEnum):
 
 
 #: Busy-time names, in the order a human thinks about them. ``tPP`` is page
-#: program, ``tSE`` 4 KiB sector erase, ``tBE32`` 32 KiB block erase, ``tBE64``
-#: 64 KiB block erase, ``tCE`` chip erase, ``tW`` write status register,
+#: program, ``tSE`` sector erase (0x20), ``tBE32`` small block erase (0x52),
+#: ``tBE64`` block erase (0xD8), ``tCE`` chip erase, ``tW`` write status register,
 #: ``tRST`` software reset recovery, ``tRES1`` release from deep power-down and
 #: ``tRES2`` release from deep power-down with an electronic ID read.
 #:
@@ -68,9 +68,9 @@ class AddrModes(IntEnum):
 #: and the test quietly passing for the wrong reason.
 BUSY_KEYS: tuple[str, ...] = (
     "tPP",  # page program
-    "tSE",  # sector erase (4 KiB)
-    "tBE32",  # block erase (32 KiB)
-    "tBE64",  # block erase (64 KiB)
+    "tSE",  # sector erase
+    "tBE32",  # small block erase
+    "tBE64",  # block erase
     "tCE",  # chip erase
     "tW",  # write status register
     "tRST",  # software reset recovery
@@ -110,15 +110,15 @@ class FlashConfig:
         size_bytes: Capacity in bytes, a power of two. The default is 16 MiB.
         page_bytes: Page size in bytes, a power of two dividing ``size_bytes``.
             One page program writes at most one page.
-        sector_bytes: Sector size in bytes, a power of two dividing the
-            device. It is only described in SFDP, which requires an erase
-            opcode of exactly this size, so only 4 KiB builds a device. The
-            erase opcodes always erase 4 KiB, 32 KiB and 64 KiB.
-        block32_bytes: 32 KiB block size in bytes for SFDP, or 0 to advertise
-            no 32 KiB erase type. 0x52 is accepted either way.
-        block_bytes: Block size in bytes for SFDP, a power of two dividing the
-            device. A size other than 64 KiB is advertised as an unsupported
-            erase type.
+        sector_bytes: The bytes 0x20 erases, a power of two dividing the
+            device, at least ``page_bytes`` and less than the block sizes.
+        block32_bytes: The bytes 0x52 erases, a power of two dividing the
+            device between ``sector_bytes`` and ``block_bytes``, or 0 for a
+            device without this erase, which then ignores 0x52 as an
+            unknown opcode.
+        block_bytes: The bytes 0xD8 and 0xDC erase, a power of two dividing
+            the device, larger than the other erase sizes and at most
+            ``size_bytes``.
         addr_bytes: Addressing mode at power-up and after a reset, 3 or 4 bytes.
         addr_modes: The addressing modes advertised in SFDP, see :class:`AddrModes`.
         jedec_id: The 24-bit manufacturer, memory type and capacity ID that
@@ -139,7 +139,8 @@ class FlashConfig:
 
     Raises:
         ValueError: A value is out of range: a size that is not a power of two
-            or does not divide the device, ``addr_bytes`` other than 3 or 4 or
+            or does not divide the device, an erase size below ``page_bytes``
+            or out of order, ``addr_bytes`` other than 3 or 4 or
             contradicting ``addr_modes``, a JEDEC ID wider than 24 bits, an
             electronic ID or status register default that is not a byte, or
             busy times with missing, unknown or negative entries.
@@ -185,6 +186,16 @@ class FlashConfig:
                 continue
             if not _is_power_of_two(value) or size % value:
                 raise ValueError(f"{name}={value} must be a power of two dividing the device")
+            if value < page:
+                raise ValueError(f"{name}={value} must be at least page_bytes={page}")
+        sector, block32, block = self.sector_bytes, self.block32_bytes, self.block_bytes
+        if block32 and not sector < block32 < block:
+            raise ValueError(
+                f"block32_bytes={block32} must be larger than sector_bytes={sector} "
+                f"and smaller than block_bytes={block}"
+            )
+        if not sector < block:
+            raise ValueError(f"sector_bytes={sector} must be smaller than block_bytes={block}")
         if self.addr_bytes not in (3, 4):
             raise ValueError(f"addr_bytes={self.addr_bytes} must be 3 or 4")
         if self.addr_modes is AddrModes.THREE_ONLY and self.addr_bytes != 3:

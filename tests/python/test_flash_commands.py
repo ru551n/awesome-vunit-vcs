@@ -12,12 +12,15 @@ import pytest
 from awesome_vunit_vcs.flash.commands import (
     COMMAND_TABLE,
     COMMANDS,
+    ERASE_CHIP,
     AddrLen,
     Direction,
+    EraseUnit,
     Op,
     erase_opcode_for,
     lookup,
 )
+from awesome_vunit_vcs.flash.config import KIB, MIB, FlashConfig
 
 REQUIRED = {
     0x9F: "RDID",
@@ -79,6 +82,9 @@ def test_every_entry_is_internally_consistent() -> None:
             assert cmd.status_index is None
         if cmd.op is Op.ERASE:
             assert cmd.busy is not None and cmd.needs_wel
+            assert cmd.erase is not None
+        else:
+            assert cmd.erase is None
         if cmd.needs_wel:
             assert cmd.op in (Op.PAGE_PROGRAM, Op.ERASE, Op.WRITE_STATUS)
         if 4 in (cmd.addr_lanes, cmd.data_lanes):
@@ -120,6 +126,38 @@ def test_erase_opcode_lookup_is_unambiguous() -> None:
     assert erase_opcode_for(32768) == 0x52
     assert erase_opcode_for(65536) == 0xD8
     assert erase_opcode_for(1024) is None
+
+
+def test_erase_sizes_come_from_the_configuration() -> None:
+    config = FlashConfig(sector_bytes=8 * KIB, block32_bytes=16 * KIB, block_bytes=128 * KIB)
+    assert COMMANDS[0x20].erase is EraseUnit.SECTOR
+    assert COMMANDS[0x52].erase is EraseUnit.BLOCK32
+    assert COMMANDS[0xD8].erase is COMMANDS[0xDC].erase is EraseUnit.BLOCK
+    assert COMMANDS[0xC7].erase is ERASE_CHIP
+    assert COMMANDS[0x20].erase_size(config) == 8 * KIB
+    assert COMMANDS[0x52].erase_size(config) == 16 * KIB
+    assert COMMANDS[0xD8].erase_size(config) == 128 * KIB
+    assert COMMANDS[0xDC].erase_size(config) == 128 * KIB
+    assert COMMANDS[0xC7].erase_size(config) == 16 * MIB
+    assert COMMANDS[0x03].erase_size(config) is None
+    assert erase_opcode_for(8 * KIB, config) == 0x20
+    assert erase_opcode_for(16 * KIB, config) == 0x52
+    assert erase_opcode_for(128 * KIB, config) == 0xD8
+    assert erase_opcode_for(4 * KIB, config) is None
+    assert erase_opcode_for(32 * KIB, config) is None
+
+
+def test_a_device_without_32kib_blocks_has_no_0x52() -> None:
+    config = FlashConfig(block32_bytes=0)
+    assert lookup(0x52, config) is None
+    assert lookup(0x52) is COMMANDS[0x52]
+    assert COMMANDS[0x52].erase_size(config) is None
+    assert erase_opcode_for(32 * KIB, config) is None
+
+
+def test_a_chip_erase_is_never_the_opcode_for_a_block_size() -> None:
+    config = FlashConfig(size_bytes=64 * KIB, block32_bytes=0, block_bytes=64 * KIB)
+    assert erase_opcode_for(64 * KIB, config) == 0xD8
 
 
 def test_address_lengths_are_a_closed_set() -> None:

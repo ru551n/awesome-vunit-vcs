@@ -31,6 +31,12 @@ Supported opcodes: 0x9F RDID, 0x5A RDSFDP, 0x03 READ, 0x0B FAST_READ,
 0x60 CE_ALT, 0x06 WREN, 0x04 WRDI, 0x05 RDSR1, 0x35 RDSR2, 0x15 RDSR3,
 0x01 WRSR, 0x38 QPI_ENTER, 0xFF QPI_EXIT, 0xB7 EN4B, 0xE9 EX4B, 0x66 RSTEN,
 0x99 RST, 0xB9 DPD and 0xAB RELEASE_DPD. Any other opcode is ignored.
+
+The table is the same for every device. What one device supports and how
+much an erase erases depend on its
+:class:`~awesome_vunit_vcs.flash.config.FlashConfig`: :func:`supported`,
+:func:`lookup` and :meth:`Command.erase_size` take the configuration into
+account.
 """
 
 from __future__ import annotations
@@ -38,6 +44,8 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import IntEnum
 from typing import Any
+
+from .config import FlashConfig
 
 
 class Op(IntEnum):
@@ -110,8 +118,26 @@ class AddrLen(IntEnum):
     CURRENT = -1
 
 
-#: The :attr:`Command.erase_bytes` of a chip erase, which erases the whole device and has no address phase
-ERASE_CHIP = 0
+class EraseUnit(IntEnum):
+    """
+    What an erase command erases.
+
+    The size in bytes of each unit comes from the configuration of the
+    device, see :meth:`Command.erase_size`.
+    """
+
+    #: The whole device, without an address phase
+    CHIP = 0
+    #: One sector, :attr:`~awesome_vunit_vcs.flash.config.FlashConfig.sector_bytes`
+    SECTOR = 1
+    #: One small block, :attr:`~awesome_vunit_vcs.flash.config.FlashConfig.block32_bytes`
+    BLOCK32 = 2
+    #: One block, :attr:`~awesome_vunit_vcs.flash.config.FlashConfig.block_bytes`
+    BLOCK = 3
+
+
+#: The :attr:`Command.erase` of a chip erase, which erases the whole device and has no address phase
+ERASE_CHIP = EraseUnit.CHIP
 
 
 @dataclass(frozen=True)
@@ -139,8 +165,8 @@ class Command:
         needs_qe: The command is refused unless the Quad Enable bit is set,
             exactly as on a real part -- a driver that forgets to set QE
             should fail in simulation, not silently work.
-        erase_bytes: Bytes an erase command erases, :data:`ERASE_CHIP` for
-            the whole device, None for other commands.
+        erase: What an erase command erases, None for other commands. The
+            size in bytes depends on the device, see :meth:`erase_size`.
         status_index: The status register a read-status command returns, 0
             for SR1 to 2 for SR3, None for other commands.
         busy: The busy-time name of
@@ -167,7 +193,7 @@ class Command:
     legal_while_dpd: bool = False
     mode_byte: bool = False
     needs_qe: bool = False
-    erase_bytes: int | None = None
+    erase: EraseUnit | None = None
     status_index: int | None = None
     busy: str | None = None
     addr_optional: bool = False
@@ -184,6 +210,29 @@ class Command:
             The number of address bytes, 0 without an address phase.
         """
         return current if self.addr is AddrLen.CURRENT else int(self.addr)
+
+    def erase_size(self, config: FlashConfig) -> int | None:
+        """
+        The number of bytes this command erases on a device.
+
+        Args:
+            config: The configuration of the device.
+
+        Returns:
+            The erase size in bytes: ``size_bytes`` for a chip erase, the
+            configured sector or block size otherwise. None when the command is
+            not an erase, or erases 32 KiB blocks and the device has none
+            (``block32_bytes`` is 0).
+        """
+        if self.erase is None:
+            return None
+        size = {
+            EraseUnit.CHIP: config.size_bytes,
+            EraseUnit.SECTOR: config.sector_bytes,
+            EraseUnit.BLOCK32: config.block32_bytes,
+            EraseUnit.BLOCK: config.block_bytes,
+        }[self.erase]
+        return size or None
 
     def lanes(self, qpi: bool) -> tuple[int, int, int]:
         """
@@ -278,15 +327,15 @@ COMMAND_TABLE: tuple[Command, ...] = (
         busy="tPP",
     ),
     # -- erase ------------------------------------------------------------
-    _derive(_ERASE_BASE, 0x20, "SE", erase_bytes=4096, busy="tSE"),
-    _derive(_ERASE_BASE, 0x52, "BE32", erase_bytes=32768, busy="tBE32"),
-    _derive(_ERASE_BASE, 0xD8, "BE64", erase_bytes=65536, busy="tBE64"),
+    _derive(_ERASE_BASE, 0x20, "SE", erase=EraseUnit.SECTOR, busy="tSE"),
+    _derive(_ERASE_BASE, 0x52, "BE32", erase=EraseUnit.BLOCK32, busy="tBE32"),
+    _derive(_ERASE_BASE, 0xD8, "BE64", erase=EraseUnit.BLOCK, busy="tBE64"),
     Command(
         0xDC,
         "BE64_4B",
         Op.ERASE,
         addr=AddrLen.FOUR,
-        erase_bytes=65536,
+        erase=EraseUnit.BLOCK,
         needs_wel=True,
         busy="tBE64",
     ),
@@ -294,7 +343,7 @@ COMMAND_TABLE: tuple[Command, ...] = (
         0xC7,
         "CE",
         Op.ERASE,
-        erase_bytes=ERASE_CHIP,
+        erase=ERASE_CHIP,
         needs_wel=True,
         busy="tCE",
     ),
@@ -302,7 +351,7 @@ COMMAND_TABLE: tuple[Command, ...] = (
         0x60,
         "CE_ALT",
         Op.ERASE,
-        erase_bytes=ERASE_CHIP,
+        erase=ERASE_CHIP,
         needs_wel=True,
         busy="tCE",
     ),
@@ -353,7 +402,24 @@ if len(COMMANDS) != len(COMMAND_TABLE):  # pragma: no cover - construction guard
     raise RuntimeError("duplicate opcode in COMMAND_TABLE")
 
 
-def lookup(opcode: int) -> Command | None:
+def supported(cmd: Command, config: FlashConfig) -> bool:
+    """
+    Whether a device with this configuration supports a command.
+
+    A device ignores an unsupported command like an opcode missing from the
+    table. The 32 KiB block erase is unsupported when ``block32_bytes`` is 0.
+
+    Args:
+        cmd: The command.
+        config: The configuration of the device.
+
+    Returns:
+        True when the device executes the command.
+    """
+    return not (cmd.erase is EraseUnit.BLOCK32 and not config.block32_bytes)
+
+
+def lookup(opcode: int, config: FlashConfig | None = None) -> Command | None:
     """
     The command of an opcode.
 
@@ -362,26 +428,51 @@ def lookup(opcode: int) -> Command | None:
 
     Args:
         opcode: The opcode, masked to 8 bits.
+        config: The configuration of the device, or None for the whole table.
 
     Returns:
-        The command, or None for an unsupported opcode.
+        The command, or None for an opcode missing from the table or, with
+        ``config``, a command the device does not support, see :func:`supported`.
     """
-    return COMMANDS.get(opcode & 0xFF)
+    cmd = COMMANDS.get(opcode & 0xFF)
+    if cmd is None or (config is not None and not supported(cmd, config)):
+        return None
+    return cmd
 
 
-def erase_opcode_for(size_bytes: int) -> int | None:
+def commands_for(config: FlashConfig) -> dict[int, Command]:
     """
-    The opcode that erases exactly ``size_bytes``.
+    The commands a device supports, indexed by opcode.
 
-    Used to keep the SFDP erase-type entries honest against this table.
+    Args:
+        config: The configuration of the device.
+
+    Returns:
+        The rows of :data:`COMMAND_TABLE` that :func:`supported` accepts.
+    """
+    return {cmd.opcode: cmd for cmd in COMMAND_TABLE if supported(cmd, config)}
+
+
+def erase_opcode_for(size_bytes: int, config: FlashConfig | None = None) -> int | None:
+    """
+    The opcode that erases exactly ``size_bytes`` on a device.
+
+    Used to keep the SFDP erase-type entries honest against this table. Chip
+    erases are not considered: they have no address, so they are no erase type.
 
     Args:
         size_bytes: The erase size in bytes.
+        config: The configuration of the device, or None for the default
+            :class:`~awesome_vunit_vcs.flash.config.FlashConfig`.
 
     Returns:
-        The first opcode in :data:`COMMAND_TABLE` erasing that size, or None.
+        The first opcode in :data:`COMMAND_TABLE` the device supports that
+        erases that size, or None.
     """
+    config = FlashConfig() if config is None else config
     for cmd in COMMAND_TABLE:
-        if cmd.op is Op.ERASE and cmd.erase_bytes == size_bytes:
+        if cmd.erase in (None, ERASE_CHIP) or not supported(cmd, config):
+            continue
+        if cmd.erase_size(config) == size_bytes:
             return cmd.opcode
     return None

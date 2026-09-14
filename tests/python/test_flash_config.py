@@ -100,6 +100,11 @@ def test_busy_fs_is_copied_so_instances_cannot_poison_each_other() -> None:
         ({"sector_bytes": 3000}, "sector_bytes"),
         ({"block32_bytes": 1000}, "block32_bytes"),
         ({"block_bytes": 32 * MIB}, "block_bytes"),
+        ({"sector_bytes": 128}, "sector_bytes"),
+        ({"sector_bytes": 32 * KIB}, "sector_bytes"),
+        ({"block32_bytes": 64 * KIB}, "block32_bytes"),
+        ({"sector_bytes": 64 * KIB, "block32_bytes": 0}, "sector_bytes"),
+        ({"size_bytes": 32 * KIB, "block32_bytes": 0, "block_bytes": 64 * KIB}, "block_bytes"),
         ({"addr_bytes": 3, "addr_modes": AddrModes.FOUR_ONLY}, "addr_modes"),
         ({"addr_bytes": 4, "addr_modes": AddrModes.THREE_ONLY}, "addr_modes"),
         ({"addr_modes": 2}, "addr_modes"),
@@ -127,6 +132,8 @@ def test_missing_busy_keys_are_named() -> None:
 
 def test_valid_non_default_configurations_are_accepted() -> None:
     assert FlashConfig(block32_bytes=0).block32_bytes == 0
+    assert FlashConfig(sector_bytes=8 * KIB, block32_bytes=16 * KIB, block_bytes=128 * KIB).block_bytes == 128 * KIB
+    assert FlashConfig(sector_bytes=256, block32_bytes=0, block_bytes=16 * MIB).sector_bytes == 256
     assert FlashConfig(size_bytes=1 << 20, page_bytes=128).page_bytes == 128
     assert FlashConfig(addr_bytes=4, addr_modes=AddrModes.FOUR_ONLY).addr_bytes == 4
     assert FlashConfig(addr_bytes=4).addr_modes is AddrModes.BOTH

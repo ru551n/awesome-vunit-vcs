@@ -47,7 +47,7 @@ from enum import IntEnum
 from . import images
 from . import sfdp as sfdp_mod
 from .array import FlashArray
-from .commands import ERASE_CHIP, Command, Direction, Op, lookup
+from .commands import ERASE_CHIP, Command, Direction, Op, commands_for
 from .config import FlashConfig
 from .directive import FLAG_VOLATILE, Action, ignore_rest, pack
 from .mode import ProtocolMode
@@ -147,10 +147,6 @@ class FlashDevice:
         now_fs: The latest simulation time in fs VHDL passed.
         wel: The write enable latch.
         dpd: Whether the device is in deep power-down.
-
-    Raises:
-        ValueError: The configuration has no SFDP description, see
-            :func:`~awesome_vunit_vcs.flash.sfdp.basic_parameter_table`.
     """
 
     def __init__(self, config: FlashConfig) -> None:
@@ -163,6 +159,7 @@ class FlashDevice:
         self.timing = Timing(config.busy_fs, enabled=config.timing_enabled)
         self.mode = ProtocolMode.from_default(config.addr_bytes)
         self.sfdp_image = sfdp_mod.build(config)
+        self._commands = commands_for(config)
         self.jedec_bytes = config.jedec_id_bytes()
         self.electronic_id = config.device_id()
         self.stats: dict[str, int] = dict.fromkeys(_COUNTERS, 0)
@@ -278,7 +275,7 @@ class FlashDevice:
         self._cs_active = True
         self._clear_transaction()
         if self.mode.continuous_read:
-            cmd = lookup(self.mode.continuous_opcode or 0)
+            cmd = self._commands.get(self.mode.continuous_opcode or 0)
             if cmd is not None:
                 self.stats["cmd_count"] += 1
                 return self._start_command(cmd)
@@ -369,7 +366,7 @@ class FlashDevice:
     def _on_opcode(self, byte_in: int) -> int:
         opcode = self._require_in(byte_in, "opcode")
         self.stats["cmd_count"] += 1
-        cmd = lookup(opcode)
+        cmd = self._commands.get(opcode)
         if cmd is None:
             self.stats["unknown_opcode_count"] += 1
             return self._refuse()
@@ -640,10 +637,11 @@ class FlashDevice:
 
     def _do_erase(self, cmd: Command) -> str | None:
         self.wel = False
-        if cmd.erase_bytes == ERASE_CHIP:
+        size = cmd.erase_size(self.config)
+        assert size is not None, "the device only decodes the erases it supports"
+        if cmd.erase is ERASE_CHIP:
             start, length = 0, self.size_bytes
         else:
-            size = int(cmd.erase_bytes or 0)
             start = (self._addr_value & self.addr_mask) & ~(size - 1)
             length = min(size, self.size_bytes - start)
         if self.protection.is_protected(start, length):
@@ -651,7 +649,7 @@ class FlashDevice:
             return None
         self.array.erase(start, length)
         self.stats["erase_count"] += 1
-        if cmd.erase_bytes == ERASE_CHIP:
+        if cmd.erase is ERASE_CHIP:
             self.stats["chip_erase_count"] += 1
         self.stats["bytes_erased"] += length
         return cmd.busy

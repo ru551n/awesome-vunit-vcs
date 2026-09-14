@@ -226,6 +226,37 @@ def test_erase_granularity(opcode: int, size: int, busy_key: str) -> None:
     assert host.dev.written_regions() == [(base, size)]
 
 
+@pytest.mark.parametrize(
+    ("opcode", "size", "addr_bytes"),
+    [(0x20, 8 * KIB, 3), (0x52, 16 * KIB, 3), (0xD8, 128 * KIB, 3), (0xDC, 128 * KIB, 4)],
+)
+def test_erase_sizes_follow_the_configuration(opcode: int, size: int, addr_bytes: int) -> None:
+    host = make(sector_bytes=8 * KIB, block32_bytes=16 * KIB, block_bytes=128 * KIB)
+    host.dev.set_timing_enable(False)
+    host.dev.preload_fill(0, 1 * MIB, 0x00)
+    addr = 3 * size + 0x123
+    base = addr & ~(size - 1)
+    host.wren()
+    host.command(opcode, addr=addr, addr_bytes=addr_bytes)
+    host.dev.check_content_fill(base, size, 0xFF)
+    assert host.dev.read_back(base - 1, 1) == b"\x00"
+    assert host.dev.read_back(base + size, 1) == b"\x00"
+    assert host.dev.written_regions() == [(base, size)]
+    assert host.dev.get_stat("bytes_erased") == size
+
+
+def test_block32_erase_is_an_unknown_opcode_without_32kib_blocks() -> None:
+    host = make(block32_bytes=0)
+    host.dev.set_timing_enable(False)
+    host.dev.preload_fill(0, 32 * KIB, 0x00)
+    host.wren()
+    result = host.command(0x52, addr=0)
+    assert result.directives[1].action is Action.IGNORE_REST
+    host.dev.check_content_fill(0, 32 * KIB, 0x00)
+    assert host.dev.get_stat("unknown_opcode_count") == 1
+    assert host.dev.get_stat("wel") == 1, "an unknown opcode does not consume WEL"
+
+
 @pytest.mark.parametrize("opcode", [0xC7, 0x60])
 def test_chip_erase(opcode: int) -> None:
     host = make()

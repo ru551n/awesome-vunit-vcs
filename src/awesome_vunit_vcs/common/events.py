@@ -5,9 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Generic, TypeVar
 
+#: The type of the events a :class:`Publisher` delivers
 T = TypeVar("T")
 
+#: A callable taking one event
 Subscriber = Callable[[T], None]
+#: Called with the subscriber and the exception when a subscriber raises
 ErrorHandler = Callable[[Callable[..., None], BaseException], None]
 
 

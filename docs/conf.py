@@ -89,17 +89,8 @@ nitpick_ignore_regex = [
     (r"py:class", r"numpy\._typing\..*"),
     (r"py:class", r"numpy\.(int32|int64|uint8)"),
     (r"py:class", r"TypeAliasForwardRef"),
-    (r"py:class", r"awesome_vunit_vcs\.common\.events\.T"),
-    (r"py:class", r"'?awesome_vunit_vcs\.ethernet\.phy\.common\.Int(32|64)Array'?"),
-    # Docstrings that napoleon parses as types or refers to by short names.
-    # Remove each entry when the docstring is fixed.
-    (r"py:class", r"the FCS|not including|ns|9|15|Destination address up to"),
-    (r"py:class", r"Timestamp resolution 10\*\*-exponent seconds"),
-    (r"py:class", r"PhyFrame|PerformanceMonitor|EthernetFrame|EthernetConfig|ErrorHandler"),
-    (r"py:class", r"The observation window in fs|Effective bit rate"),
-    (r"py:meth", r"on_frame"),
-    (r"py:data", r"common\.WORD_ALIGNMENT"),
-    (r"py:attr", r"(ProtocolChecker\.)?violations"),
+    # autodoc renders the aliases quoted where a module uses them as forward references
+    (r"py:class", r"'awesome_vunit_vcs\.ethernet\.phy\.common\.Int(32|64)Array'"),
 ]
 
 myst_heading_anchors = 3

@@ -315,7 +315,7 @@ class MonitorBackend:
         """
         Call ``subscriber`` with every frame received from now on; usable as a decorator.
 
-        The subscriber gets a :class:`~.api.Frame`. An exception it raises is
+        The subscriber gets a :class:`~awesome_vunit_vcs.ethernet.api.Frame`. An exception it raises is
         logged as a failure on the logger of the monitor; report a finding with
         :meth:`error` instead.
         """

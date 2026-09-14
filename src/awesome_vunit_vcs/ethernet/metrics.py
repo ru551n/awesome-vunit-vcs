@@ -108,7 +108,7 @@ class Statistics:
 
     @property
     def duration_fs(self) -> int:
-        """The observation window in fs: first frame start to last frame end."""
+        """The observation window in fs, from the start of the first frame to the end of the last."""
         if self.first_timestamp_fs is None or self.last_timestamp_fs is None:
             return 0
         return self.last_timestamp_fs - self.first_timestamp_fs
@@ -123,7 +123,7 @@ class Statistics:
 
     @property
     def bit_rate_bps(self) -> float | None:
-        """Effective bit rate: frame bits (destination address to FCS) per second."""
+        """The effective bit rate, frame bits (destination address to FCS) per second."""
         return self._per_second(8 * self.frame_octets)
 
     @property

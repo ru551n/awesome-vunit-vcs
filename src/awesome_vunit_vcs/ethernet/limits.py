@@ -26,9 +26,9 @@ class Malformation(str, enum.Enum):
     """
     A deliberate error a source puts on the wire.
 
-    :meth:`~awesome_vunit_vcs.ethernet.WireOptions.malformed` turns kinds into
-    :class:`~awesome_vunit_vcs.ethernet.WireOptions`, and
-    :func:`~awesome_vunit_vcs.ethernet.expected_violations` names the checks
+    :meth:`~awesome_vunit_vcs.ethernet.api.WireOptions.malformed` turns kinds into
+    :class:`~awesome_vunit_vcs.ethernet.api.WireOptions`, and
+    :func:`~awesome_vunit_vcs.ethernet.api.expected_violations` names the checks
     that report them.
     """
 
@@ -92,11 +92,11 @@ class Limits:
     max_ifg_octets: int = 256
     #: The lane counts of the XGMII family
     xgmii_lanes: tuple[int, ...] = (4, 8)
-    #: The rates of GMII: 1G, and 2.5G for overclocked GMII
+    #: The rates of GMII, 1G and 2.5G for overclocked GMII
     gmii_rates_bps: tuple[int, ...] = (1_000_000_000, 2_500_000_000)
     #: The rates of MII
     mii_rates_bps: tuple[int, ...] = (10_000_000, 100_000_000)
-    #: The rates of the XGMII family: 2.5GMII, 5GMII, XGMII, 25GMII, XLGMII and CGMII
+    #: The rates of the XGMII family, from 2.5GMII and 5GMII over XGMII and 25GMII to XLGMII and CGMII
     xgmii_rates_bps: tuple[int, ...] = (
         2_500_000_000,
         5_000_000_000,
@@ -132,17 +132,17 @@ class Limits:
 
     @property
     def min_payload_octets(self) -> int:
-        """The smallest payload of a frame: 0, padding makes up the minimum frame size."""
+        """The smallest payload of a frame in octets, 0, since padding makes up the minimum frame size."""
         return 0
 
     @property
     def max_payload_octets(self) -> int:
-        """The largest payload of a frame within :attr:`max_frame_octets`: 1500 by default."""
+        """The largest payload in octets of a frame within :attr:`max_frame_octets`, 1500 by default."""
         return self.max_frame_octets - self.header_octets - self.fcs_octets
 
     @property
     def min_padded_payload_octets(self) -> int:
-        """The payload size a frame is padded to: 46 by default."""
+        """The payload size in octets a frame is padded to, 46 by default."""
         return self.min_frame_octets - self.header_octets - self.fcs_octets
 
     def for_frames(self, *, min_frame_octets: int = 64, max_frame_octets: int = 1518) -> Limits:

@@ -32,15 +32,15 @@ INTERFACE_NAMES = ("gmii", "mii", "xgmii")
 
 @runtime_checkable
 class SupportsToWire(Protocol):
-    """Anything with a ``to_wire()`` method, such as :class:`~awesome_vunit_vcs.ethernet.Frame`."""
+    """Anything with a ``to_wire()`` method, such as :class:`~awesome_vunit_vcs.ethernet.api.Frame`."""
 
     def to_wire(self) -> WireFrame:
         """What a source puts on the wire for this frame."""
         ...
 
 
-#: What :meth:`Interface.encode` accepts per frame: a wire frame, something
-#: with ``to_wire()``, or frame octets without FCS
+#: The forms :meth:`Interface.encode` accepts per frame, a wire frame, something
+#: with ``to_wire()`` or frame octets without FCS
 Encodable = WireFrame | SupportsToWire | bytes
 
 
@@ -143,18 +143,18 @@ class Interface:
 
     @property
     def words_per_clock(self) -> int:
-        """Sample words recorded per clock edge: the lane count."""
+        """The number of sample words recorded per clock edge, which is the lane count."""
         return self.lanes
 
     @property
     def clock_period_fs(self) -> int:
-        """The time between recorded clock edges: one octet (GMII), one nibble (MII) or one column (XGMII)."""
+        """The time in fs between recorded clock edges, one octet (GMII), nibble (MII) or column (XGMII) apart."""
         bits_per_clock = {"gmii": 8, "mii": 4, "xgmii": 8 * self.lanes}[self.name]
         return bits_per_clock * FS_PER_SECOND // self.link_rate_bps
 
     @property
     def min_ifg_octets(self) -> int:
-        """The smallest inter-frame gap a monitor of this interface accepts: 12 octets, 5 for the XGMII family."""
+        """The smallest inter-frame gap in octets a monitor of this interface accepts, 12 or 5 for the XGMII family."""
         return LIMITS.min_xgmii_ifg_octets if self.name == "xgmii" else LIMITS.min_ifg_octets
 
     def phy(self) -> PhyInterface:
@@ -188,7 +188,7 @@ class Interface:
 
         Args:
             frames: Wire frames, objects with ``to_wire()`` such as
-                :class:`~awesome_vunit_vcs.ethernet.Frame`, or frame octets
+                :class:`~awesome_vunit_vcs.ethernet.api.Frame`, or frame octets
                 without FCS (sent with the default wire options).
             idle_clocks: Idle clock edges before the first frame. A frame that
                 starts at the first sample is reported as already in progress.

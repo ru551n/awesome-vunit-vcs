@@ -35,7 +35,9 @@ WORD_META_CTRL = 1 << 11
 WORD_ALIGNMENT = 1 << 12
 WORD_META = WORD_META_DATA | WORD_META_CTRL
 
+#: NumPy arrays of 64-bit integers, for sample words, octet words and times in fs
 Int64Array = npt.NDArray[np.int64]
+#: NumPy arrays of 32-bit integers, for the sample words a VHDL source drives
 Int32Array = npt.NDArray[np.int32]
 
 
@@ -91,7 +93,7 @@ class WireFrame:
 
     @property
     def mac_offset(self) -> int:
-        """Wire index of the first octet after the SFD: the preamble octets (0x55) and the octet after them."""
+        """The wire index of the first octet after the SFD, one past the preamble octets (0x55) and the SFD."""
         preamble = len(self.octets) - len(self.octets.lstrip(b"\x55"))
         return preamble + 1
 

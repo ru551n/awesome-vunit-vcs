@@ -66,7 +66,7 @@ class CheckId(str, enum.Enum):
 
 @dataclass(slots=True, frozen=True)
 class Violation:
-    """A failed check, as published by :attr:`ProtocolChecker.violations`."""
+    """A failed check, as published by the ``violations`` publisher of :class:`ProtocolChecker`."""
 
     check: CheckId
     #: The check name and a summary on the first line, details on the following lines
@@ -97,12 +97,12 @@ def _frame_context(frame: EthernetFrame) -> list[str]:
 
 class ProtocolChecker:
     """
-    Check frames and idle events against an :class:`EthernetConfig`.
+    Check frames and idle events against a :class:`~awesome_vunit_vcs.ethernet.frame.MonitorConfig`.
 
     A subscriber of monitor events: :class:`~.monitor.EthernetMonitor`
     subscribes :meth:`on_frame`, :meth:`on_idle_event` and :meth:`on_phy_event`.
     Violations of enabled checks are counted and published on
-    :attr:`violations`; all checks are enabled initially.
+    ``violations``; all checks are enabled initially.
 
     Args:
         config: What a well-formed frame is. The default is IEEE 802.3.

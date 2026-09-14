@@ -47,11 +47,11 @@ class TrafficError(EthernetValueError):
     """A packet function cannot be resolved or called, or returned something that is not a frame."""
 
 
-#: What a packet function may return: a frame, octets without FCS, or a
+#: The results a packet function may return, a frame, octets without FCS or a
 #: Scapy packet (anything ``bytes()`` accepts)
 Packet = Frame | bytes | SupportsBytes
 
-#: A seed: an integer, a string such as VUnit's ``get_seed(runner_cfg)``, or a generator
+#: The seeds accepted, an integer, a string such as VUnit's ``get_seed(runner_cfg)`` or a generator
 Seed = int | str | random.Random
 
 

@@ -77,7 +77,7 @@ class MacFrame:
 
     @property
     def mac_octets(self) -> bytes:
-        """Destination address up to, not including, the FCS: what a MAC client sends."""
+        """The destination address up to, not including, the FCS, which a MAC client sends."""
         if self.has_fcs:
             return self.data[:-FCS_OCTETS] if len(self.data) >= FCS_OCTETS else b""
         return self.data
@@ -237,7 +237,7 @@ class EthernetFrame:
 
 
 class FrameDecoder:
-    """Analyze :class:`PhyFrame` objects into :class:`EthernetFrame` objects."""
+    """Analyze :class:`~awesome_vunit_vcs.ethernet.phy.common.PhyFrame` objects into :class:`EthernetFrame` objects."""
 
     def __init__(self, config: EthernetConfig | None = None) -> None:
         self.config = config or EthernetConfig()

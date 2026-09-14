@@ -1,13 +1,13 @@
 """
-The low-level Ethernet pipeline behind :class:`~awesome_vunit_vcs.ethernet.Monitor`.
+The low-level Ethernet pipeline behind :class:`~awesome_vunit_vcs.ethernet.api.Monitor`.
 
 These are the building blocks the happy path and the VHDL backends are made
 of: the PHY frame and wire frame models, the MAC frame analysis, the
 publisher-based monitor, the protocol checker, the statistics accumulator
 and the PCAPNG writer. Use them to extend the pipeline; they are stable, but
-most tests only need :mod:`awesome_vunit_vcs.ethernet`.
+most tests only need ``awesome_vunit_vcs.ethernet``.
 
-The names were importable from :mod:`awesome_vunit_vcs.ethernet` before; that
+The names were importable from ``awesome_vunit_vcs.ethernet`` before; that
 still works for one release, with a :class:`DeprecationWarning`.
 """
 

@@ -4,14 +4,21 @@ Python guide
 The Python side of awesome-vunit-vcs owns the verification semantics: frames, checks, statistics,
 captures and packets. It is used in two ways.
 
-* **Standalone**, without a simulator: build frames, run recorded samples through the same monitor
-  pipeline a VHDL monitor uses, and test your own checks and subscribers with plain ``pytest``.
+* **Standalone**, without a simulator: build frames and malformed traffic, run samples through the
+  same pipeline a VHDL monitor uses, and test your own checks with ``pytest`` and Hypothesis.
 * **Inside a simulation**, behind the VHDL components: every monitor and source has a Python
-  backend object, and a testbench can extend it with Python code of its own.
+  backend object, and a testbench extends it with Python code of its own.
 
-Every example on this page is a file in the repository that the test suite runs, so the examples
-match the code. The units are the same everywhere: times are integers in femtoseconds (``_fs``),
-sizes are octets (``_octets``) and rates are bits per second (``_bps``).
+Everything a test needs is one import:
+
+.. code-block:: python
+
+   from awesome_vunit_vcs import ethernet as eth
+
+Every example on this page is a file in the repository that the test suite runs. Times are integers
+in femtoseconds, sizes are octets and rates are bits per second; ``eth.fs("8 ns")`` and
+``eth.bps("2.5G")`` convert readable strings. Every invalid argument raises
+:class:`~awesome_vunit_vcs.ethernet.errors.EthernetValueError`.
 
 .. contents:: On this page
    :local:
@@ -20,71 +27,110 @@ sizes are octets (``_octets``) and rates are bits per second (``_bps``).
 Standalone
 ----------
 
-Building frames
-~~~~~~~~~~~~~~~
+Frames and malformed traffic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A frame is described by its MAC octets: the destination address up to, not including, the FCS.
-:class:`~awesome_vunit_vcs.ethernet.frame.MacFrame` interprets received octets, and
-:func:`~awesome_vunit_vcs.ethernet.source.build_wire_frame` builds everything a transmitter puts on
-the wire, including deliberate errors.
+A :class:`~awesome_vunit_vcs.ethernet.api.Frame` is the octets from the destination address up to
+and including the FCS. It is the only frame type: you build one with ``Frame.from_payload``,
+``Frame.from_bytes`` or ``Frame.from_packet``, and monitors return received frames, which also carry
+their time and the violations found on them. Frames are immutable values that compare and hash by
+content, so a received frame equals the frame that was sent.
+
+``frame.to_wire()`` builds what a transmitter puts on the wire. Deliberate errors are data: a
+:class:`~awesome_vunit_vcs.ethernet.api.WireOptions` value describes the FCS, padding, preamble,
+SFD, error signal and gap, and :func:`~awesome_vunit_vcs.ethernet.api.expected_violations` names
+the checks a monitor reports for it.
 
 .. literalinclude:: ../examples/python/build_frames.py
    :language: python
    :lines: 5-
 
-``build_wire_frame`` accepts traffic the standard forbids on purpose. The arguments are the same as
-those of the VHDL ``send_ethernet_frame`` procedure, which calls it.
+Error offsets always count from the first octet after the SFD; negative offsets reach into the SFD
+and the preamble. The VHDL ``frame_options`` use the same convention.
 
-Monitoring samples
-~~~~~~~~~~~~~~~~~~
+Decoding samples on any interface
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-:class:`~awesome_vunit_vcs.ethernet.monitor.EthernetMonitor` is the pipeline behind a VHDL
-monitor. Sample words go through the PHY decoder of the interface
-(:func:`~awesome_vunit_vcs.ethernet.phy.create_phy`) into
-:class:`~awesome_vunit_vcs.ethernet.frame.EthernetFrame` objects, which are published once and
-consumed by every subscriber::
+An :class:`~awesome_vunit_vcs.ethernet.interfaces.Interface` is a value too: ``eth.GMII``,
+``eth.MII``, ``eth.XGMII(lanes=8, rate="100G")`` and ``with_rate`` for other rates.
+``interface.encode(frames)`` returns the :class:`~awesome_vunit_vcs.ethernet.interfaces.Samples` a
+VHDL monitor records (sample words and their times), and
+:func:`~awesome_vunit_vcs.ethernet.api.decode` runs them through the monitor pipeline.
 
-    sample words -> PHY decoder -> frames -+-> ProtocolChecker   -> violations
-                                           +-> PerformanceMonitor -> statistics
-                                           +-> PcapNgWriter       -> .pcapng file
-                                           '-> your subscribers
-
-.. literalinclude:: ../examples/python/monitor_frames.py
+.. literalinclude:: ../examples/python/decode_samples.py
    :language: python
    :lines: 5-
 
-The pieces:
+The round trip is exact: a frame sent with default options is received padded to the minimum frame
+size, ``frame.padded()``.
 
-* ``monitor.frames``, ``monitor.idle_events`` and ``monitor.checker.violations`` are
-  :class:`~awesome_vunit_vcs.common.events.Publisher` objects. ``subscribe`` returns a function that
-  unsubscribes again. A subscriber that raises does not stop delivery to the others.
-* ``monitor.checker`` is a :class:`~awesome_vunit_vcs.ethernet.checker.ProtocolChecker`. Checks are
-  named by :class:`~awesome_vunit_vcs.ethernet.checker.CheckId` or by their string value
-  (``"ETH_FCS"``), and each can be enabled, disabled and counted. Each
-  :class:`~awesome_vunit_vcs.ethernet.checker.Violation` carries the check, a message with the
-  details, the time and the frame index.
-* ``monitor.statistics`` is a :class:`~awesome_vunit_vcs.ethernet.metrics.PerformanceMonitor`;
-  ``snapshot()`` returns an :class:`~awesome_vunit_vcs.ethernet.metrics.EthernetStatistics` with
-  counts, size and gap summaries, rates and utilization, and ``summary()`` formats it for a log.
-* ``monitor.start_capture`` subscribes a :class:`~awesome_vunit_vcs.ethernet.pcap.PcapNgWriter`.
-  :class:`~awesome_vunit_vcs.ethernet.pcap.CaptureOptions` selects whether the FCS and errored
-  frames are written. The capture never contains the preamble or the SFD; timestamps are the time of
-  the first octet after the SFD, in nanoseconds by default.
+Checks and statistics
+~~~~~~~~~~~~~~~~~~~~~
 
-Sample words are the interface specific encoding the VHDL monitors record, described in
-:mod:`awesome_vunit_vcs.ethernet.phy.common`. For GMII a word is the 8 data bits with valid in bit 8
-and error in bit 9, which is also what ``GmiiPhy.encode`` produces.
+A :class:`~awesome_vunit_vcs.ethernet.api.Monitor` keeps its state across calls: feed it samples or
+frames, and it returns the frames completed, collects every
+:class:`~awesome_vunit_vcs.ethernet.checker.Violation` and keeps
+:class:`~awesome_vunit_vcs.ethernet.metrics.Statistics`. Use it as a context manager, so a frame
+still in progress is reported and captures are closed at the end.
+
+.. literalinclude:: ../examples/python/check_frames.py
+   :language: python
+   :lines: 5-
+
+Checks are named like the VHDL check literals, in upper case: ``"ETH_FCS"``, ``"ETH_IFG"`` and so
+on. ``Monitor(interface, checks=["ETH_FCS"])`` runs only some, ``checks=False`` none.
+``rx.on_frame`` and ``rx.on_violation`` register subscribers, also as decorators.
+
+Captures
+~~~~~~~~
+
+:func:`~awesome_vunit_vcs.ethernet.api.write_pcapng` writes frames to a PCAPNG file Wireshark reads,
+and ``Monitor.capture`` writes what a monitor receives. A capture never contains the preamble or the
+SFD; timestamps are those of the first octet after the SFD, in nanoseconds by default.
+
+.. literalinclude:: ../examples/python/capture_frames.py
+   :language: python
+   :lines: 5-
 
 Packets with Scapy
 ~~~~~~~~~~~~~~~~~~
 
 Scapy is optional (``pip install awesome-vunit-vcs[scapy]``). It is not needed to monitor, check or
 capture frames; it adds the protocol layers above Ethernet.
-:mod:`awesome_vunit_vcs.ethernet.scapy_adapter` converts in both directions.
 
 .. literalinclude:: ../examples/python/scapy_packets.py
    :language: python
    :lines: 5-
+
+Property-based testing
+----------------------
+
+awesome-vunit-vcs does not depend on `Hypothesis <https://hypothesis.readthedocs.io>`__, but its API
+is shaped for it:
+
+* **Typed constructors with keyword arguments.** ``st.builds(eth.Frame.from_payload, ...)`` and
+  ``st.builds(eth.WireOptions, ...)`` work as they are.
+* **One exception.** An invalid combination raises
+  :class:`~awesome_vunit_vcs.ethernet.errors.EthernetValueError`, which a strategy can avoid or a
+  test can reject with ``assume``.
+* **The parameter space is public data.** :data:`~awesome_vunit_vcs.ethernet.limits.LIMITS` bounds
+  addresses, EtherTypes, payloads, preambles, gaps, lane counts and rates, and
+  :class:`~awesome_vunit_vcs.ethernet.limits.Malformation` names the deliberate errors.
+* **Oracles and round trips are pure functions.** ``decode(i, i.encode([frame])).frames ==
+  (frame.padded(),)`` holds on every interface, and ``expected_violations`` computes what the
+  checker must report for generated malformations. :func:`~awesome_vunit_vcs.ethernet.api.supported_malformations`
+  lists the malformations it predicts exactly on an interface.
+
+Strategies are then a few lines each:
+
+.. literalinclude:: ../examples/python/property_based.py
+   :language: python
+   :lines: 5-
+
+The repository's own property tests, in ``tests/python/test_properties.py``, go further: sequences
+of frames with generated malformation parameters on every interface, statistics invariants and a
+PCAPNG round trip. Its ``conftest.py`` registers a derandomized ``ci`` profile, so CI runs are
+reproducible, and a ``dev`` profile that explores more (``HYPOTHESIS_PROFILE=dev``).
 
 Inside a simulation
 -------------------
@@ -92,24 +138,29 @@ Inside a simulation
 The backend objects
 ~~~~~~~~~~~~~~~~~~~
 
-Each VHDL monitor and source creates one backend object, the variable ``vc``, in a Python session of
-its own. The session has the identity of the component (``get_id(monitor)``), so two instances
-never share Python state:
+Each VHDL monitor, protocol checker and source creates one backend object, the variable ``vc``, in
+a Python session of its own (``new_session(get_id(monitor))``), so two instances never share Python
+state:
 
-* a monitor creates a :class:`~awesome_vunit_vcs.ethernet.vunit_backend.MonitorBackend`, which
-  holds an :class:`~awesome_vunit_vcs.ethernet.monitor.EthernetMonitor` as ``vc.monitor``;
-* a source creates a :class:`~awesome_vunit_vcs.ethernet.vunit_backend.SourceBackend`, which holds
-  an :class:`~awesome_vunit_vcs.ethernet.source.EthernetSource` as ``vc.source``.
+* a monitor creates a :class:`~awesome_vunit_vcs.ethernet.vunit_backend.MonitorBackend`;
+* a protocol checker creates a :class:`~awesome_vunit_vcs.ethernet.vunit_backend.ProtocolCheckerBackend`;
+* a source creates a :class:`~awesome_vunit_vcs.ethernet.vunit_backend.SourceBackend`.
 
-The VHDL procedures (``get_statistics``, ``expect_ethernet_frame``, ``start_capture`` and the
-others) call these objects, so a normal testbench never writes Python. When a test needs more, it
-reaches the backend through the Python bridge, in the session of the component.
+The VHDL procedures call these objects, so a normal testbench never writes Python. When a test needs
+more, Python code executed in the session of a monitor uses its backend directly:
+
+* ``vc.on_frame(subscriber)``, also a decorator, calls the subscriber with every
+  :class:`~awesome_vunit_vcs.ethernet.api.Frame` the monitor receives;
+* ``vc.frames`` is the most recent frames and ``vc.statistics`` the statistics;
+* ``vc.error(check, message)`` reports a finding as a counted check error, which
+  ``get_check_count`` counts and ``set_check_enabled`` disables. A VHDL monitor runs the scoreboard
+  check and leaves the protocol checks to its protocol checker, so a subscriber in the session of a
+  monitor reports on ``"ETH_SCOREBOARD"``.
 
 Adding a subscriber
 ~~~~~~~~~~~~~~~~~~~
 
-A Python file executed in the session of a monitor can subscribe to its frames. This file is
-``examples/gmii/python/frame_sizes.py``:
+This file, ``examples/gmii/python/frame_sizes.py``, runs in the session of a monitor:
 
 .. literalinclude:: ../examples/gmii/python/frame_sizes.py
    :language: python
@@ -126,30 +177,80 @@ The testbench executes it with ``exec_file`` from the Python bridge and reads th
 
 ``exec_file``, ``exec``, ``eval_integer`` and ``new_session`` come from
 ``context python_bridge.python_context``, the `vunit-python-bridge
-<https://github.com/ru551n/vunit-python-bridge>`__ package. A test can equally call a method of the
-backend, for example ``eval_integer("vc.frame_count()", new_session(get_id(monitor)))``.
+<https://github.com/ru551n/vunit-python-bridge>`__ package.
+
+Traffic from Python functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Python decides *what* a source sends and VHDL *when*. Simple frames come straight from VHDL
+(``push_ethernet_frame``); richer ones come from a Python function the testbench names, with its
+keyword arguments as a string. The arguments are parsed as Python literals and never evaluated.
+
+.. code-block:: vhdl
+
+   push_ethernet_packet(net, source, "my_packets:udp_to_dut", "port=1234, size=128");
+
+A packet function returns a :class:`~awesome_vunit_vcs.ethernet.api.Frame`, the frame octets
+without FCS, or a Scapy packet. A generator function yields many, for
+``push_ethernet_sequence`` and ``check_ethernet_sequence``; the frames are fetched in batches, so a
+long sequence costs few bridge calls. :mod:`awesome_vunit_vcs.ethernet.traffic` holds the same
+machinery for Python code: :func:`~awesome_vunit_vcs.ethernet.traffic.call_packet_function`,
+:func:`~awesome_vunit_vcs.ethernet.traffic.sequence` and the seeded generators.
+
+.. literalinclude:: ../examples/python/packet_functions.py
+   :language: python
+   :lines: 5-
+
+Reproducible traffic from VUnit's seed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+VUnit gives every test run a base seed through ``runner_cfg``, and ``get_seed(runner_cfg, salt)``
+derives seeds from it (``vunit/vhdl/run/src/run_api.vhd``; the string form is 16 hexadecimal
+digits). Pass it to a sequence, and the source hands it to the function as its ``seed`` argument:
+
+.. code-block:: vhdl
+
+   push_ethernet_sequence(net, source, "my_traffic:mixed", "count=1000",
+                          seed => get_string_seed(runner_cfg, "tx"));
+   check_ethernet_sequence(net, monitor, "my_traffic:mixed", "count=1000",
+                           seed => get_string_seed(runner_cfg, "tx"));
+
+.. code-block:: python
+
+   from awesome_vunit_vcs.ethernet import traffic
+
+   def mixed(count, seed):
+       rng = traffic.rng_from(seed)  # the same seed gives the same frames
+       for _ in range(count):
+           yield traffic.random_frame(rng, max_payload_octets=200)
+
+The same function, arguments and seed produce the same frames, so the monitor side expects exactly
+what the source sent, and a failing run repeats with the seed VUnit printed. VUnit's
+``--seed`` option reruns a test with a given base seed.
+
+The seeded generators in :mod:`awesome_vunit_vcs.ethernet.traffic` draw from the same
+:data:`~awesome_vunit_vcs.ethernet.limits.LIMITS` a Hypothesis strategy builds on: one definition
+of the parameter space, with Hypothesis in tests and :mod:`random` in simulations. Generation
+inside a simulation deliberately does not use Hypothesis: its public API draws examples only inside
+``@given`` tests, and ``strategy.example()`` is documented as unsuitable for anything but
+interactive exploration.
 
 Rules for Python in a simulation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * **Python never touches signals.** It sees what a VHDL component recorded (frames, events) and
   returns what the component should drive (symbols). Pin timing stays in VHDL.
-* **Errors become VUnit failures.** A violation is logged as an error on the checker of the monitor.
-  An exception raised by a subscriber, or while processing samples, is caught and logged as a
-  failure on the logger of the component, with the exception type, message and location. It never
-  ends the simulation with a Python traceback.
-* **Work in the session of the component.** ``new_session(get_id(monitor))`` returns that session;
-  ``vc`` exists there after the component has started, at the beginning of simulation.
+* **Errors become VUnit failures.** A violation is logged as an error on the checker of the
+  component. An exception raised by a subscriber, or while processing samples, is caught and logged
+  as a failure on the logger of the component; it never ends the simulation with a Python traceback.
 * **Keep subscribers fast.** They run while the monitor processes a batch of samples.
 
 The VHDL side of the bridge
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Verification components in this repository talk to their backends only through
-``awesome_vunit_vcs.vcs_python_pkg``, which isolates the bridge API: ``new_vc_session``,
-``create_backend``, ``backend_exec`` and ``backend_integer``/``_boolean``/``_string``, sample
-batches (``new_sample_batch``, ``record_sample``, ``flush_samples``) and ``log_reports``. It is
-meant for writing new components (see ``CONTRIBUTING.md``); testbenches use the component
-procedures and, where needed, the bridge directly as shown above. The batch encoding on the Python
-side is :mod:`awesome_vunit_vcs.common.vunit_bridge`, and the report queue the backends use to log
-through VHDL is :mod:`awesome_vunit_vcs.common.reports`.
+``awesome_vunit_vcs.vcs_python_pkg``, which isolates the bridge API. It is meant for writing new
+components (see :doc:`contributing/index`); testbenches use the component procedures and, where
+needed, the bridge directly as shown above. The batch encoding on the Python side is
+:mod:`awesome_vunit_vcs.common.vunit_bridge`, and the report queue the backends log through is
+:mod:`awesome_vunit_vcs.common.reports`.

@@ -61,7 +61,7 @@ class CaptureOptions:
     include_fcs: bool = True
     #: Write frames that failed a check, flagged with their errors
     include_errored: bool = True
-    #: Timestamp resolution 10**-exponent seconds (9: ns, 15: fs)
+    #: The timestamp resolution as 10**-exponent seconds, 9 for ns and 15 for fs
     timestamp_resolution_exponent: int = 9
     #: Flag packets preceded by a shorter gap; None never flags the gap
     min_ifg_octets: int | None = 12
@@ -85,7 +85,7 @@ def _block(block_type: int, body: bytes) -> bytes:
 
 
 class PcapNgWriter:
-    """Write :class:`EthernetFrame` objects as they arrive; subscribe :meth:`on_frame`."""
+    """Write frames (:class:`~awesome_vunit_vcs.ethernet.frame.EthernetFrame`) as they arrive via :meth:`on_frame`."""
 
     def __init__(
         self,

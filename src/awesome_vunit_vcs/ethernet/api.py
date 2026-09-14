@@ -1,7 +1,7 @@
 """
 The Ethernet happy path: one frame type, a monitor, decoding and capture.
 
-Everything a test needs is importable from :mod:`awesome_vunit_vcs.ethernet`::
+Everything a test needs is importable from ``awesome_vunit_vcs.ethernet``::
 
     from awesome_vunit_vcs import ethernet as eth
 
@@ -11,7 +11,7 @@ Everything a test needs is importable from :mod:`awesome_vunit_vcs.ethernet`::
 
 The value types (:class:`Frame`, :class:`WireOptions`, :class:`Result`) are
 immutable and hashable, construction is fully typed with keyword arguments,
-invalid arguments raise :class:`~.errors.EthernetValueError`, and the
+invalid arguments raise :class:`~awesome_vunit_vcs.ethernet.errors.EthernetValueError`, and the
 round-trips are pure functions, so property-based tests can generate the
 arguments and assert the round-trips directly. The low-level pipeline behind
 it is in :mod:`awesome_vunit_vcs.ethernet.lowlevel`.
@@ -188,7 +188,7 @@ class Frame:
     timestamp_fs: int | None = field(default=None, compare=False)
     #: Position in the order the monitor received frames, from 0
     index: int | None = field(default=None, compare=False)
-    #: The full analysis of a received frame, see :class:`~awesome_vunit_vcs.ethernet.lowlevel.EthernetFrame`
+    #: The full analysis of a received frame, see :class:`~awesome_vunit_vcs.ethernet.frame.EthernetFrame`
     received: EthernetFrame | None = field(default=None, compare=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -243,7 +243,7 @@ class Frame:
     @classmethod
     def from_received(cls, frame: EthernetFrame, violations: Iterable[Violation] = ()) -> Frame:
         """
-        The frame of a low-level :class:`~awesome_vunit_vcs.ethernet.lowlevel.EthernetFrame` analysis.
+        The frame of a low-level :class:`~awesome_vunit_vcs.ethernet.frame.EthernetFrame` analysis.
 
         Args:
             frame: A frame a low-level monitor published.
@@ -267,7 +267,7 @@ class Frame:
 
     @property
     def data(self) -> bytes:
-        """Destination address up to, not including, the FCS: what a MAC client sends and a scoreboard compares."""
+        """The destination address up to, not including, the FCS, which a MAC client sends and a scoreboard compares."""
         return self._mac.mac_octets
 
     @property
@@ -307,7 +307,7 @@ class Frame:
 
     @property
     def ok(self) -> bool:
-        """Whether nothing is wrong with the frame: a correct FCS, and for a received frame no violation."""
+        """Whether nothing is wrong with the frame, meaning a correct FCS and, when received, no violation."""
         received_ok = self.received is None or self.received.is_good
         return self.fcs_ok is not False and not self.violations and received_ok
 
@@ -418,7 +418,7 @@ class Monitor:
         self.interface = interface
         self.config = config or _default_config(interface)
         self.name = name
-        #: The low-level :class:`~awesome_vunit_vcs.ethernet.lowlevel.EthernetMonitor`
+        #: The low-level :class:`~awesome_vunit_vcs.ethernet.monitor.EthernetMonitor`
         self.engine = EthernetMonitor(interface.phy(), self.config, name=name, keep_frames=1)
         self._frames: list[Frame] | deque[Frame] = [] if keep_frames is None else deque(maxlen=keep_frames)
         self._violations: list[Violation] = []

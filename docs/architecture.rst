@@ -1,10 +1,4 @@
-Architecture
-============
+.. The architecture document lives in the repository root, where GitHub shows it next to the code.
 
-.. note::
-
-   This page is in progress. It will include ARCHITECTURE.md from the repository root.
-
-The boundary between the languages is the central design decision: VHDL owns pin timing and
-sampling, including the double edge semantics of RGMII, and sends batches of normalized
-observations to Python. Python never accesses simulator signals.
+.. include:: ../ARCHITECTURE.md
+   :parser: myst_parser.sphinx_

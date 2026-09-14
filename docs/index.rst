@@ -13,8 +13,9 @@ statistics, capture to Wireshark files and packet construction are simulator ind
 
 .. note::
 
-   The project is in early development (alpha). The Python Ethernet core is implemented and tested;
-   the GMII components are being written and the APIs can change.
+   The project is in early development (alpha). The GMII monitor and source are complete and
+   tested on GHDL and NVC; the other interfaces are on the :doc:`roadmap`. The APIs can still
+   change, and the package is not released on PyPI yet.
 
 .. toctree::
    :maxdepth: 2

@@ -370,15 +370,15 @@ A QSPI master reads 262,144 bytes (256 KiB) at a 20 ns SCK period, once with the
 once from a constant bus. The cost per byte is (flash - constant bus) / 262,144. Wall clock time per
 test, VUnit `-p 1`, two identical runs.
 
-<!-- FLASH-BENCH-TABLE -->
-
-Measured on 2026-09-14 with GHDL 7.0.0-dev (6.0.0.r418.g753dfcf0b, mcode backend), NVC 1.23-devel
-(1.22.0.r66.gef5084a94, LLVM 21.1.8), CPython 3.12, VUnit (1ecac00) and vunit-python-bridge (28ff9b4).
+Measured on 2026-09-14, with the typed bridge arguments of `vc_python_pkg`, with GHDL 7.0.0-dev
+(6.0.0.r418.g753dfcf0b, mcode backend), NVC 1.23-devel (1.22.0.r66.gef5084a94, LLVM 21.1.8), CPython 3.12,
+VUnit (1ecac00) and vunit-python-bridge (28ff9b4). Both runs gave the same times to 0.1 s, except the NVC
+x1 read without a flash, 3.6 s and 3.7 s.
 
 | Read | NVC, constant bus (s) | NVC, flash (s) | NVC, per byte | GHDL, constant bus (s) | GHDL, flash (s) | GHDL, per byte |
 |---|---|---|---|---|---|---|
-| x1 (`0x03`) | 3.1 | 6.8 | 14 µs | 6.8 | 14.2 | 28 µs |
-| x4 (`0xEB`) | 0.9 | 4.2 | 13 µs | 1.9 | 7.8 | 22 µs |
+| x1 (`0x03`) | 3.65 | 7.6 | 15 µs | 7.5 | 15.5 | 31 µs |
+| x4 (`0xEB`) | 1.0 | 4.6 | 14 µs | 2.1 | 8.5 | 24 µs |
 
 - **The x4 row is closest to the cost of the bridge call itself.** An x1 read also pays for four times
   the VHDL clock edges.

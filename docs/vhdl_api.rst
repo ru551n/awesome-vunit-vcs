@@ -13,7 +13,7 @@ A testbench uses everything through one context:
    library awesome_vunit_vcs;
    context awesome_vunit_vcs.ethernet_context;
 
-The context makes ``ethernet_pkg``, ``gmii_pkg``, VUnit's ``com_context``, ``sync_pkg`` and
+The context makes ``ethernet_pkg``, ``gmii_pkg``, ``mii_pkg``, ``xgmii_pkg``, VUnit's ``com_context``, ``sync_pkg`` and
 ``vc_pkg`` visible. The procedures below take ``signal net : inout network_t`` like all ``com``
 procedures.
 
@@ -70,6 +70,38 @@ GMII (``gmii_pkg``):
      link_rate_mbps : positive := 1000;
      unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
    ) return ethernet_source_t;
+
+MII (``mii_pkg``), IEEE 802.3 Clause 22 at 10 or 100 Mbit/s. The same options as GMII; any other
+``link_rate_mbps`` is a failure:
+
+.. code-block:: vhdl
+
+   impure function new_mii_monitor(
+     id : id_t := null_id;
+     link_rate_mbps : positive := 100;
+     min_preamble_octets : natural := 7;
+     max_preamble_octets : natural := 7;
+     min_frame_octets : natural := 64;
+     max_frame_octets : natural := 1518;
+     min_ifg_octets : natural := 12;
+     has_fcs : boolean := true;
+     batch_length : positive := 4096;
+     flush_at_frame_end : boolean := true;
+     delta_unit : time := 1 ps;
+     log_frames : boolean := false;
+     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
+   ) return ethernet_monitor_t;
+
+   impure function new_mii_source(
+     id : id_t := null_id;
+     link_rate_mbps : positive := 100;
+     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
+   ) return ethernet_source_t;
+
+The MII monitor pairs nibbles into octets, least significant nibble first. It aligns the pairing on
+the SFD, so an odd number of preamble nibbles is accepted, and it reports a frame that ends with an
+unpaired nibble as ``eth_termination`` (an alignment error). Inter-frame gaps are counted in octets,
+two clock cycles each.
 
 They call the interface independent constructors of ``ethernet_pkg`` with ``phy => gmii``:
 
@@ -347,6 +379,10 @@ Entities
        er : out std_ulogic := '0'
      );
    end entity;
+
+``mii_monitor`` and ``mii_source`` have the same generics and ports with
+``data : std_ulogic_vector(3 downto 0)``. ``clk`` is ``TX_CLK`` or ``RX_CLK``, sampled and driven on
+its rising edge. ``CRS`` and ``COL`` of half duplex operation are not supported.
 
 Python extras
 -------------

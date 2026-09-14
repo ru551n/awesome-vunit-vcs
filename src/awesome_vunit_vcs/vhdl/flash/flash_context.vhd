@@ -17,4 +17,5 @@ context flash_context is
   use awesome_vunit_vcs.qspi_pkg.all;
   use awesome_vunit_vcs.qspi_master_pkg.all;
   use awesome_vunit_vcs.qspi_flash_cmd_pkg.all;
+  use awesome_vunit_vcs.flash_pkg.all;
 end context;

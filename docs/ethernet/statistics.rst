@@ -1,11 +1,14 @@
 Statistics
 ==========
 
-.. seealso:: :doc:`monitors` shows how to create the monitor these procedures take.
+Every :term:`monitor` keeps statistics of the frames it receives. :doc:`monitors` shows how to create
+the monitor.
 
-Every monitor keeps statistics of the frames it receives. Log them, or read them and check them.
+Read and log statistics
+-----------------------
 
 .. code-block:: vhdl
+   :caption: Check totals at the end of a test
 
    variable statistics : ethernet_statistics_t;
    ...
@@ -15,9 +18,10 @@ Every monitor keeps statistics of the frames it receives. Log them, or read them
    check_equal(statistics.fcs_errors, 0);
    log_statistics(net, monitor);          -- info level by default
 
-``log_statistics`` output, from the :doc:`../getting_started/quickstart`:
+``log_statistics`` prints a summary like this one, from the :doc:`../getting_started/quickstart`:
 
 .. code-block:: text
+   :caption: log_statistics output
 
    frames: total=10 good=10 bad=0
    octets: wire=894 frame=814 payload=634
@@ -28,17 +32,17 @@ Every monitor keeps statistics of the frames it receives. Log them, or read them
    utilization: link 89.22 %, payload 63.27 %
    size histogram: <64=0 64=4 65-127=6 128-255=0 256-511=0 512-1023=0 1024-1518=0 >1518=0
 
-Fields of ``ethernet_statistics_t``
------------------------------------
+Use the fields
+--------------
 
 .. list-table::
    :header-rows: 1
    :widths: 30 70
 
-   * - Field
+   * - Field of ``ethernet_statistics_t``
      - Meaning
    * - ``total_frames``, ``good_frames``, ``bad_frames``
-     - Frames received; good frames have a correct FCS and no PHY error
+     - Frames received. Good frames have a correct FCS and no PHY error.
    * - ``wire_octets``
      - Preamble, SFD and frame octets
    * - ``payload_octets``
@@ -54,10 +58,22 @@ Fields of ``ethernet_statistics_t``
    * - ``min_ifg_octets``, ``max_ifg_octets``
      - Shortest and longest gap between frames
 
-Octet counts saturate at ``integer'high``; a minimum or maximum without a value is -1. ``reset(net,
-monitor, clear_statistics => true)`` starts the counts over. ``get_frame_count`` returns only the number of
-frames.
+Good to know
+------------
 
-Utilization and bit rate come from ``link_rate_mbps``, so set it to the rate of the link. Python users
-get the same statistics, with rates and the histogram, from ``vc.statistics``; see
-:doc:`python`.
+* Set ``link_rate_mbps`` to the rate of the link, or utilization and bit rate are wrong.
+* A minimum or maximum without a value is -1. Octet counts stop at ``integer'high``.
+* ``reset(net, monitor, clear_statistics => true)`` starts the counts over.
+* ``get_frame_count`` returns only the number of frames.
+* In Python, ``vc.statistics`` gives the same numbers plus rates and the histogram; see :doc:`python`.
+
+Related recipes
+---------------
+
+* :doc:`../cookbook/monitors`: *Get statistics*
+
+API reference
+-------------
+
+:vhdl:`ethernet_pkg.ethernet_statistics_t`, :vhdl:`ethernet_pkg.get_statistics`,
+:vhdl:`ethernet_pkg.get_frame_count`, :vhdl:`ethernet_pkg.log_statistics`

@@ -72,6 +72,7 @@ The pattern
 -----------
 
 .. code-block:: vhdl
+   :caption: VHDL
 
    constant source : gmii_source_t := new_gmii_source;
    constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
@@ -146,10 +147,18 @@ later with the matching ``await_<procedure>_reply``.
    * - ``reset``
      - Below
 
-``reset(net, vc)`` recovers a VC, also while the clock is stopped: a source drops queued frames and
-aborts the frame in progress at a symbol boundary; a monitor forgets the frame in progress, pending
-pops and expected frames (statistics are kept unless ``clear_statistics => true``); a protocol checker
-forgets the frame in progress and keeps its counts.
+Recover a component with ``reset(net, vc)``. It works even while the clock is stopped:
+
+.. list-table::
+   :widths: 25 75
+
+   * - Source
+     - Drops queued frames and stops the frame in progress.
+   * - Monitor
+     - Forgets the frame in progress, waiting pops and expected frames. Keeps statistics unless
+       ``clear_statistics => true``.
+   * - Protocol checker
+     - Forgets the frame in progress and keeps its counts.
 
 Every declaration is listed in the :doc:`vhdl_api`.
 

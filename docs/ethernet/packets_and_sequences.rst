@@ -1,8 +1,7 @@
 Packets and sequences from Python
 =================================
 
-Frames to send can be built in three layers. Python always computes preamble, SFD, padding, FCS and
-errors; VHDL always decides when the pins change.
+You can build the frames to send in three ways. Pick the simplest one that fits your test.
 
 .. list-table::
    :header-rows: 1
@@ -21,30 +20,33 @@ errors; VHDL always decides when the pins change.
      - Long, randomized, reproducible traffic
      - ``push_ethernet_sequence``, ``check_ethernet_sequence``
 
-Frame data in VHDL
-------------------
+Send frame data from VHDL
+-------------------------
 
 .. code-block:: vhdl
+   :caption: Frames built in the testbench
 
    push_ethernet_frame(net, source, frame);
    push_ethernet_frame(net, source, destination, source_address, ethertype, payload);
    push_ethernet_frame(net, source, frame, frame_options(fcs => fcs_bad, ifg_octets => 8));
 
-``frame_options`` takes named parameters with defaults for a standard frame: ``fcs``, ``pad``,
-``preamble_octets``, ``sfd``, ``ifg_octets`` and ``error_offsets``. See :doc:`checks` for what each one
+``frame_options`` has a default for every setting of a standard frame: ``fcs``, ``pad``,
+``preamble_octets``, ``sfd``, ``ifg_octets`` and ``error_offsets``. :doc:`checks` shows what each one
 triggers.
 
-Packet functions
-----------------
+Send packets from a Python function
+-----------------------------------
 
-A packet function is a plain Python function that returns a frame: an ``awesome_vunit_vcs.ethernet.Frame``,
-the frame data as Python octets, or any object Python can convert to octets, such as a Scapy packet.
+A :term:`packet function` is a plain Python function that returns a frame. It can return an
+``awesome_vunit_vcs.ethernet.Frame``, the frame data, or a Scapy packet.
 
 .. literalinclude:: ../../examples/gmii/python/packets.py
+   :caption: examples/gmii/python/packets.py
    :language: python
    :start-after: from scapy.all import
 
 .. code-block:: vhdl
+   :caption: VHDL
 
    push_ethernet_packet(net, source, "packets:udp_packet", kwarg("dport", 1234));
 
@@ -53,13 +55,14 @@ the frame data as Python octets, or any object Python can convert to octets, suc
 * Its arguments follow the name, see :ref:`passing-arguments` in :doc:`../common/index`. Leave them out when the function takes none.
 * ``frame_options`` applies to the returned frame as for ``push_ethernet_frame``.
 
-Sequences
----------
+Send and expect a sequence
+--------------------------
 
-A sequence function is a generator, or any function returning an iterable, of frames. A source fetches
-them in batches, so there is no bridge call per frame.
+A sequence function is a generator of frames. Use it for long traffic: it is much faster than many
+single pushes.
 
 .. code-block:: python
+   :caption: my_packets.py
 
    import random
 
@@ -72,6 +75,7 @@ them in batches, so there is no bridge call per frame.
            yield eth.Frame.from_payload(rng.randbytes(rng.randint(46, 1500)))
 
 .. code-block:: vhdl
+   :caption: VHDL
 
    check_ethernet_sequence(net, monitor, "my_packets:my_traffic", kwarg("count", 100), seed => get_string_seed(runner_cfg));
    push_ethernet_sequence(net, source, "my_packets:my_traffic", kwarg("count", 100), seed => get_string_seed(runner_cfg));
@@ -81,13 +85,14 @@ them in batches, so there is no bridge call per frame.
 * ``get_string_seed(runner_cfg)`` is VUnit's seed of the test, logged with every run.
 * ``count => 0`` sends until the generator is exhausted.
 
-Ready-made random traffic
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Use ready-made random traffic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``awesome_vunit_vcs.ethernet.traffic:random_traffic`` generates valid frames, and optionally malformed ones
-whose expected violations the monitor accounts for:
+``awesome_vunit_vcs.ethernet.traffic:random_traffic`` generates valid frames, and optionally malformed
+ones. The monitor expects the violations the malformed frames cause.
 
 .. code-block:: vhdl
+   :caption: VHDL
 
    push_ethernet_sequence(
      net, source, "awesome_vunit_vcs.ethernet.traffic:random_traffic",
@@ -95,12 +100,27 @@ whose expected violations the monitor accounts for:
      seed => get_string_seed(runner_cfg)
    );
 
-Items of a sequence may carry wire options (``TrafficItem``), so malformed traffic from Python keeps its bad
-FCS, short preamble, errors and gaps.
+Your own generators can yield ``TrafficItem`` values too. Their bad FCS, short preambles, errors and
+gaps are sent as given.
 
-Stream interface
-----------------
+Push frames through the stream interface
+----------------------------------------
 
-A source is also a VUnit stream master: ``push_stream(net, as_stream(source), octet, last)`` pushes the frame
-data an octet at a time, and ``last`` sends the frame with the default options. Octets pushed without
-``last`` when ``wait_until_idle`` arrives are a check failure.
+A source is also a VUnit stream master. ``push_stream(net, as_stream(source), octet, last)`` pushes the
+frame data one octet at a time, and ``last`` sends the frame with the default options.
+
+Octets pushed without ``last`` when ``wait_until_idle`` arrives are a check failure.
+
+Related recipes
+---------------
+
+* :doc:`../cookbook/sources`: *Send a packet built in Python*, *Send a reproducible random sequence*
+* :doc:`../cookbook/python_and_vhdl`: *Call your own Python function*, *Generate traffic in Python with
+  VUnit's seed*
+
+API reference
+-------------
+
+:vhdl:`ethernet_pkg.push_ethernet_frame`, :vhdl:`ethernet_pkg.frame_options`,
+:vhdl:`ethernet_pkg.push_ethernet_packet`, :vhdl:`ethernet_pkg.push_ethernet_sequence`,
+:vhdl:`ethernet_pkg.check_ethernet_sequence`

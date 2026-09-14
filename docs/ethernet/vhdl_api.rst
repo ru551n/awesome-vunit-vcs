@@ -8,6 +8,7 @@ user guide pages explain how the pieces fit together; this part is for looking t
 A testbench only needs the context of a family, for example:
 
 .. code-block:: vhdl
+   :caption: VHDL
 
    library awesome_vunit_vcs;
    context awesome_vunit_vcs.ethernet_context;

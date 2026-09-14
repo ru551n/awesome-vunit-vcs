@@ -12,6 +12,7 @@ captures and packets. It is used in two ways.
 Everything a test needs is one import:
 
 .. code-block:: python
+   :caption: Python
 
    from awesome_vunit_vcs import ethernet as eth
 
@@ -42,6 +43,7 @@ SFD, error signal and gap, and :func:`~awesome_vunit_vcs.ethernet.api.expected_v
 the checks a monitor reports for it.
 
 .. literalinclude:: ../../examples/python/build_frames.py
+   :caption: examples/python/build_frames.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -59,6 +61,7 @@ VHDL monitor records (sample words and their times), and
 :func:`~awesome_vunit_vcs.ethernet.api.decode` runs them through the monitor pipeline.
 
 .. literalinclude:: ../../examples/python/decode_samples.py
+   :caption: examples/python/decode_samples.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -76,6 +79,7 @@ frames, and it returns the frames completed, collects every
 still in progress is reported and captures are closed at the end.
 
 .. literalinclude:: ../../examples/python/check_frames.py
+   :caption: examples/python/check_frames.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -90,6 +94,7 @@ A subscriber is a function a monitor calls as it finds things, so a test can rea
 fed instead of inspecting ``rx.frames`` and ``rx.violations`` afterwards.
 
 .. literalinclude:: ../../examples/python/monitor_subscribers.py
+   :caption: examples/python/monitor_subscribers.py
    :language: python
    :start-after: # docs-start: subscribers
    :end-before: # docs-end: subscribers
@@ -121,6 +126,7 @@ and ``Monitor.capture`` writes what a monitor receives. A capture never contains
 SFD; timestamps are those of the first octet after the SFD, in nanoseconds by default.
 
 .. literalinclude:: ../../examples/python/capture_frames.py
+   :caption: examples/python/capture_frames.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -132,6 +138,7 @@ Scapy is optional (``pip install awesome-vunit-vcs[scapy]``). It is not needed t
 capture frames; it adds the protocol layers above Ethernet.
 
 .. literalinclude:: ../../examples/python/scapy_packets.py
+   :caption: examples/python/scapy_packets.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -158,6 +165,7 @@ is shaped for it:
 Strategies are then a few lines each:
 
 .. literalinclude:: ../../examples/python/property_based.py
+   :caption: examples/python/property_based.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -219,6 +227,7 @@ VHDL.
 This file, ``examples/gmii/python/frame_sizes.py``, runs in the session of a monitor:
 
 .. literalinclude:: ../../examples/gmii/python/frame_sizes.py
+   :caption: examples/gmii/python/frame_sizes.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -227,6 +236,7 @@ The testbench executes it with ``exec_file`` from the Python bridge and reads th
 ``eval``, from ``examples/gmii/tb_gmii_example.vhd``:
 
 .. literalinclude:: ../../examples/gmii/tb_gmii_example.vhd
+   :caption: examples/gmii/tb_gmii_example.vhd
    :language: vhdl
    :start-after: elsif run("test_python_subscriber") then
    :end-before: elsif run("test_scapy_packet") then
@@ -244,6 +254,7 @@ Python decides *what* a source sends and VHDL *when*. Simple frames come straigh
 arguments as VHDL values (see :ref:`passing-arguments`).
 
 .. code-block:: vhdl
+   :caption: VHDL
 
    push_ethernet_packet(net, source, "my_packets:udp_to_dut", kwarg("port", 1234) & kwarg("size", 128));
 
@@ -255,6 +266,7 @@ machinery for Python code: :func:`~awesome_vunit_vcs.ethernet.traffic.call_packe
 :func:`~awesome_vunit_vcs.ethernet.traffic.sequence` and the seeded generators.
 
 .. literalinclude:: ../../examples/python/packet_functions.py
+   :caption: examples/python/packet_functions.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -266,6 +278,7 @@ VUnit gives every test run a base seed through ``runner_cfg``, and ``get_seed(ru
 derives seeds from it. Pass it to a sequence, and the source hands it to the function as its ``seed`` argument:
 
 .. code-block:: vhdl
+   :caption: VHDL
 
    push_ethernet_sequence(net, source, "my_traffic:mixed", kwarg("count", 1000),
                           seed => get_string_seed(runner_cfg, "tx"));
@@ -273,6 +286,7 @@ derives seeds from it. Pass it to a sequence, and the source hands it to the fun
                            seed => get_string_seed(runner_cfg, "tx"));
 
 .. code-block:: python
+   :caption: Python
 
    from awesome_vunit_vcs.ethernet import traffic
 

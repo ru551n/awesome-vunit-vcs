@@ -1,22 +1,24 @@
 Checks
 ======
 
-.. seealso:: :doc:`monitors` shows how to create the monitor these procedures take.
+A :term:`protocol checker` runs the protocol checks, all enabled by default. A :term:`monitor` runs
+the scoreboard. :doc:`monitors` shows how to create both.
 
-A protocol checker runs the protocol checks, all enabled by default; a monitor runs the scoreboard.
-A violation is an error on the checker of the VC that found it, with a message starting with the
+A violation is an error on the checker of the component that found it. The message starts with the
 check ID in upper case:
 
 .. code-block:: text
+   :caption: A violation in the test log
 
    ETH_FCS: bad FCS on frame 27
    expected=0x2144DF1C
    received=0x3144DF1C
 
-Getting the checks
-------------------
+Get the protocol checks
+-----------------------
 
 .. code-block:: vhdl
+   :caption: Monitors with protocol checks
 
    -- A monitor with the default protocol checks
    constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
@@ -26,9 +28,9 @@ Getting the checks
      protocol_checker => new_gmii_protocol_checker(max_frame_octets => 9018)
    );
 
-A protocol checker entity can also be instantiated on its own, without a monitor.
+You can also instantiate a protocol checker entity on its own, without a monitor.
 
-Check reference
+Look up a check
 ---------------
 
 .. list-table::
@@ -57,7 +59,7 @@ Check reference
      - all
    * - ``eth_giant``
      - A frame longer than the maximum
-     - ``max_frame_octets`` (0 disables)
+     - ``max_frame_octets`` (0 turns it off)
      - all
    * - ``eth_phy_error``
      - The error signal or Error character during a frame
@@ -96,12 +98,12 @@ Check reference
      -
      - all
    * - ``eth_user``
-     - An error reported by Python code in the session of a VC with ``vc.error``
+     - An error reported by your Python code with ``vc.error``
      -
      - all
 
-Testing that a design handles errors
-------------------------------------
+Send traffic that breaks the rules
+----------------------------------
 
 ``frame_options`` makes the source send traffic the standard forbids:
 
@@ -134,16 +136,14 @@ Testing that a design handles errors
      - An 8-octet gap after the frame
      - ``eth_ifg`` on the next frame
 
-Error offsets count from the first octet after the SFD; negative offsets reach into the SFD and the
-preamble. XGMII transmits the Error character instead of the error signal.
+Error offsets count from the first octet after the SFD. Negative offsets reach into the SFD and the
+preamble. XGMII sends the Error character instead of the error signal.
 
-Counting instead of failing
----------------------------
-
-By default the first error stops the simulation, like any VUnit check failure. To assert that a
-violation happens, let errors through on that logger, count them and reset the log count:
+Count errors instead of failing
+-------------------------------
 
 .. code-block:: vhdl
+   :caption: Assert that a bad FCS is detected
 
    disable_stop(get_logger(get_protocol_checker(monitor)), error);
 
@@ -155,15 +155,30 @@ violation happens, let errors through on that logger, count them and reset the l
    check_equal(count, 1);
    reset_log_count(get_logger(get_protocol_checker(monitor)), error);
 
-An error left uncounted still fails the test at ``test_runner_cleanup``.
+By default the first error stops the simulation, like any VUnit check failure. To test that an error
+happens, let errors through on that logger, count them, then reset the log count. An error you don't
+count still fails the test at ``test_runner_cleanup``.
 
-Turning a check off
--------------------
+Turn a check off
+----------------
 
 .. code-block:: vhdl
+   :caption: Turn off the gap check
 
    set_check_enabled(net, monitor, eth_ifg, false);
 
-``get_check_count`` counts the violations a check found while enabled. On a monitor both procedures
-forward to its protocol checker, and a monitor without one is a failure; they also take the protocol
-checker handle itself, ``get_protocol_checker(monitor)`` or one you instantiated.
+``get_check_count`` counts the violations a check found while it was enabled. On a monitor, both
+procedures pass through to its protocol checker. A monitor without one reports a failure. Both also
+accept the protocol checker handle itself.
+
+Related recipes
+---------------
+
+* :doc:`../cookbook/sources`: *Send a malformed frame*
+* :doc:`../cookbook/monitors`: *Turn a check off*
+
+API reference
+-------------
+
+:vhdl:`ethernet_pkg.ethernet_check_t`, :vhdl:`ethernet_pkg.frame_options`,
+:vhdl:`ethernet_pkg.set_check_enabled`, :vhdl:`ethernet_pkg.get_check_count`

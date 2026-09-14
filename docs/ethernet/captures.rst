@@ -1,18 +1,23 @@
 Captures
 ========
 
-.. seealso:: :doc:`monitors` shows how to create the monitor these procedures take.
+A :term:`monitor` writes the frames it receives to a PCAPNG file that Wireshark opens directly.
+:doc:`monitors` shows how to create the monitor.
 
-A monitor writes the frames it receives to a PCAPNG file that Wireshark opens directly.
+Capture a test
+--------------
 
 .. code-block:: vhdl
+   :caption: Start and stop a capture
 
    start_capture(net, monitor, output_path(runner_cfg) & "rx.pcapng");
    ...
    stop_capture(net, monitor);   -- optional: captures are closed at test_runner_cleanup
 
-What a capture contains
------------------------
+Several monitors can capture at once, each to its own file.
+
+Choose what a capture contains
+------------------------------
 
 .. list-table::
    :header-rows: 1
@@ -20,40 +25,50 @@ What a capture contains
 
    * - Content
      - Behaviour
-   * - Link type
-     - Ethernet: frames start at the destination address. Preamble and SFD are never written.
+   * - Frames
+     - From the destination address on. Preamble and SFD are never written.
    * - FCS
-     - Written by default; ``include_fcs => false`` leaves it out.
+     - Written by default. ``include_fcs => false`` leaves it out.
    * - Errored frames
-     - Written by default with Wireshark's link-layer error flags (CRC, preamble, SFD, IFG, size, symbol)
-       and a comment; ``include_errored => false`` leaves them out. Frames without an SFD are skipped.
+     - Written by default, flagged as errors in Wireshark. ``include_errored => false`` leaves them out.
+       Frames without an SFD are skipped.
    * - Timestamps
-     - Simulation time of the first octet after the SFD, at femtosecond resolution.
+     - Simulation time of the first octet after the SFD.
 
 .. code-block:: vhdl
+   :caption: Capture only good frames
 
    start_capture(net, monitor, output_path(runner_cfg) & "good_frames.pcapng", include_errored => false);
 
-Opening it
-----------
+Open a capture in Wireshark
+---------------------------
 
 .. code-block:: bash
+   :caption: Terminal
 
    wireshark vunit_out/test_output/<test>/rx.pcapng
 
 .. tip::
 
-   Wireshark shows simulation time as seconds since 1970. Use *View → Time Display Format → Seconds Since
-   Beginning of Capture* to read it as simulation time.
+   Wireshark shows simulation time as seconds since 1970. Use *View → Time Display Format → Seconds
+   Since Beginning of Capture* to read it as simulation time.
 
-Several monitors can capture at once, each to its own file.
+Good to know
+------------
 
-Disk usage
-----------
+* A capture grows by about the frame octets plus 32 octets per frame. Capture only the tests you
+  debug.
+* Use ``include_errored => false`` or ``stop_capture`` to keep long tests small.
+* VUnit's ``--clean`` removes the output path, captures included.
+* From Python, ``eth.write_pcapng(path, frames)`` writes frames you built yourself; see :doc:`python`.
 
-A capture grows by roughly the frame octets plus 32 octets per frame. A long randomized test writes large
-files, so capture only the tests where you look at the traffic, and use ``include_errored => false`` or
-``stop_capture`` to bound it. VUnit's output path is cleared by ``--clean``.
+Related recipes
+---------------
 
-From Python, ``eth.write_pcapng(path, frames)`` writes frames you built yourself; see
-:doc:`python`.
+* :doc:`../cookbook/monitors`: *Capture traffic for Wireshark*
+* :doc:`../cookbook/python`: *Write a PCAPNG file*
+
+API reference
+-------------
+
+:vhdl:`ethernet_pkg.start_capture`, :vhdl:`ethernet_pkg.stop_capture`

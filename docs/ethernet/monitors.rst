@@ -1,19 +1,19 @@
 Monitors
 ========
 
-A monitor observes one direction of an interface. It reconstructs the frames, compares them with the
-frames a test expects, keeps statistics, publishes frames and writes captures, and it never drives the
-line. This page shows how to create one and what to do with it. The procedures are the same on every
-interface; the examples use GMII.
+A :term:`monitor` watches one direction of an interface and never drives it. It rebuilds the frames,
+compares them with the frames you expect, keeps statistics and writes captures. The procedures are the
+same on every interface; the examples use GMII.
 
-Creating a monitor
-------------------
+Create a monitor
+----------------
 
-A monitor is a handle created with ``new_<interface>_monitor`` and an entity that takes the handle as its
-only generic. Every constructor parameter has a default, so ``new_gmii_monitor`` alone gives a 1G monitor
-without protocol checks. From ``examples/gmii/tb_gmii_example.vhd``:
+A monitor is a handle from ``new_<interface>_monitor`` plus an entity that takes the handle as its only
+generic. Every parameter has a default, so ``new_gmii_monitor`` alone gives a 1G monitor without
+protocol checks.
 
 .. literalinclude:: ../../examples/gmii/tb_gmii_example.vhd
+   :caption: examples/gmii/tb_gmii_example.vhd
    :language: vhdl
    :start-after: -- docs-start: monitors
    :end-before: -- docs-end: monitors
@@ -22,6 +22,7 @@ without protocol checks. From ``examples/gmii/tb_gmii_example.vhd``:
 The entity connects the handle to the pins it observes:
 
 .. literalinclude:: ../../examples/gmii/tb_gmii_example.vhd
+   :caption: examples/gmii/tb_gmii_example.vhd
    :language: vhdl
    :start-after: -- docs-start: monitor-instance
    :end-before: -- docs-end: monitor-instance
@@ -49,12 +50,10 @@ The parameters used most:
    * - ``log_frames``
      - Log every received frame on the monitor's logger.
 
-Every parameter is listed in the :doc:`vhdl_api`; :doc:`gmii`, :doc:`mii`
-and :doc:`xgmii` list the parameters of each interface.
+:doc:`gmii`, :doc:`mii` and :doc:`xgmii` list the parameters of each interface.
 
-The protocol checker a monitor creates is named after the monitor: the checks of
-``tb_gmii_example:input_monitor`` log as ``tb_gmii_example:input_monitor:protocol_checker``, and its
-logger, actor and checker derive from that id.
+The protocol checker a monitor creates is named after the monitor. The checks of
+``tb_gmii_example:input_monitor`` log as ``tb_gmii_example:input_monitor:protocol_checker``.
 
 What a monitor gives you
 ------------------------
@@ -91,25 +90,39 @@ What a monitor gives you
      - ``wait_until_idle(net, as_sync(monitor))``, ``reset(net, monitor)``
      - :doc:`index`
 
-Call ``wait_until_idle`` on the sources and then the monitors before ``test_runner_cleanup``, so the
+Call ``wait_until_idle`` on the sources and then the monitors before ``test_runner_cleanup``. Then the
 last frame has been received and compared.
 
-Subscribing to frames
----------------------
+Subscribe to frames
+-------------------
 
-While a monitor has subscribers it publishes every frame it receives as an ``ethernet_frame_msg``.
-From ``tests/vhdl/tb_gmii_vci.vhd``:
+While a monitor has subscribers, it publishes every frame it receives as an ``ethernet_frame_msg``:
 
 .. literalinclude:: ../../tests/vhdl/tb_gmii_vci.vhd
+   :caption: tests/vhdl/tb_gmii_vci.vhd
    :language: vhdl
    :start-after: -- docs-start: subscribe
    :end-before: -- docs-end: subscribe
    :dedent: 8
 
-Several monitors
-----------------
+Use several monitors
+--------------------
 
-Give each monitor its own handle and entity. Monitors on both sides of a design are the usual setup:
-the input monitor proves what reached the design, and the output monitor checks what it produced, as in
-``examples/gmii``. Monitors of different interfaces, for example an MII input and a GMII output, are
-independent in the same way; each has its own Python session, so they never share state.
+Give each monitor its own handle and entity. The usual setup is a monitor on each side of the design:
+the input monitor shows what reached the design, and the output monitor checks what it produced. See
+``examples/gmii``.
+
+Monitors of different interfaces, such as an MII input and a GMII output, work the same way and never
+share state.
+
+Related recipes
+---------------
+
+* :doc:`../cookbook/setup`: *Create a source and a monitor*
+* :doc:`../cookbook/monitors`: every recipe on that page
+
+API reference
+-------------
+
+:vhdl:`gmii_pkg.new_gmii_monitor`, :vhdl:`mii_pkg.new_mii_monitor`, :vhdl:`xgmii_pkg.new_xgmii_monitor`,
+and the procedures in the table above in :doc:`vhdl_api`

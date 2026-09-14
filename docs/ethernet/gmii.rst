@@ -1,31 +1,34 @@
 GMII
 ====
 
-GMII carries 1 Gbit/s Ethernet, one octet per clock cycle, and is the reference implementation of the
-family. The components also cover the overclocked 2.5 Gbit/s GMII some FPGA MACs use.
+GMII carries 1 Gbit/s Ethernet, one octet per clock cycle. The components also cover the overclocked
+2.5 Gbit/s GMII that some FPGA MACs use.
 
-At a glance
------------
+When to use it
+--------------
+
+Use the GMII components when your design has a GMII port, or a GMII-like port with one octet, a valid
+and an error signal per clock cycle.
 
 .. list-table::
    :widths: 30 70
 
    * - Entities
      - :vhdl:`gmii_source`, :vhdl:`gmii_monitor`, :vhdl:`gmii_protocol_checker`
-   * - Constructors
-     - :vhdl:`gmii_pkg.new_gmii_source`, :vhdl:`gmii_pkg.new_gmii_monitor`,
-       :vhdl:`gmii_pkg.new_gmii_protocol_checker`
    * - Link rates
      - ``link_rate_mbps => 1000`` (default) or ``2500``
    * - Clocking
      - Rising edge of ``clk``, one octet per cycle
-   * - Python decoder
+   * - Python interface
      - ``awesome_vunit_vcs.ethernet.GMII``
    * - Tested on
      - GHDL, NVC
 
-Pins
-----
+How to use it
+-------------
+
+Connect the pins
+~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -51,16 +54,74 @@ Pins
      - ``in std_ulogic := '0'``
      - ``TX_ER`` / ``RX_ER``
 
-The handle is the only generic. Source outputs are ``'0'`` between frames.
+The handle is the only generic of each entity.
 
-Constructors
-------------
+Create the components
+~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: vhdl
+   :caption: Handles in the testbench architecture
 
    constant source : gmii_source_t := new_gmii_source;
    constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
    constant checker : gmii_protocol_checker_t := new_gmii_protocol_checker(max_frame_octets => 9018);
+
+Every parameter has a default. Pass ``protocol_checker`` to a monitor to get the protocol checks.
+
+Send frames
+~~~~~~~~~~~
+
+.. code-block:: vhdl
+   :caption: Sending frames
+
+   push_ethernet_frame(net, source, frame);                                   -- frame data
+   push_ethernet_frame(net, source, x"020000000001", x"020000000002", x"0800", payload);
+   push_ethernet_frame(net, source, frame, frame_options(fcs => fcs_bad));     -- malformed
+
+The source sends frames in the order you push them. ``frame`` is the :term:`frame data`; the source
+adds preamble, SFD, padding and FCS. See :vhdl:`ethernet_pkg.push_ethernet_frame`.
+
+Receive frames
+~~~~~~~~~~~~~~
+
+The monitor reads ``data``, ``dv`` and ``er`` on every rising edge. Use it as :doc:`monitors` shows:
+compare frames with the :doc:`scoreboard`, count errors with :doc:`checks`, or read :doc:`statistics`.
+
+See a complete example
+~~~~~~~~~~~~~~~~~~~~~~
+
+``examples/gmii`` verifies a register pipeline. A source drives its input, and a monitor with a protocol
+checker watches each side. Its tests cover random frames with a capture, a counted FCS error, a Python
+subscriber and a Scapy packet.
+
+.. code-block:: bash
+   :caption: Terminal
+
+   python examples/gmii/run.py
+
+.. dropdown:: tb_gmii_example.vhd
+
+   .. literalinclude:: ../../examples/gmii/tb_gmii_example.vhd
+      :caption: examples/gmii/tb_gmii_example.vhd
+      :language: vhdl
+      :start-after: http://mozilla.org/MPL/2.0/.
+
+.. dropdown:: run.py
+
+   .. literalinclude:: ../../examples/gmii/run.py
+      :caption: examples/gmii/run.py
+      :language: python
+      :start-after: http://mozilla.org/MPL/2.0/.
+
+.. dropdown:: The design under test, gmii_pipeline.vhd
+
+   .. literalinclude:: ../../examples/gmii/src/gmii_pipeline.vhd
+      :caption: examples/gmii/src/gmii_pipeline.vhd
+      :language: vhdl
+      :start-after: http://mozilla.org/MPL/2.0/.
+
+Common options
+--------------
 
 .. list-table::
    :header-rows: 1
@@ -71,13 +132,13 @@ Constructors
      - Meaning
    * - ``link_rate_mbps``
      - 1000
-     - Used for utilization and IFG measurement; timing comes from the simulation.
+     - The rate of the link, for utilization and gap measurement.
    * - ``has_fcs``
      - true
-     - False for frames observed without an FCS.
+     - False when frames on this line have no FCS.
    * - ``min_frame_octets`` (monitor)
      - 64
-     - The size a transmitter pads to, which ``check_ethernet_frame`` accepts.
+     - The size a transmitter pads to. ``check_ethernet_frame`` accepts padded frames.
    * - ``protocol_checker`` (monitor)
      - none
      - ``default_gmii_protocol_checker``, or a handle from ``new_gmii_protocol_checker``.
@@ -86,13 +147,13 @@ Constructors
      - Protocol checker limits.
    * - ``min_frame_octets``, ``max_frame_octets`` (protocol checker)
      - 64, 1518
-     - Frame size limits; a maximum of 0 disables it.
+     - Frame size limits. A maximum of 0 turns the limit off.
    * - ``min_ifg_octets``
      - 12
      - Minimum gap between frames.
    * - ``batch_length``, ``flush_at_frame_end``, ``delta_unit``
      - 4096, true, 1 ps
-     - Batching to Python; the defaults suit almost every test.
+     - Keep the defaults unless a test needs something special.
    * - ``log_frames`` (monitor)
      - false
      - Log every received frame at debug level.
@@ -100,69 +161,25 @@ Constructors
      - derived
      - See :doc:`index`.
 
-The generated reference lists every parameter with its type: :vhdl:`gmii_pkg.new_gmii_monitor`.
+Good to know
+------------
 
-Sending
--------
+* Source outputs are ``'0'`` between frames.
+* Give the outputs of a design without reset an initial value. Otherwise the protocol checker reports
+  ``ETH_METAVALUE`` for the undefined values.
+* Metavalues on ``data`` while ``dv`` is high, or on ``dv`` and ``er``, are reported, not read as
+  ``'0'``.
 
-The source transmits frames in the order they are pushed, one octet per rising edge, with the IFG
-of each frame after it.
+Related recipes
+---------------
 
-.. code-block:: vhdl
+* :doc:`../cookbook/interfaces`: *Use GMII*
+* :doc:`../cookbook/sources`: *Send a frame*, *Send a malformed frame*
+* :doc:`../cookbook/monitors`: *Put monitors on both sides of a DUT*
 
-   push_ethernet_frame(net, source, frame);                                   -- frame data
-   push_ethernet_frame(net, source, x"020000000001", x"020000000002", x"0800", payload);
-   push_ethernet_frame(net, source, frame, frame_options(fcs => fcs_bad));     -- malformed
+API reference
+-------------
 
-``frame_options`` and the checks they trigger are on :doc:`checks`; Python-generated traffic is on
-:doc:`packets_and_sequences`.
-
-Receiving
----------
-
-The monitor samples ``data``, ``dv`` and ``er`` on every rising edge. A sample is recorded while ``dv``
-is asserted or when the pins change, so a long idle period costs one sample and gaps keep their exact
-timing. Samples reach Python in batches and at the end of every frame. Python reconstructs the frames,
-runs the scoreboard, updates statistics and writes captures.
-
-Metavalues (``U``, ``X``, ``Z``, ``W``, ``-``) on ``data`` while ``dv`` is asserted, or on ``dv`` and ``er``,
-are ``ETH_METAVALUE`` violations rather than being read as ``'0'``. Give the outputs of a design without
-reset an initial value.
-
-Example
--------
-
-``examples/gmii`` verifies a register pipeline with a source on its input and a monitor with a protocol
-checker on each side. Its tests cover seeded random frames through the scoreboard with a PCAPNG
-capture, a deliberate FCS error counted instead of failing, a Python subscriber added to a monitor, and
-a Scapy packet. CI runs it on GHDL and NVC:
-
-.. code-block:: bash
-
-   python examples/gmii/run.py
-
-.. dropdown:: tb_gmii_example.vhd
-
-   .. literalinclude:: ../../examples/gmii/tb_gmii_example.vhd
-      :language: vhdl
-      :start-after: http://mozilla.org/MPL/2.0/.
-
-.. dropdown:: run.py
-
-   .. literalinclude:: ../../examples/gmii/run.py
-      :language: python
-      :start-after: http://mozilla.org/MPL/2.0/.
-
-.. dropdown:: The design under test, gmii_pipeline.vhd
-
-   .. literalinclude:: ../../examples/gmii/src/gmii_pipeline.vhd
-      :language: vhdl
-      :start-after: http://mozilla.org/MPL/2.0/.
-
-``tests/vhdl/tb_gmii.vhd`` covers every check, two monitors on one line, captures, packets, sequences
-and randomized traffic; ``tests/vhdl/tb_gmii_vci.vhd`` covers the VUnit conventions.
-
-Limitations
------------
-
-None beyond those of every Ethernet component.
+* VHDL: :vhdl:`gmii_pkg.new_gmii_source`, :vhdl:`gmii_pkg.new_gmii_monitor`,
+  :vhdl:`gmii_pkg.new_gmii_protocol_checker`, and the whole family in :doc:`vhdl_api`
+* Python: :doc:`python_api`

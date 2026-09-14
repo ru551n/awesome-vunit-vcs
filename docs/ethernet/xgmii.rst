@@ -1,30 +1,14 @@
 XGMII family
 ============
 
-One set of components covers every interface with XGMII framing: data and control bits per lane, with
-control characters marking idle, frame start and end, and errors. The interfaces differ in lane count,
-clocking and link rate only.
+One set of components covers every interface with XGMII framing. The interfaces differ only in lane
+count, clocking and link rate.
 
-At a glance
------------
-
-.. list-table::
-   :widths: 30 70
-
-   * - Entities
-     - :vhdl:`xgmii_source`, :vhdl:`xgmii_monitor`, :vhdl:`xgmii_protocol_checker`
-   * - Constructors
-     - :vhdl:`xgmii_pkg.new_xgmii_source`, :vhdl:`xgmii_pkg.new_xgmii_monitor`,
-       :vhdl:`xgmii_pkg.new_xgmii_protocol_checker`
-   * - Extra procedures
-     - :vhdl:`xgmii_pkg.push_xgmii_columns`, :vhdl:`xgmii_pkg.push_xgmii_link_fault`
-   * - Python decoder
-     - ``awesome_vunit_vcs.ethernet.XGMII(lanes, rate)``
-   * - Tested on
-     - GHDL, NVC: 4 lanes single edge, 4 lanes both edges, 8 lanes, and 8 lanes at 200G and 400G
-
-Configurations
+When to use it
 --------------
+
+Use the XGMII components for 2.5G to 400G designs whose port carries data and control bits per lane.
+Pick the settings for your interface:
 
 .. list-table::
    :header-rows: 1
@@ -62,8 +46,21 @@ Configurations
      - false
      - 200000 / 400000
 
-Pins
-----
+.. list-table::
+   :widths: 30 70
+
+   * - Entities
+     - :vhdl:`xgmii_source`, :vhdl:`xgmii_monitor`, :vhdl:`xgmii_protocol_checker`
+   * - Python interface
+     - ``awesome_vunit_vcs.ethernet.XGMII(lanes, rate)``
+   * - Tested on
+     - GHDL, NVC: 4 lanes on one or both edges, and 8 lanes up to 400G
+
+How to use it
+-------------
+
+Connect the pins
+~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -81,21 +78,68 @@ Pins
      - ``ctrl_length(vc)`` = ``lanes``
      - One control bit per lane, lane 0 in the low bit
 
-Size the signals with the accessor functions, so a testbench follows the handle:
+Size your signals with the accessor functions, so they follow the handle:
 
 .. code-block:: vhdl
+   :caption: An 8-lane 100G monitor and its signals
 
    constant monitor : xgmii_monitor_t := new_xgmii_monitor(lanes => 8, link_rate_mbps => 100000,
                                                            protocol_checker => default_xgmii_protocol_checker);
    signal data : std_ulogic_vector(data_length(monitor) - 1 downto 0);
    signal ctrl : std_ulogic_vector(ctrl_length(monitor) - 1 downto 0);
 
-Source outputs are Idle columns between frames.
+Send and receive frames
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Constructors
-------------
+Frames work exactly as on :doc:`gmii`: ``push_ethernet_frame`` on the source, and the monitor
+procedures on :doc:`monitors`.
 
-The parameters are those of :doc:`gmii` plus:
+Send raw columns and link faults
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: vhdl
+   :caption: Traffic that frames cannot describe
+
+   -- one column per lanes octets, lane 0 of the first column leftmost
+   push_xgmii_columns(net, source, data => x"FB555555", control => "1000");
+   push_xgmii_link_fault(net, source, local_fault, columns => 4);
+
+Use these to test how your design reacts to broken control characters or link faults.
+
+Recognise the control characters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Character
+     - Code
+     - Use
+   * - Idle
+     - ``0x07``
+     - Between frames
+   * - Start
+     - ``0xFB``
+     - Starts a frame on lane 0, or lane 4 with ``allow_lane4_start``. It counts as the first preamble
+       octet.
+   * - Terminate
+     - ``0xFD``
+     - Ends a frame
+   * - Error
+     - ``0xFE``
+     - An error inside a frame (``eth_phy_error``) or outside (``eth_carrier``)
+   * - Sequence
+     - ``0x9C``
+     - On lane 0 with three data octets: ``00 00 01`` local fault, ``00 00 02`` remote fault
+
+XGMII adds three checks: ``eth_control`` for a misplaced or unknown control character,
+``eth_termination`` for a frame without Terminate, and ``eth_link_fault`` for a fault ordered set.
+
+Common options
+--------------
+
+The parameters of :doc:`gmii` apply, plus:
 
 .. list-table::
    :header-rows: 1
@@ -112,93 +156,39 @@ The parameters are those of :doc:`gmii` plus:
      - Transfer a column on both clock edges (4-lane XGMII).
    * - ``link_rate_mbps``
      - 10000
-     - Must match the clock: the octet period used for gaps comes from it.
+     - Must match the clock, because gaps are measured with it.
    * - ``allow_lane4_start`` (monitor, protocol checker)
      - false
-     - Accept frames starting on lane 4 of 8 lanes.
+     - Accept frames that start on lane 4 of 8 lanes.
    * - ``min_ifg_octets`` (protocol checker)
      - 5
-     - The minimum gap at an XGMII receiver; Terminate counts as a gap octet.
+     - The minimum gap at an XGMII receiver. Terminate counts as a gap octet.
    * - ``deficit_idle`` (source)
      - true
-     - Keep the average gap at the requested one; see below.
+     - Keep the average gap at the requested one.
 
-Full list: :vhdl:`xgmii_pkg.new_xgmii_monitor`.
+Good to know
+------------
 
-Control characters
-------------------
+* Source outputs are Idle columns between frames.
+* The source always starts frames on lane 0.
+* The source rounds each gap to whole columns. With ``deficit_idle`` the average gap is exact, and a
+  single gap may be up to ``lanes - 1`` octets shorter.
+* Error offsets send the Error character in place of the octet.
+* Gaps are counted in octets, whatever the clocking.
+* A link fault is reported when it starts. An Idle on lane 0 or a frame clears it.
+* Low power idle (``0x06``) is accepted like Idle. Signal ordered sets (``0x5C``) are reported as
+  ``eth_control``.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 15 65
+Related recipes
+---------------
 
-   * - Character
-     - Code
-     - Use
-   * - Idle
-     - ``0x07``
-     - Between frames
-   * - Start
-     - ``0xFB``
-     - Lane 0 (or lane 4 with ``allow_lane4_start``); replaces the first preamble octet, so 7 preamble
-       octets are expected with Start included
-   * - Terminate
-     - ``0xFD``
-     - Ends a frame
-   * - Error
-     - ``0xFE``
-     - An error inside a frame (``eth_phy_error``) or outside (``eth_carrier``)
-   * - Sequence
-     - ``0x9C``
-     - Lane 0, with three data octets: ``00 00 01`` local fault, ``00 00 02`` remote fault
+* :doc:`../cookbook/interfaces`: *Use XGMII, from 10G up to 400G*, *Run one testbench at several rates*
 
-Violations only control characters can express are ``eth_control`` (Start or Sequence on a wrong lane, an
-unknown or reserved character, Terminate or data outside a frame, an incomplete ordered set),
-``eth_termination`` (a frame without Terminate) and ``eth_link_fault`` (reported when a fault starts,
-cleared by an Idle on lane 0 or a frame).
+API reference
+-------------
 
-How the source transmits
-------------------------
-
-* Frames start on lane 0.
-* The gap after a frame is rounded to whole columns. With ``deficit_idle`` it is rounded down while the
-  accumulated deficit stays within ``lanes - 1`` octets, otherwise up, so the average gap equals the
-  requested one and a single gap may be up to ``lanes - 1`` octets shorter.
-* Error offsets transmit the Error character in place of the octet.
-* After columns that do not end in Idle, the source drives Idle when nothing else is queued, so
-  ``wait_until_idle`` returns only after the monitors sampled the last column.
-
-Raw columns and link faults
----------------------------
-
-For traffic the frame procedures cannot describe:
-
-.. code-block:: vhdl
-
-   -- one column per lanes octets, lane 0 of the first column leftmost
-   push_xgmii_columns(net, source, data => x"FB555555", control => "1000");
-   push_xgmii_link_fault(net, source, local_fault, columns => 4);
-
-How the monitor decodes
------------------------
-
-VHDL samples one column per clock edge and records one sample word per lane, skipping an Idle column
-equal to the previous one. Python decodes the lanes into octets: Start becomes the first preamble octet,
-Error inside a frame an octet with the error flag, and Terminate ends the frame. Octet ``k`` of a column is
-timed ``k`` octet periods after the column, so gaps are counted in octets whatever the clocking.
-
-Example
--------
-
-``tests/vhdl/tb_xgmii.vhd`` runs in all three configurations: frames of several lengths with Terminate on
-every lane position, bad FCS, the Error character, Start on a wrong lane, a missing Terminate, short gaps,
-link fault ordered sets, loopback, two monitors and randomized traffic. The GMII
-:doc:`../getting_started/quickstart` works for XGMII with the handles above and ``data``/``ctrl`` ports.
-
-Limitations
------------
-
-* The source never starts a frame on lane 4.
-* The IEEE 802.3 link fault state machine, with its column counters, is not modeled.
-* Low power idle (``0x06``) is accepted like Idle; its sequencing is not checked.
-* Signal ordered sets (``0x5C``) are reported as unknown control characters.
+* VHDL: :vhdl:`xgmii_pkg.new_xgmii_source`, :vhdl:`xgmii_pkg.new_xgmii_monitor`,
+  :vhdl:`xgmii_pkg.new_xgmii_protocol_checker`, :vhdl:`xgmii_pkg.push_xgmii_columns`,
+  :vhdl:`xgmii_pkg.push_xgmii_link_fault`, and the whole family in :doc:`vhdl_api`
+* Python: :doc:`python_api`

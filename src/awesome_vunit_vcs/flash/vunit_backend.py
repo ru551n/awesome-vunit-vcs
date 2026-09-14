@@ -11,33 +11,41 @@ instances never share state and there is no instance registry: the object
 itself is the handle. Nothing here touches simulator signals; VHDL owns pins
 and time and tells the model the time at CS edges and byte boundaries.
 
-The calls VHDL makes (``hi``/``lo`` are the halves of a time in
-femtoseconds, ``t = hi * 2**30 + lo``, see :mod:`awesome_vunit_vcs.common.vunit_bridge`)::
+The calls VHDL makes with the typed arguments of the bridge. A ``time`` is
+what ``arg_time`` sends, decoded by
+:func:`~awesome_vunit_vcs.common.vunit_bridge.decode_time_fs`, and a ``text``
+what ``arg_text`` sends, decoded by
+:func:`~awesome_vunit_vcs.common.vunit_bridge.decode_text`; Python callers pass
+an ``int`` of femtoseconds and a ``str`` instead::
 
-    FlashBackend('<name>', size_bytes=..., page_bytes=..., sector_bytes=...,
+    FlashBackend(name: text, size_bytes=..., page_bytes=..., sector_bytes=...,
                  block32_bytes=..., block_bytes=..., addr_bytes=..., addr_modes=0|3|4,
                  jedec_id=..., electronic_id=-1, sr1_default=..., sr2_default=...,
-                 sr3_default=..., busy={'tPP': (hi, lo), ...}, timing_enabled=True,
-                 clear_wel_on_protection_reject=True)
+                 sr3_default=..., timing_enabled=True, clear_wel_on_protection_reject=True,
+                 t_pp=time, t_se=time, t_be32=time, t_be64=time, t_ce=time, t_w=time,
+                 t_rst=time, t_res1=time, t_res2=time)
     layout_version()                      -> integer
     num_reports()                         -> integer
     take_reports()                        -> string
-    cs_assert(hi, lo)                     -> packed directive
-    xfer(byte)  or  xfer(byte, hi, lo)    -> packed directive
-    cs_deassert(trailing_bits, hi, lo)    -> integer_array_t [busy_hi, busy_lo, num_reports]
+    cs_assert(now: time)                  -> packed directive
+    xfer(byte)  or  xfer(byte, now: time) -> packed directive
+    cs_deassert(trailing_bits, now: time) -> integer_array_t [busy_hi, busy_lo, num_reports]
     reset(clear_statistics)               -> num_reports
     preload(data, addr)                   -> num_reports (data: integer_array_t)
     preload_fill(addr, num_bytes, value)  -> num_reports
-    load_image('<path>', '<fmt>', base)   -> num_reports (fmt 'auto' picks by extension)
+    load_image(path: text, fmt: text, base) -> num_reports (fmt 'auto' picks by extension)
     read_back(addr, num_bytes)            -> integer_array_t
     check_content(expected, addr)         -> num_reports (expected: integer_array_t)
     check_content_fill(addr, num_bytes, value) -> num_reports
     written_regions()                     -> integer_array_t [addr, len, ...]
     set_timing_enable(enable)             -> num_reports
-    set_timing('<name>', hi, lo)          -> num_reports
+    set_timing(name: text, duration: time) -> num_reports
     set_protection(addr, num_bytes, locked) -> num_reports
-    get_stat('<name>')  or  get_stat('<name>', hi, lo) -> integer
+    get_stat(name: text)  or  get_stat(name: text, now: time) -> integer
     clear_statistics()                    -> num_reports
+
+The busy time ``cs_deassert`` returns is split into the halves
+``busy_hi * 2**30 + busy_lo`` fs, so each fits a VHDL integer.
 
 Addresses and lengths are in bytes.
 
@@ -54,14 +62,14 @@ let VHDL fetch the reports only when there are some.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Sequence
 from typing import Any, TypeVar
 
 import numpy as np
 import numpy.typing as npt
 
 from ..common.reports import ReportQueue, Severity, encode_reports
-from ..common.vunit_bridge import join_time, split_time
+from ..common.vunit_bridge import decode_text, decode_time_fs, split_time
 from .config import AddrModes, FlashConfig
 from .device import FlashDevice
 from .directive import LAYOUT_VERSION, ignore_rest
@@ -77,11 +85,19 @@ def _int32(values: Any) -> npt.NDArray[np.int32]:
     return np.array(values, dtype=np.int32).reshape(-1)
 
 
-def _join_time(hi: int, lo: int) -> int:
-    """The time in fs of the halves VHDL sends, checked."""
+def _time_fs(value: int | Sequence[int]) -> int:
+    """The time in fs of a time argument, checked."""
     try:
-        return join_time(hi, lo)
-    except ValueError as exc:
+        return decode_time_fs(value)
+    except (TypeError, ValueError) as exc:
+        raise FlashValueError(str(exc)) from exc
+
+
+def _text(value: str | Sequence[int]) -> str:
+    """The string of a text argument, checked."""
+    try:
+        return decode_text(value)
+    except (TypeError, ValueError) as exc:
         raise FlashValueError(str(exc)) from exc
 
 
@@ -118,7 +134,7 @@ class FlashBackend:
     harmless.
 
     Args:
-        name: The name of the flash, used in messages.
+        name: The name of the flash, used in messages, as text.
         size_bytes: Capacity in bytes.
         page_bytes: Page size in bytes.
         sector_bytes: Sector size in bytes.
@@ -132,13 +148,20 @@ class FlashBackend:
         sr1_default: Status register 1 after power-up and reset.
         sr2_default: Status register 2 after power-up and reset.
         sr3_default: Status register 3 after power-up and reset.
-        busy: Every busy-time name of
-            :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS`, mapped to the
-            ``(hi, lo)`` halves of its time in fs.
         timing_enabled: Whether busy times apply initially.
         clear_wel_on_protection_reject: Whether a program or erase refused for
             protection clears WEL, see
             :attr:`~awesome_vunit_vcs.flash.config.FlashConfig.clear_wel_on_protection_reject`.
+        t_pp: The page program busy time, ``tPP`` of
+            :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS`.
+        t_se: The sector erase busy time, ``tSE``.
+        t_be32: The small block erase (0x52) busy time, ``tBE32``.
+        t_be64: The block erase (0xD8) busy time, ``tBE64``.
+        t_ce: The chip erase busy time, ``tCE``.
+        t_w: The status register write busy time, ``tW``.
+        t_rst: The software reset recovery time, ``tRST``.
+        t_res1: The release from deep power-down time, ``tRES1``.
+        t_res2: The release from deep power-down time with an electronic ID read, ``tRES2``.
 
     Attributes:
         name: The name of the flash.
@@ -149,7 +172,7 @@ class FlashBackend:
 
     def __init__(
         self,
-        name: str,
+        name: str | Sequence[int],
         *,
         size_bytes: int,
         page_bytes: int,
@@ -163,12 +186,33 @@ class FlashBackend:
         sr1_default: int,
         sr2_default: int,
         sr3_default: int,
-        busy: Mapping[str, tuple[int, int]],
         timing_enabled: bool,
         clear_wel_on_protection_reject: bool,
+        t_pp: int | Sequence[int],
+        t_se: int | Sequence[int],
+        t_be32: int | Sequence[int],
+        t_be64: int | Sequence[int],
+        t_ce: int | Sequence[int],
+        t_w: int | Sequence[int],
+        t_rst: int | Sequence[int],
+        t_res1: int | Sequence[int],
+        t_res2: int | Sequence[int],
     ) -> None:
-        self.name = name
         self.reports = ReportQueue()
+        # Named before the name is decoded, so a report about the name has a prefix
+        self.name = "flash"
+        self.name = self._guard("__init__", lambda: _text(name), self.name)
+        busy = {
+            "tPP": t_pp,
+            "tSE": t_se,
+            "tBE32": t_be32,
+            "tBE64": t_be64,
+            "tCE": t_ce,
+            "tW": t_w,
+            "tRST": t_rst,
+            "tRES1": t_res1,
+            "tRES2": t_res2,
+        }
 
         def config() -> FlashConfig:
             return FlashConfig(
@@ -184,7 +228,7 @@ class FlashBackend:
                 sr1_default=sr1_default,
                 sr2_default=sr2_default,
                 sr3_default=sr3_default,
-                busy_fs={key: _join_time(hi, lo) for key, (hi, lo) in busy.items()},
+                busy_fs={key: _time_fs(value) for key, value in busy.items()},
                 timing_enabled=bool(timing_enabled),
                 clear_wel_on_protection_reject=bool(clear_wel_on_protection_reject),
             )
@@ -237,31 +281,28 @@ class FlashBackend:
 
     # -- the wire ------------------------------------------------------------
 
-    def cs_assert(self, hi: int, lo: int) -> int:
+    def cs_assert(self, now: int | Sequence[int]) -> int:
         """
         CS fell.
 
         Args:
-            hi: The upper half of the simulation time in fs.
-            lo: The lower half of the simulation time in fs.
+            now: The simulation time.
 
         Returns:
             The packed directive for the first byte, or the ignore-rest
             directive after a failure report.
         """
-        return self._guard("cs_assert", lambda: self.device.cs_assert(_join_time(hi, lo)), ignore_rest())
+        return self._guard("cs_assert", lambda: self.device.cs_assert(_time_fs(now)), ignore_rest())
 
-    def xfer(self, byte_in: int, hi: int = -1, lo: int = 0) -> int:
+    def xfer(self, byte_in: int, now: int | Sequence[int] | None = None) -> int:
         """
         One byte moved on the wire.
 
         Args:
             byte_in: The byte received from the host, or -1 when the VC clocked
                 a byte out.
-            hi: The upper half of the simulation time in fs, or negative for no
-                time, which is what VHDL sends unless the previous directive was
-                volatile.
-            lo: The lower half of the simulation time in fs.
+            now: The simulation time, or ``None`` for no time, which is what VHDL
+                sends unless the previous directive was volatile.
 
         Returns:
             The packed directive for the next byte, or the ignore-rest
@@ -269,24 +310,23 @@ class FlashBackend:
         """
         return self._guard(
             "xfer",
-            lambda: self.device.xfer(byte_in, None if hi < 0 else _join_time(hi, lo)),
+            lambda: self.device.xfer(byte_in, None if now is None else _time_fs(now)),
             ignore_rest(),
         )
 
-    def cs_deassert(self, trailing_bits: int, hi: int, lo: int) -> npt.NDArray[np.int32]:
+    def cs_deassert(self, trailing_bits: int, now: int | Sequence[int]) -> npt.NDArray[np.int32]:
         """
         CS rose; the device executes the command.
 
         Args:
             trailing_bits: SCK cycles after the last whole byte.
-            hi: The upper half of the simulation time in fs.
-            lo: The lower half of the simulation time in fs.
+            now: The simulation time.
 
         Returns:
             ``[busy_hi, busy_lo, num_reports]``, the halves of the busy time in
             fs being 0 when the command did not make the device busy.
         """
-        busy_fs = self._guard("cs_deassert", lambda: self.device.cs_deassert(trailing_bits, _join_time(hi, lo)), 0)
+        busy_fs = self._guard("cs_deassert", lambda: self.device.cs_deassert(trailing_bits, _time_fs(now)), 0)
         return _int32([*split_time(busy_fs), self.num_reports()])
 
     # -- control plane -------------------------------------------------------
@@ -343,20 +383,25 @@ class FlashBackend:
         """
         return self._control("preload_fill", lambda: self.device.preload_fill(addr, num_bytes, value))
 
-    def load_image(self, path: str, fmt: str, base: int) -> int:
+    def load_image(self, path: str | Sequence[int], fmt: str | Sequence[int], base: int) -> int:
         """
         Load an image file, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.load_image`.
 
         Args:
-            path: The image file.
-            fmt: The format, see :func:`~awesome_vunit_vcs.flash.images.format_for`;
+            path: The image file, as text.
+            fmt: The format as text, see :func:`~awesome_vunit_vcs.flash.images.format_for`;
                 ``"auto"`` picks the format from the extension.
             base: The load address of a raw binary, an offset for the other formats.
 
         Returns:
             The number of reports waiting.
         """
-        return self._control("load_image", lambda: self.device.load_image(path, None if fmt == "auto" else fmt, base))
+
+        def load() -> None:
+            format_name = _text(fmt)
+            self.device.load_image(_text(path), None if format_name == "auto" else format_name, base)
+
+        return self._control("load_image", load)
 
     def read_back(self, addr: int, num_bytes: int) -> npt.NDArray[np.int32]:
         """
@@ -440,19 +485,18 @@ class FlashBackend:
         """
         return self._control("set_timing_enable", lambda: self.device.set_timing_enable(bool(enable)))
 
-    def set_timing(self, name: str, hi: int, lo: int) -> int:
+    def set_timing(self, name: str | Sequence[int], duration: int | Sequence[int]) -> int:
         """
-        Override one busy time. An unknown name or a negative time is a failure report.
+        Override one busy time. An unknown name or an invalid time is a failure report.
 
         Args:
-            name: A busy-time name of :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS`.
-            hi: The upper half of the busy time in fs.
-            lo: The lower half of the busy time in fs.
+            name: A busy-time name of :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS`, as text.
+            duration: The busy time.
 
         Returns:
             The number of reports waiting.
         """
-        return self._control("set_timing", lambda: self.device.set_timing(name, _join_time(hi, lo)))
+        return self._control("set_timing", lambda: self.device.set_timing(_text(name), _time_fs(duration)))
 
     def set_protection(self, addr: int, num_bytes: int, locked: bool) -> int:
         """
@@ -468,7 +512,7 @@ class FlashBackend:
         """
         return self._control("set_protection", lambda: self.device.set_protection(addr, num_bytes, bool(locked)))
 
-    def get_stat(self, name: str, hi: int = -1, lo: int = 0) -> int:
+    def get_stat(self, name: str | Sequence[int], now: int | Sequence[int] | None = None) -> int:
         """
         One counter or piece of observable state.
 
@@ -476,25 +520,25 @@ class FlashBackend:
         checks :meth:`num_reports` afterwards to see a failure.
 
         Args:
-            name: A name listed by :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.get_stat`.
-            hi: The upper half of the simulation time in fs, or negative for no
-                time. With a time, the device time first advances to it, see
+            name: A name listed by :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.get_stat`, as text.
+            now: The simulation time, or ``None`` for no time. With a time, the
+                device time first advances to it, see
                 :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.advance_time`,
                 so ``wip``, ``sr1`` and ``busy_remaining_us`` are current;
                 without, they are evaluated at the last time VHDL sent.
-            lo: The lower half of the simulation time in fs.
 
         Returns:
-            The value. 0, with a failure report, for an unknown name, invalid
-            time halves or a value a VHDL integer cannot hold.
+            The value. 0, with a failure report, for an unknown name, an invalid
+            time or a value a VHDL integer cannot hold.
         """
 
         def stat() -> int:
-            if hi >= 0:
-                self.device.advance_time(_join_time(hi, lo))
-            value = self.device.get_stat(name)
+            stat_name = _text(name)
+            if now is not None:
+                self.device.advance_time(_time_fs(now))
+            value = self.device.get_stat(stat_name)
             if not -(2**31) <= value < 2**31:
-                raise FlashValueError(f"stat {name!r} = {value} does not fit a signed 32-bit integer")
+                raise FlashValueError(f"stat {stat_name!r} = {value} does not fit a signed 32-bit integer")
             return value
 
         return self._guard("get_stat", stat, 0)

@@ -44,7 +44,7 @@ context python_bridge.python_context;
 use work.qspi_pkg.all;
 use work.flash_pkg.all;
 use work.qspi_protocol_checker_pkg.all;
-use work.vcs_python_pkg.all;
+use work.vc_python_pkg.all;
 
 entity flash is
   generic (
@@ -62,8 +62,8 @@ end entity;
 architecture a of flash is
   constant logger : logger_t := get_logger(flash);
   constant checker : checker_t := get_checker(flash);
-  -- A failure on the logger when another flash has the same id
-  constant session : python_session_t := new_vc_session(flash);
+  -- A failure on the logger of the flash when another VC has the same id
+  constant session : python_session_t := new_vc_session(get_id(flash), logger);
 
   -- Raised when the backend exists; pins must not call it before
   signal initialized : boolean := false;
@@ -104,32 +104,34 @@ begin
 
     -- The fields of each message are popped in declaration order, since the
     -- evaluation order of the operands of an expression is not defined
-    impure function load_image_expression(load_msg : msg_t) return string is
+    impure function load_image_arguments(load_msg : msg_t) return arg_t is
       constant file_name : string := pop_string(load_msg);
       constant format : string := pop_string(load_msg);
       constant base_address : natural := pop(load_msg);
     begin
-      return "load_image(" & py_str(file_name) & ", " & py_str(format) & ", " & integer'image(base_address) & ")";
+      return arg_text(file_name) & arg_text(format) & arg(base_address);
     end;
 
-    impure function set_timing_expression(timing_msg : msg_t) return string is
+    impure function set_timing_arguments(timing_msg : msg_t) return arg_t is
       constant name : string := pop_string(timing_msg);
       constant duration : time := pop_time(timing_msg);
     begin
-      return "set_timing(" & py_str(name) & ", " & python_time_arguments(duration) & ")";
+      return arg_text(name) & arg_time(duration);
     end;
 
-    impure function get_stat_expression(stat_msg : msg_t) return string is
-      constant name : string := pop_string(stat_msg);
+    impure function address_length_value_arguments(fill_msg : msg_t) return arg_t is
+      constant fill_address : natural := pop(fill_msg);
+      constant fill_bytes : natural := pop(fill_msg);
+      constant fill_value : natural := pop(fill_msg);
     begin
-      return "get_stat(" & py_str(name) & ", " & python_time_arguments(now) & ")";
+      return arg(fill_address) & arg(fill_bytes) & arg(fill_value);
     end;
   begin
     create_backend(session, flash_backend_module, flash_backend_class, backend_arguments(flash));
-    log_waiting_reports(backend_integer(session, "num_reports()"));
+    log_waiting_reports(backend_call_integer(session, "num_reports"));
     check_equal(
       checker,
-      backend_integer(session, "layout_version()"),
+      backend_call_integer(session, "layout_version"),
       flash_layout_version,
       "The directive layout of the Python backend does not match flash_pkg"
     );
@@ -144,32 +146,21 @@ begin
       if msg_type = preload_flash_content_msg then
         address := pop(msg);
         data := pop_integer_array_t_ref(msg);
-        num_reports := call("vc.preload", arg(data), arg(address), session => session);
+        num_reports := backend_call_integer(session, "preload", arg(data) & arg(address));
         deallocate(data);
         log_waiting_reports(num_reports);
 
       elsif msg_type = fill_flash_content_msg then
-        address := pop(msg);
-        num_bytes := pop(msg);
-        value := pop(msg);
-        log_waiting_reports(
-          backend_integer(
-            session,
-            "preload_fill(" & integer'image(address) & ", " & integer'image(num_bytes) & ", " &
-            integer'image(value) & ")"
-          )
-        );
+        log_waiting_reports(backend_call_integer(session, "preload_fill", address_length_value_arguments(msg)));
 
       elsif msg_type = load_flash_image_msg then
-        log_waiting_reports(backend_integer(session, load_image_expression(msg)));
+        log_waiting_reports(backend_call_integer(session, "load_image", load_image_arguments(msg)));
 
       elsif msg_type = read_flash_content_msg then
         address := pop(msg);
         num_bytes := pop(msg);
-        data := backend_integer_array(
-          session, "read_back(" & integer'image(address) & ", " & integer'image(num_bytes) & ")"
-        );
-        log_waiting_reports(backend_integer(session, "num_reports()"));
+        data := backend_call_integer_array(session, "read_back", arg(address) & arg(num_bytes));
+        log_waiting_reports(backend_call_integer(session, "num_reports"));
         reply_msg := new_msg(read_flash_content_reply_msg);
         -- The caller owns the data
         push_integer_array_t_ref(reply_msg, data);
@@ -178,32 +169,23 @@ begin
       elsif msg_type = check_flash_content_msg then
         address := pop(msg);
         data := pop_integer_array_t_ref(msg);
-        num_reports := call("vc.check_content", arg(data), arg(address), session => session);
+        num_reports := backend_call_integer(session, "check_content", arg(data) & arg(address));
         deallocate(data);
         log_waiting_reports(num_reports);
 
       elsif msg_type = check_flash_content_fill_msg then
-        address := pop(msg);
-        num_bytes := pop(msg);
-        value := pop(msg);
-        log_waiting_reports(
-          backend_integer(
-            session,
-            "check_content_fill(" & integer'image(address) & ", " & integer'image(num_bytes) & ", " &
-            integer'image(value) & ")"
-          )
-        );
+        log_waiting_reports(backend_call_integer(session, "check_content_fill", address_length_value_arguments(msg)));
 
       elsif msg_type = get_flash_written_regions_msg then
-        data := backend_integer_array(session, "written_regions()");
-        log_waiting_reports(backend_integer(session, "num_reports()"));
+        data := backend_call_integer_array(session, "written_regions");
+        log_waiting_reports(backend_call_integer(session, "num_reports"));
         reply_msg := new_msg(get_flash_written_regions_reply_msg);
         push_integer_array_t_ref(reply_msg, data);
         reply(net, msg, reply_msg);
 
       elsif msg_type = set_flash_timing_enable_msg then
         enable := pop(msg);
-        log_waiting_reports(backend_integer(session, "set_timing_enable(" & py_bool(enable) & ")"));
+        log_waiting_reports(backend_call_integer(session, "set_timing_enable", arg(enable)));
         if not enable then
           busy_cancel <= busy_cancel + 1;
           if busy_active then
@@ -212,18 +194,14 @@ begin
         end if;
 
       elsif msg_type = set_flash_timing_msg then
-        log_waiting_reports(backend_integer(session, set_timing_expression(msg)));
+        log_waiting_reports(backend_call_integer(session, "set_timing", set_timing_arguments(msg)));
 
       elsif msg_type = set_flash_protection_msg then
         address := pop(msg);
         num_bytes := pop(msg);
         locked := pop(msg);
         log_waiting_reports(
-          backend_integer(
-            session,
-            "set_protection(" & integer'image(address) & ", " & integer'image(num_bytes) & ", " &
-            py_bool(locked) & ")"
-          )
+          backend_call_integer(session, "set_protection", arg(address) & arg(num_bytes) & arg(locked))
         );
 
       elsif msg_type = wait_until_flash_ready_msg then
@@ -237,7 +215,7 @@ begin
 
       elsif msg_type = reset_flash_msg then
         clear_statistics := pop(msg);
-        log_waiting_reports(backend_integer(session, "reset(" & py_bool(clear_statistics) & ")"));
+        log_waiting_reports(backend_call_integer(session, "reset", arg(clear_statistics)));
         busy_cancel <= busy_cancel + 1;
         if busy_active then
           wait until not busy_active;
@@ -246,8 +224,8 @@ begin
         reply(net, msg, reply_msg);
 
       elsif msg_type = get_flash_stat_msg then
-        value := backend_integer(session, get_stat_expression(msg));
-        log_waiting_reports(backend_integer(session, "num_reports()"));
+        value := backend_call_integer(session, "get_stat", arg_text(pop_string(msg)) & arg_time(now));
+        log_waiting_reports(backend_call_integer(session, "num_reports"));
         reply_msg := new_msg(get_flash_stat_reply_msg);
         push(reply_msg, value);
         reply(net, msg, reply_msg);
@@ -291,17 +269,21 @@ begin
     variable busy_time : time;
     variable num_reports : natural;
 
+    -- The busy time of the [hi, lo] halves cs_deassert returns, hi * 2**30 fs + lo fs
+    function busy_time_of(hi, lo : natural) return time is
+    begin
+      return hi * 1073741824 fs + lo * 1 fs;
+    end;
+
     -- The next directive. pass_now is the volatile flag of the previous
     -- directive: only a byte that depends on time (a status register) needs
     -- the time, so an array read does not pay for it.
     impure function next_directive(byte_in : integer; pass_now : boolean) return flash_directive_t is
     begin
       if pass_now then
-        return decode_directive(
-          backend_integer(session, "xfer(" & integer'image(byte_in) & ", " & python_time_arguments(now) & ")")
-        );
+        return decode_directive(backend_call_integer(session, "xfer", arg(byte_in) & arg_time(now)));
       end if;
-      return decode_directive(backend_integer(session, "xfer(" & integer'image(byte_in) & ")"));
+      return decode_directive(backend_call_integer(session, "xfer", arg(byte_in)));
     end;
 
     impure function sampled_lanes(lanes : lane_count_t) return std_ulogic_vector is
@@ -326,7 +308,7 @@ begin
       end if;
 
       bits_since_byte := 0;
-      directive := decode_directive(backend_integer(session, "cs_assert(" & python_time_arguments(now) & ")"));
+      directive := decode_directive(backend_call_integer(session, "cs_assert", arg_time(now)));
 
       while m2s.cs_n = '0' loop
         -- Dummy cycles are a prefix of the action, which is what lets the lane
@@ -394,10 +376,8 @@ begin
 
       -- The trailing bits matter: a real part aborts a page program or status
       -- write whose clock count is not a multiple of 8
-      busy_values := backend_integer_array(
-        session, "cs_deassert(" & integer'image(bits_since_byte) & ", " & python_time_arguments(now) & ")"
-      );
-      busy_time := from_python_time(get(busy_values, 0), get(busy_values, 1));
+      busy_values := backend_call_integer_array(session, "cs_deassert", arg(bits_since_byte) & arg_time(now));
+      busy_time := busy_time_of(get(busy_values, 0), get(busy_values, 1));
       num_reports := get(busy_values, 2);
       deallocate(busy_values);
 

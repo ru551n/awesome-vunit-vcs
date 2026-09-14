@@ -30,16 +30,14 @@ context vunit_lib.com_context;
 use vunit_lib.integer_array_pkg.all;
 use vunit_lib.sync_pkg.all;
 use vunit_lib.vc_pkg.all;
-use vunit_lib.dict_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
 use work.qspi_pkg.all;
 use work.qspi_protocol_checker_pkg.all;
-use work.vcs_python_pkg.new_vc_session;
-use work.vcs_python_pkg.py_bool;
-use work.vcs_python_pkg.py_str;
+use work.vc_python_pkg.arg_text;
+use work.vc_python_pkg.kwarg_time;
 
 package flash_pkg is
   ---------------------------------------------------------------------------
@@ -565,21 +563,8 @@ package flash_pkg is
   constant flash_backend_module : string := "awesome_vunit_vcs.flash.vunit_backend";
   constant flash_backend_class : string := "FlashBackend";
 
-  -- Private. The Python session of a flash, identified by its id. Two flashes
-  -- with the same id would share one Python backend, which is a failure on
-  -- the logger of the flash.
-  impure function new_vc_session(flash : flash_t) return python_session_t;
-
   -- Private. The constructor arguments of the backend.
-  impure function backend_arguments(flash : flash_t) return string;
-
-  -- Private. A time as the two Python arguments "hi, lo", with
-  -- ``t = hi * 2**30 fs + lo fs``, the convention of vcs_python_pkg and
-  -- awesome_vunit_vcs.common.vunit_bridge.
-  function python_time_arguments(value : time) return string;
-
-  -- Private. The time of hi and lo returned by Python.
-  function from_python_time(hi : natural; lo : natural) return time;
+  impure function backend_arguments(flash : flash_t) return arg_t;
 
   -- Private. The logger and checker of errors in new_flash, such as an id
   -- that already has an actor.
@@ -588,27 +573,6 @@ package flash_pkg is
 end package;
 
 package body flash_pkg is
-  constant time_split : time := 1073741824 fs;
-
-  -- The full names of the ids with a Python session. The guard mirrors
-  -- new_vc_session of ethernet_vc_pkg and should move to
-  -- common/vcs_python_pkg, a follow-up for the maintainer.
-  constant vc_sessions : dict_t := new_dict;
-
-  impure function new_vc_session(flash : flash_t) return python_session_t is
-    constant name : string := full_name(flash.p_id);
-  begin
-    if has_key(vc_sessions, name) then
-      failure(
-        flash.p_logger,
-        "Two verification components have the id " & name & " and would share one Python backend"
-      );
-    else
-      set_string(vc_sessions, name, "");
-    end if;
-    return new_vc_session(flash.p_id);
-  end;
-
   impure function new_flash(
     size_bytes : positive := 16 * 1024 * 1024;
     page_bytes : positive := 256;
@@ -742,60 +706,42 @@ package body flash_pkg is
     end if;
   end;
 
-  function python_time_arguments(value : time) return string is
-    constant hi : natural := value / time_split;
-    constant lo : natural := (value - hi * time_split) / 1 fs;
-  begin
-    return integer'image(hi) & ", " & integer'image(lo);
-  end;
-
-  function from_python_time(hi : natural; lo : natural) return time is
-  begin
-    return hi * time_split + lo * 1 fs;
-  end;
-
-  -- A time as a Python tuple (hi, lo)
-  function to_python_time(value : time) return string is
-  begin
-    return "(" & python_time_arguments(value) & ")";
-  end;
-
-  function addr_modes_argument(addr_modes : flash_addr_modes_t) return string is
+  function addr_modes_argument(addr_modes : flash_addr_modes_t) return natural is
   begin
     case addr_modes is
-      when both => return "0";
-      when three_only => return "3";
-      when four_only => return "4";
+      when both => return 0;
+      when three_only => return 3;
+      when four_only => return 4;
     end case;
   end;
 
-  impure function backend_arguments(flash : flash_t) return string is
+  impure function backend_arguments(flash : flash_t) return arg_t is
   begin
     return
-      py_str(full_name(get_id(flash))) &
-      ", size_bytes=" & integer'image(flash.p_size_bytes) &
-      ", page_bytes=" & integer'image(flash.p_page_bytes) &
-      ", sector_bytes=" & integer'image(flash.p_sector_bytes) &
-      ", block32_bytes=" & integer'image(flash.p_block32_bytes) &
-      ", block_bytes=" & integer'image(flash.p_block_bytes) &
-      ", addr_bytes=" & integer'image(flash.p_addr_bytes) &
-      ", addr_modes=" & addr_modes_argument(flash.p_addr_modes) &
-      ", jedec_id=" & integer'image(flash.p_jedec_id) &
-      ", electronic_id=" & integer'image(flash.p_electronic_id) &
-      ", sr1_default=" & integer'image(flash.p_sr1_default) &
-      ", sr2_default=" & integer'image(flash.p_sr2_default) &
-      ", sr3_default=" & integer'image(flash.p_sr3_default) &
-      ", busy={'tPP': " & to_python_time(flash.p_t_pp) &
-      ", 'tSE': " & to_python_time(flash.p_t_se) &
-      ", 'tBE32': " & to_python_time(flash.p_t_be32) &
-      ", 'tBE64': " & to_python_time(flash.p_t_be64) &
-      ", 'tCE': " & to_python_time(flash.p_t_ce) &
-      ", 'tW': " & to_python_time(flash.p_t_w) &
-      ", 'tRST': " & to_python_time(flash.p_t_rst) &
-      ", 'tRES1': " & to_python_time(flash.p_t_res1) &
-      ", 'tRES2': " & to_python_time(flash.p_t_res2) & "}" &
-      ", timing_enabled=" & py_bool(flash.p_timing_enabled) &
-      ", clear_wel_on_protection_reject=" & py_bool(flash.p_clear_wel_on_protection_reject);
+      arg_text(full_name(get_id(flash))) &
+      kwarg("size_bytes", flash.p_size_bytes) &
+      kwarg("page_bytes", flash.p_page_bytes) &
+      kwarg("sector_bytes", flash.p_sector_bytes) &
+      kwarg("block32_bytes", flash.p_block32_bytes) &
+      kwarg("block_bytes", flash.p_block_bytes) &
+      kwarg("addr_bytes", flash.p_addr_bytes) &
+      kwarg("addr_modes", addr_modes_argument(flash.p_addr_modes)) &
+      kwarg("jedec_id", flash.p_jedec_id) &
+      kwarg("electronic_id", flash.p_electronic_id) &
+      kwarg("sr1_default", flash.p_sr1_default) &
+      kwarg("sr2_default", flash.p_sr2_default) &
+      kwarg("sr3_default", flash.p_sr3_default) &
+      kwarg("timing_enabled", flash.p_timing_enabled) &
+      kwarg("clear_wel_on_protection_reject", flash.p_clear_wel_on_protection_reject) &
+      kwarg_time("t_pp", flash.p_t_pp) &
+      kwarg_time("t_se", flash.p_t_se) &
+      kwarg_time("t_be32", flash.p_t_be32) &
+      kwarg_time("t_be64", flash.p_t_be64) &
+      kwarg_time("t_ce", flash.p_t_ce) &
+      kwarg_time("t_w", flash.p_t_w) &
+      kwarg_time("t_rst", flash.p_t_rst) &
+      kwarg_time("t_res1", flash.p_t_res1) &
+      kwarg_time("t_res2", flash.p_t_res2);
   end;
 
   -- width bits of a non-negative integer, starting at shift

@@ -20,7 +20,7 @@ import pytest
 
 from awesome_vunit_vcs.common.reports import Report, Severity, decode_reports
 from awesome_vunit_vcs.common.vunit_bridge import join_time, split_time
-from awesome_vunit_vcs.flash.config import BUSY_KEYS, DEFAULT_BUSY_FS, MIB
+from awesome_vunit_vcs.flash.config import DEFAULT_BUSY_FS, MIB
 from awesome_vunit_vcs.flash.directive import LAYOUT_VERSION, Action, ignore_rest, unpack
 from awesome_vunit_vcs.flash.vunit_backend import FlashBackend
 
@@ -30,9 +30,27 @@ SEC = 10**15
 
 NAME = "tb_flash:flash_a"
 
+#: The keyword argument of each busy time
+BUSY_ARGUMENTS = {
+    "t_pp": "tPP",
+    "t_se": "tSE",
+    "t_be32": "tBE32",
+    "t_be64": "tBE64",
+    "t_ce": "tCE",
+    "t_w": "tW",
+    "t_rst": "tRST",
+    "t_res1": "tRES1",
+    "t_res2": "tRES2",
+}
+
+
+def text(value: str) -> list[int]:
+    """Text as VHDL's arg_text sends it."""
+    return [ord(character) for character in value]
+
 
 def backend_options(**overrides: Any) -> dict[str, Any]:
-    """The keyword arguments the VHDL component passes, with the new_flash defaults."""
+    """The keyword arguments the VHDL component passes, with the new_flash defaults and times as [hi, lo]."""
     options: dict[str, Any] = {
         "size_bytes": 16 * MIB,
         "page_bytes": 256,
@@ -46,16 +64,16 @@ def backend_options(**overrides: Any) -> dict[str, Any]:
         "sr1_default": 0x00,
         "sr2_default": 0x02,
         "sr3_default": 0x00,
-        "busy": {key: split_time(DEFAULT_BUSY_FS[key]) for key in BUSY_KEYS},
         "timing_enabled": True,
         "clear_wel_on_protection_reject": True,
+        **{argument: list(split_time(DEFAULT_BUSY_FS[key])) for argument, key in BUSY_ARGUMENTS.items()},
     }
     options.update(overrides)
     return options
 
 
 def make(name: str = NAME, **overrides: Any) -> FlashBackend:
-    return FlashBackend(name, **backend_options(**overrides))
+    return FlashBackend(text(name), **backend_options(**overrides))
 
 
 @pytest.fixture
@@ -81,9 +99,9 @@ def transaction(
 ) -> tuple[list[int], Any]:
     """cs_assert -> one xfer per byte -> cs_deassert, following the
     directives, which is all the VC ever does."""
-    hi, lo = split_time(now_fs)
+    now = list(split_time(now_fs))
     out: list[int] = []
-    directive = unpack(backend.cs_assert(hi, lo))
+    directive = unpack(backend.cs_assert(now))
     index = 0
     while directive.action is not Action.IGNORE_REST:
         if directive.action is Action.RECEIVE:
@@ -96,9 +114,9 @@ def transaction(
                 break
             out.append(directive.byte_out)
             byte = -1
-        packed = backend.xfer(byte, hi, lo) if directive.volatile else backend.xfer(byte)
+        packed = backend.xfer(byte, now) if directive.volatile else backend.xfer(byte)
         directive = unpack(packed)
-    return out, backend.cs_deassert(trailing_bits, hi, lo)
+    return out, backend.cs_deassert(trailing_bits, now)
 
 
 # -- creation --------------------------------------------------------------
@@ -151,13 +169,34 @@ def test_an_invalid_configuration_is_a_failure_report_not_an_exception() -> None
 
 
 def test_invalid_busy_times_are_a_failure_report() -> None:
-    busy = {key: split_time(DEFAULT_BUSY_FS[key]) for key in BUSY_KEYS if key != "tRES2"}
-    assert "tRES2" in only_report(make(busy=busy), Severity.FAILURE)
-    busy = {key: split_time(DEFAULT_BUSY_FS[key]) for key in BUSY_KEYS}
-    busy["tSE"] = (0, -1)
-    message = only_report(make(busy=busy), Severity.FAILURE)
+    message = only_report(make(t_se=[0, -1]), Severity.FAILURE)
     assert message.startswith(f"{NAME}: __init__ raised FlashValueError: ")
     assert "lo=-1" in message
+    assert "[hi, lo]" in only_report(make(t_res2=[1, 2, 3]), Severity.FAILURE)
+
+
+def test_python_callers_pass_plain_femtoseconds_and_strings() -> None:
+    options = backend_options(**{argument: DEFAULT_BUSY_FS[key] for argument, key in BUSY_ARGUMENTS.items()})
+    options["t_se"] = 1_000
+    backend = FlashBackend("tb:python", **options)
+    assert backend.num_reports() == 0
+    assert backend.name == "tb:python"
+    assert backend.device.config.busy_fs["tSE"] == 1_000
+    backend.cs_assert(SEC)
+    assert unpack(backend.xfer(0x9F, SEC)).action is Action.TRANSMIT
+    assert list(backend.cs_deassert(0, SEC)) == [0, 0, 0]
+    assert backend.get_stat("timing_enabled", SEC) == 1
+
+
+def test_the_name_is_decoded_from_character_codes() -> None:
+    backend = make('tb:"quoted" \\ name')
+    assert backend.name == 'tb:"quoted" \\ name'
+    assert backend.num_reports() == 0
+
+
+def test_an_invalid_name_is_a_failure_report() -> None:
+    backend = FlashBackend([300], **backend_options())
+    assert "__init__ raised FlashValueError" in only_report(backend, Severity.FAILURE)
 
 
 def test_timing_enabled_false_starts_with_timing_off(fast: FlashBackend) -> None:
@@ -205,9 +244,7 @@ def test_a_sector_erase_returns_its_busy_time_as_halves() -> None:
 
 
 def test_configured_busy_times_are_used() -> None:
-    busy = {key: split_time(DEFAULT_BUSY_FS[key]) for key in BUSY_KEYS}
-    busy["tSE"] = split_time(1_000)
-    backend = make(busy=busy)
+    backend = make(t_se=list(split_time(1_000)))
     transaction(backend, [0x06])
     _, erase_busy = transaction(backend, [0x20, 0, 0, 0])
     assert list(erase_busy) == [0, 1_000, 0]
@@ -239,9 +276,9 @@ def test_wip_follows_the_time_vhdl_sends() -> None:
 
 
 def test_xfer_accepts_an_omitted_time(fast: FlashBackend) -> None:
-    fast.cs_assert(*split_time(SEC))
+    fast.cs_assert(list(split_time(SEC)))
     assert unpack(fast.xfer(0x9F)).action is Action.TRANSMIT
-    assert list(fast.cs_deassert(0, *split_time(SEC))) == [0, 0, 0]
+    assert list(fast.cs_deassert(0, list(split_time(SEC)))) == [0, 0, 0]
     assert fast.num_reports() == 0
 
 
@@ -259,18 +296,18 @@ def test_xfer_without_cs_assert_is_a_failure_report(fast: FlashBackend) -> None:
 
 
 def test_driving_the_bus_when_a_byte_was_expected_is_a_failure_report(fast: FlashBackend) -> None:
-    fast.cs_assert(0, 0)
+    fast.cs_assert([0, 0])
     assert fast.xfer(-1) == ignore_rest()
     assert "byte_in=-1" in only_report(fast, Severity.FAILURE)
 
 
-def test_invalid_time_halves_are_failure_reports(fast: FlashBackend) -> None:
-    assert fast.cs_assert(-1, 0) == ignore_rest()
+def test_invalid_times_are_failure_reports(fast: FlashBackend) -> None:
+    assert fast.cs_assert([-1, 0]) == ignore_rest()
     assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: cs_assert raised FlashValueError: ")
-    fast.cs_assert(0, 0)
-    assert fast.xfer(0x9F, 0, 1 << 30) == ignore_rest()
+    fast.cs_assert([0, 0])
+    assert fast.xfer(0x9F, [0, 1 << 30]) == ignore_rest()
     only_report(fast, Severity.FAILURE)
-    busy = fast.cs_deassert(0, 0, -1)
+    busy = fast.cs_deassert(0, [0, -1])
     assert busy.dtype == np.int32
     assert list(busy) == [0, 0, 1]
     assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: cs_deassert raised FlashValueError: ")
@@ -288,7 +325,7 @@ def test_invalid_time_halves_are_failure_reports(fast: FlashBackend) -> None:
         lambda b: b.check_content([0xFF] * 16, 0x100),
         lambda b: b.check_content_fill(0x100, 16, 0xFF),
         lambda b: b.set_timing_enable(True),
-        lambda b: b.set_timing("tPP", *split_time(US)),
+        lambda b: b.set_timing(text("tPP"), list(split_time(US))),
         lambda b: b.set_protection(0, 16, True),
         lambda b: b.clear_statistics(),
     ],
@@ -413,9 +450,9 @@ def test_written_regions_after_a_page_program(fast: FlashBackend) -> None:
 def test_load_image(fast: FlashBackend, tmp_path: Path) -> None:
     path = tmp_path / "image.bin"
     path.write_bytes(bytes(range(4)))
-    assert fast.load_image(str(path), "bin", 0x200) == 0
+    assert fast.load_image(text(str(path)), text("bin"), 0x200) == 0
     assert list(fast.read_back(0x200, 4)) == [0, 1, 2, 3]
-    assert fast.load_image(str(path), "auto", 0x300) == 0
+    assert fast.load_image(text(str(path)), text("auto"), 0x300) == 0
     assert list(fast.read_back(0x300, 4)) == [0, 1, 2, 3]
 
 
@@ -452,11 +489,11 @@ def test_set_protection(fast: FlashBackend) -> None:
 
 
 def test_a_reset_while_cs_is_low_is_not_a_failure(fast: FlashBackend) -> None:
-    fast.cs_assert(0, 0)
+    fast.cs_assert([0, 0])
     assert unpack(fast.xfer(0x9F)).action is Action.TRANSMIT
     assert fast.reset() == 0
     assert fast.xfer(-1) == ignore_rest()
-    assert list(fast.cs_deassert(0, 0, 0)) == [0, 0, 0]
+    assert list(fast.cs_deassert(0, [0, 0])) == [0, 0, 0]
     out, _ = transaction(fast, [0x9F], read=1)
     assert out == [0xEF]
     assert fast.num_reports() == 0
@@ -483,7 +520,7 @@ def test_reset_keeps_the_array_but_drops_the_mode(fast: FlashBackend) -> None:
 
 def test_set_timing_and_enable() -> None:
     backend = make()
-    assert backend.set_timing("tPP", *split_time(2 * MS)) == 0
+    assert backend.set_timing(text("tPP"), list(split_time(2 * MS))) == 0
     transaction(backend, [0x06])
     _, busy = transaction(backend, [0x02, 0, 0, 0, 0x00])
     assert join_time(int(busy[0]), int(busy[1])) == 2 * MS
@@ -495,7 +532,7 @@ def test_set_timing_and_enable() -> None:
 
 
 def test_set_timing_with_an_unknown_name_is_a_failure_report(fast: FlashBackend) -> None:
-    assert fast.set_timing("tXX", 0, 1) == 1
+    assert fast.set_timing(text("tXX"), [0, 1]) == 1
     message = only_report(fast, Severity.FAILURE)
     assert message.startswith(f"{NAME}: set_timing raised FlashValueError: ")
     assert "tXX" in message
@@ -509,7 +546,7 @@ def test_unknown_stat_is_a_failure_report_and_returns_0(fast: FlashBackend) -> N
 
 def test_a_stat_beyond_32_bits_is_a_failure_report_and_returns_0() -> None:
     backend = make()
-    backend.set_timing("tSE", *split_time(MS))
+    backend.set_timing(text("tSE"), list(split_time(MS)))
     transaction(backend, [0x06], now_fs=SEC)
     transaction(backend, [0x20, 0, 0, 0], now_fs=SEC)
     backend.device.stats["bytes_read"] = 2**31
@@ -530,17 +567,17 @@ def test_get_stat_with_a_time_advances_the_device_time() -> None:
     transaction(backend, [0x02, 0, 0, 0, 0x00], now_fs=SEC)
     # Without a time, the stat is evaluated at the last time VHDL sent
     assert backend.get_stat("wip") == 1
-    assert backend.get_stat("busy_remaining_us", *split_time(SEC + 200 * US)) == 500
-    assert backend.get_stat("sr1", *split_time(SEC + 700 * US)) == 0x00
+    assert backend.get_stat(text("busy_remaining_us"), list(split_time(SEC + 200 * US))) == 500
+    assert backend.get_stat(text("sr1"), list(split_time(SEC + 700 * US))) == 0x00
     assert backend.get_stat("wip") == 0
     # An earlier time does not move the device time back
-    assert backend.get_stat("wip", *split_time(SEC)) == 0
+    assert backend.get_stat(text("wip"), list(split_time(SEC))) == 0
     assert backend.device.now_fs == SEC + 700 * US
     assert backend.num_reports() == 0
 
 
-def test_get_stat_with_invalid_time_halves_is_a_failure_report(fast: FlashBackend) -> None:
-    assert fast.get_stat("wip", 0, 1 << 30) == 0
+def test_get_stat_with_an_invalid_time_is_a_failure_report(fast: FlashBackend) -> None:
+    assert fast.get_stat(text("wip"), [0, 1 << 30]) == 0
     assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: get_stat raised FlashValueError: ")
 
 

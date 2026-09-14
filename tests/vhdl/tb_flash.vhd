@@ -692,7 +692,7 @@ begin
         qspi_flash_read_id(net, bad_master, got, 3);
         deallocate(got);
         check_equal(get_log_count(get_logger(protocol_checker(checked_flash)), error), 1, "tSHSL violations");
-        get_check_count(net, protocol_checker(checked_flash), qspi_cs_deselect, count);
+        get_check_count(net, checked_flash, qspi_cs_deselect, count);
         check_equal(count, 1, "qspi_cs_deselect count");
         reset_log_count(get_logger(protocol_checker(checked_flash)), error);
         -- docs-end: flash_protocol_violation

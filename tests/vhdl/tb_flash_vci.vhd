@@ -390,6 +390,42 @@ begin
         reset_log_count(get_logger(protocol_checker(checked_flash)), error);
         reset_log_count(get_logger(protocol_checker(default_checked_flash)), error);
 
+      elsif run("test_check_procedures_forward_to_the_protocol_checker") then
+        disable_stop(get_logger(protocol_checker(checked_flash)), error);
+        disable_stop(get_logger(protocol_checker(default_checked_flash)), error);
+        deselect_too_briefly;
+        get_check_count(net, checked_flash, qspi_cs_deselect, count);
+        check_equal(count, 1, "blocking count through the flash");
+        get_check_count(net, checked_flash, qspi_cs_deselect, reference);
+        await_get_check_count_reply(net, reference, count);
+        check_equal(count, 1, "count by reference through the flash");
+
+        set_check_enabled(net, checked_flash, qspi_cs_deselect, false);
+        deselect_too_briefly;
+        get_check_count(net, protocol_checker(checked_flash), qspi_cs_deselect, count);
+        check_equal(count, 1, "switched off through the flash");
+
+        set_check_enabled(net, checked_flash, qspi_cs_deselect);
+        deselect_too_briefly;
+        get_check_count(net, checked_flash, qspi_cs_deselect, count);
+        check_equal(count, 2, "switched on again through the flash");
+        check_equal(get_log_count(get_logger(protocol_checker(checked_flash)), error), 2, "violations logged");
+        reset_log_count(get_logger(protocol_checker(checked_flash)), error);
+        reset_log_count(get_logger(protocol_checker(default_checked_flash)), error);
+
+      elsif run("test_check_procedures_of_a_flash_without_protocol_checker_fail") then
+        mock(get_logger(explicit_flash), error);
+        set_check_enabled(net, explicit_flash, qspi_cs_deselect, false);
+        check_log(get_logger(explicit_flash), "tb_flash_vci:explicit_flash has no protocol checker", error);
+        count := 1;
+        get_check_count(net, explicit_flash, qspi_cs_deselect, count);
+        check_log(get_logger(explicit_flash), "tb_flash_vci:explicit_flash has no protocol checker", error);
+        check_equal(count, 0, "blocking count without a protocol checker");
+        get_check_count(net, explicit_flash, qspi_cs_deselect, reference);
+        check_only_log(get_logger(explicit_flash), "tb_flash_vci:explicit_flash has no protocol checker", error);
+        check(reference = null_msg, "no reference without a protocol checker");
+        unmock(get_logger(explicit_flash));
+
       elsif run("test_explicit_protocol_checker_parts_are_kept") then
         check(protocol_checker(kept_id_flash) = kept_id_checker, "a checker with an explicit id is kept");
 

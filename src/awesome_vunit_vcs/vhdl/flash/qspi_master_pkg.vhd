@@ -246,6 +246,44 @@ package qspi_master_pkg is
   );
 
   ---------------------------------------------------------------------------
+  -- Protocol checks
+  ---------------------------------------------------------------------------
+
+  -- :vhdl:`qspi_protocol_checker_pkg.set_check_enabled` for the protocol
+  -- checker of the master. A master without a protocol checker reports
+  -- ``<id> has no protocol checker`` as a check failure on its checker.
+  procedure set_check_enabled(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t;
+    check : qspi_check_t;
+    enabled : boolean := true
+  );
+
+  -- Blocking: :vhdl:`qspi_protocol_checker_pkg.get_check_count` for the
+  -- protocol checker of the master. A master without a protocol checker reports
+  -- ``<id> has no protocol checker`` as a check failure on its checker, and
+  -- count is 0.
+  procedure get_check_count(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t;
+    check : qspi_check_t;
+    variable count : out natural
+  );
+
+  -- Non-blocking: request the violation count of a rule of the protocol
+  -- checker of the master, redeemed with
+  -- :vhdl:`qspi_protocol_checker_pkg.await_get_check_count_reply`. A master
+  -- without a protocol checker reports ``<id> has no protocol checker`` as a
+  -- check failure on its checker, and reference is then null_msg, which is
+  -- not to be awaited.
+  procedure get_check_count(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t;
+    check : qspi_check_t;
+    variable reference : inout qspi_protocol_checker_reference_t
+  );
+
+  ---------------------------------------------------------------------------
   -- Reset
   ---------------------------------------------------------------------------
 
@@ -543,5 +581,54 @@ package body qspi_master_pkg is
   begin
     request(net, get_actor(qspi_master), request_msg, reply_msg);
     delete(reply_msg);
+  end;
+
+  -- Whether the master has a protocol checker, after a check failure when not
+  impure function has_protocol_checker(qspi_master : qspi_master_t) return boolean is
+  begin
+    if qspi_master.p_protocol_checker = null_qspi_protocol_checker then
+      check_failed(qspi_master.p_checker, full_name(qspi_master.p_id) & " has no protocol checker");
+      return false;
+    end if;
+    return true;
+  end;
+
+  procedure set_check_enabled(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t;
+    check : qspi_check_t;
+    enabled : boolean := true
+  ) is
+  begin
+    if has_protocol_checker(qspi_master) then
+      set_check_enabled(net, qspi_master.p_protocol_checker, check, enabled);
+    end if;
+  end;
+
+  procedure get_check_count(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t;
+    check : qspi_check_t;
+    variable count : out natural
+  ) is
+  begin
+    if has_protocol_checker(qspi_master) then
+      get_check_count(net, qspi_master.p_protocol_checker, check, count);
+    else
+      count := 0;
+    end if;
+  end;
+
+  procedure get_check_count(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t;
+    check : qspi_check_t;
+    variable reference : inout qspi_protocol_checker_reference_t
+  ) is
+  begin
+    reference := null_msg;
+    if has_protocol_checker(qspi_master) then
+      get_check_count(net, qspi_master.p_protocol_checker, check, reference);
+    end if;
   end;
 end package body;

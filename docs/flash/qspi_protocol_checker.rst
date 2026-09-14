@@ -157,6 +157,9 @@ Procedures
    * - ``t_sck_min`` to ``t_chdx``, ``limit(protocol_checker, check)``
      - The limits the handle was created with
 
+A flash or a QSPI master that owns a protocol checker has the same ``set_check_enabled`` and
+``get_check_count`` procedures, which act on that checker.
+
 Checks
 ------
 

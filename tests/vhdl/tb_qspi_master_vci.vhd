@@ -114,6 +114,15 @@ begin
     variable reference_data : integer_array_t := null_integer_array;
     variable reference : qspi_transfer_reference_t;
     variable references : msg_vec_t(0 to 2);
+    variable check_reference : qspi_protocol_checker_reference_t;
+
+    -- An idle bus, then two transfers of checked_master back to back
+    procedure transfer_pair is
+    begin
+      wait for 1 ms;
+      qspi_transfer(net, checked_master, cmd);
+      qspi_transfer(net, checked_master, cmd);
+    end;
     variable count : natural;
     variable start : time;
 
@@ -260,6 +269,46 @@ begin
         check_equal(count, 1, "qspi_cs_deselect count of the child");
         reset_log_count(get_logger(protocol_checker(checked_master)), error);
         reset_log_count(get_logger(protocol_checker(default_checked_master)), error);
+
+      elsif run("test_check_procedures_forward_to_the_protocol_checker") then
+        -- Two transfers back to back after an idle bus: one CS deselect time
+        -- shorter than tSHSL. The rule is switched while the bus is idle.
+        disable_stop(get_logger(protocol_checker(checked_master)), error);
+        transfer_pair;
+        get_check_count(net, checked_master, qspi_cs_deselect, count);
+        check_equal(count, 1, "blocking count through the master");
+        get_check_count(net, checked_master, qspi_cs_deselect, check_reference);
+        await_get_check_count_reply(net, check_reference, count);
+        check_equal(count, 1, "count by reference through the master");
+
+        set_check_enabled(net, checked_master, qspi_cs_deselect, false);
+        transfer_pair;
+        get_check_count(net, protocol_checker(checked_master), qspi_cs_deselect, count);
+        check_equal(count, 1, "switched off through the master");
+
+        set_check_enabled(net, checked_master, qspi_cs_deselect);
+        transfer_pair;
+        get_check_count(net, checked_master, qspi_cs_deselect, count);
+        check_equal(count, 2, "switched on again through the master");
+        check_equal(get_log_count(get_logger(protocol_checker(checked_master)), error), 2, "violations logged");
+        reset_log_count(get_logger(protocol_checker(checked_master)), error);
+
+      elsif run("test_check_procedures_of_a_master_without_protocol_checker_fail") then
+        mock(get_logger(explicit_master), error);
+        set_check_enabled(net, explicit_master, qspi_cs_deselect, false);
+        check_log(get_logger(explicit_master), "tb_qspi_master_vci:explicit_master has no protocol checker", error);
+        count := 1;
+        get_check_count(net, explicit_master, qspi_cs_deselect, count);
+        check_log(get_logger(explicit_master), "tb_qspi_master_vci:explicit_master has no protocol checker", error);
+        check_equal(count, 0, "blocking count without a protocol checker");
+        get_check_count(net, explicit_master, qspi_cs_deselect, check_reference);
+        check_only_log(
+          get_logger(explicit_master),
+          "tb_qspi_master_vci:explicit_master has no protocol checker",
+          error
+        );
+        check(check_reference = null_msg, "no reference without a protocol checker");
+        unmock(get_logger(explicit_master));
       end if;
     end loop;
 

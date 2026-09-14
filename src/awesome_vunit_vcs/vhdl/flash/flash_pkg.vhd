@@ -432,6 +432,44 @@ package flash_pkg is
   );
 
   ---------------------------------------------------------------------------
+  -- Protocol checks
+  ---------------------------------------------------------------------------
+
+  -- :vhdl:`qspi_protocol_checker_pkg.set_check_enabled` for the protocol
+  -- checker of the flash. A flash without a protocol checker reports
+  -- ``<id> has no protocol checker`` as a check failure on its checker.
+  procedure set_check_enabled(
+    signal net : inout network_t;
+    flash : flash_t;
+    check : qspi_check_t;
+    enabled : boolean := true
+  );
+
+  -- Blocking: :vhdl:`qspi_protocol_checker_pkg.get_check_count` for the
+  -- protocol checker of the flash. A flash without a protocol checker reports
+  -- ``<id> has no protocol checker`` as a check failure on its checker, and
+  -- count is 0.
+  procedure get_check_count(
+    signal net : inout network_t;
+    flash : flash_t;
+    check : qspi_check_t;
+    variable count : out natural
+  );
+
+  -- Non-blocking: request the violation count of a rule of the protocol
+  -- checker of the flash, redeemed with
+  -- :vhdl:`qspi_protocol_checker_pkg.await_get_check_count_reply`. A flash
+  -- without a protocol checker reports ``<id> has no protocol checker`` as a
+  -- check failure on its checker, and reference is then null_msg, which is
+  -- not to be awaited.
+  procedure get_check_count(
+    signal net : inout network_t;
+    flash : flash_t;
+    check : qspi_check_t;
+    variable reference : inout qspi_protocol_checker_reference_t
+  );
+
+  ---------------------------------------------------------------------------
   -- The packed directive, see awesome_vunit_vcs/flash/directive.py
   ---------------------------------------------------------------------------
 
@@ -1077,5 +1115,54 @@ package body flash_pkg is
   begin
     flash_get_stat(net, flash, name, reference);
     await_flash_get_stat_reply(net, reference, value);
+  end;
+
+  -- Whether the flash has a protocol checker, after a check failure when not
+  impure function has_protocol_checker(flash : flash_t) return boolean is
+  begin
+    if flash.p_protocol_checker = null_qspi_protocol_checker then
+      check_failed(flash.p_checker, full_name(flash.p_id) & " has no protocol checker");
+      return false;
+    end if;
+    return true;
+  end;
+
+  procedure set_check_enabled(
+    signal net : inout network_t;
+    flash : flash_t;
+    check : qspi_check_t;
+    enabled : boolean := true
+  ) is
+  begin
+    if has_protocol_checker(flash) then
+      set_check_enabled(net, flash.p_protocol_checker, check, enabled);
+    end if;
+  end;
+
+  procedure get_check_count(
+    signal net : inout network_t;
+    flash : flash_t;
+    check : qspi_check_t;
+    variable count : out natural
+  ) is
+  begin
+    if has_protocol_checker(flash) then
+      get_check_count(net, flash.p_protocol_checker, check, count);
+    else
+      count := 0;
+    end if;
+  end;
+
+  procedure get_check_count(
+    signal net : inout network_t;
+    flash : flash_t;
+    check : qspi_check_t;
+    variable reference : inout qspi_protocol_checker_reference_t
+  ) is
+  begin
+    reference := null_msg;
+    if has_protocol_checker(flash) then
+      get_check_count(net, flash.p_protocol_checker, check, reference);
+    end if;
   end;
 end package body;

@@ -153,3 +153,5 @@ Breaking changes
   checker of the VC, as for the Ethernet VCs, instead of a failure on its logger.
 * Flash: two flashes with the same id, which would share one Python backend, are a failure on the
   logger of the second, as for the Ethernet VCs.
+* Flash: ``set_check_enabled`` and ``get_check_count``, blocking and with a reference, also take a
+  flash or a QSPI master and act on the protocol checker it owns.

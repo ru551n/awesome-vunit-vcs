@@ -150,6 +150,11 @@ Transactions
        deselect time. The callers of those transfers get replies: the bytes read before the abort, or
        none for a dropped transfer, so ``data`` can be shorter than ``num_read_bytes``. The master logs
        them at level info. It works while the far end is stuck, since the master drives the clock
+   * - ``set_check_enabled(net, qspi_master, check, enabled)``, ``get_check_count(net, qspi_master, check, count)``
+       and ``get_check_count(net, qspi_master, check, reference)``
+     - The procedures of the :doc:`qspi_protocol_checker` for the protocol checker of the master. A master
+       without one reports ``<id> has no protocol checker`` as a check failure on its checker; the
+       blocking ``get_check_count`` then returns 0, and the reference is ``null_msg``
    * - ``get_id``, ``get_logger``, ``get_actor``, ``get_checker``, ``as_sync``
      - The identity of the master. ``wait_until_idle(net, as_sync(qspi_master))`` waits for every
        queued transaction
@@ -238,8 +243,8 @@ Checks
 Statistics notes
 ----------------
 
-The master keeps no statistics. With a protocol checker, ``get_check_count`` on
-``protocol_checker(master)`` counts violations per rule.
+The master keeps no statistics. With a protocol checker, ``get_check_count(net, master, check,
+count)`` counts violations per rule.
 
 Python backend
 --------------

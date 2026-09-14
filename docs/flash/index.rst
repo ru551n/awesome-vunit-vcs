@@ -68,15 +68,17 @@ own one: pass a handle created with
 :vhdl:`qspi_master_pkg.new_qspi_master`, and the component instantiates the checker on its own pins.
 The default is :vhdl:`qspi_protocol_checker_pkg.null_qspi_protocol_checker`, so **pin timing is only
 checked where a protocol checker is passed or instantiated**. A checker in both the master and the
-flash of one bus reports every violation twice.
+flash of one bus reports every violation twice. ``set_check_enabled`` and ``get_check_count`` take
+the flash or the master for the checker it owns; ``protocol_checker(flash)`` returns that checker,
+for its logger and the rest of its procedures.
 
 .. code-block:: vhdl
 
    constant master : qspi_master_t := new_qspi_master;
    constant boot_flash : flash_t := new_flash(protocol_checker => new_qspi_protocol_checker(t_shsl => 60 ns));
    ...
-   -- The checker the flash instantiated, for its logger, counts and rule switches
-   get_check_count(net, protocol_checker(boot_flash), qspi_cs_deselect, count);
+   -- The counts and rule switches of the checker the flash instantiated
+   get_check_count(net, boot_flash, qspi_cs_deselect, count);
 
 Identities
 ----------

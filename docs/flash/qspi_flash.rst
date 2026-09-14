@@ -527,6 +527,11 @@ Configuration and state
    * - ``flash_wait_until_ready(net, flash, timeout)``
      - Blocking: wait until a busy time the component started is over. ``timeout`` defaults to 1 min,
        longer than the default ``t_ce``; a timeout is a failure
+   * - ``set_check_enabled(net, flash, check, enabled)``, ``get_check_count(net, flash, check, count)``
+       and ``get_check_count(net, flash, check, reference)``
+     - The procedures of the :doc:`qspi_protocol_checker` for the protocol checker of the flash. A flash
+       without one reports ``<id> has no protocol checker`` as a check failure on its checker; the
+       blocking ``get_check_count`` then returns 0, and the reference is ``null_msg``
    * - :vhdl:`reset(net, flash) <flash_pkg.reset>`
      - Blocking: return to standby, as a power-on reset. Status registers, WEL, addressing and QPI
        mode, continuous read, deep power-down and the status register protection return to their

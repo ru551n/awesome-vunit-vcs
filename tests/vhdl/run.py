@@ -34,5 +34,10 @@ for lanes, both_edges in ((4, False), (4, True), (8, False)):
         generics={"lanes": lanes, "both_edges": both_edges},
     )
 
+# MII at both of its link rates
+tb_mii = lib.test_bench("tb_mii")
+for link_rate_mbps in (10, 100):
+    tb_mii.add_config(name=f"{link_rate_mbps}_mbps", generics={"link_rate_mbps": link_rate_mbps})
+
 if __name__ == "__main__":
     vu.main()

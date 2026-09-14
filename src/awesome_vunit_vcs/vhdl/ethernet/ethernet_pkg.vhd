@@ -28,7 +28,7 @@ use work.vcs_python_pkg.py_str;
 package ethernet_pkg is
   -- The PHY interfaces with a VHDL frontend. The image of a value names the
   -- Python PHY decoder.
-  type ethernet_phy_t is (gmii, xgmii);
+  type ethernet_phy_t is (gmii, xgmii, mii);
 
   -- Protocol checks, named like the check IDs of the Python checker
   type ethernet_check_t is (
@@ -114,7 +114,7 @@ package ethernet_pkg is
   -- reports protocol violations on its checker, other messages on its logger.
   --
   -- link_rate_mbps is the rate of the link (1000 for GMII, 2500 for
-  -- overclocked GMII) used for utilization statistics.
+  -- overclocked GMII, 10 or 100 for MII) used for utilization statistics.
   -- The preamble, frame and IFG limits configure the protocol checks. Frame
   -- octets count from the destination address to the FCS; has_fcs = false
   -- is for frames observed without an FCS.

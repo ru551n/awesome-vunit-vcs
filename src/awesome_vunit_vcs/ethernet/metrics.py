@@ -205,8 +205,8 @@ class PerformanceMonitor:
             self._first = frame.timestamp_start_fs
         self._last = frame.timestamp_end_fs
         self._wire += len(frame.phy.octets)
-        self._phy_symbols += len(frame.phy.error_offsets)
-        self._phy_frames += bool(frame.phy.error_offsets)
+        self._phy_symbols += len(frame.phy.wire_error_offsets)
+        self._phy_frames += bool(frame.phy.wire_error_offsets)
         self._preamble += not frame.preamble_ok
         self._alignment += frame.phy.alignment_error
         if frame.ifg_octets is not None and frame.ifg_fs is not None:

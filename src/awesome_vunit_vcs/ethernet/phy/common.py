@@ -69,21 +69,35 @@ class WireFrame:
     What a source puts on the wire for one frame.
 
     ``octets`` is everything transmitted while valid: preamble, SFD, frame
-    and FCS. ``error_offsets`` are wire octet indexes (0 is the first
-    preamble octet) transmitted with the error signal asserted.
+    and FCS. ``wire_error_offsets`` are wire octet indexes (0 is the first
+    preamble octet) transmitted with the error signal asserted; PHY encoders
+    use them. :attr:`error_offsets` gives the same octets counted from the
+    first octet after the SFD, like every other public API.
     ``ifg_octets`` idle octets follow the frame.
     """
 
     octets: bytes
-    error_offsets: tuple[int, ...] = ()
+    wire_error_offsets: tuple[int, ...] = ()
     ifg_octets: int = 12
 
     def __post_init__(self) -> None:
         if self.ifg_octets < 0:
             raise ValueError(f"ifg_octets must not be negative, got {self.ifg_octets}")
-        for offset in self.error_offsets:
+        for offset in self.wire_error_offsets:
             if not 0 <= offset < len(self.octets):
                 raise ValueError(f"Error offset {offset} is outside the {len(self.octets)} wire octets")
+
+    @property
+    def mac_offset(self) -> int:
+        """Wire index of the first octet after the SFD: the preamble octets (0x55) and the octet after them."""
+        preamble = len(self.octets) - len(self.octets.lstrip(b"\x55"))
+        return preamble + 1
+
+    @property
+    def error_offsets(self) -> tuple[int, ...]:
+        """The error offsets counted from the first octet after the SFD, negative inside the preamble."""
+        base = self.mac_offset
+        return tuple(offset - base for offset in self.wire_error_offsets)
 
 
 @dataclass(slots=True, frozen=True)
@@ -92,7 +106,9 @@ class PhyFrame:
     Raw octets observed during one assertion of valid.
 
     Offsets are wire octet indexes, 0 being the first octet observed (normally
-    the first preamble octet).
+    the first preamble octet). A PHY frame does not know where its SFD is:
+    :class:`~awesome_vunit_vcs.ethernet.frame.EthernetFrame` gives the error
+    offsets counted from the first octet after the SFD.
     """
 
     index: int
@@ -100,7 +116,7 @@ class PhyFrame:
     octet_times_fs: tuple[int, ...]
     #: Time of the first sample where valid was observed deasserted
     timestamp_end_fs: int
-    error_offsets: tuple[int, ...] = ()
+    wire_error_offsets: tuple[int, ...] = ()
     metavalue_offsets: tuple[int, ...] = ()
     #: The frame ended with an incomplete octet (MII/RMII)
     alignment_error: bool = False
@@ -243,7 +259,7 @@ class FrameAssembler:
             octets=bytes(self._octets),
             octet_times_fs=tuple(self._times),
             timestamp_end_fs=end_fs,
-            error_offsets=tuple(self._errors),
+            wire_error_offsets=tuple(self._errors),
             metavalue_offsets=tuple(self._meta),
             alignment_error=self._alignment,
             started_in_progress=self._started_in_progress,

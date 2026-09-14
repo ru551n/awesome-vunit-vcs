@@ -128,7 +128,8 @@ def test_phy_error_offsets() -> None:
     recorder = run(line)
     assert recorder.checks() == [CheckId.PHY_ERROR]
     frame = recorder.frames[0]
-    assert frame.phy.error_offsets == (20,)
+    assert frame.phy.wire_error_offsets == (20,)
+    assert frame.error_offsets == (12,)
     assert frame.mac_error_offsets == (12,)
     assert "frame offsets=12" in recorder.violations[0].message
 

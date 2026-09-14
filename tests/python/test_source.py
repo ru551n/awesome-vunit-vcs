@@ -35,7 +35,8 @@ def test_invalid_requests() -> None:
 def test_error_offsets_count_from_the_first_octet_after_the_sfd() -> None:
     wire = build_wire_frame(ethernet_mac_octets(60), preamble_octets=5, error_offsets=(0, 20, -1, -6))
     # 5 preamble octets and the SFD come first on the wire
-    assert wire.error_offsets == (6, 26, 5, 0)
+    assert wire.wire_error_offsets == (6, 26, 5, 0)
+    assert wire.error_offsets == (0, 20, -1, -6)
     with pytest.raises(ValueError):
         build_wire_frame(ethernet_mac_octets(60), error_offsets=(-9,))
 
@@ -53,7 +54,7 @@ def test_error_offsets_match_the_phy_error_report() -> None:
 
 
 def test_gmii_encoding() -> None:
-    wire = WireFrame(b"\x55\xd5\x01", error_offsets=(2,), ifg_octets=2)
+    wire = WireFrame(b"\x55\xd5\x01", wire_error_offsets=(2,), ifg_octets=2)
     symbols = GmiiPhy().encode(wire)
     assert symbols.dtype == np.int32
     assert symbols.tolist() == [0x55 | VALID, 0xD5 | VALID, 0x01 | VALID | (1 << 9), 0, 0]

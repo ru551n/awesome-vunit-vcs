@@ -251,9 +251,9 @@ class ProtocolChecker:
                 index,
             )
 
-        if phy.error_offsets:
-            offsets = ", ".join(str(offset) for offset in frame.mac_error_offsets[:16])
-            more = " ..." if len(phy.error_offsets) > 16 else ""
+        if phy.wire_error_offsets:
+            offsets = ", ".join(str(offset) for offset in frame.error_offsets[:16])
+            more = " ..." if len(phy.wire_error_offsets) > 16 else ""
             self._report(
                 CheckId.PHY_ERROR,
                 f"PHY error asserted during frame {index}",

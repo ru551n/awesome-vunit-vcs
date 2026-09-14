@@ -133,7 +133,7 @@ class MiiPhy:
         octets = np.frombuffer(wire.octets, dtype=np.uint8).astype(np.int32)
         symbols[0 : 2 * count : 2] = (octets & NIBBLE_MASK) | WORD_VALID
         symbols[1 : 2 * count : 2] = (octets >> 4) | WORD_VALID
-        for offset in wire.error_offsets:
+        for offset in wire.wire_error_offsets:
             symbols[2 * offset : 2 * offset + 2] |= WORD_ERROR
         return symbols
 

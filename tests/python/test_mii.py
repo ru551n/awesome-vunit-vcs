@@ -37,7 +37,7 @@ class Recorder:
 
 
 def test_encode_is_least_significant_nibble_first() -> None:
-    wire = WireFrame(octets=b"\x55\xd5\x02\x88\xb5", error_offsets=(3,), ifg_octets=2)
+    wire = WireFrame(octets=b"\x55\xd5\x02\x88\xb5", wire_error_offsets=(3,), ifg_octets=2)
     expected = [0x5, 0x5, 0x5, 0xD, 0x2, 0x0, 0x8, 0x8, 0x5, 0xB]
     words = MiiPhy().encode(wire).tolist()
     assert [word & 0xF for word in words[:10]] == expected

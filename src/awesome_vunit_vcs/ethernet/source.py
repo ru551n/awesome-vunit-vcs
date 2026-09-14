@@ -58,7 +58,8 @@ def build_wire_frame(
             and the preamble.
 
     Returns:
-        The wire frame, whose error offsets are wire octet indexes.
+        The wire frame. Its ``error_offsets`` are the given offsets; its
+        ``wire_error_offsets`` are the wire octet indexes PHY encoders use.
 
     Raises:
         ValueError: An argument is out of range, or an error offset is outside the frame.

@@ -34,6 +34,6 @@ class GmiiPhy:
         symbols = np.zeros(len(wire.octets) + wire.ifg_octets, dtype=np.int32)
         symbols[: len(wire.octets)] = np.frombuffer(wire.octets, dtype=np.uint8)
         symbols[: len(wire.octets)] |= WORD_VALID
-        if wire.error_offsets:
-            symbols[list(wire.error_offsets)] |= WORD_ERROR
+        if wire.wire_error_offsets:
+            symbols[list(wire.wire_error_offsets)] |= WORD_ERROR
         return symbols

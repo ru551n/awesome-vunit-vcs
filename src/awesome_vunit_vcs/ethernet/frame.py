@@ -200,13 +200,21 @@ class EthernetFrame:
     @property
     def has_phy_error(self) -> bool:
         """Whether the error signal was asserted during the frame."""
-        return bool(self.phy.error_offsets)
+        return bool(self.phy.wire_error_offsets)
+
+    @property
+    def error_offsets(self) -> tuple[int, ...]:
+        """Octets received with the error signal, counted from the first octet after the SFD.
+
+        Offsets inside the preamble and the SFD are negative.
+        """
+        base = 0 if self.sfd_offset is None else self.sfd_offset + 1
+        return tuple(offset - base for offset in self.phy.wire_error_offsets)
 
     @property
     def mac_error_offsets(self) -> tuple[int, ...]:
-        """Error offsets relative to the first octet after the SFD (negative inside the preamble)."""
-        base = 0 if self.sfd_offset is None else self.sfd_offset + 1
-        return tuple(offset - base for offset in self.phy.error_offsets)
+        """The same as :attr:`error_offsets`, the name used before it."""
+        return self.error_offsets
 
     @property
     def is_good(self) -> bool:
@@ -217,7 +225,7 @@ class EthernetFrame:
             and self.fcs_ok is not False
             and not self.is_runt
             and not self.is_giant
-            and not self.phy.error_offsets
+            and not self.phy.wire_error_offsets
             and not self.phy.metavalue_offsets
             and not self.phy.alignment_error
         )

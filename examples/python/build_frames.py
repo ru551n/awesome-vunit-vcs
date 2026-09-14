@@ -32,5 +32,6 @@ assert wire.ifg_octets == 12
 # short inter-frame gap, and the error signal with the first octet after the SFD
 bad = build_wire_frame(mac_octets, fcs=FcsMode.BAD, preamble_octets=5, pad=False, ifg_octets=4, error_offsets=[0])
 assert not MacFrame(bad.octets[6:]).fcs_ok
-assert bad.error_offsets == (6,)  # wire octet index: 5 preamble octets and the SFD come first
+assert bad.error_offsets == (0,)  # counted from the first octet after the SFD
+assert bad.wire_error_offsets == (6,)  # wire octet index: 5 preamble octets and the SFD come first
 print(f"{len(wire.octets)} octets on the wire, FCS 0x{frame.fcs_received:08X}")

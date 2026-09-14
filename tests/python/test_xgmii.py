@@ -95,7 +95,7 @@ def test_error_character_in_frame() -> None:
     recorder = run(line)
     assert CheckId.PHY_ERROR in recorder.checks()
     assert CheckId.FCS in recorder.checks()
-    assert recorder.frames[0].phy.error_offsets == (21,)
+    assert recorder.frames[0].phy.wire_error_offsets == (21,)
 
 
 def test_error_character_outside_frame() -> None:
@@ -239,7 +239,7 @@ def test_encoder_matches_hand_built_columns() -> None:
 
 def test_encoder_error_offsets_and_short_gap() -> None:
     phy = XgmiiPhy(lanes=8, deficit_idle=False)
-    symbols = phy.encode(WireFrame(bytes(76), error_offsets=(10,), ifg_octets=1)).tolist()
+    symbols = phy.encode(WireFrame(bytes(76), wire_error_offsets=(10,), ifg_octets=1)).tolist()
     assert symbols[10] == XGMII_ERROR | XGMII_CONTROL
     assert symbols[76] == XGMII_TERMINATE | XGMII_CONTROL
     assert len(symbols) == 80

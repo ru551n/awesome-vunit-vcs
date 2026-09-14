@@ -315,8 +315,8 @@ class XgmiiPhy:
         symbols = np.full(length + gap, XGMII_IDLE | WORD_CONTROL, dtype=np.int32)
         symbols[:length] = np.frombuffer(wire.octets, dtype=np.uint8)
         symbols[0] = XGMII_START | WORD_CONTROL
-        if wire.error_offsets:
-            symbols[list(wire.error_offsets)] = XGMII_ERROR | WORD_CONTROL
+        if wire.wire_error_offsets:
+            symbols[list(wire.wire_error_offsets)] = XGMII_ERROR | WORD_CONTROL
         symbols[length] = XGMII_TERMINATE | WORD_CONTROL
         return symbols
 

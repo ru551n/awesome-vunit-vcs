@@ -26,7 +26,7 @@ Interfaces and samples
 ~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: awesome_vunit_vcs.ethernet.interfaces
-   :members: Interface, GMII, MII, XGMII, Samples, INTERFACE_NAMES, SupportsToWire, Encodable, to_wire_frame
+   :members: Interface, GMII, MII, XGMII, AXIS, Samples, INTERFACE_NAMES, SupportsToWire, Encodable, to_wire_frame
 
 Limits and malformations
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -127,6 +127,9 @@ PHY decoders
 
 .. automodule:: awesome_vunit_vcs.ethernet.phy.mii
    :members: MiiPhy
+
+.. automodule:: awesome_vunit_vcs.ethernet.phy.axis
+   :members: AxisPhy
 
 Simulation backends
 -------------------

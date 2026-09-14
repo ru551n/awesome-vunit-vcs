@@ -28,7 +28,7 @@ from typing import Any, Literal, SupportsBytes, get_args
 from ..common.events import Publisher
 from .checker import CheckId, Violation
 from .errors import EthernetValueError
-from .frame import SFD_OCTET, EthernetFrame, MacFrame, MonitorConfig, append_fcs
+from .frame import FCS_OCTETS, SFD_OCTET, EthernetFrame, MacFrame, MonitorConfig, append_fcs
 from .interfaces import GMII, Encodable, Interface, Samples
 from .limits import LIMITS, Limits, Malformation
 from .metrics import Statistics
@@ -384,7 +384,9 @@ class Result:
 
 
 def _default_config(interface: Interface) -> MonitorConfig:
-    return MonitorConfig(min_ifg_octets=interface.min_ifg_octets)
+    return MonitorConfig(
+        min_ifg_octets=interface.min_ifg_octets, has_fcs=interface.has_fcs, has_preamble=interface.has_preamble
+    )
 
 
 class Monitor:
@@ -627,9 +629,14 @@ def supported_malformations(interface: Interface) -> frozenset[Malformation]:
     The malformations whose violations :func:`expected_violations` predicts exactly on an interface.
 
     MII realigns nibbles on the SFD, so a wrong SFD may be found elsewhere; the
-    XGMII family rounds gaps to whole columns, so a short gap is not exact.
+    XGMII family rounds gaps to whole columns, so a short gap is not exact. AXI-Stream
+    frames have no preamble, SFD or gap.
     """
-    unsupported = {"mii": {Malformation.BAD_SFD}, "xgmii": {Malformation.SHORT_IFG}}.get(interface.name, set())
+    unsupported = {
+        "mii": {Malformation.BAD_SFD},
+        "xgmii": {Malformation.SHORT_IFG},
+        "axis": {Malformation.SHORT_PREAMBLE, Malformation.LONG_PREAMBLE, Malformation.BAD_SFD, Malformation.SHORT_IFG},
+    }.get(interface.name, set())
     return frozenset(Malformation) - unsupported
 
 
@@ -662,6 +669,8 @@ def expected_violations(
     config = config or _default_config(interface)
     wire = frame.to_wire(options)
     octets = wire.octets
+    if not interface.has_preamble:
+        return _expected_axis_violations(wire, config)
     if interface.name == "xgmii" and wire.wire_error_offsets:
         # The Error control character replaces the octet on the lane: it is received as 0xFE
         received = bytearray(octets)
@@ -699,5 +708,24 @@ def expected_violations(
     if mac.size_with_fcs > config.max_frame_octets:
         found.add(CheckId.GIANT)
     if wire.wire_error_offsets:
+        found.add(CheckId.PHY_ERROR)
+    return frozenset(found)
+
+
+def _expected_axis_violations(wire: WireFrame, config: MonitorConfig) -> frozenset[CheckId]:
+    """The violations of a frame on an interface without preamble: the frame checks only."""
+    start = wire.mac_offset
+    octets = wire.octets[start:]
+    if not config.has_fcs:
+        octets = octets[:-FCS_OCTETS] if len(octets) >= FCS_OCTETS else b""
+    mac = MacFrame(octets, config.has_fcs)
+    found: set[CheckId] = set()
+    if mac.fcs_ok is False:
+        found.add(CheckId.FCS)
+    if mac.size_with_fcs < config.min_frame_octets:
+        found.add(CheckId.RUNT)
+    if mac.size_with_fcs > config.max_frame_octets:
+        found.add(CheckId.GIANT)
+    if any(offset >= start for offset in wire.wire_error_offsets):
         found.add(CheckId.PHY_ERROR)
     return frozenset(found)

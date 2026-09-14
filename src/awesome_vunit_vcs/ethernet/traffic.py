@@ -37,7 +37,7 @@ from typing import SupportsBytes
 
 from .api import Frame, WireOptions, supported_malformations
 from .errors import EthernetValueError
-from .interfaces import GMII, MII, XGMII, Interface
+from .interfaces import AXIS, GMII, MII, XGMII, Interface
 from .limits import LIMITS, Limits, Malformation
 from .phy.common import WireFrame
 
@@ -374,7 +374,7 @@ def interface_named(name: str) -> Interface:
     Raises:
         TrafficError: An unknown name.
     """
-    interfaces = {"gmii": GMII, "mii": MII, "xgmii": XGMII()}
+    interfaces = {"gmii": GMII, "mii": MII, "xgmii": XGMII(), "axis": AXIS()}
     try:
         return interfaces[name.lower()]
     except KeyError:

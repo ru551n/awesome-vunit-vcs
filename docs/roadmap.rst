@@ -46,7 +46,7 @@ Ethernet interfaces
      - Any
      - tdata, tkeep, tlast, tuser (error)
      - Rising edge with the tvalid/tready handshake; frames without preamble, FCS configurable
-     - Planned
+     - Done
 
 The XGMII family is one component with lane count (4 or 8), clocking and link rate settings, so
 2.5GMII, 5GMII, XGMII, 25GMII, XLGMII, CGMII, 200GMII and 400GMII need no components of their own.

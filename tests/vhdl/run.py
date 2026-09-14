@@ -58,5 +58,16 @@ tb_mii = lib.test_bench("tb_mii")
 for link_rate_mbps in (10, 100):
     tb_mii.add_config(name=f"{link_rate_mbps}_mbps", generics={"link_rate_mbps": link_rate_mbps})
 
+tb_axis_mac = lib.test_bench("tb_axis_mac")
+for bytes_per_beat, ready_high_percent, valid_low_percent in ((8, 100, 0), (1, 60, 20), (4, 70, 30)):
+    tb_axis_mac.add_config(
+        name=f"{bytes_per_beat}_bytes_ready_{ready_high_percent}_valid_low_{valid_low_percent}",
+        generics={
+            "bytes_per_beat": bytes_per_beat,
+            "ready_high_percent": ready_high_percent,
+            "valid_low_percent": valid_low_percent,
+        },
+    )
+
 if __name__ == "__main__":
     vu.main()

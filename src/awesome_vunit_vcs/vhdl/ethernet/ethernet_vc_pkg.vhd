@@ -109,6 +109,47 @@ package ethernet_vc_pkg is
     signal data : out std_ulogic_vector;
     signal ctrl : out std_ulogic_vector
   );
+  -- The process of a monitor or protocol checker of an AXI-Stream MAC client
+  -- interface. Every clock edge where tvalid is high or the bus changed is
+  -- recorded as one sample word per octet lane, lane 0 first. Sample words (see
+  -- awesome_vunit_vcs/ethernet/phy/axis.py):
+  --
+  --   bit 0-7  tdata of the lane
+  --   bit 8    tkeep of the lane
+  --   bit 9    tuser(0)
+  --   bit 10   metavalue on the data of a kept lane while tvalid is high
+  --   bit 11   metavalue on tvalid or tready, or on tlast, tkeep or tuser while tvalid is high
+  --   bit 13   tvalid
+  --   bit 14   tready
+  --   bit 15   tlast
+  --
+  -- Never returns.
+  procedure monitor_axis_interface(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal tdata : in std_ulogic_vector;
+    signal tkeep : in std_ulogic_vector;
+    signal tvalid : in std_ulogic;
+    signal tready : in std_ulogic;
+    signal tlast : in std_ulogic;
+    signal tuser : in std_ulogic_vector
+  );
+
+  -- The process of a source of an AXI-Stream MAC client interface: the beats
+  -- the backend returns for a frame, each held until tready accepts it, and
+  -- tvalid low when there is nothing to transmit. Never returns.
+  procedure drive_axis_interface(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal tdata : out std_ulogic_vector;
+    signal tkeep : out std_ulogic_vector;
+    signal tvalid : out std_ulogic;
+    signal tready : in std_ulogic;
+    signal tlast : out std_ulogic;
+    signal tuser : out std_ulogic_vector
+  );
 end package;
 
 package body ethernet_vc_pkg is
@@ -142,7 +183,13 @@ package body ethernet_vc_pkg is
   impure function phy_options(vc : ethernet_vc_t) return arg_t is
     constant cfg : ethernet_cfg_t := vc.p_cfg;
   begin
-    if cfg.p_interface /= xgmii then
+    if cfg.p_interface = axis then
+      if vc.p_kind = source_vc then
+        return kwarg("lanes", cfg.p_lanes) & kwarg("has_fcs", cfg.p_has_fcs) &
+          kwarg("valid_low_percent", cfg.p_valid_low_percent) & kwarg("seed", cfg.p_seed);
+      end if;
+      return kwarg("lanes", cfg.p_lanes);
+    elsif cfg.p_interface /= xgmii then
       return null_arg;
     elsif vc.p_kind = source_vc then
       return kwarg("lanes", cfg.p_lanes) & kwarg("deficit_idle", cfg.p_deficit_idle);
@@ -1343,6 +1390,259 @@ package body ethernet_vc_pkg is
           state.sequence_active := false;
         end if;
       end if;
+
+      unexpected_msg_type(msg_type, vc);
+    end loop;
+  end;
+  procedure monitor_axis_interface(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal tdata : in std_ulogic_vector;
+    signal tkeep : in std_ulogic_vector;
+    signal tvalid : in std_ulogic;
+    signal tready : in std_ulogic;
+    signal tlast : in std_ulogic;
+    signal tuser : in std_ulogic_vector
+  ) is
+    constant lanes : positive := tkeep'length;
+    alias data_bits : std_ulogic_vector(8 * lanes - 1 downto 0) is tdata;
+    alias keep_bits : std_ulogic_vector(lanes - 1 downto 0) is tkeep;
+    alias user_bits : std_ulogic_vector(tuser'length - 1 downto 0) is tuser;
+
+    subtype sample_word_t is natural range 0 to 2 ** 16 - 1;
+    type column_t is array (0 to lanes - 1) of sample_word_t;
+    constant keep_bit : sample_word_t := 2 ** 8;
+    constant user_bit : sample_word_t := 2 ** 9;
+    constant data_metavalue_bit : sample_word_t := 2 ** 10;
+    constant control_metavalue_bit : sample_word_t := 2 ** 11;
+    constant valid_bit : sample_word_t := 2 ** 13;
+    constant ready_bit : sample_word_t := 2 ** 14;
+    constant last_bit : sample_word_t := 2 ** 15;
+
+    variable state : monitor_state_t;
+    variable column : column_t;
+    variable previous_column : column_t := (others => 0);
+    variable recorded : boolean := false;
+    variable valid, handshake, last : boolean;
+    variable in_frame : boolean := false;
+    variable finished : boolean := false;
+
+    impure function sample_column return column_t is
+      variable control : sample_word_t := 0;
+      variable lane_data : std_ulogic_vector(7 downto 0);
+      variable result : column_t;
+      variable sampled_valid : boolean;
+    begin
+      sampled_valid := to_x01(tvalid) = '1';
+      if sampled_valid then
+        control := control + valid_bit;
+      end if;
+      if to_x01(tready) = '1' then
+        control := control + ready_bit;
+      end if;
+      if sampled_valid and to_x01(tlast) = '1' then
+        control := control + last_bit;
+      end if;
+      if sampled_valid and to_x01(user_bits(0)) = '1' then
+        control := control + user_bit;
+      end if;
+      if is_x(tvalid) or is_x(tready) or (sampled_valid and (is_x(tlast) or is_x(keep_bits) or is_x(user_bits))) then
+        control := control + control_metavalue_bit;
+      end if;
+      for lane in result'range loop
+        result(lane) := control;
+        if sampled_valid then
+          lane_data := data_bits(8 * lane + 7 downto 8 * lane);
+          result(lane) := result(lane) + to_integer(to_01(unsigned(lane_data)));
+          if to_x01(keep_bits(lane)) = '1' then
+            result(lane) := result(lane) + keep_bit;
+            if is_x(lane_data) then
+              result(lane) := result(lane) + data_metavalue_bit;
+            end if;
+          end if;
+        end if;
+      end loop;
+      return result;
+    end;
+  begin
+    assert tdata'length = 8 * lanes report "AXI-Stream tdata must have 8 bits per tkeep bit" severity failure;
+    init_monitor(vc, state);
+
+    while not finished loop
+      if state.resume_time > now then
+        wait on clk, net, runner for state.resume_time - now;
+      else
+        wait on clk, net, runner;
+      end if;
+
+      if rising_edge(clk) then
+        column := sample_column;
+        valid := column(0) / valid_bit mod 2 = 1;
+        handshake := valid and column(0) / ready_bit mod 2 = 1;
+        last := handshake and column(0) / last_bit mod 2 = 1;
+        if state.discard_frame then
+          -- The rest of a frame in progress when the monitor was reset: until
+          -- tlast, or until tvalid is low, as a source that was reset leaves it
+          if last or not valid then
+            state.discard_frame := false;
+          end if;
+        elsif valid or column /= previous_column or not recorded then
+          for lane in column'range loop
+            record_sample(state.batch, column(lane));
+          end loop;
+          recorded := true;
+        end if;
+
+        if last then
+          end_monitor_frame(net, vc, state);
+        end if;
+        if handshake then
+          in_frame := not last;
+        end if;
+        previous_column := column;
+      end if;
+
+      handle_monitor_messages(net, vc, state, in_frame);
+      -- A reset forgets the frame in progress
+      if state.discard_frame then
+        in_frame := false;
+      end if;
+
+      -- Final checks when the test ends, within the gates of test_runner_cleanup
+      if is_active(runner_phase) and is_within_gates_of(test_runner_cleanup) then
+        finish_monitor(vc, state);
+        finished := true;
+      end if;
+    end loop;
+
+    wait;
+  end;
+
+  procedure drive_axis_interface(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    signal clk : in std_ulogic;
+    signal tdata : out std_ulogic_vector;
+    signal tkeep : out std_ulogic_vector;
+    signal tvalid : out std_ulogic;
+    signal tready : in std_ulogic;
+    signal tlast : out std_ulogic;
+    signal tuser : out std_ulogic_vector
+  ) is
+    constant lanes : positive := tkeep'length;
+
+    variable state : source_state_t;
+    variable msg : msg_t;
+    variable msg_type : msg_type_t;
+    variable symbols_call : symbols_call_t;
+    variable symbols : integer_array_t;
+    variable word : natural;
+    variable valid : boolean;
+    variable column_data : std_ulogic_vector(8 * lanes - 1 downto 0);
+    variable column_keep : std_ulogic_vector(lanes - 1 downto 0);
+    variable column_user : std_ulogic_vector(tuser'length - 1 downto 0);
+
+    -- Wait for the next rising edge, or for a reset, which may arrive while
+    -- the clock is stopped
+    procedure wait_for_edge is
+    begin
+      loop
+        receive_during_transmit(net, vc, state);
+        exit when state.has_reset;
+        wait on clk, net until rising_edge(clk) or has_message(vc.p_actor);
+        if rising_edge(clk) then
+          receive_during_transmit(net, vc, state);
+          exit;
+        end if;
+      end loop;
+    end;
+
+    procedure drive_idle is
+    begin
+      tdata <= (tdata'range => '0');
+      tkeep <= (tkeep'range => '0');
+      tvalid <= '0';
+      tlast <= '0';
+      tuser <= (tuser'range => '0');
+    end;
+
+    -- Deassert tvalid at once, which abandons a frame in progress, and keep it
+    -- low for a clock edge, so monitors see the frame end before the next one
+    procedure abort_for_reset is
+    begin
+      drive_idle;
+      clear(symbols_call);
+      answer_reset(net, state);
+      wait_for_edge;
+      if state.has_reset then
+        answer_reset(net, state);
+      end if;
+    end;
+
+    -- Drive one beat, or a clock with tvalid low, and wait until it is accepted
+    procedure drive_column(column : natural) is
+    begin
+      word := get(symbols, column * lanes);
+      valid := word / 2 ** 13 mod 2 = 1;
+      if valid then
+        for lane in 0 to lanes - 1 loop
+          word := get(symbols, column * lanes + lane);
+          column_data(8 * lane + 7 downto 8 * lane) := std_ulogic_vector(to_unsigned(word mod 2 ** 8, 8));
+          column_keep(lane) := '1' when word / 2 ** 8 mod 2 = 1 else '0';
+        end loop;
+        word := get(symbols, column * lanes);
+        column_user := (others => '0');
+        column_user(0) := '1' when word / 2 ** 9 mod 2 = 1 else '0';
+        tdata <= column_data;
+        tkeep <= column_keep;
+        tlast <= '1' when word / 2 ** 15 mod 2 = 1 else '0';
+        tuser <= column_user;
+        tvalid <= '1';
+      else
+        drive_idle;
+      end if;
+      loop
+        wait_for_edge;
+        exit when state.has_reset or not valid or to_x01(tready) = '1';
+      end loop;
+    end;
+  begin
+    assert tdata'length = 8 * lanes report "AXI-Stream tdata must have 8 bits per tkeep bit" severity failure;
+    init_source(vc, state);
+
+    loop
+      next_source_message(net, vc, state, msg);
+      msg_type := message_type(msg);
+
+      if msg_type = reset_ethernet_source_msg then
+        handle_message(msg_type);
+        drop_for_reset(net, state);
+        state.reset_request := msg;
+        abort_for_reset;
+      else
+        handle_source_message(net, vc, state, msg_type, msg, symbols_call);
+        handle_sync_message(net, msg_type, msg);
+      end if;
+
+      -- A frame, or the batches of a sequence until it is exhausted
+      while symbols_call.method /= null loop
+        get_symbols(state.session, symbols_call, symbols);
+        if length(symbols) = 0 or not state.sequence_active then
+          clear(symbols_call);
+        end if;
+        for column in 0 to length(symbols) / lanes - 1 loop
+          drive_column(column);
+          exit when state.has_reset;
+        end loop;
+        deallocate(symbols);
+        if state.has_reset then
+          abort_for_reset;
+        else
+          drive_idle;
+        end if;
+      end loop;
+      state.sequence_active := false;
 
       unexpected_msg_type(msg_type, vc);
     end loop;

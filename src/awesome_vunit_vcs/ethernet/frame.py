@@ -58,6 +58,9 @@ class MonitorConfig:
     max_frame_octets: int = MAX_FRAME_OCTETS
     min_ifg_octets: int = MIN_IFG_OCTETS
     has_fcs: bool = True
+    #: Whether frames start with a preamble and SFD. Interfaces that deliver frames
+    #: without them, such as an AXI-Stream MAC client, have no preamble, SFD or gap checks.
+    has_preamble: bool = True
 
     def __post_init__(self) -> None:
         if not 0 <= self.min_preamble_octets <= self.max_preamble_octets:
@@ -253,6 +256,20 @@ class FrameDecoder:
         """
         config = self.config
         octets = phy.octets
+
+        if not config.has_preamble:
+            # The frame starts at the destination address, and there is no gap to measure
+            return EthernetFrame(
+                phy=phy,
+                preamble_octets=0,
+                preamble_ok=True,
+                sfd_offset=None,
+                mac=MacFrame(octets, config.has_fcs),
+                ifg_octets=None,
+                ifg_fs=None,
+                is_runt=MacFrame(octets, config.has_fcs).size_with_fcs < config.min_frame_octets,
+                is_giant=MacFrame(octets, config.has_fcs).size_with_fcs > config.max_frame_octets,
+            )
 
         preamble = 0
         while preamble < len(octets) and octets[preamble] == PREAMBLE_OCTET:

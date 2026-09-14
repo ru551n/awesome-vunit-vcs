@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..errors import EthernetValueError
+from .axis import AxisPhy
 from .common import (
     FrameAssembler,
     IdleEvent,
@@ -19,6 +20,7 @@ from .mii import MiiPhy
 from .xgmii import XgmiiPhy
 
 _INTERFACES: dict[str, type[Any]] = {
+    "axis": AxisPhy,
     "gmii": GmiiPhy,
     "mii": MiiPhy,
     "xgmii": XgmiiPhy,
@@ -37,6 +39,7 @@ def create_phy(interface: str, **options: Any) -> PhyInterface:
 
 
 __all__ = [
+    "AxisPhy",
     "FrameAssembler",
     "GmiiPhy",
     "IdleEvent",

@@ -102,6 +102,18 @@ Look up a check
      - An error reported by your Python code with ``vc.error``
      -
      - all
+   * - ``eth_keep``
+     - ``tkeep`` not contiguous, or a partial beat before ``tlast``
+     -
+     - AXI-Stream MAC client
+   * - ``eth_stable``
+     - ``tdata``, ``tkeep``, ``tlast`` or ``tuser`` changed while ``tvalid`` waited for ``tready``
+     -
+     - AXI-Stream MAC client
+   * - ``eth_valid``
+     - ``tvalid`` went low before ``tready`` accepted the beat
+     -
+     - AXI-Stream MAC client
 
 Send traffic that breaks the rules
 ----------------------------------

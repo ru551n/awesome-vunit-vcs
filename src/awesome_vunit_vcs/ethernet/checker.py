@@ -45,6 +45,12 @@ class CheckId(str, enum.Enum):
     SCOREBOARD = "ETH_SCOREBOARD"
     #: An error reported by user code, such as a Python subscriber of a VC
     USER = "ETH_USER"
+    #: tkeep of an AXI-Stream beat not contiguous, or partial on a beat before the last
+    KEEP = "ETH_KEEP"
+    #: tdata, tkeep, tlast or tuser of an AXI-Stream bus changed while tvalid waited for tready
+    STABLE = "ETH_STABLE"
+    #: tvalid of an AXI-Stream bus deasserted before tready accepted the beat
+    VALID = "ETH_VALID"
 
     @classmethod
     def parse(cls, check: CheckId | str) -> CheckId:
@@ -223,7 +229,7 @@ class ProtocolChecker:
                 index,
             )
 
-        if frame.sfd_offset is None:
+        if frame.sfd_offset is None and config.has_preamble:
             offset = frame.preamble_octets
             received = f"0x{phy.octets[offset]:02X}" if offset < len(phy.octets) else "end of frame"
             self._report(

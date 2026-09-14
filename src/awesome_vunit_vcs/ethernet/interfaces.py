@@ -2,7 +2,7 @@
 Ethernet interfaces as values, and the sample words they carry.
 
 An :class:`Interface` names a PHY interface and its configuration: ``GMII``,
-``MII`` and ``XGMII(lanes=8, rate="100G")``. It creates the PHY decoder and
+``MII``, ``XGMII(lanes=8, rate="100G")`` and ``AXIS(bytes_per_beat=8)``. It creates the PHY decoder and
 encoder, knows its clock period and turns frames into :class:`Samples`, the
 sample words a VHDL monitor records, so decoders can be exercised without a
 simulator.
@@ -19,6 +19,7 @@ import numpy.typing as npt
 
 from .errors import EthernetValueError
 from .limits import LIMITS
+from .phy.axis import AXIS_READY, AxisPhy
 from .phy.common import Int64Array, PhyInterface, WireFrame
 from .phy.gmii import GmiiPhy
 from .phy.mii import MiiPhy
@@ -27,7 +28,7 @@ from .source import build_wire_frame
 from .units import FS_PER_SECOND, bps
 
 #: The names of the interfaces an :class:`Interface` can describe
-INTERFACE_NAMES = ("gmii", "mii", "xgmii")
+INTERFACE_NAMES = ("gmii", "mii", "xgmii", "axis")
 
 
 @runtime_checkable
@@ -106,6 +107,12 @@ class Interface:
         lanes: 1, or the lane count of the XGMII family (4 or 8).
         allow_lane4_start: XGMII with 8 lanes: accept frames that start on lane 4.
         deficit_idle: XGMII sources: round gaps like a deficit idle count.
+        has_fcs: AXI-Stream: whether frames on the bus carry their FCS.
+        valid_low_percent: AXI-Stream sources: the chance in percent of a clock
+            with tvalid low before each beat after the first.
+        ready_low_percent: AXI-Stream: the chance in percent of a clock with
+            tready low before a handshake in :meth:`encode`, like a sink applying backpressure.
+        seed: AXI-Stream: the seed of those stall patterns.
 
     Raises:
         EthernetValueError: The combination is not a valid interface.
@@ -116,6 +123,10 @@ class Interface:
     lanes: int = 1
     allow_lane4_start: bool = False
     deficit_idle: bool = True
+    has_fcs: bool = True
+    valid_low_percent: int = 0
+    ready_low_percent: int = 0
+    seed: int = 0
 
     def __post_init__(self) -> None:
         if self.name not in INTERFACE_NAMES:
@@ -125,10 +136,15 @@ class Interface:
         if self.name == "xgmii":
             if self.lanes not in LIMITS.xgmii_lanes:
                 raise EthernetValueError(f"An XGMII interface has 4 or 8 lanes, got {self.lanes}")
+        elif self.name == "axis":
+            if self.lanes < 1:
+                raise EthernetValueError(f"An AXI-Stream interface has at least 1 octet per beat, got {self.lanes}")
         elif self.lanes != 1:
             raise EthernetValueError(f"A {self.name.upper()} interface has 1 lane, got {self.lanes}")
         if self.name == "mii" and self.link_rate_bps not in LIMITS.mii_rates_bps:
             raise EthernetValueError(f"MII runs at 10 or 100 Mb/s, got {self.link_rate_bps} bps")
+        if self.name != "axis" and (self.valid_low_percent or self.ready_low_percent):
+            raise EthernetValueError("Stall patterns apply to AXI-Stream interfaces only")
         if self.allow_lane4_start and self.lanes != 8:
             raise EthernetValueError("allow_lane4_start needs 8 lanes")
 
@@ -143,19 +159,26 @@ class Interface:
 
     @property
     def words_per_clock(self) -> int:
-        """The number of sample words recorded per clock edge, which is the lane count."""
+        """How many sample words are recorded per clock edge, the lane count or the octets per AXI-Stream beat."""
         return self.lanes
 
     @property
     def clock_period_fs(self) -> int:
         """The time in fs between recorded clock edges, one octet (GMII), nibble (MII) or column (XGMII) apart."""
-        bits_per_clock = {"gmii": 8, "mii": 4, "xgmii": 8 * self.lanes}[self.name]
+        bits_per_clock = {"gmii": 8, "mii": 4, "xgmii": 8 * self.lanes, "axis": 8 * self.lanes}[self.name]
         return bits_per_clock * FS_PER_SECOND // self.link_rate_bps
 
     @property
     def min_ifg_octets(self) -> int:
-        """The smallest inter-frame gap in octets a monitor of this interface accepts, 12 or 5 for the XGMII family."""
+        """The smallest inter-frame gap in octets a monitor accepts, 12, or 5 for XGMII and 0 for AXI-Stream."""
+        if self.name == "axis":
+            return 0
         return LIMITS.min_xgmii_ifg_octets if self.name == "xgmii" else LIMITS.min_ifg_octets
+
+    @property
+    def has_preamble(self) -> bool:
+        """Whether frames carry a preamble and SFD; AXI-Stream frames start at the destination address."""
+        return self.name != "axis"
 
     def phy(self) -> PhyInterface:
         """A new PHY decoder and encoder for this interface; each keeps its own decoding state."""
@@ -163,6 +186,15 @@ class Interface:
             return GmiiPhy(self.link_rate_bps)
         if self.name == "mii":
             return MiiPhy(self.link_rate_bps)
+        if self.name == "axis":
+            return AxisPhy(
+                self.link_rate_bps,
+                self.lanes,
+                has_fcs=self.has_fcs,
+                valid_low_percent=self.valid_low_percent,
+                ready_low_percent=self.ready_low_percent,
+                seed=self.seed,
+            )
         return XgmiiPhy(
             self.link_rate_bps,
             self.lanes,
@@ -211,7 +243,7 @@ class Interface:
         return self._times(np.concatenate(parts), start_fs)
 
     def _idle_words(self, clocks: int) -> Int64Array:
-        idle = XGMII_IDLE | WORD_CONTROL if self.name == "xgmii" else 0
+        idle = {"xgmii": XGMII_IDLE | WORD_CONTROL, "axis": AXIS_READY}.get(self.name, 0)
         return np.full(clocks * self.words_per_clock, idle, dtype=np.int64)
 
     def _times(self, words: Int64Array, start_fs: int) -> Samples:
@@ -259,3 +291,39 @@ def XGMII(
         EthernetValueError: An invalid lane count or rate.
     """
     return Interface("xgmii", bps(rate), lanes, allow_lane4_start, deficit_idle)
+
+
+def AXIS(
+    bytes_per_beat: int = 8,
+    *,
+    has_fcs: bool = True,
+    rate: int | str = "10G",
+    valid_low_percent: int = 0,
+    ready_low_percent: int = 0,
+    seed: int = 0,
+) -> Interface:
+    """
+    An AXI-Stream MAC client interface: frames without preamble and SFD, one packet per frame.
+
+    Args:
+        bytes_per_beat: The width of ``tkeep``; ``tdata`` has 8 bits per octet.
+        has_fcs: Whether frames on the bus carry their FCS.
+        rate: The rate used for statistics and sample times.
+        valid_low_percent: Sources: the chance in percent of a clock with ``tvalid``
+            low before each beat after the first of a frame.
+        ready_low_percent: The chance in percent of a clock with ``tready`` low
+            before a handshake in :meth:`Interface.encode`, like a sink applying backpressure.
+        seed: The seed of the stall patterns.
+
+    Raises:
+        EthernetValueError: An invalid width, rate or percentage.
+    """
+    return Interface(
+        "axis",
+        bps(rate),
+        bytes_per_beat,
+        has_fcs=has_fcs,
+        valid_low_percent=valid_low_percent,
+        ready_low_percent=ready_low_percent,
+        seed=seed,
+    )

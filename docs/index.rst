@@ -36,7 +36,11 @@ Status
      - x1, x2, x4 lanes
      - Done
      - ``flash``, ``qspi_master``, ``qspi_protocol_checker``
-   * - RGMII, RMII, AXI-Stream MAC client
+   * - AXI-Stream MAC client
+     - Any
+     - Done
+     - ``axis_mac_source``, ``axis_mac_sink``, ``axis_mac_monitor``, ``axis_mac_protocol_checker``
+   * - RGMII, RMII
      -
      - Planned
      - See the :doc:`roadmap`

@@ -41,6 +41,8 @@ package ethernet_pkg is
   -- checker (upper case in log messages). A protocol checker has the protocol
   -- checks, a monitor ``eth_scoreboard``; ``eth_user`` counts the errors
   -- Python code reports with ``vc.error`` on the VC that owns the backend.
+  -- ``eth_keep``, ``eth_stable`` and ``eth_valid`` are the AXI-Stream rules of
+  -- the AXI-Stream MAC client protocol checker.
   type ethernet_check_t is (
     eth_preamble,
     eth_sfd,
@@ -56,7 +58,10 @@ package ethernet_pkg is
     eth_control,
     eth_link_fault,
     eth_scoreboard,
-    eth_user
+    eth_user,
+    eth_keep,
+    eth_stable,
+    eth_valid
   );
 
   -- What a source appends to the frame data:
@@ -496,7 +501,7 @@ package ethernet_pkg is
 
   -- Private: the PHY interfaces with a VHDL frontend. The image of a value
   -- names the Python PHY decoder.
-  type ethernet_interface_t is (gmii, xgmii, mii);
+  type ethernet_interface_t is (gmii, xgmii, mii, axis);
 
   -- Private: the kinds of Ethernet VC
   type ethernet_vc_kind_t is (source_vc, monitor_vc, protocol_checker_vc);
@@ -524,6 +529,9 @@ package ethernet_pkg is
     p_flush_at_frame_end : boolean;
     p_delta_unit : time;
     p_log_frames : boolean;
+    p_user_length : positive;
+    p_valid_low_percent : natural;
+    p_seed : natural;
   end record;
 
   -- Private: the configuration of null handles
@@ -543,7 +551,10 @@ package ethernet_pkg is
     p_batch_length => 1,
     p_flush_at_frame_end => true,
     p_delta_unit => 1 ps,
-    p_log_frames => false
+    p_log_frames => false,
+    p_user_length => 1,
+    p_valid_low_percent => 0,
+    p_seed => 0
   );
 
   -- Private: create a configuration
@@ -563,7 +574,10 @@ package ethernet_pkg is
     batch_length : positive := 4096;
     flush_at_frame_end : boolean := true;
     delta_unit : time := 1 ps;
-    log_frames : boolean := false
+    log_frames : boolean := false;
+    user_length : positive := 1;
+    valid_low_percent : natural := 0;
+    seed : natural := 0
   ) return ethernet_cfg_t;
 
   -- Private: the id, logger, actor and checker of a VC, and which of them the
@@ -637,7 +651,10 @@ package body ethernet_pkg is
     batch_length : positive := 4096;
     flush_at_frame_end : boolean := true;
     delta_unit : time := 1 ps;
-    log_frames : boolean := false
+    log_frames : boolean := false;
+    user_length : positive := 1;
+    valid_low_percent : natural := 0;
+    seed : natural := 0
   ) return ethernet_cfg_t is
   begin
     return (
@@ -656,7 +673,10 @@ package body ethernet_pkg is
       p_batch_length => batch_length,
       p_flush_at_frame_end => flush_at_frame_end,
       p_delta_unit => delta_unit,
-      p_log_frames => log_frames
+      p_log_frames => log_frames,
+      p_user_length => user_length,
+      p_valid_low_percent => valid_low_percent,
+      p_seed => seed
     );
   end;
 

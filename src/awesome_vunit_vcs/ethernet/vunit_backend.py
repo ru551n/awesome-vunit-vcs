@@ -73,7 +73,16 @@ def _phy_options(phy_options: dict[str, Any] | None, link_rate_bps: int, **optio
 
 def _interface(name: str, phy_options: dict[str, Any]) -> Interface:
     """The :class:`~.interfaces.Interface` of a backend, from its interface name and PHY options."""
-    fields = ("link_rate_bps", "lanes", "allow_lane4_start", "deficit_idle")
+    fields = (
+        "link_rate_bps",
+        "lanes",
+        "allow_lane4_start",
+        "deficit_idle",
+        "has_fcs",
+        "valid_low_percent",
+        "ready_low_percent",
+        "seed",
+    )
     return replace(traffic.interface_named(name), **{key: phy_options[key] for key in fields if key in phy_options})
 
 
@@ -149,6 +158,7 @@ class MonitorBackend:
             max_frame_octets=max_frame_octets,
             min_ifg_octets=min_ifg_octets,
             has_fcs=has_fcs,
+            has_preamble=interface.lower() != "axis",
         )
         self.monitor = EthernetMonitor(
             create_phy(interface, **phy_options),
@@ -158,7 +168,7 @@ class MonitorBackend:
             on_subscriber_error=self._subscriber_error,
         )
         # After the monitor, so an unknown interface reports the error of create_phy
-        self._interface_value = _interface(interface, phy_options)
+        self._interface_value = _interface(interface, {**phy_options, "has_fcs": has_fcs})
         self._expected_violations: Counter[CheckId] = Counter()
         self.monitor.checker.violations.subscribe(self._violation)
         self.monitor.frames.subscribe(self._frame_logger)
@@ -589,6 +599,9 @@ class SourceBackend:
         phy_options: Further options of the PHY encoder, such as XGMII lanes.
         lanes: The lanes of an XGMII interface, added to ``phy_options``.
         deficit_idle: Use the deficit idle count of XGMII, added to ``phy_options``.
+        has_fcs: AXI-Stream: whether frames on the bus carry their FCS, added to ``phy_options``.
+        valid_low_percent: AXI-Stream: the tvalid stall percentage, added to ``phy_options``.
+        seed: AXI-Stream: the seed of the stall pattern, added to ``phy_options``.
 
     Attributes:
         source: The :class:`~.source.EthernetSource`.
@@ -604,10 +617,19 @@ class SourceBackend:
         phy_options: dict[str, Any] | None = None,
         lanes: int | None = None,
         deficit_idle: bool | None = None,
+        has_fcs: bool | None = None,
+        valid_low_percent: int | None = None,
+        seed: int | None = None,
     ) -> None:
         self.name = name
         phy_options = _phy_options(
-            phy_options, link_rate_bps or link_rate_mbps * 1_000_000, lanes=lanes, deficit_idle=deficit_idle
+            phy_options,
+            link_rate_bps or link_rate_mbps * 1_000_000,
+            lanes=lanes,
+            deficit_idle=deficit_idle,
+            has_fcs=has_fcs,
+            valid_low_percent=valid_low_percent,
+            seed=seed,
         )
         self.source = EthernetSource(create_phy(interface, **phy_options), name=name)
         self._sequences: dict[int, Iterator[traffic.TrafficItem]] = {}

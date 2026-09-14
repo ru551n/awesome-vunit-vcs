@@ -3,6 +3,10 @@ The first release is being prepared. Nothing has been released yet.
 * Ethernet: GMII, MII and XGMII-family sources, monitors and protocol checkers (the XGMII family
   from 2.5GMII up to 200GMII and 400GMII), with frame
   reconstruction, protocol checks, statistics, PCAPNG capture and packets from Python functions.
+* Ethernet: an AXI-Stream MAC client source, sink, monitor and protocol checker for frames without
+  preamble, with any ``tkeep`` width, optional FCS, ``tuser`` errors, a seeded ``tvalid`` stall pattern
+  on the source and ``tready`` backpressure on the sink (``set_ready_pattern``). The protocol checker
+  adds ``eth_keep``, ``eth_stable`` and ``eth_valid``; Python has ``eth.AXIS``.
 * Flash: a QSPI NOR flash VC with a simulator independent Python device model (SPI mode 0, x1, x2
   and x4 I/O, QPI, 3- and 4-byte addressing, continuous read, SFDP, status register and region
   protection, busy times, and erase sizes and addressing modes from the configuration), a QSPI master

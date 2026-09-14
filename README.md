@@ -18,7 +18,7 @@ Alpha. The APIs can still change.
 * GMII monitor and source: complete, 16 HDL tests passing on GHDL and NVC.
 * The simulator independent Python core (frames, checker, statistics, PCAPNG, sources): complete,
   unit tested.
-* XGMII family: in progress. MII, RGMII, RMII and an AXI-Stream MAC client: planned.
+* XGMII family (4 or 8 lanes, 2.5G to 100G): available. MII, RGMII, RMII and an AXI-Stream MAC client: planned.
 * Not released on PyPI yet, and it depends on two unreleased packages (see [Installation](#installation)).
 
 ## Architecture
@@ -290,7 +290,7 @@ print(to_scapy(monitor.history[0]).dst)  # needs Scapy
 | Interface | Link rates | Data / control per clock | Status |
 |---|---|---|---|
 | GMII | 1G, 2.5G (overclocked) | 8-bit data, EN/DV, ER | Done |
-| XGMII family (2.5GMII, 5GMII, XGMII, 25GMII, XLGMII, CGMII) | 2.5G to 100G | 32-bit data + 4 control, or 64-bit data + 8 control | In progress |
+| XGMII family (2.5GMII, 5GMII, XGMII, 25GMII, XLGMII, CGMII) | 2.5G to 100G | 32-bit data + 4 control, or 64-bit data + 8 control | Available |
 | MII | 10M, 100M | 4-bit data, DV, ER | Planned |
 | RGMII | 10M, 100M, 1G | 4-bit data, CTL on both clock edges | Planned |
 | RMII | 10M, 100M | 2-bit data, TX_EN, CRS_DV | Planned |

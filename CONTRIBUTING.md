@@ -105,9 +105,13 @@ For a new family `<family>`:
    `log_reports`, and for passive components `new_sample_batch`, `record_sample` and
    `flush_samples`. Never call the bridge from a family package directly; `vcs_python_pkg` is where
    bridge API changes are absorbed.
-4. **Batching.** Do not make one bridge call per clock cycle. Record samples only when something
-   changes or data is valid, and flush at batch end or when the backend must be up to date (end of
-   a transfer, `wait_until_idle`). The GMII benchmark in ARCHITECTURE.md shows why.
+4. **Batching.** Do not make one bridge call per clock cycle. Passive components record samples
+   only when something changes or data is valid, and flush at batch end or when the backend must be
+   up to date (end of a transfer, `wait_until_idle`). The GMII benchmark in ARCHITECTURE.md shows
+   why. An active responder whose next output depends on what it just received (a memory model
+   answering an opcode, say) may call the bridge once per transfer unit (byte or word), never per
+   clock cycle. Measure that cost, and move bulk content through batched procedures such as
+   preload and check.
 5. **Metavalues.** Map `X`/`U`/`Z`/`W`/`-` on sampled pins to dedicated bits of the sample word
    and report them. Never silently convert them to `0`.
 6. **Shared infrastructure.** Extract something into `common/` only when a second family actually

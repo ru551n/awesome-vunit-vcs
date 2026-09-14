@@ -7,5 +7,8 @@ requires-vunit = ">=5.0.0.dev12"
 requires-vhdl = ">=2008"
 library = "awesome_vunit_vcs"
 
+# Every VC family keeps its sources in a directory of its own under vhdl/. One
+# recursive pattern covers them all, and VUnit refuses a pattern matching no
+# file, which a pattern per family would be while the family is empty.
 [[package.sources]]
-include = ["vhdl/common/*.vhd", "vhdl/ethernet/*.vhd"]
+include = ["vhdl/**/*.vhd"]

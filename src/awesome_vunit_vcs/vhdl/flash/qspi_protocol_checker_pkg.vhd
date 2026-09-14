@@ -161,8 +161,10 @@ package qspi_protocol_checker_pkg is
   -- The limit of one rule
   function limit(protocol_checker : qspi_protocol_checker_t; check : qspi_check_t) return delay_length;
 
-  -- Report a message of an unexpected type according to the
-  -- ``unexpected_msg_type_policy`` of the handle
+  -- Handle a message type no handler took, following the unexpected message
+  -- type policy of the handle like vc_pkg.unexpected_msg_type of VUnit: a
+  -- check failure ``Got unexpected message <name>`` on the checker of the
+  -- handle unless the policy is ignore or the message was already handled
   procedure unexpected_msg_type(msg_type : msg_type_t; protocol_checker : qspi_protocol_checker_t);
 
   ---------------------------------------------------------------------------
@@ -461,8 +463,10 @@ package body qspi_protocol_checker_pkg is
 
   procedure unexpected_msg_type(msg_type : msg_type_t; protocol_checker : qspi_protocol_checker_t) is
   begin
-    if protocol_checker.p_unexpected_msg_type_policy = fail then
-      unexpected_msg_type(msg_type, get_logger(protocol_checker));
+    if is_already_handled(msg_type) or protocol_checker.p_unexpected_msg_type_policy = ignore then
+      null;
+    else
+      check_failed(get_checker(protocol_checker), "Got unexpected message " & name(msg_type));
     end if;
   end;
 

@@ -175,9 +175,9 @@ default the first error stops the simulation, as any VUnit check failure does.
        value that is not a byte, an unknown timing or stat name, an image that cannot be read
    * - Unexpected message
      -
-     - All three, on their logger
-     - A message of an unknown type with ``unexpected_msg_type_policy => fail`` (the default) logs
-       ``Got unexpected message <type>`` as a failure; ``ignore`` drops it silently
+     - All three
+     - A message of an unknown type with ``unexpected_msg_type_policy => fail`` (the default) is a
+       check failure, ``Got unexpected message <type>``; ``ignore`` drops it silently
 
 Commands a real part refuses silently, such as a program without write enable, are not errors: the
 flash counts them instead, see :ref:`flash-statistics`.

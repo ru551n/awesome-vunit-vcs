@@ -203,8 +203,10 @@ package flash_pkg is
   function output_delay_clqv(flash : flash_t) return delay_length;
   function output_delay_shqz(flash : flash_t) return delay_length;
 
-  -- Report a message of an unexpected type according to the
-  -- ``unexpected_msg_type_policy`` of the handle
+  -- Handle a message type no handler took, following the unexpected message
+  -- type policy of the handle like vc_pkg.unexpected_msg_type of VUnit: a
+  -- check failure ``Got unexpected message <name>`` on the checker of the
+  -- handle unless the policy is ignore or the message was already handled
   procedure unexpected_msg_type(msg_type : msg_type_t; flash : flash_t);
 
   ---------------------------------------------------------------------------
@@ -655,8 +657,10 @@ package body flash_pkg is
 
   procedure unexpected_msg_type(msg_type : msg_type_t; flash : flash_t) is
   begin
-    if flash.p_unexpected_msg_type_policy = fail then
-      unexpected_msg_type(msg_type, flash.p_logger);
+    if is_already_handled(msg_type) or flash.p_unexpected_msg_type_policy = ignore then
+      null;
+    else
+      check_failed(flash.p_checker, "Got unexpected message " & name(msg_type));
     end if;
   end;
 

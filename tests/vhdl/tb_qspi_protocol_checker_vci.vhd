@@ -105,11 +105,26 @@ begin
     );
 
   main : process
-    variable msg : msg_t;
     variable reference : qspi_protocol_checker_reference_t;
     variable count : natural;
     variable reference_count : natural;
     variable start : time;
+
+    -- A message of an unknown type, like the VCI tests of the Ethernet VCs
+    procedure check_unexpected_message(actor : actor_t; logger : logger_t; expect_failure : boolean) is
+      variable request_msg : msg_t;
+    begin
+      mock(logger, error);
+      request_msg := new_msg(unknown_msg_type);
+      send(net, actor, request_msg);
+      wait_until_idle(net, actor);
+      if expect_failure then
+        check_only_log(logger, "Got unexpected message unknown qspi_protocol_checker message", error);
+      else
+        check_no_log;
+      end if;
+      unmock(logger);
+    end;
 
     -- Two empty commands 10 ns apart on both buses: one tSHSL violation for
     -- each checker
@@ -181,26 +196,15 @@ begin
         reset_log_count(get_logger(custom_checker), error);
         reset_log_count(get_logger(default_checker), error);
 
-      elsif run("test_unexpected_message_fails_with_the_fail_policy") then
-        mock(get_logger(default_checker), failure);
-        msg := new_msg(unknown_msg_type);
-        send(net, get_actor(default_checker), msg);
-        wait_until_idle(net, as_sync(default_checker));
-        check_only_log(
-          get_logger(default_checker),
-          "Got unexpected message unknown qspi_protocol_checker message",
-          failure
-        );
-        unmock(get_logger(default_checker));
+      elsif run("test_unexpected_message_is_a_check_failure") then
+        check_unexpected_message(get_actor(default_checker), get_logger(default_checker), expect_failure => true);
+        -- On the checker of the protocol checker, not on its logger
+        check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
-      elsif run("test_unexpected_message_is_ignored_with_the_ignore_policy") then
-        mock(get_logger(ignoring_checker), failure);
-        msg := new_msg(unknown_msg_type);
-        send(net, get_actor(ignoring_checker), msg);
+      elsif run("test_unexpected_message_is_ignored") then
+        check_unexpected_message(get_actor(ignoring_checker), get_logger(ignoring_checker), expect_failure => false);
         get_check_count(net, ignoring_checker, qspi_sck_period, count);
         check_equal(count, 0, "the checker answers after the unexpected message");
-        check_no_log;
-        unmock(get_logger(ignoring_checker));
 
       elsif run("test_wait_until_idle_and_wait_for_time") then
         start := now;

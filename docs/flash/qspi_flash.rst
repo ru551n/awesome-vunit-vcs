@@ -412,7 +412,7 @@ configuration so that the calls that follow stay harmless.
    * - ``unexpected_msg_type_policy``
      - ``unexpected_msg_type_policy_t``
      - ``fail``
-     - ``fail`` logs a message of an unknown type as a failure on the logger, ``Got unexpected
+     - ``fail`` makes a message of an unknown type a check failure on the checker, ``Got unexpected
        message <type>``; ``ignore`` drops it
 
 The busy times are typical rather than worst-case values. A test that depends on one sets it.
@@ -585,7 +585,7 @@ the backend go to its logger.
        outside the device, a value that is not a byte, an unknown timing or stat name or an image that
        cannot be read
    * - Unexpected message
-     - Logger
+     - Checker
      - ``Got unexpected message <type>`` with the ``fail`` policy
 
 The pin timing of the controller is checked by the protocol checker of the flash, when it has one, on

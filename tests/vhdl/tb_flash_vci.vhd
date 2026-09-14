@@ -138,7 +138,6 @@ begin
     );
 
   main : process
-    variable msg : msg_t;
     variable reference : flash_reference_t;
     variable got : integer_array_t;
     variable expected : integer_array_t;
@@ -146,6 +145,22 @@ begin
     variable reference_value : integer;
     variable count : natural;
     variable start : time;
+
+    -- A message of an unknown type, like the VCI tests of the Ethernet VCs
+    procedure check_unexpected_message(actor : actor_t; logger : logger_t; expect_failure : boolean) is
+      variable request_msg : msg_t;
+    begin
+      mock(logger, error);
+      request_msg := new_msg(unknown_msg_type);
+      send(net, actor, request_msg);
+      wait_until_idle(net, actor);
+      if expect_failure then
+        check_only_log(logger, "Got unexpected message unknown flash message", error);
+      else
+        check_no_log;
+      end if;
+      unmock(logger);
+    end;
 
     -- Two empty commands 10 ns apart on both driven buses: one tSHSL
     -- violation for each protocol checker
@@ -207,22 +222,15 @@ begin
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         reset_log_count(get_logger(custom_checker), error);
 
-      elsif run("test_unexpected_message_fails_with_the_fail_policy") then
-        mock(get_logger(default_flash), failure);
-        msg := new_msg(unknown_msg_type);
-        send(net, get_actor(default_flash), msg);
-        wait_until_idle(net, as_sync(default_flash));
-        check_only_log(get_logger(default_flash), "Got unexpected message unknown flash message", failure);
-        unmock(get_logger(default_flash));
+      elsif run("test_unexpected_message_is_a_check_failure") then
+        check_unexpected_message(get_actor(default_flash), get_logger(default_flash), expect_failure => true);
+        -- On the checker of the flash, not on its logger
+        check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
-      elsif run("test_unexpected_message_is_ignored_with_the_ignore_policy") then
-        mock(get_logger(ignoring_flash), failure);
-        msg := new_msg(unknown_msg_type);
-        send(net, get_actor(ignoring_flash), msg);
+      elsif run("test_unexpected_message_is_ignored") then
+        check_unexpected_message(get_actor(ignoring_flash), get_logger(ignoring_flash), expect_failure => false);
         flash_get_stat(net, ignoring_flash, "program_count", value);
         check_equal(value, 0, "the flash answers after the unexpected message");
-        check_no_log;
-        unmock(get_logger(ignoring_flash));
 
       elsif run("test_wait_until_idle_and_wait_for_time") then
         start := now;

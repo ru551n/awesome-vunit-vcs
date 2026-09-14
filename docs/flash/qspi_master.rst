@@ -116,7 +116,8 @@ Constructor parameters
    * - ``unexpected_msg_type_policy``
      - ``unexpected_msg_type_policy_t``
      - ``fail``
-     - ``fail`` logs a message of an unknown type as a failure on the logger, ``ignore`` drops it
+     - ``fail`` makes a message of an unknown type a check failure on the checker, ``Got unexpected
+       message <type>``; ``ignore`` drops it
 
 Procedures
 ----------
@@ -229,7 +230,8 @@ Checks
 * **Metavalues on read lanes.** A ``U``, ``X``, ``Z``, ``W`` or ``-`` sampled on a data lane in a read
   phase is a check failure on the checker of the master, ``Read byte <n> beat <m>: the far end drove
   <value> on the data lanes``, and counts as ``0``.
-* **Unexpected messages**, as set by ``unexpected_msg_type_policy``.
+* **Unexpected messages**, a check failure ``Got unexpected message <type>`` on the checker of the
+  master unless ``unexpected_msg_type_policy`` is ``ignore``.
 * **Pin timing** of the master's own outputs, only with a ``protocol_checker``. Its violations go to
   the checker of the protocol checker, ``<master id>:protocol_checker`` unless it has its own id.
 

@@ -109,7 +109,6 @@ begin
     );
 
   main : process
-    variable msg : msg_t;
     variable cmd : integer_array_t;
     variable data : integer_array_t := null_integer_array;
     variable reference_data : integer_array_t := null_integer_array;
@@ -117,6 +116,22 @@ begin
     variable references : msg_vec_t(0 to 2);
     variable count : natural;
     variable start : time;
+
+    -- A message of an unknown type, like the VCI tests of the Ethernet VCs
+    procedure check_unexpected_message(actor : actor_t; logger : logger_t; expect_failure : boolean) is
+      variable request_msg : msg_t;
+    begin
+      mock(logger, error);
+      request_msg := new_msg(unknown_msg_type);
+      send(net, actor, request_msg);
+      wait_until_idle(net, actor);
+      if expect_failure then
+        check_only_log(logger, "Got unexpected message unknown qspi_master message", error);
+      else
+        check_no_log;
+      end if;
+      unmock(logger);
+    end;
   begin
     test_runner_setup(runner, runner_cfg);
     cmd := new_byte_array((0 => 16#9F#));
@@ -167,21 +182,14 @@ begin
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         reset_log_count(get_logger(custom_checker), error);
 
-      elsif run("test_unexpected_message_fails_with_the_fail_policy") then
-        mock(get_logger(default_master), failure);
-        msg := new_msg(unknown_msg_type);
-        send(net, get_actor(default_master), msg);
-        wait_until_idle(net, as_sync(default_master));
-        check_only_log(get_logger(default_master), "Got unexpected message unknown qspi_master message", failure);
-        unmock(get_logger(default_master));
+      elsif run("test_unexpected_message_is_a_check_failure") then
+        check_unexpected_message(get_actor(default_master), get_logger(default_master), expect_failure => true);
+        -- On the checker of the master, not on its logger
+        check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
-      elsif run("test_unexpected_message_is_ignored_with_the_ignore_policy") then
-        mock(get_logger(ignoring_master), failure);
-        msg := new_msg(unknown_msg_type);
-        send(net, get_actor(ignoring_master), msg);
+      elsif run("test_unexpected_message_is_ignored") then
+        check_unexpected_message(get_actor(ignoring_master), get_logger(ignoring_master), expect_failure => false);
         qspi_transfer(net, ignoring_master, cmd);
-        check_no_log;
-        unmock(get_logger(ignoring_master));
 
       elsif run("test_wait_until_idle_and_wait_for_time") then
         start := now;

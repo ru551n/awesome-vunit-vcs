@@ -127,7 +127,8 @@ minimum times of a typical 133 MHz part. A limit of ``0 ns`` disables its rule.
    * - ``unexpected_msg_type_policy``
      - ``unexpected_msg_type_policy_t``
      - ``fail``
-     - ``fail`` logs a message of an unknown type as a failure on the logger, ``ignore`` drops it
+     - ``fail`` makes a message of an unknown type a check failure on the checker, ``Got unexpected
+       message <type>``; ``ignore`` drops it
 
 Procedures
 ----------

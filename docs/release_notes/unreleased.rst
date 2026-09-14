@@ -149,3 +149,5 @@ Breaking changes
 * Flash: ``new_flash`` and ``new_qspi_master`` end with ``protocol_checker``, ``id``, ``logger``,
   ``actor``, ``checker`` and ``unexpected_msg_type_policy``, like VUnit's own VCs. ``id`` moved from
   the first to that group.
+* Flash: a message of an unknown type is a check failure ``Got unexpected message <type>`` on the
+  checker of the VC, as for the Ethernet VCs, instead of a failure on its logger.

@@ -80,7 +80,7 @@ def test_every_check_is_in_the_checks_table() -> None:
 
 
 @pytest.mark.xfail(
-    reason="Public declarations without doc comments remain until the VHDL API overhaul rewrites the packages",
+    reason="property_pkg.get_id has no doc comment yet (owned by the property-based testing work)",
     strict=False,
 )
 def test_every_public_vhdl_declaration_has_a_doc_comment() -> None:
@@ -114,9 +114,6 @@ def test_readme_has_no_code_beyond_the_install_line() -> None:
     assert all(block.strip().startswith("pip install") for block in blocks)
 
 
-@pytest.mark.xfail(
-    reason="Checker messages and older pages still say byte (docs WP2/WP3 and the checker owner)", strict=False
-)
 def test_ethernet_data_is_counted_in_octets() -> None:
     sources = [REPO / "src" / "awesome_vunit_vcs" / "ethernet" / "checker.py", *DOCS.rglob("*.rst")]
     offenders = [

@@ -1,200 +1,237 @@
 VHDL API
 ========
 
-The Ethernet components follow the conventions of VUnit's own verification components: a handle
-created by a ``new_*`` function, logging through VUnit loggers and checkers, and communication
-through ``com``. Handles and procedures are the same for every interface; an interface only adds
-constructors and entities (see :doc:`gmii`).
+The Ethernet verification components (VCs) follow the conventions of VUnit's own VCs, in particular
+``axi_stream_pkg`` and ``vc_pkg``: one handle type per VC created by a ``new_*`` function, the handle
+as the only generic of the entity, logging through VUnit loggers and checkers, communication
+through ``com`` and the standard VUnit verification component interfaces (VCIs). This page
+describes how the API fits together; the :doc:`reference/vhdl/index` lists every declaration.
 
-A testbench uses everything through one context:
+One context clause makes everything visible, VUnit included:
 
 .. code-block:: vhdl
 
    library awesome_vunit_vcs;
    context awesome_vunit_vcs.ethernet_context;
 
-The context makes ``ethernet_pkg``, ``gmii_pkg``, ``mii_pkg``, ``xgmii_pkg``, VUnit's ``com_context``, ``sync_pkg`` and
-``vc_pkg`` visible. The procedures below take ``signal net : inout network_t`` like all ``com``
-procedures.
+The context covers ``ieee.std_logic_1164``, VUnit's ``vunit_context`` and ``com_context``,
+``sync_pkg``, ``stream_master_pkg``, ``stream_slave_pkg``, ``integer_array_pkg``, ``vc_pkg`` and the
+Ethernet packages ``ethernet_pkg``, ``gmii_pkg``, ``mii_pkg`` and ``xgmii_pkg``.
 
-Handles
--------
+The short path
+--------------
 
-``ethernet_monitor_t``
-   A passive monitor of one direction of an interface.
-
-``ethernet_source_t``
-   An active source driving one direction of an interface.
-
-Both are records with private fields only. Use the accessors:
+A source in front of the design, a monitor with the default protocol checks behind it, a scoreboard
+and statistics:
 
 .. code-block:: vhdl
 
-   impure function get_id(monitor : ethernet_monitor_t) return id_t;
-   impure function get_logger(monitor : ethernet_monitor_t) return logger_t;
-   impure function get_checker(monitor : ethernet_monitor_t) return checker_t;
-   impure function as_sync(monitor : ethernet_monitor_t) return sync_handle_t;
+   constant source : gmii_source_t := new_gmii_source;
+   constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+   ...
+   for idx in 1 to 20 loop
+     check_ethernet_frame(net, monitor, frame(idx), blocking => false);
+     push_ethernet_frame(net, source, frame(idx));
+   end loop;
+   wait_until_idle(net, as_sync(source));
+   wait_until_idle(net, as_sync(monitor));
+   get_statistics(net, monitor, statistics);
+   check_equal(statistics.good_frames, 20);
 
-   impure function get_id(source : ethernet_source_t) return id_t;
-   impure function get_logger(source : ethernet_source_t) return logger_t;
-   impure function as_sync(source : ethernet_source_t) return sync_handle_t;
+with ``gmii_source`` and ``gmii_monitor`` instances whose generic is the handle. ``frame(idx)`` is the
+frame from the destination address up to, not including, the FCS; the source adds preamble, SFD,
+padding and FCS.
 
-A monitor reports protocol violations on its checker and other messages on its logger; both have
-the identity of the monitor.
+Components and handles
+----------------------
 
-Constructors
-------------
+Every interface (``gmii``, ``mii``, ``xgmii``) has three VCs, each an entity with a handle type of its
+own:
 
-GMII (``gmii_pkg``):
-
-.. code-block:: vhdl
-
-   impure function new_gmii_monitor(
-     id : id_t := null_id;
-     link_rate_mbps : positive := 1000;
-     min_preamble_octets : natural := 7;
-     max_preamble_octets : natural := 7;
-     min_frame_octets : natural := 64;
-     max_frame_octets : natural := 1518;
-     min_ifg_octets : natural := 12;
-     has_fcs : boolean := true;
-     batch_length : positive := 4096;
-     flush_at_frame_end : boolean := true;
-     delta_unit : time := 1 ps;
-     log_frames : boolean := false;
-     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
-   ) return ethernet_monitor_t;
-
-   impure function new_gmii_source(
-     id : id_t := null_id;
-     link_rate_mbps : positive := 1000;
-     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
-   ) return ethernet_source_t;
-
-MII (``mii_pkg``), IEEE 802.3 Clause 22 at 10 or 100 Mbit/s. The same options as GMII; any other
-``link_rate_mbps`` is a failure:
-
-.. code-block:: vhdl
-
-   impure function new_mii_monitor(
-     id : id_t := null_id;
-     link_rate_mbps : positive := 100;
-     min_preamble_octets : natural := 7;
-     max_preamble_octets : natural := 7;
-     min_frame_octets : natural := 64;
-     max_frame_octets : natural := 1518;
-     min_ifg_octets : natural := 12;
-     has_fcs : boolean := true;
-     batch_length : positive := 4096;
-     flush_at_frame_end : boolean := true;
-     delta_unit : time := 1 ps;
-     log_frames : boolean := false;
-     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
-   ) return ethernet_monitor_t;
-
-   impure function new_mii_source(
-     id : id_t := null_id;
-     link_rate_mbps : positive := 100;
-     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
-   ) return ethernet_source_t;
-
-The MII monitor pairs nibbles into octets, least significant nibble first. It aligns the pairing on
-the SFD, so an odd number of preamble nibbles is accepted, and it reports a frame that ends with an
-unpaired nibble as ``eth_termination`` (an alignment error). Inter-frame gaps are counted in octets,
-two clock cycles each.
-
-They call the interface independent constructors of ``ethernet_pkg`` with ``phy => gmii``:
-
-.. _vhdl-new-ethernet-monitor:
-
-.. code-block:: vhdl
-
-   impure function new_ethernet_monitor(
-     phy : ethernet_phy_t;
-     id : id_t := null_id;
-     -- the remaining parameters as for new_gmii_monitor
-   ) return ethernet_monitor_t;
-
-.. _vhdl-new-ethernet-source:
-
-.. code-block:: vhdl
-
-   impure function new_ethernet_source(
-     phy : ethernet_phy_t;
-     id : id_t := null_id;
-     link_rate_mbps : positive := 1000;
-     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
-   ) return ethernet_source_t;
-
-.. list-table:: Monitor options
+.. list-table::
    :header-rows: 1
-   :widths: 25 75
+   :widths: 22 26 52
 
-   * - Parameter
-     - Meaning
-   * - ``id``
-     - Identity of the monitor. Defaults to ``awesome_vunit_vcs:<phy>_monitor:<n>``.
-   * - ``link_rate_mbps``
-     - Link rate used for the utilization statistics (1000 for GMII, 2500 for overclocked GMII).
-   * - ``min_preamble_octets``, ``max_preamble_octets``
-     - Accepted preamble length, not counting the SFD (``eth_preamble``).
-   * - ``min_frame_octets``, ``max_frame_octets``
-     - Accepted frame size, counted from the destination address to the FCS (``eth_runt``,
-       ``eth_giant``).
-   * - ``min_ifg_octets``
-     - Minimum inter-frame gap (``eth_ifg``).
-   * - ``has_fcs``
-     - ``false`` for frames observed without an FCS.
-   * - ``batch_length``
-     - Maximum number of samples sent to Python in one call.
-   * - ``flush_at_frame_end``
-     - Send the samples at the end of every frame, so frames are checked as soon as they end.
-   * - ``delta_unit``
-     - Resolution of the sample times. Must not exceed 1 us.
-   * - ``log_frames``
-     - Log every received frame at debug level.
-   * - ``unexpected_msg_type_policy``
-     - What the monitor does with a message it does not handle, as for VUnit's components.
+   * - Entity
+     - Handle and constructor
+     - Role
+   * - ``<interface>_source``
+     - ``<interface>_source_t``, ``new_<interface>_source``
+     - Drives one direction of the interface with the frames a test pushes.
+   * - ``<interface>_monitor``
+     - ``<interface>_monitor_t``, ``new_<interface>_monitor``
+     - Observes one direction, reconstructs the frames, keeps statistics, runs the scoreboard,
+       publishes frames and writes captures.
+   * - ``<interface>_protocol_checker``
+     - ``<interface>_protocol_checker_t``, ``new_<interface>_protocol_checker``
+     - Observes one direction and checks the protocol. A monitor instantiates one when its handle
+       has one.
+
+Constructors take the VC configuration first (such as ``link_rate_mbps`` or XGMII ``lanes``), then
+the standard parameters ``id``, ``logger``, ``actor``, ``checker`` and
+``unexpected_msg_type_policy``. Every parameter has a default, so ``new_gmii_source`` alone creates a
+source.
+
+Identity
+~~~~~~~~
+
+The standard parameters are resolved like ``vc_pkg.create_std_cfg`` of VUnit:
+
+* A null ``id`` becomes ``awesome_vunit_vcs:<vc name>:<n>``, for example
+  ``awesome_vunit_vcs:gmii_monitor:1``. Pass ``id => get_id("tb:rx_monitor")`` to name a VC after its
+  place in the testbench.
+* A null ``logger`` is the logger of the id, a null ``actor`` a new actor of the id (an id that
+  already has an actor is an error), and a null ``checker`` a new checker reporting to the logger.
+* A protocol checker given to ``new_<interface>_monitor`` gets the id
+  ``<monitor id>:protocol_checker``, and its logger, actor and checker derive from that id unless
+  they were given explicitly. Violations then log as, for example,
+  ``tb:rx_monitor:protocol_checker``.
+* ``get_id``, ``get_logger``, ``get_actor`` and ``get_checker`` return them. The Python backend of a VC
+  is the object ``vc`` in the Python session of its id.
+* A message a VC does not handle is a check failure, ``Got unexpected message <name>``, unless
+  ``unexpected_msg_type_policy`` is ``ignore``.
+
+Interfaces
+~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Function
+     - Interface
+   * - ``as_sync(vc)``
+     - VUnit's synchronization VCI for every VC: ``wait_until_idle`` and ``wait_for_time``.
+   * - ``as_stream(source)``
+     - VUnit's stream master VCI: ``push_stream`` pushes one octet, and the octet with ``last`` ends a
+       frame, transmitted with ``default_frame_options``.
+   * - ``as_stream(monitor)``
+     - VUnit's stream slave VCI: ``pop_stream`` and ``check_stream`` read the octets of received
+       frames, ``last`` with the last octet of a frame.
+   * - ``as_ethernet_source``, ``as_ethernet_monitor``, ``as_ethernet_protocol_checker``
+     - The interface independent Ethernet VCIs of ``ethernet_pkg``. Every procedure below also has an
+       overload taking the handle of each interface, so a testbench seldom needs these.
+   * - ``get_protocol_checker(monitor)``
+     - The protocol checker of a monitor, ``null_<interface>_protocol_checker`` when it has none.
+   * - ``data_length``, ``ctrl_length``, ``lanes``
+     - The port widths; entities size their ports with them.
+
+Procedures
+----------
+
+All procedures take ``signal net : inout network_t`` first, like every ``com`` procedure. A procedure
+that returns a value blocks; it also has a non-blocking overload returning an
+``ethernet_reference_t``, read later with the matching ``await_<procedure>_reply``.
+
+Source
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Procedure
+     - Effect
+   * - ``push_ethernet_frame(net, source, data [, options])``
+     - Transmit a frame given from the destination address up to, not including, the FCS.
+   * - ``push_ethernet_frame(net, source, destination, source_address, ethertype, payload [, options])``
+     - Transmit a frame given by its header fields and payload.
+   * - ``push_ethernet_packet(net, source, "module:function", "key=value, ..." [, options])``
+     - Transmit the frame a Python function returns, for example a Scapy packet. Arguments are
+       Python literals, parsed and never evaluated.
+   * - ``push_ethernet_sequence(net, source, "module:function", arguments, count, seed)``
+     - Transmit the frames a Python generator yields, fetched in batches. The same function,
+       arguments and seed produce the same frames.
+   * - ``push_xgmii_columns``, ``push_xgmii_link_fault``
+     - XGMII only: raw columns, and Sequence ordered sets of a link fault.
+   * - ``reset(net, source)``
+     - Drop queued frames, abort a frame in progress at a symbol boundary and forget octets pushed
+       without ``last``. Returns also while the clock is stopped.
+
+``frame_options(...)`` describes how a frame is transmitted, including traffic the standard forbids:
+
+.. code-block:: vhdl
+
+   push_ethernet_frame(net, source, frame, frame_options(fcs => fcs_bad));             -- inverted FCS
+   push_ethernet_frame(net, source, frame, frame_options(pad => false));               -- a runt
+   push_ethernet_frame(net, source, frame, frame_options(preamble_octets => 5));       -- short preamble
+   push_ethernet_frame(net, source, frame, frame_options(sfd => x"D4"));               -- wrong SFD
+   push_ethernet_frame(net, source, frame, frame_options(error_offsets => (0 => 20))); -- error signal
+   push_ethernet_frame(net, source, frame, frame_options(ifg_octets => 8));            -- short IFG
+
+Error offsets count from the first octet after the SFD; negative offsets reach into the SFD and the
+preamble. Interfaces with control characters transmit the Error character instead.
+
+Monitor
+~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Procedure
+     - Effect
+   * - ``check_ethernet_frame(net, monitor, expected [, msg, blocking])``
+     - Check that the next received frame is ``expected``; a difference is an ``ETH_SCOREBOARD``
+       check failure on the checker of the monitor. Blocking returns when the frame is checked.
+   * - ``check_ethernet_sequence(net, monitor, "module:function", arguments, count, seed)``
+     - Check the next frames against the frames of a Python generator, for example those of a
+       ``push_ethernet_sequence`` with the same function, arguments and seed.
+   * - ``pop_ethernet_frame(net, monitor, data, length [, fcs_ok])``
+     - Wait for the next received frame and read it.
+   * - ``get_statistics``, ``get_frame_count``, ``log_statistics``
+     - Statistics of the frames received so far.
+   * - ``start_capture``, ``stop_capture``
+     - Write the received frames to a PCAPNG file for Wireshark.
+   * - ``reset(net, monitor [, clear_statistics])``
+     - Forget a frame in progress and ignore its rest on the line, and forget kept frames and
+       expected frames. Statistics are kept unless ``clear_statistics``.
+
+A monitor publishes every frame it receives while it has subscribers as an ``ethernet_frame_msg``;
+a subscriber reads it with ``pop_ethernet_frame(msg, data, length, fcs_ok)``. Frames are kept for
+pops only while a pop is pending.
+
+Protocol checker
+~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Procedure
+     - Effect
+   * - ``set_check_enabled(net, protocol_checker, check, enabled)``
+     - Enable or disable one check.
+   * - ``get_check_count(net, protocol_checker, check, count)``
+     - Violations a check found while enabled.
+   * - ``reset(net, protocol_checker)``
+     - Forget a frame in progress and ignore its rest on the line; counts are kept.
+
+``wait_until_idle(net, as_sync(vc))`` returns when a source has transmitted everything pushed
+before it, and when a monitor or protocol checker has no frame in progress, no pending pop or
+blocking check, and Python has processed everything sampled so far.
 
 Types
 -----
 
-.. code-block:: vhdl
+``ethernet_fcs_mode_t`` is what a source appends to the frame data: ``fcs_append`` (padding and the
+correct FCS), ``fcs_bad`` (padding and the inverted FCS) or ``fcs_none`` (nothing).
 
-   -- The interfaces with a VHDL frontend
-   type ethernet_phy_t is (gmii);
+``ethernet_frame_options_t`` holds the options of a frame. Create it with ``frame_options``, whose
+defaults are a frame the standard allows; ``default_frame_options`` is the same value.
 
-   -- What a source appends to the frame data
-   type ethernet_fcs_mode_t is (
-     fcs_append,  -- pad (when enabled) and append the correct FCS
-     fcs_bad,     -- pad (when enabled) and append the inverted FCS
-     fcs_none     -- nothing: the data already ends with an FCS or deliberately has none
-   );
+``ethernet_statistics_t`` has ``total_frames``, ``good_frames``, ``bad_frames``, ``wire_octets``,
+``payload_octets``, ``fcs_errors``, ``phy_error_frames``, ``runts``, ``giants``,
+``min_frame_octets``, ``max_frame_octets``, ``min_ifg_octets`` and ``max_ifg_octets``. Octet counts
+saturate at ``integer'high``; a minimum or maximum without a value is -1.
 
-   -- Statistics of a monitor. Octet counts saturate at integer'high and a
-   -- minimum/maximum without a value is -1.
-   type ethernet_statistics_t is record
-     total_frames : natural;
-     good_frames : natural;
-     bad_frames : natural;
-     wire_octets : natural;
-     payload_octets : natural;
-     fcs_errors : natural;
-     phy_error_frames : natural;
-     runts : natural;
-     giants : natural;
-     min_frame_octets : integer;
-     max_frame_octets : integer;
-     min_ifg_octets : integer;
-     max_ifg_octets : integer;
-   end record;
-
-Protocol checks
----------------
+Checks
+------
 
 ``ethernet_check_t`` names the checks of the Python checker; the log message of a violation starts
-with the check ID in upper case, for example ``ETH_FCS: bad FCS on frame 27``. All checks are
-enabled by default.
+with the check ID in upper case, for example ``ETH_FCS: bad FCS on frame 27``. A protocol checker
+runs the protocol checks, all enabled by default; a monitor runs ``eth_scoreboard``. A maximum limit
+of 0 in ``new_<interface>_protocol_checker`` disables that limit.
 
 .. list-table::
    :header-rows: 1
@@ -220,179 +257,51 @@ enabled by default.
    * - ``eth_ifg``
      - An inter-frame gap shorter than ``min_ifg_octets``.
    * - ``eth_termination``
-     - A frame that ended with an incomplete octet (interfaces with symbols narrower than an octet).
+     - A frame that ended with an incomplete octet, or without Terminate (XGMII).
    * - ``eth_metavalue``
      - A metavalue on the data during a frame, or on the valid or error signal.
    * - ``eth_frame_state``
      - A frame already in progress when monitoring started, or still in progress when it ended.
    * - ``eth_control``
-     - An invalid control character (interfaces that signal with control characters, such as XGMII).
+     - An invalid or misplaced control character (XGMII family).
    * - ``eth_link_fault``
      - A local or remote fault ordered set (XGMII family).
    * - ``eth_scoreboard``
-     - A frame that differs from the one ``expect_ethernet_frame`` expected, or expected frames not
-       received before the simulation ends.
-
-Monitor procedures
-------------------
-
-``wait_until_idle(net, as_sync(monitor))`` returns when the monitor has seen the end of any frame
-in progress and Python has processed everything sampled so far. The procedures that return a value
-wait for that too.
-
-.. code-block:: vhdl
-
-   -- Enable or disable one protocol check
-   procedure set_check_enabled(
-     signal net : inout network_t;
-     monitor : ethernet_monitor_t;
-     check : ethernet_check_t;
-     enabled : boolean := true
-   );
-
-   -- Violations found by a check while it was enabled
-   procedure get_check_count(
-     signal net : inout network_t;
-     monitor : ethernet_monitor_t;
-     check : ethernet_check_t;
-     variable count : out natural
-   );
-
-   -- Frames received, good or bad
-   procedure get_frame_count(
-     signal net : inout network_t;
-     monitor : ethernet_monitor_t;
-     variable count : out natural
-   );
-
-   procedure get_statistics(
-     signal net : inout network_t;
-     monitor : ethernet_monitor_t;
-     variable statistics : out ethernet_statistics_t
-   );
-
-   -- Log a human readable statistics summary on the logger of the monitor
-   procedure log_statistics(
-     signal net : inout network_t;
-     monitor : ethernet_monitor_t;
-     log_level : log_level_t := info
-   );
-
-   -- Expect the next received frame to be data: the octets from the
-   -- destination address up to, not including, the FCS, leftmost octet first
-   procedure expect_ethernet_frame(
-     signal net : inout network_t;
-     monitor : ethernet_monitor_t;
-     data : std_ulogic_vector
-   );
-
-   -- Write the frames received from now on to a PCAPNG file (Wireshark)
-   procedure start_capture(
-     signal net : inout network_t;
-     monitor : ethernet_monitor_t;
-     file_name : string;
-     include_fcs : boolean := true;
-     include_errored : boolean := true
-   );
-
-   -- Close all captures of the monitor
-   procedure stop_capture(
-     signal net : inout network_t;
-     monitor : ethernet_monitor_t
-   );
-
-A relative capture ``file_name`` is relative to the directory the simulator runs in;
-``output_path(runner_cfg)`` is a good place. The capture has no preamble or SFD, the FCS when
-``include_fcs`` and bad frames when ``include_errored``. Captures are also closed when the
-simulation ends.
-
-Source procedures
------------------
-
-A source transmits frames in the order they are sent, back to back with the IFG of each frame after
-it. ``wait_until_idle(net, as_sync(source))`` returns when all frames sent before it are
-transmitted.
-
-.. code-block:: vhdl
-
-   constant no_error_offsets : integer_vector(1 to 0) := (others => 0);
-
-   -- Transmit data, the octets from the destination address up to, not
-   -- including, the FCS, leftmost octet first
-   procedure send_ethernet_frame(
-     signal net : inout network_t;
-     source : ethernet_source_t;
-     data : std_ulogic_vector;
-     fcs : ethernet_fcs_mode_t := fcs_append;
-     pad : boolean := true;
-     preamble_octets : natural := 7;
-     sfd : std_ulogic_vector(7 downto 0) := x"D5";
-     ifg_octets : natural := 12;
-     error_offsets : integer_vector := no_error_offsets
-   );
-
-   -- Transmit the packet a Scapy expression builds, for example
-   -- "Ether(dst='02:00:00:00:00:01')/IP()/UDP(dport=1234)". Needs the scapy extra.
-   procedure send_ethernet_packet(
-     signal net : inout network_t;
-     source : ethernet_source_t;
-     scapy_expression : string;
-     fcs : ethernet_fcs_mode_t := fcs_append;
-     pad : boolean := true;
-     preamble_octets : natural := 7;
-     sfd : std_ulogic_vector(7 downto 0) := x"D5";
-     ifg_octets : natural := 12;
-     error_offsets : integer_vector := no_error_offsets
-   );
-
-The arguments may describe traffic the standard forbids: a bad FCS, no padding, a short or long
-preamble, a wrong SFD, a short IFG. The error signal is asserted with the octets in
-``error_offsets``, which count like ``data`` and like the offsets ``eth_phy_error`` reports: 0 is
-the first octet after the SFD. Negative offsets reach back into the SFD (-1) and the preamble.
-Interfaces with control characters (XGMII) send the Error character instead.
+     - A frame that differs from the one ``check_ethernet_frame`` expected, or expected frames not
+       received before the simulation ends (monitor).
+   * - ``eth_user``
+     - An error Python code in the session of a VC reported with ``vc.error``.
 
 Entities
 --------
 
-.. code-block:: vhdl
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
 
-   entity gmii_monitor is
-     generic (
-       monitor : ethernet_monitor_t
-     );
-     port (
-       clk : in std_ulogic;
-       data : in std_ulogic_vector(7 downto 0);
-       dv : in std_ulogic;
-       er : in std_ulogic := '0'
-     );
-   end entity;
+   * - Entity
+     - Ports
+   * - ``gmii_source``, ``gmii_monitor``, ``gmii_protocol_checker``
+     - ``clk``, ``data(7 downto 0)``, ``dv``, ``er``: ``TX_CLK``/``RX_CLK``, ``TXD``/``RXD``,
+       ``TX_EN``/``RX_DV``, ``TX_ER``/``RX_ER``, on the rising edge.
+   * - ``mii_source``, ``mii_monitor``, ``mii_protocol_checker``
+     - The same with ``data(3 downto 0)``. ``CRS`` and ``COL`` of half duplex are not supported.
+   * - ``xgmii_source``, ``xgmii_monitor``, ``xgmii_protocol_checker``
+     - ``clk``, ``data(data_length(vc) - 1 downto 0)``, ``ctrl(ctrl_length(vc) - 1 downto 0)``, lane 0 in
+       the low bits, on the rising edge or on both edges.
 
-   entity gmii_source is
-     generic (
-       source : ethernet_source_t
-     );
-     port (
-       clk : in std_ulogic;
-       data : out std_ulogic_vector(7 downto 0) := (others => '0');
-       dv : out std_ulogic := '0';
-       er : out std_ulogic := '0'
-     );
-   end entity;
-
-``mii_monitor`` and ``mii_source`` have the same generics and ports with
-``data : std_ulogic_vector(3 downto 0)``. ``clk`` is ``TX_CLK`` or ``RX_CLK``, sampled and driven on
-its rising edge. ``CRS`` and ``COL`` of half duplex operation are not supported.
+Monitors and protocol checkers only read their ports. Source outputs are ``'0'`` between frames
+(GMII, MII) or Idle columns (XGMII).
 
 Python extras
 -------------
 
-A test never needs Python, but the backend of a component is the object ``vc`` in the Python
-session with the identity of the component, reachable with the bridge's context
-(``library python_bridge; context python_bridge.python_context;``):
+A test never needs Python, but the backend of a VC is the object ``vc`` in the Python session of its
+id, reachable with the bridge's context (``library python_bridge; context python_bridge.python_context;``):
 
 .. code-block:: vhdl
 
    check_equal(eval_integer("vc.last_packet()['UDP'].dport", new_session(get_id(monitor))), 1234);
 
-The backend classes are documented in :doc:`python_api`.
+The backend classes are documented in :doc:`python_api`. The changes from the earlier API are listed
+in :doc:`release_notes/index`.

@@ -7,16 +7,44 @@ plus the style rules below.
 VHDL components
 ---------------
 
-Components should feel like VUnit's own verification components:
+Components should feel like VUnit's own verification components (VCs). The Ethernet VCs follow
+``axi_stream_pkg`` and ``vc_pkg`` of VUnit, and every family does the same:
 
-* A handle record with private ``p_`` fields around a ``std_cfg_t``, created by a ``new_*`` function
-  with ``id``, the component options and ``unexpected_msg_type_policy``.
-* Accessors ``get_id``, ``get_logger``, ``get_checker`` and ``as_sync``, with
-  ``wait_until_idle(net, as_sync(vc))`` from ``sync_pkg`` supported.
-* Procedures taking ``signal net : inout network_t`` that send ``com`` messages, and message types
-  created with ``new_msg_type``.
-* A ``<family>_pkg`` with the handles and procedures, and a ``<family>_context`` that a testbench
-  uses.
+* **One handle type per VC**, such as ``gmii_source_t``, ``gmii_monitor_t`` and
+  ``gmii_protocol_checker_t``: a record of private ``p_`` fields created by ``new_<vc name>``. The
+  entity takes the handle as its only generic and sizes its ports with accessor functions such as
+  ``data_length``; entities never read ``p_`` fields.
+* **Constructor parameters** are the VC configuration, then ``id : id_t := null_id``,
+  ``logger : logger_t := null_logger``, ``actor : actor_t := null_actor``,
+  ``checker : checker_t := null_checker`` and
+  ``unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail``.
+* **Identity** is resolved like ``vc_pkg.create_std_cfg``. A null id becomes
+  ``awesome_vunit_vcs:<vc name>:<n>`` (``enumerate``). A null logger is the logger of the id, a null
+  actor a new actor of the id (an id that already has an actor is an error), a null checker a new
+  checker reporting to the logger. The accessors are ``get_id``, ``get_logger``, ``get_actor`` and
+  ``get_checker``.
+* **Inherited ids**: a sub-VC handle given to a parent constructor, such as the protocol checker of a
+  monitor, is rebuilt with the id ``<parent id>:<name>`` (``protocol_checker``). Its logger, actor
+  and checker derive from that id unless they were given explicitly, so logs trace through the
+  entities, for example ``tb_gmii:monitor:protocol_checker``.
+* **Python sessions**: the backend of a VC is the object ``vc`` in the Python session of its id,
+  ``new_session(get_id(handle))``. Two VCs with the same id are an error.
+* **Protocol checks** run in a separate ``<interface>_protocol_checker`` entity, which a monitor
+  instantiates when its handle has one, as ``axi_stream_monitor`` does. The monitor keeps the
+  scoreboard.
+* **Standard VCIs** where they apply: ``as_sync`` (``wait_until_idle``, ``wait_for_time``) for every
+  VC, ``as_stream`` for stream masters and slaves, and the family VCI, such as
+  ``as_ethernet_monitor``. Every VC handles ``reset(net, handle)``, which also returns when the VC
+  waits for a stopped clock.
+* **Procedures** take ``signal net : inout network_t`` and send ``com`` messages. A procedure that
+  returns a value blocks, and has a non-blocking overload with a reference and an
+  ``await_<procedure>_reply`` procedure.
+* **Message types** are verb first and family scoped, ``push_ethernet_frame_msg`` created with
+  ``new_msg_type("push ethernet frame")``, and a request with a reply has a ``*_reply_msg`` type. A
+  message no handler takes is a check failure on the checker of the VC,
+  ``Got unexpected message <name>``, unless the policy is ``ignore``.
+* **Packages**: a ``<family>_pkg`` or ``<interface>_pkg`` with the handles and procedures, and one
+  ``<family>_context`` that is the only context clause a testbench needs.
 * Errors a VC detects go to its checker, everything else to its logger.
 * The MPL-2.0 license header at the top of every file.
 
@@ -62,8 +90,7 @@ log messages:
    * - Topic
      - Rule
    * - Octet
-     - Ethernet data is counted in *octets*, never bytes. Frame lengths, gaps and offsets are in
-       octets.
+     - Ethernet data is counted in *octets*. Frame lengths, gaps and offsets are in octets.
    * - Frame and wire octets
      - *Frame octets* are the octets from the destination address up to and including the FCS
        (``mac_octets`` in Python). *Wire octets* also include the preamble and SFD. The *payload* is
@@ -83,7 +110,7 @@ log messages:
    * - VC
      - Write *verification component (VC)* on first use in a page.
    * - Code names
-     - Names of VHDL and Python objects are set as code: ``send_ethernet_frame``, ``EthernetFrame``.
+     - Names of VHDL and Python objects are set as code: ``push_ethernet_frame``, ``Frame``.
 
 Pages are written in reStructuredText. Admonitions are used sparingly and consistently: ``warning``
 for unreleased dependencies, ``note`` for limitations, ``tip`` for performance and tooling hints, and

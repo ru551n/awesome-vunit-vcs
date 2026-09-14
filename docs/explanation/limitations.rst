@@ -7,7 +7,7 @@ grouped by where they apply. Planned interfaces are listed on the :doc:`../roadm
 All Ethernet components
 -----------------------
 
-* **The scoreboard matches in order only.** ``expect_ethernet_frame`` compares received frames with
+* **The scoreboard matches in order only.** ``check_ethernet_frame`` compares received frames with
   the expected frames first in, first out. Out-of-order or filtered traffic needs a subscriber of its
   own in Python.
 * **The final check does not wait.** The final check of a monitor (an unfinished frame, expected
@@ -18,8 +18,11 @@ All Ethernet components
 
      Call ``wait_until_idle(net, as_sync(monitor))`` before ``test_runner_cleanup``.
 
-* **Scapy expressions are code.** ``send_ethernet_packet`` evaluates a Scapy expression string in the
-  Python session of the source. It is testbench code with testbench trust.
+* **Packet functions are testbench code.** ``push_ethernet_packet`` and the sequence procedures
+  import and call a Python function by name in the session of the VC. Their arguments are parsed as
+  literals and never evaluated, but the function runs with testbench trust.
+* **Pops cancelled by a reset.** ``reset(net, monitor)`` cancels pending pops; a non-blocking pop
+  pending at a reset must not be awaited.
 * **The link rate must match the clock.** Utilization, and for XGMII the octet period used to time
   inter-frame gaps, come from ``link_rate_mbps``, not from the clock period.
 * **Simulators.** GHDL and NVC are tested in CI. Questa/ModelSim, Riviera-PRO and Active-HDL are

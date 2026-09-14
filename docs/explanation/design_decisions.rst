@@ -113,7 +113,7 @@ described in :doc:`architecture`.
 Responders call once per transfer unit
 --------------------------------------
 
-**Decision:** a component that must answer a bus may call its backend once per byte or word.
+**Decision:** a component that must answer a bus may call its backend once per octet or word.
 
 A passive monitor can always batch, but an active responder, such as a memory model answering an
 opcode, decides what to drive next from what it has just received. It cannot batch in advance. Such a

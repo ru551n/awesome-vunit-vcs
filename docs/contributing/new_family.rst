@@ -63,7 +63,7 @@ For a new family ``<family>``:
      batch end or when the backend must be up to date (end of a transfer, ``wait_until_idle``). The
      benchmark on :doc:`../explanation/performance` shows why.
    * An active responder whose next output depends on what it just received (a memory model
-     answering an opcode, say) may call the bridge once per transfer unit (byte or word), never per
+     answering an opcode, say) may call the bridge once per transfer unit (octet or word), never per
      clock cycle. Measure that cost, and move bulk content through batched procedures such as preload
      and check.
 

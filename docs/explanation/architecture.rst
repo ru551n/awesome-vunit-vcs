@@ -58,14 +58,17 @@ Every Ethernet VC is built from the same layers:
    * - Layer
      - Role
    * - ``ethernet_pkg``
-     - Handles (``ethernet_monitor_t``, ``ethernet_source_t``), ``com`` message types and the
-       procedures a testbench calls: ``send_ethernet_frame``, ``expect_ethernet_frame``,
-       ``get_statistics``, ``start_capture`` and so on. Shared by every interface.
+     - The interface independent Ethernet VCIs (``ethernet_source_t``, ``ethernet_monitor_t``,
+       ``ethernet_protocol_checker_t``), ``com`` message types and the procedures a testbench calls:
+       ``push_ethernet_frame``, ``check_ethernet_frame``, ``get_statistics``, ``start_capture``,
+       ``reset`` and so on. Shared by every interface.
    * - ``<interface>_pkg``
-     - Constructors such as ``new_gmii_monitor`` and ``new_xgmii_source``, which fill in the
-       interface-specific options (lanes, clocking, link rate).
-   * - ``<interface>_monitor``, ``<interface>_source``
-     - Entities with the handle as their generic. They own the pin timing and nothing else.
+     - The handle types of the interface's source, monitor and protocol checker (such as
+       ``gmii_monitor_t``), their constructors with the interface options (lanes, clocking, link
+       rate) and the standard parameters, accessors, and overloads of the Ethernet procedures.
+   * - ``<interface>_source``, ``<interface>_monitor``, ``<interface>_protocol_checker``
+     - Entities with the handle as their only generic. They own the pin timing and nothing else; a
+       monitor instantiates a protocol checker when its handle has one.
    * - ``ethernet_vc_pkg``
      - The PHY-independent part of every entity: message handling, end-of-frame flushes,
        ``wait_until_idle`` replies and the final checks at ``test_runner_cleanup``. It also samples
@@ -205,7 +208,7 @@ Active sources
 --------------
 
 A source works the other way round: **Python decides what is transmitted, VHDL decides when pins
-change.** A testbench procedure such as ``send_ethernet_frame`` sends a ``com`` message to the source
+change.** A testbench procedure such as ``push_ethernet_frame`` sends a ``com`` message to the source
 entity. The entity asks its backend to build the symbols (preamble, SFD, padding, FCS, injected
 errors and the gap that follows), receives them as one ``integer_array_t`` per frame, and drives one
 symbol or column per clock edge. Deliberately malformed traffic is described by the same request, so
@@ -213,5 +216,5 @@ it is as deterministic as good traffic.
 
 Components that must answer a bus, such as a memory model that responds to an opcode, cannot batch
 in advance: what they drive next depends on what they just received. Such responders may call their
-backend once per transfer unit (byte or word), but never once per clock cycle; see
+backend once per transfer unit (octet or word), but never once per clock cycle; see
 :doc:`../contributing/new_family`.

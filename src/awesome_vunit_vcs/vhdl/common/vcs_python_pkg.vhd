@@ -31,6 +31,7 @@ library python_bridge;
 context python_bridge.python_context;
 
 package vcs_python_pkg is
+  -- The Python session of the VC with id, whose backend is the object vc in it
   impure function new_vc_session(id : id_t) return python_session_t;
 
   -- Python literals
@@ -54,6 +55,8 @@ package vcs_python_pkg is
   -- failures on checker, the others on logger at their level
   procedure log_reports(session : python_session_t; logger : logger_t; checker : checker_t);
 
+  -- The samples a passive VC recorded and has not sent to its backend yet,
+  -- created with :vhdl:`vcs_python_pkg.new_sample_batch`
   type sample_batch_t is record
     p_session : python_session_t;
     p_logger : logger_t;
@@ -86,6 +89,7 @@ package vcs_python_pkg is
   -- Send the recorded samples to the backend and log the reports it has
   procedure flush_samples(variable batch : inout sample_batch_t);
 
+  -- The number of samples recorded and not sent yet
   impure function num_samples(batch : sample_batch_t) return natural;
 end package;
 

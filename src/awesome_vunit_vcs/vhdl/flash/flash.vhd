@@ -20,7 +20,8 @@
 --     must not be part of pins, which would then be deaf to the bus for the
 --     whole busy time, exactly when a controller polls the status register.
 --     The model derives write-in-progress from a deadline and the time pins
---     passes in, so a status poll never races this process.
+--     passes in, so a status poll never races this process. A reset ends the
+--     wait early, as it ends the busy period in the model.
 --
 -- A qspi_protocol_checker instance, when the handle has one, checks the pin
 -- timing of the controller on its own checker. Metavalues sampled on the IOs
@@ -74,6 +75,9 @@ architecture a of flash is
   signal busy_started : natural := 0;
   signal busy_finished : natural := 0;
   signal busy_active : boolean := false;
+
+  -- Changed by main when a reset ends the busy period in the model
+  signal busy_cancel : natural := 0;
 begin
   main : process
     variable msg : msg_t;
@@ -221,9 +225,13 @@ begin
         reply_msg := new_msg;
         reply(net, msg, reply_msg);
 
-      elsif msg_type = flash_reset_msg then
+      elsif msg_type = reset_flash_msg then
         log_waiting_reports(backend_integer(session, "reset()"));
-        reply_msg := new_msg;
+        busy_cancel <= busy_cancel + 1;
+        if busy_active then
+          wait until not busy_active;
+        end if;
+        reply_msg := new_msg(reset_flash_reply_msg);
         reply(net, msg, reply_msg);
 
       elsif msg_type = flash_get_stat_msg then
@@ -255,7 +263,12 @@ begin
   busy_timer : process
   begin
     wait until busy_started /= busy_finished;
-    wait for busy_request;
+    -- The busy period ends after busy_request, or early when main cancels it.
+    -- A busy period pins starts meanwhile restarts the wait with its time.
+    loop
+      wait on busy_started, busy_cancel for busy_request;
+      exit when not busy_started'event;
+    end loop;
     busy_finished <= busy_started;
   end process;
 

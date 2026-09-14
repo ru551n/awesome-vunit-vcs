@@ -269,6 +269,22 @@ begin
         check_one_error;
         check_no_violations(no_deselect_checker);
 
+      elsif run("test_reset_clears_counts_and_timing_history") then
+        send_frame(deselect_after => 20 ns);
+        send_frame;
+        check_counts(raw_checker, qspi_cs_deselect, 1);
+        check_one_error;
+        reset(net, raw_checker);
+        check_no_violations(raw_checker);
+
+        -- CS is high for 10 ns around the reset, but the CS rise before it is
+        -- forgotten: no tSHSL violation
+        send_frame(deselect_after => 5 ns);
+        reset(net, raw_checker);
+        send_frame;
+        check_no_violations(raw_checker);
+        check_equal(get_log_count(get_logger(raw_checker), error), 0, "errors after the reset");
+
       elsif run("test_clean_master_transfer_has_no_violations") then
         cmd := bytes_of((0 => 16#32#));
         data := bytes_of((16#12#, 16#34#, 16#56#, 16#78#));

@@ -32,6 +32,9 @@
 -- stays high for the longer of one period and the configured CS deselect time
 -- before the next transaction may start.
 --
+-- A reset aborts a transfer within the SCK half period it is in, see
+-- :vhdl:`qspi_master_pkg.reset` and the comment on receive_during_transfer.
+--
 -- A protocol checker given to new_qspi_master is instantiated on the pins.
 
 library ieee;
@@ -71,14 +74,60 @@ begin
 
     variable period : delay_length := sck_period(qspi_master);
 
+    -- Messages taken out of the inbox during a transfer, handled after it
+    variable pending : queue_t := new_queue;
+    -- A reset request taken out of the inbox, answered when the reset is done
+    variable has_reset : boolean := false;
+    variable reset_request : msg_t;
+    -- Whole bytes the read phase of the current transfer has read
+    variable bytes_read : natural;
+
+    -- A reset must take effect while a transfer runs, but this process serves
+    -- one message at a time and a transfer is one message. So, as the
+    -- Ethernet sources do, every wait of a transfer takes the messages that
+    -- have arrived out of the inbox: a reset request ends the transfer, and
+    -- the others wait in pending. Messages behind a reset request stay in the
+    -- inbox. The process waits on net, which com changes whenever a message is
+    -- sent, so it sees a reset request the moment it arrives. has_message,
+    -- receive and waiting on net behave the same on GHDL and NVC.
+    procedure receive_during_transfer is
+      variable msg : msg_t;
+    begin
+      while not has_reset and has_message(actor) loop
+        receive(net, actor, msg);
+        if message_type(msg) = reset_qspi_master_msg then
+          reset_request := msg;
+          has_reset := true;
+        else
+          push(pending, msg);
+        end if;
+      end loop;
+    end;
+
+    -- Wait for duration, or until a reset request arrives
+    procedure wait_unless_reset(duration : delay_length) is
+      constant deadline : time := now + duration;
+    begin
+      receive_during_transfer;
+      while not has_reset and now < deadline loop
+        wait on net for deadline - now;
+        receive_during_transfer;
+      end loop;
+    end;
+
     -- One SCK cycle. sample is the resolved bus immediately before the
-    -- rising edge, which is what the far end presented for this beat.
+    -- rising edge, which is what the far end presented for this beat. A reset
+    -- ends the cycle with SCK low.
     procedure sck_cycle(variable sample : out qspi_io_t) is
     begin
-      wait for period / 2;
+      sample := qspi_io_value(m2s, s2m);
+      wait_unless_reset(period / 2);
+      if has_reset then
+        return;
+      end if;
       sample := qspi_io_value(m2s, s2m);
       m2s.sck <= '1';
-      wait for period / 2;
+      wait_unless_reset(period / 2);
       m2s.sck <= '0';
     end;
 
@@ -86,7 +135,7 @@ begin
       variable byte : std_ulogic_vector(7 downto 0);
       variable sample : qspi_io_t;
     begin
-      if is_null(bytes) or length(bytes) = 0 then
+      if is_null(bytes) or length(bytes) = 0 or has_reset then
         return;
       end if;
 
@@ -101,14 +150,16 @@ begin
         for beat in 0 to qspi_beats_per_byte(lanes) - 1 loop
           m2s.io <= qspi_drive_beat(byte, lanes, beat, qspi_master_side);
           sck_cycle(sample);
+          exit when has_reset;
         end loop;
+        exit when has_reset;
       end loop;
     end;
 
     procedure dummy_phase(cycles : natural) is
       variable sample : qspi_io_t;
     begin
-      if cycles = 0 then
+      if cycles = 0 or has_reset then
         return;
       end if;
 
@@ -119,6 +170,7 @@ begin
       m2s.io.enable <= (others => '0');
       for cycle in 1 to cycles loop
         sck_cycle(sample);
+        exit when has_reset;
       end loop;
     end;
 
@@ -127,7 +179,8 @@ begin
       variable sample : qspi_io_t;
       variable slice : std_ulogic_vector(lanes - 1 downto 0);
     begin
-      if length(bytes) = 0 then
+      bytes_read := 0;
+      if length(bytes) = 0 or has_reset then
         return;
       end if;
 
@@ -142,6 +195,7 @@ begin
         byte := (others => '0');
         for beat in 0 to qspi_beats_per_byte(lanes) - 1 loop
           sck_cycle(sample);
+          exit when has_reset;
           slice := qspi_sample_beat(sample, lanes, qspi_slave_side);
           check_false(
             checker,
@@ -151,7 +205,9 @@ begin
           );
           byte := qspi_byte_insert(byte, lanes, beat, to_x01(slice));
         end loop;
+        exit when has_reset;
         set(bytes, index, qspi_to_natural(byte));
+        bytes_read := index + 1;
       end loop;
     end;
 
@@ -177,9 +233,12 @@ begin
       read_phase(rd_data, read_lanes);
 
       -- Last falling edge to CS high, then the mandatory CS-high gap before
-      -- the next transaction.
+      -- the next transaction. An aborted transfer raises CS at once.
       m2s.io.enable <= (others => '0');
-      wait for period / 2;
+      if not has_reset then
+        wait_unless_reset(period / 2);
+      end if;
+      m2s.sck <= '0';
       m2s.cs_n <= '1';
       -- The CS-high gap is the device's tSHSL, not one bus period. Waiting only
       -- one period here violated the flash model's default 30 ns tSHSL at the
@@ -205,6 +264,39 @@ begin
       lanes := phase_lanes;
     end;
 
+    -- Finish a reset: answer the transfers queued before it with no data, keep
+    -- the other messages for after it, and acknowledge the reset.
+    procedure finish_reset is
+      variable kept : queue_t := new_queue;
+      variable msg, reply_msg : msg_t;
+      variable no_data : integer_array_t;
+      variable num_dropped : natural := 0;
+    begin
+      while not is_empty(pending) loop
+        msg := pop(pending);
+        if message_type(msg) = qspi_transfer_msg then
+          no_data := new_1d(length => 0, bit_width => 8, is_signed => false);
+          reply_msg := new_msg(qspi_transfer_reply_msg);
+          push_ref(reply_msg, no_data);
+          reply(net, msg, reply_msg);
+          num_dropped := num_dropped + 1;
+        else
+          push(kept, msg);
+        end if;
+      end loop;
+      while not is_empty(kept) loop
+        msg := pop(kept);
+        push(pending, msg);
+      end loop;
+
+      if num_dropped > 0 then
+        info(logger, "Reset dropped " & integer'image(num_dropped) & " queued transfer(s)");
+      end if;
+      reply_msg := new_msg(reset_qspi_master_reply_msg);
+      reply(net, reset_request, reply_msg);
+      has_reset := false;
+    end;
+
     variable msg, reply_msg : msg_t;
     variable msg_type : msg_type_t;
 
@@ -213,12 +305,25 @@ begin
     variable dummy_cycles, num_read_bytes : natural;
   begin
     loop
-      receive(net, actor, msg);
+      if is_empty(pending) then
+        receive(net, actor, msg);
+      else
+        msg := pop(pending);
+      end if;
       msg_type := message_type(msg);
+
+      if msg_type = reset_qspi_master_msg then
+        reset_request := msg;
+        has_reset := true;
+        msg_type := null_msg_type;
+      end if;
 
       handle_sync_message(net, msg_type, msg);
 
-      if msg_type = qspi_transfer_msg then
+      if msg_type = null_msg_type then
+        null;
+
+      elsif msg_type = qspi_transfer_msg then
         pop_byte_phase(msg, cmd, cmd_lanes);
         pop_byte_phase(msg, addr, addr_lanes);
         pop_byte_phase(msg, wr_data, wr_lanes);
@@ -244,6 +349,15 @@ begin
         deallocate(addr);
         deallocate(wr_data);
 
+        if has_reset then
+          info(
+            logger,
+            "Reset aborted a transfer after " & integer'image(bytes_read) & " of " & integer'image(num_read_bytes) &
+            " read byte(s)"
+          );
+          reshape(rd_data, bytes_read);
+        end if;
+
         -- Ownership of the read data moves to the caller, which redeems it with
         -- await_qspi_transfer_reply.
         reply_msg := new_msg(qspi_transfer_reply_msg);
@@ -257,6 +371,10 @@ begin
 
       else
         unexpected_msg_type(msg_type, qspi_master);
+      end if;
+
+      if has_reset then
+        finish_reset;
       end if;
     end loop;
   end process;

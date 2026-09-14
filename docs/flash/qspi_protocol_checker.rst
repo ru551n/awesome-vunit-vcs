@@ -146,6 +146,10 @@ Procedures
    * - ``get_check_count(net, protocol_checker, check, reference)`` and
        :vhdl:`await_get_check_count_reply <qspi_protocol_checker_pkg.await_get_check_count_reply>`
      - The same, non-blocking and redeemed later
+   * - :vhdl:`reset(net, protocol_checker) <qspi_protocol_checker_pkg.reset>`
+     - Blocking: set every violation count to 0 and forget the timing history, such as the time CS
+       last rose, so the first command after a reset of the bus is not measured against the edges
+       before it. The rule switches are kept
    * - ``get_id``, ``get_logger``, ``get_actor``, ``get_checker``, ``as_sync``
      - The identity of the checker. ``wait_until_idle(net, as_sync(protocol_checker))`` and
        ``wait_for_time`` of ``sync_pkg`` work
@@ -198,7 +202,7 @@ Statistics notes
 ----------------
 
 The checker keeps one violation count per rule, read with ``get_check_count``. A count only grows
-while its rule is enabled, and there is no procedure to reset it. The log counts of
+while its rule is enabled, and ``reset`` sets every count back to 0. The log counts of
 ``get_logger(protocol_checker)`` are the other view, and the one a negative test resets.
 
 Python backend
@@ -254,7 +258,6 @@ Limitations
    * **The master's obligations only.** ``s2m`` is unused by the current rules: the device's output
      timing (tCLQV, tSHQZ) and bus contention are not checked.
    * **SPI mode 0.** Data setup and hold are measured around the SCK rising edge.
-   * **Counts cannot be reset.** A test that needs a fresh count reads it before and after.
    * **Picosecond messages.** Times in messages are truncated to whole picoseconds.
 
    These are also listed in :ref:`limitations-flash`.

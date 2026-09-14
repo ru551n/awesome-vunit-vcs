@@ -143,6 +143,12 @@ Transactions
      - Blocking, for a transaction without read bytes
    * - ``set_sck_period(net, qspi_master, period)``
      - Blocking: the SCK period of every transaction queued after the call
+   * - :vhdl:`reset(net, qspi_master) <qspi_master_pkg.reset>`
+     - Blocking: abort a transfer in progress within its current SCK half period (SCK low, I/Os
+       released, CS high), drop the transfers queued before the reset, and return after the CS
+       deselect time. The callers of those transfers get replies: the bytes read before the abort, or
+       none for a dropped transfer, so ``data`` can be shorter than ``num_read_bytes``. The master logs
+       them at level info. It works while the far end is stuck, since the master drives the clock
    * - ``get_id``, ``get_logger``, ``get_actor``, ``get_checker``, ``as_sync``
      - The identity of the master. ``wait_until_idle(net, as_sync(qspi_master))`` waits for every
        queued transaction

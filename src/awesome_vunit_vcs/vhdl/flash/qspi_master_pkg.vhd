@@ -235,6 +235,27 @@ package qspi_master_pkg is
   );
 
   ---------------------------------------------------------------------------
+  -- Reset
+  ---------------------------------------------------------------------------
+
+  -- Blocking: recover the master, also in the middle of a transfer and while
+  -- the far end is stuck. A transfer in progress is aborted within the SCK half
+  -- period it is in: SCK returns to '0', the IOs are released and CS rises. CS
+  -- then stays high for the CS deselect time before the reset returns. Every
+  -- transfer queued before the reset is dropped.
+  --
+  -- The callers of the aborted and the dropped transfers do not hang: their
+  -- replies carry the bytes read before the abort, so data is shorter than
+  -- num_read_bytes, and is empty for a dropped transfer. The master logs what
+  -- it aborted and dropped on its logger at level info. Other requests queued
+  -- before the reset, such as set_sck_period, are handled after it. A reset of
+  -- an idle master returns at once.
+  procedure reset(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t
+  );
+
+  ---------------------------------------------------------------------------
   -- Message types, for the VC implementation
   ---------------------------------------------------------------------------
 
@@ -242,6 +263,8 @@ package qspi_master_pkg is
   constant qspi_transfer_msg : msg_type_t := new_msg_type("transfer qspi_master data");
   constant qspi_transfer_reply_msg : msg_type_t := new_msg_type("transfer qspi_master data reply");
   constant qspi_master_set_sck_period_msg : msg_type_t := new_msg_type("set qspi_master sck period");
+  constant reset_qspi_master_msg : msg_type_t := new_msg_type("reset qspi_master");
+  constant reset_qspi_master_reply_msg : msg_type_t := new_msg_type("reset qspi_master reply");
 
   ---------------------------------------------------------------------------
   -- Private
@@ -487,5 +510,16 @@ package body qspi_master_pkg is
     push_time(request_msg, period);
     request(net, get_actor(qspi_master), request_msg, ack);
     assert ack report "Failed on set_sck_period command" severity failure;
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    qspi_master : qspi_master_t
+  ) is
+    variable request_msg : msg_t := new_msg(reset_qspi_master_msg);
+    variable reply_msg : msg_t;
+  begin
+    request(net, get_actor(qspi_master), request_msg, reply_msg);
+    delete(reply_msg);
   end;
 end package body;

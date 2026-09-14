@@ -131,6 +131,7 @@ begin
     variable data : integer_array_t := null_integer_array;
     variable reference_data : integer_array_t := null_integer_array;
     variable reference : qspi_transfer_reference_t;
+    variable references : msg_vec_t(0 to 2);
     variable count : natural;
     variable start : time;
   begin
@@ -218,6 +219,25 @@ begin
           check_equal(get(data, idx), 16#AA#, "blocking byte " & to_string(idx));
           check_equal(get(reference_data, idx), get(data, idx), "reference byte " & to_string(idx));
         end loop;
+
+      elsif run("test_reset_of_an_idle_master_returns_at_once") then
+        start := now;
+        reset(net, default_master);
+        check_equal(now, start, "reset of an idle master");
+        qspi_transfer(net, default_master, cmd);
+        check(default_m2s.cs_n = '1', "CS high after a transfer that follows a reset");
+
+      elsif run("test_reset_answers_every_transfer_it_drops") then
+        -- The first transfer is aborted before its first SCK edge, the others
+        -- are dropped, and every caller gets its reply
+        for idx in references'range loop
+          qspi_transfer(net, default_master, cmd, references(idx));
+        end loop;
+        reset(net, default_master);
+        for idx in references'range loop
+          await_qspi_transfer_reply(net, references(idx));
+        end loop;
+        check(default_m2s.cs_n = '1', "CS high after the reset");
 
       elsif run("test_protocol_checker_is_a_child_of_the_master") then
         check(get_parent(get_id(protocol_checker(checked_master))) = get_id(checked_master), "parent id");

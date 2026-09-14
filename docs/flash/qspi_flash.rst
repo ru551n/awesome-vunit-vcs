@@ -518,16 +518,17 @@ Configuration and state
        ``"tRST"``, ``"tRES1"`` or ``"tRES2"``. It applies to busy periods that start afterwards; another
        name is a failure on the logger that lists the valid ones
    * - ``flash_set_protection(net, flash, address, num_bytes, locked)``
-     - Lock or unlock a region in addition to the status register protection. Locks survive
-       ``flash_reset``
+     - Lock or unlock a region in addition to the status register protection. Locks survive a
+       ``reset``
    * - ``flash_wait_until_ready(net, flash, timeout)``
      - Blocking: wait until a busy time the component started is over. ``timeout`` defaults to 1 min,
        longer than the default ``t_ce``; a timeout is a failure
-   * - ``flash_reset(net, flash)``
-     - Blocking power-on reset: status registers, WEL, WIP, addressing and QPI mode, continuous read,
-       deep power-down and the status register protection return to their defaults. A reset in the
-       middle of a transaction makes the flash ignore the rest of that transaction. Content, locks,
-       statistics and written regions are kept
+   * - :vhdl:`reset(net, flash) <flash_pkg.reset>`
+     - Blocking: return to standby, as a power-on reset. Status registers, WEL, addressing and QPI
+       mode, continuous read, deep power-down and the status register protection return to their
+       defaults, and a busy period ends, so ``flash_wait_until_ready`` returns at once. A reset while
+       CS is low drops that transaction: the flash ignores the rest of it, and the next CS fall starts
+       a command normally. Content, locks, statistics and written regions are kept
    * - :vhdl:`flash_get_stat <flash_pkg.flash_get_stat>`
      - Blocking: one statistic or piece of state, read at the current simulation time; also
        non-blocking with ``await_flash_get_stat_reply``
@@ -544,7 +545,7 @@ A typical setup:
 
 .. code-block:: vhdl
 
-   flash_reset(net, boot_flash);
+   reset(net, boot_flash);
    flash_set_timing_enable(net, boot_flash, false);
    flash_preload(net, boot_flash, 16#000000#, std_ulogic_vector'(x"01020304"));
    flash_load_image(net, boot_flash, tb_path(runner_cfg) & "fw.bin", format => "bin", base_address => 16#400000#);
@@ -640,7 +641,7 @@ lists the valid names, and returns 0.
 
 A real part refuses a command without a trace on the wire, and so does the model: when a controller
 seems to do nothing, ``ignored_command_count`` and the reject counters say why. The counters and the
-written regions accumulate for the whole simulation; ``flash_reset`` keeps them, and no VHDL procedure
+written regions accumulate for the whole simulation; ``reset`` keeps them, and no VHDL procedure
 clears them.
 
 Python backend
@@ -757,8 +758,8 @@ Limitations
    * **Deep power-down** takes no time to enter.
    * **Released I/Os are metavalues** when the flash samples them for data in.
    * **Waiting for a busy time that was cut short.** ``flash_wait_until_ready`` waits for the whole
-     busy time the component started, even when ``flash_set_timing_enable(net, flash, false)`` or
-     ``flash_reset`` ended it in the model.
+     busy time the component started, even when ``flash_set_timing_enable(net, flash, false)`` ended
+     it in the model.
    * **Statistics are never cleared from VHDL.**
 
    These are also listed, with details, in :ref:`limitations-flash`.

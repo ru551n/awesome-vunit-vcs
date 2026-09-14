@@ -278,6 +278,15 @@ begin
         await_flash_get_stat_reply(net, reference, reference_value);
         check_equal(reference_value, value, "program_count by reference");
 
+      elsif run("test_reset_of_an_idle_flash_returns_at_once") then
+        flash_preload(net, default_flash, 16#003000#, bytes_of((16#12#, 16#34#)));
+        start := now;
+        reset(net, default_flash);
+        check_equal(now, start, "reset of an idle flash");
+        flash_check_content(net, default_flash, 16#003000#, bytes_of((16#12#, 16#34#)));
+        flash_get_stat(net, default_flash, "wip", value);
+        check_equal(value, 0, "wip after a reset");
+
       elsif run("test_protocol_checker_is_a_child_of_the_flash") then
         check(get_parent(get_id(protocol_checker(checked_flash))) = get_id(checked_flash), "parent id");
         check(

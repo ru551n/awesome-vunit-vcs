@@ -47,6 +47,9 @@ architecture a of qspi_protocol_checker is
   constant enabled : integer_vector_ptr_t := new_integer_vector_ptr(num_checks, value => 1);
   constant counts : integer_vector_ptr_t := new_integer_vector_ptr(num_checks, value => 0);
 
+  -- Toggled by main on a reset, so monitor forgets its timing history
+  signal forget_history : boolean := false;
+
   -- A time in ns with up to three decimals ("7.519 ns"). to_string of a time
   -- uses the resolution of the simulator, which differs between simulators
   -- and is not the unit of a datasheet.
@@ -113,6 +116,17 @@ begin
         push(reply_msg, get(counts, idx));
         reply(net, msg, reply_msg);
 
+      elsif msg_type = reset_qspi_protocol_checker_msg then
+        for check_idx in 0 to num_checks - 1 loop
+          set(counts, check_idx, 0);
+        end loop;
+        forget_history <= not forget_history;
+        -- monitor resumes in this delta too, so the history is gone before
+        -- the caller can drive the next edge
+        wait on forget_history;
+        reply_msg := new_msg(reset_qspi_protocol_checker_reply_msg);
+        reply(net, msg, reply_msg);
+
       else
         unexpected_msg_type(msg_type, protocol_checker);
       end if;
@@ -152,7 +166,18 @@ begin
     variable hold_broken : boolean;
   begin
     loop
-      wait on m2s;
+      wait on m2s, forget_history;
+
+      if forget_history'event then
+        have_rise := false;
+        have_fall := false;
+        have_cs_rise := false;
+        awaiting_first_sck := false;
+        have_sck_edge := false;
+        lane_change_time := (others => 0 fs);
+        sampled_lanes := (others => '0');
+        last_drive := m2s.io;
+      end if;
 
       -- SCK period, high and low time. Not gated on CS: an interval that
       -- spans an idle gap is longer than any limit.

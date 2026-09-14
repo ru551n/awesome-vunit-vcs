@@ -223,6 +223,20 @@ begin
         reset_log_count(get_logger(default_checker), error);
         reset_log_count(get_logger(custom_checker), error);
 
+      elsif run("test_reset_clears_the_counts_and_returns_at_once") then
+        disable_stop(get_logger(custom_checker), error);
+        disable_stop(get_logger(default_checker), error);
+        deselect_too_briefly;
+        get_check_count(net, default_checker, qspi_cs_deselect, count);
+        check_equal(count, 1, "qspi_cs_deselect count before the reset");
+        start := now;
+        reset(net, default_checker);
+        check_equal(now, start, "reset of a protocol checker");
+        get_check_count(net, default_checker, qspi_cs_deselect, count);
+        check_equal(count, 0, "qspi_cs_deselect count after the reset");
+        reset_log_count(get_logger(default_checker), error);
+        reset_log_count(get_logger(custom_checker), error);
+
       elsif run("test_parent_derives_the_id_and_keeps_explicit_parts") then
         check(
           get_parent(get_id(protocol_checker(derived_master))) = get_id(derived_master),

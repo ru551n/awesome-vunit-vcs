@@ -322,6 +322,7 @@ begin
     variable address : integer_array_t;
     variable count : integer;
     variable start : time;
+    variable reference : qspi_transfer_reference_t;
 
     -- One x1 byte of zeros bit-banged on the raw bus, in SPI mode 0 with
     -- 10 ns setup and hold, and io(0) = 'X' in beat metavalue_beat
@@ -350,7 +351,7 @@ begin
 
     while test_suite loop
       for idx in flashes'range loop
-        flash_reset(net, flashes(idx));
+        reset(net, flashes(idx));
       end loop;
       -- Most tests do not care how long an erase takes; the ones that do turn
       -- timing back on
@@ -791,6 +792,55 @@ begin
         qspi_flash_read(net, default_master_2, 16#016000#, 2, got);
         check_bytes(got, bytes_of((16#C3#, 16#3C#)), "default device 2");
         deallocate(got);
+
+      elsif run("test_reset_returns_to_standby_mid_transaction") then
+        -- A reset while CS is low in the middle of a page program: the flash
+        -- ignores the rest of the program, keeps its content and answers the
+        -- next command
+        flash_preload(net, flash_a, 16#017000#, bytes_of((16#11#, 16#22#)));
+        expected := ramp(64, 16#40#);
+        address := qspi_flash_address_bytes(16#017100#, 3);
+        qspi_flash_write_enable(net, master_a);
+        qspi_transfer(
+          net,
+          master_a,
+          cmd => bytes_of((0 => qspi_flash_op_page_program)),
+          reference => reference,
+          addr => address,
+          wr_data => expected
+        );
+        -- Into the data phase: 8 opcode, 24 address and 96 data cycles
+        for cycle in 1 to 128 loop
+          wait until rising_edge(m2s_a.sck);
+        end loop;
+        check(m2s_a.cs_n = '0', "CS is low when the flash is reset");
+        reset(net, flash_a);
+        await_qspi_transfer_reply(net, reference);
+        poll_until_ready(net);
+
+        flash_check_content_fill(net, flash_a, 16#017100#, 64, 16#FF#);
+        flash_check_content(net, flash_a, 16#017000#, bytes_of((16#11#, 16#22#)));
+        flash_get_stat(net, flash_a, "program_count", count);
+        check_equal(count, 0, "programs executed after a reset mid-transaction");
+        qspi_flash_read(net, master_a, 16#017000#, 2, got);
+        check_bytes(got, bytes_of((16#11#, 16#22#)), "a read after the reset");
+        deallocate(got);
+        deallocate(expected);
+        deallocate(address);
+
+      elsif run("test_reset_ends_a_busy_period") then
+        flash_set_timing_enable(net, flash_a, true);
+        flash_set_timing(net, flash_a, "tSE", 10 ms);
+        qspi_flash_write_enable(net, master_a);
+        qspi_flash_sector_erase(net, master_a, 16#018000#);
+        flash_get_stat(net, flash_a, "wip", count);
+        check_equal(count, 1, "the erase makes the flash busy");
+        start := now;
+        reset(net, flash_a);
+        flash_wait_until_ready(net, flash_a);
+        check_equal(now, start, "a reset and flash_wait_until_ready take no time");
+        flash_get_stat(net, flash_a, "wip", count);
+        check_equal(count, 0, "the reset ended the busy period");
 
       elsif run("test_wait_for_time_and_until_idle") then
         start := now;

@@ -197,6 +197,16 @@ package qspi_protocol_checker_pkg is
     variable count : out natural
   );
 
+  -- Blocking: recover the checker, for example after a reset of the bus. The
+  -- violation counts of every rule return to 0 and the timing history is
+  -- forgotten, such as the time CS last rose, so the first command after the
+  -- reset is not measured against the edges before it. The rule switches are
+  -- kept.
+  procedure reset(
+    signal net : inout network_t;
+    protocol_checker : qspi_protocol_checker_t
+  );
+
   ---------------------------------------------------------------------------
   -- Message types
   ---------------------------------------------------------------------------
@@ -205,6 +215,8 @@ package qspi_protocol_checker_pkg is
   constant qspi_set_check_enabled_msg : msg_type_t := new_msg_type("set qspi_protocol_checker check enabled");
   constant qspi_get_check_count_msg : msg_type_t := new_msg_type("get qspi_protocol_checker check count");
   constant qspi_get_check_count_reply_msg : msg_type_t := new_msg_type("get qspi_protocol_checker check count reply");
+  constant reset_qspi_protocol_checker_msg : msg_type_t := new_msg_type("reset qspi_protocol_checker");
+  constant reset_qspi_protocol_checker_reply_msg : msg_type_t := new_msg_type("reset qspi_protocol_checker reply");
 
   ---------------------------------------------------------------------------
   -- Private, for the flash and QSPI master constructors
@@ -449,5 +461,16 @@ package body qspi_protocol_checker_pkg is
   begin
     get_check_count(net, protocol_checker, check, reference);
     await_get_check_count_reply(net, reference, count);
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    protocol_checker : qspi_protocol_checker_t
+  ) is
+    variable request_msg : msg_t := new_msg(reset_qspi_protocol_checker_msg);
+    variable reply_msg : msg_t;
+  begin
+    request(net, protocol_checker.p_actor, request_msg, reply_msg);
+    delete(reply_msg);
   end;
 end package body;

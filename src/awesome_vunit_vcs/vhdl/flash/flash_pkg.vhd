@@ -351,7 +351,7 @@ package flash_pkg is
 
   -- Lock or unlock num_bytes from address. A program or erase touching a
   -- locked region is ignored, as by a real part. Preloads are not affected,
-  -- and the locks survive flash_reset.
+  -- and the locks survive a reset.
   procedure flash_set_protection(
     signal net : inout network_t;
     flash : flash_t;
@@ -370,10 +370,15 @@ package flash_pkg is
     timeout : delay_length := 1 min
   );
 
-  -- Power-on reset of the volatile state (status registers, write enable,
-  -- addressing and QPI mode, continuous read, busy state); the content and
-  -- the regions locked with flash_set_protection are kept. Blocking.
-  procedure flash_reset(
+  -- Blocking: return the flash to standby, as a power-on reset of its
+  -- volatile state. The status registers, write enable, addressing and QPI
+  -- mode, continuous read and deep power-down return to their defaults, and a
+  -- busy period ends, so :vhdl:`flash_pkg.flash_wait_until_ready` returns at
+  -- once. A transaction in progress is dropped: the flash ignores the rest of
+  -- that CS low period, and the next CS fall starts a command normally. The
+  -- content, the regions locked with flash_set_protection, the statistics and
+  -- the written regions are kept.
+  procedure reset(
     signal net : inout network_t;
     flash : flash_t
   );
@@ -477,7 +482,8 @@ package flash_pkg is
   constant flash_set_timing_msg : msg_type_t := new_msg_type("set flash timing");
   constant flash_set_protection_msg : msg_type_t := new_msg_type("set flash protection");
   constant flash_wait_until_ready_msg : msg_type_t := new_msg_type("wait until flash ready");
-  constant flash_reset_msg : msg_type_t := new_msg_type("reset flash");
+  constant reset_flash_msg : msg_type_t := new_msg_type("reset flash");
+  constant reset_flash_reply_msg : msg_type_t := new_msg_type("reset flash reply");
   constant flash_get_stat_msg : msg_type_t := new_msg_type("get flash stat");
   constant flash_get_stat_reply_msg : msg_type_t := new_msg_type("get flash stat reply");
 
@@ -953,11 +959,11 @@ package body flash_pkg is
     delete(reply_msg);
   end;
 
-  procedure flash_reset(
+  procedure reset(
     signal net : inout network_t;
     flash : flash_t
   ) is
-    variable request_msg : msg_t := new_msg(flash_reset_msg);
+    variable request_msg : msg_t := new_msg(reset_flash_msg);
     variable reply_msg : msg_t;
   begin
     -- Blocking, so the first stimulus of a test cannot race the reset

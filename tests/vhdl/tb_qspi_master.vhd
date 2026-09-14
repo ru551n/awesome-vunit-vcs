@@ -103,6 +103,11 @@ architecture tb of tb_qspi_master is
   constant oe_queue : queue_t := new_queue;
 
   signal cs_assert_count : natural := 0;
+  -- The time CS last rose
+  signal cs_rise_time : time := 0 fs;
+
+  -- The length of the read a reset aborts
+  constant long_read_bytes : positive := 4096;
 
   impure function to_byte_array(values : integer_vector) return integer_array_t is
     variable result : integer_array_t := new_1d(length => values'length, bit_width => 8, is_signed => false);
@@ -147,22 +152,39 @@ begin
     else
       check_equal(qspi_to_natural(m2s.io.enable), 0, "Master must release the IOs when CS goes high");
       last_rise := now;
+      cs_rise_time <= now;
     end if;
   end process;
 
-  -- Stub slave. Counts SCK edges through the phase shape it was given.
+  -- Stub slave. Counts SCK edges through the phase shape it was given, and
+  -- gives up on the transaction when CS rises early, as after a reset.
   stub_slave : process
     variable cfg : slave_cfg_t;
     variable byte : std_ulogic_vector(7 downto 0);
+    -- CS is still low
+    variable selected : boolean;
+
+    procedure wait_for_sck(rising : boolean) is
+    begin
+      if rising then
+        wait until rising_edge(m2s.sck) or m2s.cs_n = '1';
+      else
+        wait until falling_edge(m2s.sck) or m2s.cs_n = '1';
+      end if;
+      selected := m2s.cs_n = '0';
+    end;
 
     procedure receive_phase(num_bytes : natural; lanes : lane_count_t) is
     begin
       for index in 0 to num_bytes - 1 loop
         byte := (others => '0');
         for beat in 0 to qspi_beats_per_byte(lanes) - 1 loop
-          wait until rising_edge(m2s.sck);
+          exit when not selected;
+          wait_for_sck(rising => true);
+          exit when not selected;
           byte := qspi_byte_insert(byte, lanes, beat, qspi_sample_beat(io, lanes, qspi_master_side));
         end loop;
+        exit when not selected;
         push_integer(rx_queue, qspi_to_natural(byte));
       end loop;
     end;
@@ -171,27 +193,34 @@ begin
 
     wait until falling_edge(m2s.cs_n);
     cfg := slave_cfg;
+    selected := true;
 
     receive_phase(cfg.cmd_bytes, cfg.cmd_lanes);
     receive_phase(cfg.addr_bytes, cfg.addr_lanes);
     receive_phase(cfg.wr_bytes, cfg.wr_lanes);
 
     for cycle in 1 to cfg.dummy_cycles loop
-      wait until rising_edge(m2s.sck);
+      exit when not selected;
+      wait_for_sck(rising => true);
+      exit when not selected;
       check_equal(qspi_to_natural(m2s.io.enable), 0, "Master must tri-state every IO during a dummy cycle");
     end loop;
 
     -- Drive each read beat on the falling edge before the rising edge the
     -- master samples it on, as a real device clocking out on CPOL=0 does.
     for index in 0 to cfg.rd_bytes - 1 loop
+      exit when not selected;
       byte := qspi_to_byte(pop_integer(tx_queue));
       for beat in 0 to qspi_beats_per_byte(cfg.rd_lanes) - 1 loop
-        wait until falling_edge(m2s.sck);
+        wait_for_sck(rising => false);
+        exit when not selected;
         s2m.io <= qspi_drive_beat(byte, cfg.rd_lanes, beat, qspi_slave_side);
       end loop;
     end loop;
 
-    wait until rising_edge(m2s.cs_n);
+    if m2s.cs_n = '0' then
+      wait until rising_edge(m2s.cs_n);
+    end if;
     s2m.io <= qspi_drive_init;
   end process;
 
@@ -208,6 +237,7 @@ begin
     variable references : msg_vec_t(0 to 2);
     variable status : natural;
     variable timestamp : delay_length;
+    variable reset_time : time;
     variable assertions_before : natural;
 
     -- A check message naming the SCK period of the current run
@@ -658,6 +688,59 @@ begin
 
           await_qspi_transfer_reply(net, reference);
           check_received((0 => 16#9F#), "set_sck_period");
+          drain_trace(status);
+          free_arrays;
+        end loop;
+
+      elsif run("test_reset_aborts_an_in_flight_transfer") then
+        for period_idx in periods'range loop
+          use_sck_period(period_idx);
+          -- A long x1 read, reset after 100 SCK cycles
+          configure_slave(cmd_bytes => 1, cmd_lanes => 1, rd_bytes => long_read_bytes, rd_lanes => 1);
+          for index in 1 to long_read_bytes loop
+            push_integer(tx_queue, 16#A5#);
+          end loop;
+          cmd := to_byte_array((0 => 16#03#));
+          qspi_transfer(
+            net => net,
+            qspi_master => master,
+            cmd => cmd,
+            reference => reference,
+            num_read_bytes => long_read_bytes
+          );
+          for cycle in 1 to 100 loop
+            wait until rising_edge(m2s.sck);
+          end loop;
+
+          reset_time := now;
+          reset(net, master);
+          check(m2s.cs_n = '1', at_period("CS is high after the reset"));
+          check(m2s.sck = '0', at_period("SCK is idle after the reset"));
+          check_equal(qspi_to_natural(m2s.io.enable), 0, at_period("IOs are released after the reset"));
+          check(cs_rise_time >= reset_time, at_period("CS rose at the reset"));
+          check(
+            cs_rise_time - reset_time <= period,
+            at_period("CS rose " & to_string(cs_rise_time - reset_time) & " after the reset")
+          );
+
+          -- The caller of the aborted transfer gets the whole bytes read
+          await_qspi_transfer_reply(net, reference, read_data);
+          check(length(read_data) < long_read_bytes, at_period("the aborted read returns fewer bytes"));
+          for index in 0 to length(read_data) - 1 loop
+            check_equal(get(read_data, index), 16#A5#, at_period("byte " & to_string(index) & " of the aborted read"));
+          end loop;
+          flush(tx_queue);
+          flush(rx_queue);
+          drain_trace(status);
+          free_arrays;
+
+          -- The next transfer runs normally
+          configure_slave(cmd_bytes => 1, cmd_lanes => 1, rd_bytes => 2, rd_lanes => 1);
+          load_tx((16#5A#, 16#C3#));
+          cmd := to_byte_array((0 => 16#03#));
+          qspi_transfer(net => net, qspi_master => master, cmd => cmd, data => read_data, num_read_bytes => 2);
+          check_received((0 => 16#03#), "transfer after a reset");
+          check_read_data(read_data, (16#5A#, 16#C3#), "transfer after a reset");
           drain_trace(status);
           free_arrays;
         end loop;

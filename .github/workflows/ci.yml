@@ -107,8 +107,11 @@ jobs:
       - name: Install
         run: |
           pip install -r "$UNRELEASED_REQUIREMENTS"
-          pip install -e ".[scapy]"
+          # Hypothesis for tb_property and examples/property; the package does not depend on it
+          pip install -e ".[scapy]" hypothesis
       - name: Run tests/vhdl
         run: python tests/vhdl/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out"
       - name: Run examples/gmii
         run: python examples/gmii/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_gmii"
+      - name: Run examples/property
+        run: python examples/property/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_property"

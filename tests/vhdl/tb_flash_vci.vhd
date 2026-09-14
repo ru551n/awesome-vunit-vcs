@@ -10,15 +10,6 @@
 -- written as enumerated literals, except the first default flash of this
 -- architecture.
 
-library ieee;
-use ieee.std_logic_1164.all;
-
-library vunit_lib;
-context vunit_lib.vunit_context;
-context vunit_lib.com_context;
-use vunit_lib.integer_array_pkg.all;
-use vunit_lib.sync_pkg.all;
-
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.flash_context;
 

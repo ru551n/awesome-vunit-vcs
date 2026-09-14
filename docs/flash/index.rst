@@ -18,9 +18,11 @@ components (VCs):
    library awesome_vunit_vcs;
    context awesome_vunit_vcs.flash_context;
 
-``flash_context`` makes ``qspi_pkg``, ``qspi_master_pkg``, ``qspi_flash_cmd_pkg``,
-``qspi_protocol_checker_pkg`` and ``flash_pkg`` visible. The generated reference of every declaration
-is :doc:`../reference/vhdl/flash`.
+``flash_context`` is the only context clause a flash testbench needs. It makes ``qspi_pkg``,
+``qspi_master_pkg``, ``qspi_flash_cmd_pkg``, ``qspi_protocol_checker_pkg`` and ``flash_pkg`` visible,
+together with ``ieee.std_logic_1164``, ``vunit_context``, ``com_context``, ``sync_pkg``,
+``integer_array_pkg`` and ``vc_pkg``. Add ``ieee.numeric_std`` where a testbench needs it. The
+generated reference of every declaration is :doc:`../reference/vhdl/flash`.
 
 How the components relate
 -------------------------

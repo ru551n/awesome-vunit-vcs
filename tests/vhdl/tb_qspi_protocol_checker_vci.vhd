@@ -11,14 +11,6 @@
 -- are taken from the handle, never written as enumerated literals, except the
 -- first default checker of this architecture.
 
-library ieee;
-use ieee.std_logic_1164.all;
-
-library vunit_lib;
-context vunit_lib.vunit_context;
-context vunit_lib.com_context;
-use vunit_lib.sync_pkg.all;
-
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.flash_context;
 

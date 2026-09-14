@@ -10,9 +10,12 @@ names it as ``"property_examples:<function>"`` and reads the drawn example
 through paths such as ``"config.limit"`` or ``"(2).kind"``.
 """
 
+from dataclasses import replace
 from typing import Any
 
 from hypothesis import strategies as st
+
+from awesome_vunit_vcs import ethernet as eth
 
 BYTE = st.integers(0, 255)
 
@@ -89,3 +92,53 @@ def register_operations() -> st.SearchStrategy[list[dict[str, Any]]]:
 
 
 # docs-end: operations
+
+
+# docs-start: ethernet
+#: The malformations of the example. GIANT is a frame property rather than a wire
+#: option, and BAD_SFD is left out while expected_violations mispredicts the gap
+#: check of the frame after a bad SFD.
+MALFORMATIONS = sorted(
+    eth.supported_malformations(eth.GMII) - {eth.Malformation.GIANT, eth.Malformation.BAD_SFD},
+    key=lambda kind: kind.value,
+)
+
+
+def _describe_traffic(traffic: list[tuple[eth.Frame, eth.Malformation | None, int]]) -> dict[str, Any]:
+    """What the testbench sends, frame by frame, and the violations the protocol checker must count."""
+    frames = []
+    expected: dict[str, int] = {}
+    previous = None
+    for frame, kind, ifg_octets in traffic:
+        options = eth.WireOptions.malformed(kind) if kind else eth.WireOptions()
+        if kind is not eth.Malformation.SHORT_IFG:
+            options = replace(options, ifg_octets=ifg_octets)
+        for check in eth.expected_violations(frame, options, interface=eth.GMII, previous=previous):
+            expected[check.value.lower()] = expected.get(check.value.lower(), 0) + 1
+        frames.append(
+            {
+                "data": frame.octets[:-4],  # destination address to payload; the source adds the FCS
+                "fcs": "bad" if options.fcs == "bad" else "append",
+                "pad": options.pad,
+                "preamble_octets": options.preamble_octets,
+                "ifg_octets": options.ifg_octets,
+                "errors": list(options.errors),
+            }
+        )
+        previous = options
+    return {"frames": frames, "expected": expected}
+
+
+def ethernet_traffic() -> st.SearchStrategy[dict[str, Any]]:
+    """(e) Composite Ethernet traffic: frames, each maybe malformed, and the checks that must fire."""
+    frame = st.builds(
+        eth.Frame.from_payload,
+        st.binary(min_size=1, max_size=64),
+        dst=st.binary(min_size=6, max_size=6),
+        ethertype=st.integers(0x0600, 0xFFFF),
+    )
+    item = st.tuples(frame, st.none() | st.sampled_from(MALFORMATIONS), st.integers(12, 20))
+    return st.lists(item, min_size=1, max_size=4).map(_describe_traffic)
+
+
+# docs-end: ethernet

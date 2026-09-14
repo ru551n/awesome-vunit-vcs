@@ -76,6 +76,7 @@ package property_pkg is
     checker : checker_t := null_checker
   ) return property_t;
 
+  -- The id, logger and checker of a property.
   impure function get_id(prop : property_t) return id_t;
   impure function get_logger(prop : property_t) return logger_t;
   impure function get_checker(prop : property_t) return checker_t;

@@ -59,6 +59,21 @@ Breaking changes to the VHDL API
      - Verb first, such as ``push_ethernet_frame_msg``, and a ``*_reply_msg`` per request with a
        reply.
 
+Property-based testing
+----------------------
+
+* ``property_pkg`` runs a Hypothesis property inside one simulation: ``new_property`` names a
+  Python function returning a strategy, ``next_example`` and ``report_example`` loop over the
+  examples, and ``check_property`` reports the minimal counterexample Hypothesis shrank to.
+* Composite examples are read by path, such as ``get_integer_vector(prop, "frames(2).payload")``,
+  with ``has_field`` for optional fields.
+* A lockup is reported with ``timed_out`` as a failure of its own, a design that does not recover
+  aborts the property, each example is journaled before it runs, and the smallest failure is
+  replayed first on the next run.
+* Examples in ``examples/property``: an integer, a record, octet vectors, a tagged union, a register
+  sequence against a reference model and composite Ethernet traffic. The package does not depend on
+  Hypothesis.
+
 Python API
 ----------
 

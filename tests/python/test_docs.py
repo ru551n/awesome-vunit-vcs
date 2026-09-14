@@ -78,10 +78,6 @@ def test_every_check_is_in_the_checks_table() -> None:
     assert not missing
 
 
-@pytest.mark.xfail(
-    reason="property_pkg.get_id has no doc comment yet (owned by the property-based testing work)",
-    strict=False,
-)
 def test_every_public_vhdl_declaration_has_a_doc_comment() -> None:
     missing = [
         f"{unit.name}.{name}"

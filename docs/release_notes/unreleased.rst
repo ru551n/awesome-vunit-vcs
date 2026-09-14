@@ -75,9 +75,15 @@ Property-based testing
   aborts the property, each example is journaled before it runs, and the smallest failure is
   replayed first on the next run.
 * ``report_score`` forwards a score of an example to ``hypothesis.target``.
-* Examples in ``examples/property``: a scalar, a record with a list, a tagged union, a register
-  sequence against a reference model and a generated record in one testbench, plus an Ethernet frame
+* Examples in ``examples/property``: a scalar, a record with a list, a tagged union, a stateful register
+  bank against a reference model, scores, a metamorphic property, timing, swarm testing and a generated
+  record in one testbench, plus an Ethernet frame
   property and a lockup. The package does not depend on Hypothesis.
+* Stateful properties: a strategy function may return a ``RuleBasedStateMachine`` subclass whose
+  rules run steps in VHDL with ``step``; ``get_rule`` and ``report_step`` in ``property_pkg``.
+* ``@pin`` keeps counterexamples as regressions, and ``AWESOME_VUNIT_VCS_PROPERTY_PROFILE`` selects a
+  quick or a long example budget. A nightly workflow runs the long profile, and CI keeps saved
+  failures between runs.
 
 Python API
 ----------

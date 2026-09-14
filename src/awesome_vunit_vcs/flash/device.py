@@ -761,6 +761,23 @@ class FlashDevice:
         return int(derived[name]())
 
     # -- test-facing control plane ---------------------------------------------
+
+    def _check_range(self, method: str, addr: int, num_bytes: int, *, min_bytes: int = 0) -> None:
+        """Raise unless ``[addr, addr + num_bytes)`` lies inside the device and
+        ``num_bytes`` is at least ``min_bytes``; shared by every content and
+        protection call so they agree on what fits."""
+        if num_bytes < min_bytes:
+            raise ValueError(f"{method}: num_bytes={num_bytes} must be at least {min_bytes}")
+        if not 0 <= addr < self.size_bytes or addr + num_bytes > self.size_bytes:
+            raise ValueError(
+                f"{method}: [0x{addr:x}, +{num_bytes}) is not inside the device [0, 0x{self.size_bytes:x})"
+            )
+
+    @staticmethod
+    def _check_byte(method: str, value: int) -> None:
+        if not 0 <= value <= 0xFF:
+            raise ValueError(f"{method}: value={value} is not a byte value")
+
     #
     # These never model the wire: they are how a testbench seeds content,
     # inspects it, and constrains the model. They bypass NOR semantics on
@@ -776,13 +793,14 @@ class FlashDevice:
         as a written region.
 
         Args:
-            addr: The address of the first byte, wrapped to the device size.
+            addr: The address of the first byte, inside the device.
             data: The bytes.
 
         Raises:
-            ValueError: The data runs past the end of the device.
+            ValueError: The range is not inside the device.
         """
-        self.array.write_raw(addr & self.addr_mask, bytes(data))
+        self._check_range("preload", addr, len(data))
+        self.array.write_raw(addr, bytes(data))
 
     def preload_fill(self, addr: int, num_bytes: int, value: int) -> None:
         """
@@ -791,13 +809,16 @@ class FlashDevice:
         O(1) regardless of size -- filling the whole 16 MiB device materializes nothing.
 
         Args:
-            addr: The first byte. Unlike :meth:`preload` it is not wrapped.
-            num_bytes: The number of bytes.
-            value: The byte value, masked to 8 bits.
+            addr: The first byte.
+            num_bytes: The number of bytes, at least 1.
+            value: The byte value, 0 to 255.
 
         Raises:
-            ValueError: The region is not inside the device.
+            ValueError: The region is not inside the device, ``num_bytes`` is
+                less than 1 or ``value`` is not a byte value.
         """
+        self._check_range("preload_fill", addr, num_bytes, min_bytes=1)
+        self._check_byte("preload_fill", value)
         self.array.fill(addr, num_bytes, value)
 
     def load_image(self, path: str, fmt: str | None = None, base: int = 0) -> int:
@@ -846,6 +867,7 @@ class FlashDevice:
         Raises:
             ValueError: The range is not inside the device.
         """
+        self._check_range("read_back", addr, num_bytes)
         return self.array.read(addr, num_bytes)
 
     def check_content(self, addr: int, expected: bytes) -> None:
@@ -863,6 +885,7 @@ class FlashDevice:
                 values of the first mismatch and the number of bad bytes.
             ValueError: The range is not inside the device.
         """
+        self._check_range("check_content", addr, len(expected))
         actual = self.array.read(addr, len(expected))
         if actual == bytes(expected):
             return
@@ -883,16 +906,19 @@ class FlashDevice:
 
         Args:
             addr: The first byte.
-            num_bytes: The number of bytes.
-            value: The expected byte value, masked to 8 bits.
+            num_bytes: The number of bytes, at least 1.
+            value: The expected byte value, 0 to 255.
 
         Raises:
             ContentMismatch: A byte differs. The message gives the address and
                 value of the first mismatch.
-            ValueError: The range is not inside the device.
+            ValueError: The range is not inside the device, ``num_bytes`` is
+                less than 1 or ``value`` is not a byte value.
         """
+        self._check_range("check_content_fill", addr, num_bytes, min_bytes=1)
+        self._check_byte("check_content_fill", value)
         actual = self.array.read(addr, num_bytes)
-        want = value & 0xFF
+        want = value
         for offset, got in enumerate(actual):
             if got != want:
                 raise ContentMismatch(
@@ -926,6 +952,7 @@ class FlashDevice:
         Raises:
             ValueError: The region is not inside the device.
         """
+        self._check_range("set_protection", addr, num_bytes)
         self.protection.set_region(addr, num_bytes, bool(locked))
 
     def set_timing(self, name: str, duration_fs: int) -> None:

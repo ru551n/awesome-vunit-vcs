@@ -343,6 +343,20 @@ def test_preload_past_the_end_is_a_failure_report(fast: FlashBackend) -> None:
     only_report(fast, Severity.FAILURE)
 
 
+def test_preload_at_the_end_of_the_device_does_not_wrap(fast: FlashBackend) -> None:
+    assert fast.preload([0x00, 0x00], 16 * MIB - 1) == 1
+    assert "not inside the device" in only_report(fast, Severity.FAILURE)
+    assert list(fast.read_back(0, 1)) == [0xFF]
+
+
+def test_fill_values_outside_a_byte_are_failure_reports(fast: FlashBackend) -> None:
+    assert fast.preload_fill(0, 4, 0x100) == 1
+    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: preload_fill raised ValueError: ")
+    assert list(fast.read_back(0, 1)) == [0xFF]
+    assert fast.check_content_fill(0, 4, 0x1FF) == 1
+    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: check_content_fill raised ValueError: ")
+
+
 def test_read_back_failure_returns_an_empty_array(fast: FlashBackend) -> None:
     value = fast.read_back(16 * MIB, 4)
     assert value.dtype == np.int32

@@ -282,7 +282,8 @@ class FlashBackend:
         Args:
             data: Byte values, an ``integer_array_t``. A value outside 0 to 255
                 is a failure report and nothing is written.
-            addr: The address of the first byte.
+            addr: The address of the first byte. A range that is not inside
+                the device is a failure report and nothing is written.
 
         Returns:
             The number of reports waiting.
@@ -295,8 +296,9 @@ class FlashBackend:
 
         Args:
             addr: The first byte.
-            num_bytes: The number of bytes.
-            value: The byte value, masked to 8 bits.
+            num_bytes: The number of bytes, at least 1.
+            value: The byte value. A value outside 0 to 255 is a failure report
+                and nothing is written.
 
         Returns:
             The number of reports waiting.
@@ -354,8 +356,9 @@ class FlashBackend:
 
         Args:
             addr: The first byte.
-            num_bytes: The number of bytes.
-            value: The expected byte value, masked to 8 bits.
+            num_bytes: The number of bytes, at least 1.
+            value: The expected byte value. A value outside 0 to 255 is a
+                failure report.
 
         Returns:
             The number of reports waiting.

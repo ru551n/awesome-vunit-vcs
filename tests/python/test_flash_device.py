@@ -470,11 +470,11 @@ def test_three_byte_addressing_by_default(host: Host) -> None:
 
 
 def test_en4b_switches_every_current_mode_command(fast: Host) -> None:
-    fast.dev.preload(0x01234567, b"\x5a")
+    fast.dev.preload(0x00234567, b"\x5a")
     fast.command(0xB7)
     assert fast.dev.get_stat("addr_bytes") == 4
     assert fast.status(2)[0] & 0x01 == 0x01, "SR3 ADS must report 4-byte mode"
-    assert fast.read_array(0x01234567, 1) == [0x5A]
+    assert fast.read_array(0x00234567, 1) == [0x5A]
     fast.command(0xE9)
     assert fast.dev.get_stat("addr_bytes") == 3
     assert fast.status(2)[0] & 0x01 == 0x00
@@ -835,6 +835,61 @@ def test_check_content_fill_raises_content_mismatch(fast: Host) -> None:
     fast.dev.preload(0x8_0000, b"\x00")
     with pytest.raises(ContentMismatch, match="0x00080000"):
         fast.dev.check_content_fill(0, 1 << 20, 0xFF)
+
+
+TOP = 16 * MIB
+
+
+@pytest.mark.parametrize(
+    ("call", "addr", "num_bytes"),
+    [
+        (lambda d, a, n: d.preload(a, b"\x00" * n), TOP - 1, 2),
+        (lambda d, a, n: d.preload(a, b"\x00" * n), TOP, 1),
+        (lambda d, a, n: d.preload(a, b"\x00" * n), -1, 1),
+        (lambda d, a, n: d.preload(a, b"\x00" * n), TOP, 0),
+        (lambda d, a, n: d.preload_fill(a, n, 0x00), TOP - 1, 2),
+        (lambda d, a, n: d.preload_fill(a, n, 0x00), -1, 1),
+        (lambda d, a, n: d.read_back(a, n), TOP - 1, 2),
+        (lambda d, a, n: d.read_back(a, n), 0, -1),
+        (lambda d, a, n: d.check_content(a, b"\xff" * n), TOP - 1, 2),
+        (lambda d, a, n: d.check_content_fill(a, n, 0xFF), TOP - 1, 2),
+        (lambda d, a, n: d.set_protection(a, n, True), TOP - 1, 2),
+        (lambda d, a, n: d.set_protection(a, n, True), 0, -1),
+        (lambda d, a, n: d.set_protection(a, n, True), -1, 1),
+    ],
+)
+def test_ranges_outside_the_device_raise(host: Host, call, addr: int, num_bytes: int) -> None:
+    with pytest.raises(ValueError, match=r"not inside the device|num_bytes"):
+        call(host.dev, addr, num_bytes)
+    assert host.dev.read_back(0, 2) == b"\xff\xff", "nothing wrapped to the start"
+    assert host.dev.protection.locked_regions() == []
+
+
+def test_ranges_ending_at_the_top_of_the_device_are_fine(host: Host) -> None:
+    host.dev.preload(TOP - 2, b"\x01\x02")
+    host.dev.preload_fill(TOP - 4, 2, 0x00)
+    assert host.dev.read_back(TOP - 4, 4) == b"\x00\x00\x01\x02"
+    host.dev.check_content(TOP - 2, b"\x01\x02")
+    host.dev.check_content_fill(TOP - 4, 2, 0x00)
+    host.dev.set_protection(TOP - 4, 4, True)
+    host.dev.preload(0, b"")
+
+
+@pytest.mark.parametrize("value", [-1, 0x100, 0x1A5])
+def test_fill_values_outside_a_byte_raise(host: Host, value: int) -> None:
+    with pytest.raises(ValueError, match="value"):
+        host.dev.preload_fill(0, 4, value)
+    assert host.dev.read_back(0, 4) == b"\xff" * 4
+    with pytest.raises(ValueError, match="value"):
+        host.dev.check_content_fill(0, 4, value)
+
+
+@pytest.mark.parametrize("num_bytes", [0, -4])
+def test_fills_need_at_least_one_byte(host: Host, num_bytes: int) -> None:
+    with pytest.raises(ValueError, match="num_bytes"):
+        host.dev.preload_fill(0, num_bytes, 0x00)
+    with pytest.raises(ValueError, match="num_bytes"):
+        host.dev.check_content_fill(0, num_bytes, 0xFF)
 
 
 def test_busy_deadline_is_reported_in_femtoseconds(host: Host) -> None:

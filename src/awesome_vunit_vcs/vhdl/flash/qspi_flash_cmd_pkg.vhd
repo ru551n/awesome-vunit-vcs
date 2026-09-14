@@ -47,6 +47,10 @@ package qspi_flash_cmd_pkg is
   -- Opcodes
   ---------------------------------------------------------------------------
 
+  -- The opcodes the procedures below send. qspi_flash_op_quad_page_program
+  -- and qspi_flash_op_block_erase_32k are passed as their opcode argument;
+  -- qspi_flash_op_write_disable has no procedure and is sent with
+  -- qspi_transfer.
   constant qspi_flash_op_read_id : natural := 16#9F#;
   constant qspi_flash_op_read : natural := 16#03#;
   constant qspi_flash_op_fast_read : natural := 16#0B#;
@@ -93,8 +97,8 @@ package qspi_flash_cmd_pkg is
   -- Identification
   ---------------------------------------------------------------------------
 
-  -- 0x9F. data is replaced by the manufacturer/device bytes read back and is
-  -- owned by the caller afterwards.
+  -- 0x9F. data is replaced by the num_bytes manufacturer and device bytes
+  -- read back, and is owned by the caller afterwards.
   procedure qspi_flash_read_id(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
@@ -108,7 +112,8 @@ package qspi_flash_cmd_pkg is
   -- Reads
   ---------------------------------------------------------------------------
 
-  -- 0x03: address and data on lanes, no dummy cycles.
+  -- 0x03: address and data on lanes, no dummy cycles. data is replaced by
+  -- the num_bytes bytes read, which the caller owns, as for all reads below.
   procedure qspi_flash_read(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
@@ -166,15 +171,16 @@ package qspi_flash_cmd_pkg is
   -- Writes and erases
   ---------------------------------------------------------------------------
 
-  -- 0x06.
+  -- 0x06: set the write enable latch.
   procedure qspi_flash_write_enable(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
     opcode_lanes : lane_count_t := 1
   );
 
-  -- 0x02 by default. A quad input page program is
-  -- opcode => qspi_flash_op_quad_page_program, data_lanes => 4.
+  -- 0x02 by default, with the bytes of data. A quad input page program is
+  -- opcode => qspi_flash_op_quad_page_program, data_lanes => 4. The caller
+  -- keeps data.
   procedure qspi_flash_page_program(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
@@ -187,7 +193,7 @@ package qspi_flash_cmd_pkg is
     data_lanes : lane_count_t := 1
   );
 
-  -- 0x20.
+  -- 0x20: erase the 4 KiB sector at addr.
   procedure qspi_flash_sector_erase(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
@@ -208,7 +214,7 @@ package qspi_flash_cmd_pkg is
     addr_lanes : lane_count_t := 1
   );
 
-  -- 0xC7.
+  -- 0xC7: erase the whole device.
   procedure qspi_flash_chip_erase(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
@@ -219,7 +225,7 @@ package qspi_flash_cmd_pkg is
   -- Status registers
   ---------------------------------------------------------------------------
 
-  -- 0x05 / 0x35 / 0x15 for status register 1 / 2 / 3.
+  -- 0x05, 0x35 or 0x15: read status register 1, 2 or 3 into status.
   procedure qspi_flash_read_status(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
@@ -229,8 +235,8 @@ package qspi_flash_cmd_pkg is
     data_lanes : lane_count_t := 1
   );
 
-  -- 0x01 / 0x31 / 0x11 for status register 1 / 2 / 3. Needs a preceding
-  -- qspi_flash_write_enable on a real part.
+  -- 0x01, 0x31 or 0x11: write value to status register 1, 2 or 3. Needs a
+  -- preceding qspi_flash_write_enable on a real part.
   procedure qspi_flash_write_status(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
@@ -244,13 +250,14 @@ package qspi_flash_cmd_pkg is
   -- Mode changes
   ---------------------------------------------------------------------------
 
-  -- 0xB7 / 0xE9: enter and leave 4-byte address mode.
+  -- 0xB7: enter 4-byte address mode.
   procedure qspi_flash_enter_4byte(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
     opcode_lanes : lane_count_t := 1
   );
 
+  -- 0xE9: leave 4-byte address mode.
   procedure qspi_flash_exit_4byte(
     signal net : inout network_t;
     qspi_master : qspi_master_t;

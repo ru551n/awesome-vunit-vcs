@@ -40,6 +40,8 @@ package flash_pkg is
   -- The address widths a device advertises in SFDP
   type flash_addr_modes_t is (both, three_only, four_only);
 
+  -- The handle of a flash, created with new_flash. It is the generic of the
+  -- flash entity and the first argument of the procedures below.
   type flash_t is record
     -- Private. Use new_flash and the procedures below.
     p_std_cfg : std_cfg_t;
@@ -143,6 +145,8 @@ package flash_pkg is
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return flash_t;
 
+  -- The id, logger and checker of the flash, and its handle for
+  -- wait_until_idle and wait_for_time of sync_pkg
   impure function get_id(flash : flash_t) return id_t;
   impure function get_logger(flash : flash_t) return logger_t;
   impure function get_checker(flash : flash_t) return checker_t;
@@ -161,7 +165,7 @@ package flash_pkg is
     data : integer_array_t
   );
 
-  -- Bytes, leftmost byte first
+  -- Scattered literals as a vector of whole bytes, leftmost byte at address
   procedure flash_preload(
     signal net : inout network_t;
     flash : flash_t;
@@ -169,7 +173,8 @@ package flash_pkg is
     data : std_ulogic_vector
   );
 
-  -- O(1) in num_bytes: the model stores a run
+  -- Fill num_bytes from address with value. O(1) in num_bytes: the model
+  -- stores a run, and only the length crosses to Python.
   procedure flash_preload_fill(
     signal net : inout network_t;
     flash : flash_t;
@@ -196,7 +201,7 @@ package flash_pkg is
   -- A pending read-back, redeemed with await_flash_read_back_reply
   alias flash_reference_t is msg_t;
 
-  -- Non-blocking: request num_bytes of content
+  -- Non-blocking: request num_bytes of content from address
   procedure flash_read_back(
     signal net : inout network_t;
     flash : flash_t;
@@ -213,7 +218,8 @@ package flash_pkg is
     variable data : out integer_array_t
   );
 
-  -- Blocking read-back
+  -- Blocking read-back of num_bytes from address. The caller owns data and
+  -- deallocates it.
   procedure flash_read_back(
     signal net : inout network_t;
     flash : flash_t;
@@ -232,6 +238,9 @@ package flash_pkg is
     expected : integer_array_t
   );
 
+  -- Compare num_bytes of content from address with the constant value in
+  -- Python, without an expected array. A mismatch is a check failure on the
+  -- checker of the device naming the first differing address.
   procedure flash_check_content_fill(
     signal net : inout network_t;
     flash : flash_t;
@@ -240,8 +249,9 @@ package flash_pkg is
     value : natural range 0 to 255
   );
 
-  -- The regions the controller programmed or erased, coalesced, as a flat
-  -- [address, length, address, length, ...]. The caller owns regions.
+  -- The regions the controller programmed or erased over the bus, coalesced,
+  -- as a flat [address, length, address, length, ...]. Preloads and images
+  -- are not included. The caller owns regions.
   procedure flash_get_written_regions(
     signal net : inout network_t;
     flash : flash_t;
@@ -252,7 +262,7 @@ package flash_pkg is
   -- Configuration
   ---------------------------------------------------------------------------
 
-  -- false makes every busy time 0
+  -- Switch the busy times on or off; false makes every busy time 0
   procedure flash_set_timing_enable(
     signal net : inout network_t;
     flash : flash_t;
@@ -260,7 +270,8 @@ package flash_pkg is
   );
 
   -- Override one busy time: "tPP", "tSE", "tBE32", "tBE64", "tCE", "tW",
-  -- "tRST", "tRES1" or "tRES2"
+  -- "tRST", "tRES1" or "tRES2". Another name is a failure on the logger of
+  -- the device.
   procedure flash_set_timing(
     signal net : inout network_t;
     flash : flash_t;
@@ -268,8 +279,9 @@ package flash_pkg is
     duration : delay_length
   );
 
-  -- Lock or unlock a region. A program or erase touching a locked region is
-  -- ignored, as by a real part.
+  -- Lock or unlock num_bytes from address. A program or erase touching a
+  -- locked region is ignored, as by a real part. Preloads are not affected,
+  -- and the locks survive flash_reset.
   procedure flash_set_protection(
     signal net : inout network_t;
     flash : flash_t;
@@ -278,16 +290,19 @@ package flash_pkg is
     locked : boolean
   );
 
-  -- Block until a program or erase the device has started is finished. A
-  -- controller polling the status register over the bus is the stronger check.
+  -- Block until a busy time the device has started is over. timeout is the
+  -- timeout of the request: pass a longer one for a busy time above 1 s, such
+  -- as a chip erase (t_ce). A controller polling the status register over the
+  -- bus is the stronger check.
   procedure flash_wait_until_ready(
     signal net : inout network_t;
     flash : flash_t;
     timeout : delay_length := 1 sec
   );
 
-  -- Power-on reset of the volatile state (status, mode, write enable); the
-  -- content is kept. Blocking.
+  -- Power-on reset of the volatile state (status registers, write enable,
+  -- addressing and QPI mode, continuous read, busy state); the content and
+  -- the regions locked with flash_set_protection are kept. Blocking.
   procedure flash_reset(
     signal net : inout network_t;
     flash : flash_t
@@ -308,13 +323,16 @@ package flash_pkg is
   -- The packed directive, see awesome_vunit_vcs/flash/directive.py
   ---------------------------------------------------------------------------
 
-  -- Bumped whenever the layout below changes
+  -- The version of the directive layout. Bumped whenever the layout below
+  -- changes, and compared with LAYOUT_VERSION of the backend when the
+  -- component starts.
   constant flash_layout_version : natural := 1;
 
-  -- What the component does next. Every field of a directive describes the
-  -- same, next action.
+  -- Private, for the component. What the component does next. Every field
+  -- of a directive describes the same, next action.
   type flash_action_t is (receive, transmit, ignore_rest);
 
+  -- Private, for the component. A directive unpacked by decode_directive.
   type flash_directive_t is record
     action : flash_action_t;
     -- Lanes of this action
@@ -330,6 +348,7 @@ package flash_pkg is
     num_bytes : positive;
   end record;
 
+  -- Private, for the component. The bit position and width of each field.
   constant dir_action_shift : natural := 0;
   constant dir_action_width : natural := 2;
   constant dir_lanes_shift : natural := 2;
@@ -343,18 +362,23 @@ package flash_pkg is
   constant dir_num_bytes_shift : natural := 21;
   constant dir_num_bytes_width : natural := 9;
 
-  -- The layout occupies bits 0 to 29: a VHDL integer is signed 32-bit
+  -- Private, for the component. The layout occupies bits 0 to 29: a VHDL
+  -- integer is signed 32-bit.
   constant dir_packed_max : natural := 2 ** 30 - 1;
 
-  -- Bit index of the volatile flag within the flags field
+  -- Private, for the component. Bit index of the volatile flag within the
+  -- flags field.
   constant dir_flag_volatile : natural := 0;
 
+  -- Private, for the component. Unpack a directive returned by the backend.
+  -- A value outside the layout is a failure.
   function decode_directive(packed : integer) return flash_directive_t;
 
   ---------------------------------------------------------------------------
   -- Message types
   ---------------------------------------------------------------------------
 
+  -- The message types the procedures above send to the component
   constant flash_preload_msg : msg_type_t := new_msg_type("flash preload");
   constant flash_preload_fill_msg : msg_type_t := new_msg_type("flash preload fill");
   constant flash_load_image_msg : msg_type_t := new_msg_type("flash load image");
@@ -376,18 +400,19 @@ package flash_pkg is
   -- Private, for the component
   ---------------------------------------------------------------------------
 
-  -- Python module and class of the backend
+  -- Private. The Python module and class of the backend.
   constant flash_backend_module : string := "awesome_vunit_vcs.flash.vunit_backend";
   constant flash_backend_class : string := "FlashBackend";
 
-  -- Constructor arguments of the backend
+  -- Private. The constructor arguments of the backend.
   impure function backend_arguments(flash : flash_t) return string;
 
-  -- A time as the two Python arguments "hi, lo", t = hi * 2**30 fs + lo fs,
-  -- the convention of vcs_python_pkg and awesome_vunit_vcs.common.vunit_bridge
+  -- Private. A time as the two Python arguments "hi, lo", with
+  -- ``t = hi * 2**30 fs + lo fs``, the convention of vcs_python_pkg and
+  -- awesome_vunit_vcs.common.vunit_bridge.
   function python_time_arguments(value : time) return string;
 
-  -- The time of hi and lo returned by Python
+  -- Private. The time of hi and lo returned by Python.
   function from_python_time(hi : natural; lo : natural) return time;
 end package;
 

@@ -17,8 +17,8 @@ a simulation and has the same defaults; the backend receives its values when
 it is created. Pin-level AC limits and output delays are used only by VHDL
 and are not part of this configuration.
 
-Times are integer femtoseconds, the resolution VHDL time has, so that no
-rounding happens between the two sides.
+Sizes are in bytes. Times are integer femtoseconds (fs), the resolution VHDL
+time has, so that no rounding happens between the two sides.
 """
 
 from __future__ import annotations
@@ -28,7 +28,9 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from types import MappingProxyType
 
+#: One kibibyte, in bytes
 KIB = 1024
+#: One mebibyte, in bytes
 MIB = 1024 * KIB
 
 _US = 10**9
@@ -37,17 +39,33 @@ _S = 10**15
 
 
 class AddrModes(IntEnum):
-    """Addressing modes advertised in SFDP. The values are what VHDL sends."""
+    """
+    Addressing modes advertised in SFDP. The values are what VHDL sends.
 
+    The value only changes what SFDP advertises and which
+    :attr:`FlashConfig.addr_bytes` values are accepted. The model accepts
+    EN4B (0xB7), EX4B (0xE9) and the explicit 4-byte opcodes whatever the
+    value is.
+    """
+
+    #: 3- and 4-byte addressing
     BOTH = 0
+    #: 3-byte addressing only; requires ``addr_bytes=3``
     THREE_ONLY = 3
+    #: 4-byte addressing only; requires ``addr_bytes=4``
     FOUR_ONLY = 4
 
 
-#: Busy-time names, in the order a human thinks about them. A configuration
-#: must give exactly these; ``set_timing`` rejects anything else, because
-#: silently accepting "tPp" would leave the override with no effect and the
-#: test quietly passing for the wrong reason.
+#: Busy-time names, in the order a human thinks about them. ``tPP`` is page
+#: program, ``tSE`` 4 KiB sector erase, ``tBE32`` 32 KiB block erase, ``tBE64``
+#: 64 KiB block erase, ``tCE`` chip erase, ``tW`` write status register,
+#: ``tRST`` software reset recovery, ``tRES1`` release from deep power-down and
+#: ``tRES2`` release from deep power-down with an electronic ID read.
+#:
+#: :attr:`FlashConfig.busy_fs` must give exactly these names, and
+#: :meth:`~awesome_vunit_vcs.flash.timing.Timing.set_busy` rejects any other,
+#: because silently accepting "tPp" would leave the override with no effect
+#: and the test quietly passing for the wrong reason.
 BUSY_KEYS: tuple[str, ...] = (
     "tPP",  # page program
     "tSE",  # sector erase (4 KiB)
@@ -60,8 +78,10 @@ BUSY_KEYS: tuple[str, ...] = (
     "tRES2",  # release from deep power-down with electronic ID read
 )
 
-#: Typical, not worst-case, busy times in femtoseconds. A testbench that wants
-#: worst case overrides the one number it cares about.
+#: Typical rather than worst-case busy times in femtoseconds. ``tPP`` is 0.7 ms,
+#: ``tSE`` 45 ms, ``tBE32`` 120 ms, ``tBE64`` 150 ms, ``tCE`` 20 s, ``tW`` 10 ms,
+#: ``tRST`` 30 us, ``tRES1`` 3 us and ``tRES2`` 1.8 us (us is microseconds). A
+#: testbench that wants worst case overrides the one number it cares about.
 DEFAULT_BUSY_FS: Mapping[str, int] = MappingProxyType(
     {
         "tPP": 700 * _US,
@@ -84,28 +104,60 @@ def _is_power_of_two(value: int) -> bool:
 @dataclass(frozen=True)
 class FlashConfig:
     """
-    Geometry, identification, status register defaults and busy times of one
-    device. Invalid values raise :class:`ValueError` on construction.
+    Geometry, identification, status register defaults and busy times of one device.
+
+    Attributes:
+        size_bytes: Capacity in bytes, a power of two. The default is 16 MiB.
+        page_bytes: Page size in bytes, a power of two dividing ``size_bytes``.
+            One page program writes at most one page.
+        sector_bytes: Sector size in bytes, a power of two dividing the
+            device. It is only described in SFDP, which requires an erase
+            opcode of exactly this size, so only 4 KiB builds a device. The
+            erase opcodes always erase 4 KiB, 32 KiB and 64 KiB.
+        block32_bytes: 32 KiB block size in bytes for SFDP, or 0 to advertise
+            no 32 KiB erase type. 0x52 is accepted either way.
+        block_bytes: Block size in bytes for SFDP, a power of two dividing the
+            device. A size other than 64 KiB is advertised as an unsupported
+            erase type.
+        addr_bytes: Addressing mode at power-up and after a reset, 3 or 4 bytes.
+        addr_modes: The addressing modes advertised in SFDP, see :class:`AddrModes`.
+        jedec_id: The 24-bit manufacturer, memory type and capacity ID that
+            0x9F returns.
+        electronic_id: The one-byte ID returned by 0xAB, or None to derive it
+            from the capacity code, see :meth:`device_id`.
+        sr1_default: Status register 1 after power-up and reset. WIP (bit 0)
+            and WEL (bit 1) are derived and ignored here.
+        sr2_default: Status register 2 after power-up and reset. The default
+            sets QE (bit 1), so quad commands work without writing SR2 first.
+        sr3_default: Status register 3 after power-up and reset. ADS (bit 0)
+            follows the addressing mode and is ignored here.
+        busy_fs: Busy time of each name in :data:`BUSY_KEYS`, in fs. The
+            mapping must have exactly those keys, with non-negative integer
+            values; it is copied.
+        timing_enabled: Initial state of the busy timing; it can be switched at
+            run time.
+
+    Raises:
+        ValueError: A value is out of range: a size that is not a power of two
+            or does not divide the device, ``addr_bytes`` other than 3 or 4 or
+            contradicting ``addr_modes``, a JEDEC ID wider than 24 bits, an
+            electronic ID or status register default that is not a byte, or
+            busy times with missing, unknown or negative entries.
     """
 
     size_bytes: int = 16 * MIB
     page_bytes: int = 256
     sector_bytes: int = 4 * KIB
-    #: 0 means the device has no 32 KiB block erase
     block32_bytes: int = 32 * KIB
     block_bytes: int = 64 * KIB
-    #: Addressing mode at power-up and after a reset, 3 or 4 bytes
     addr_bytes: int = 3
     addr_modes: AddrModes = AddrModes.BOTH
     jedec_id: int = 0xEF4018
-    #: The one-byte ID returned by 0xAB; None derives it from the capacity code
     electronic_id: int | None = None
     sr1_default: int = 0x00
-    #: QE is set, so quad commands work without writing SR2 first
     sr2_default: int = 0x02
     sr3_default: int = 0x00
     busy_fs: Mapping[str, int] = field(default_factory=lambda: dict(DEFAULT_BUSY_FS))
-    #: Initial state of the busy timing; it can be switched at run time
     timing_enabled: bool = True
 
     def __post_init__(self) -> None:
@@ -162,13 +214,22 @@ class FlashConfig:
                 raise ValueError(f"busy time {key}={value!r} must be a non-negative integer number of femtoseconds")
 
     def jedec_id_bytes(self) -> bytes:
-        """Manufacturer, memory type, capacity: the three bytes 0x9F clocks out, most significant first."""
+        """
+        The JEDEC ID as 0x9F clocks it out.
+
+        Returns:
+            Manufacturer, memory type and capacity, three bytes, most significant first.
+        """
         return self.jedec_id.to_bytes(3, "big")
 
     def device_id(self) -> int:
         """
-        The legacy one-byte device ID returned by 0xAB, derived from the
-        capacity code so it cannot contradict the JEDEC ID unless given.
+        The legacy one-byte electronic ID returned by 0xAB.
+
+        Returns:
+            :attr:`electronic_id` when given, otherwise the capacity code (the
+            last byte of :attr:`jedec_id`) minus one, so that it cannot
+            contradict the JEDEC ID. The default 0xEF4018 gives 0x17.
         """
         if self.electronic_id is not None:
             return self.electronic_id & 0xFF

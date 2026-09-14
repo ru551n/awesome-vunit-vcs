@@ -11,10 +11,10 @@ configuration and the opcode table* rather than typed in. That is the point of
 the module -- an SFDP blob copied from a datasheet drifts away from the
 model it is supposed to describe, and a driver that trusts SFDP then
 mis-drives the model with no test failing. Here the two cannot disagree,
-because the erase opcode in DWORD 8 is literally looked up in
-`commands.COMMAND_TABLE`.
+because the erase opcodes in DWORD 8 and 9 are literally looked up in
+:data:`~awesome_vunit_vcs.flash.commands.COMMAND_TABLE`.
 
-Layout:
+Layout, with offsets in bytes::
 
     0x00  SFDP header        (8 bytes)
     0x08  parameter header 0 (8 bytes, JEDEC basic, points at 0x10)
@@ -29,18 +29,26 @@ from __future__ import annotations
 from .commands import erase_opcode_for
 from .config import AddrModes, FlashConfig
 
+#: The four signature bytes at offset 0
 SFDP_SIGNATURE = b"SFDP"
+#: Byte offset of the SFDP header
 SFDP_HEADER_OFFSET = 0x00
+#: Byte offset of the first parameter header
 PARAM_HEADER_OFFSET = 0x08
+#: Byte offset of the basic flash parameter table
 PARAM_TABLE_OFFSET = 0x10
+#: Length of the basic flash parameter table in dwords
 BASIC_TABLE_DWORDS = 9
 
 # JESD216 (1.0) revision numbers. Kept at 1.0 because the table below is the
 # original 9-dword basic table; claiming a later minor revision would
 # promise dwords that are not here.
+#: JESD216 major revision
 SFDP_MAJOR = 0x01
+#: JESD216 minor revision
 SFDP_MINOR = 0x00
 
+#: A dword whose bits are all reserved or unsupported
 UNUSED_DWORD = 0xFFFFFFFF
 
 
@@ -51,8 +59,8 @@ def _log2_exact(value: int, what: str) -> int:
 
 
 def _dword(fields: list[tuple[int, int, int]], default: int = 0) -> int:
-    """Assemble a dword from `(shift, width, value)` triples, checking each
-    value fits. `default` seeds the reserved bits (0xFFFFFFFF where JESD216
+    """Assemble a dword from ``(shift, width, value)`` triples, checking each
+    value fits. ``default`` seeds the reserved bits (0xFFFFFFFF where JESD216
     says reserved-ones)."""
     word = default
     for shift, width, value in fields:
@@ -64,7 +72,7 @@ def _dword(fields: list[tuple[int, int, int]], default: int = 0) -> int:
 
 
 def _erase_type(size_bytes: int | None) -> tuple[int, int]:
-    """`(size exponent, opcode)` for one erase-type slot, or the
+    """``(size exponent, opcode)`` for one erase-type slot, or the
     "unsupported" encoding (0, 0xFF) when the device has no such
     granularity."""
     if not size_bytes:
@@ -76,7 +84,25 @@ def _erase_type(size_bytes: int | None) -> tuple[int, int]:
 
 
 def basic_parameter_table(config: FlashConfig) -> list[int]:
-    """The 9 dwords of the JEDEC basic flash parameter table."""
+    """
+    The JEDEC basic flash parameter table of a configuration.
+
+    It advertises the 4 KiB erase opcode, the addressing modes of
+    :attr:`~awesome_vunit_vcs.flash.config.FlashConfig.addr_modes`, the
+    density, the (1-1-2), (1-2-2), (1-1-4), (1-4-4) and (4-4-4) fast reads,
+    and erase types for ``sector_bytes``, ``block32_bytes`` and
+    ``block_bytes``. A size without an erase opcode of exactly that size is
+    advertised as unsupported.
+
+    Args:
+        config: The device configuration.
+
+    Returns:
+        The 9 dwords, DWORD 1 first.
+
+    Raises:
+        ValueError: No erase opcode erases exactly ``sector_bytes``.
+    """
     size_bytes = config.size_bytes
     sector = config.sector_bytes
     block32 = config.block32_bytes or None
@@ -158,7 +184,19 @@ def basic_parameter_table(config: FlashConfig) -> list[int]:
 
 
 def build(config: FlashConfig) -> bytes:
-    """The whole SFDP image for a configuration."""
+    """
+    The whole SFDP image of a configuration.
+
+    Args:
+        config: The device configuration.
+
+    Returns:
+        The SFDP header, one parameter header and the basic parameter table,
+        52 bytes.
+
+    Raises:
+        ValueError: See :func:`basic_parameter_table`.
+    """
     table = basic_parameter_table(config)
     image = bytearray()
     # -- SFDP header ---------------------------------------------------
@@ -181,8 +219,20 @@ def build(config: FlashConfig) -> bytes:
 
 
 def read(image: bytes, addr: int, length: int) -> bytes:
-    """SFDP read with the unimplemented space reading 0xFF, and no wrap --
-    a driver walking off the end gets 0xFF, exactly like silicon."""
+    """
+    Read SFDP space.
+
+    The unimplemented space reads 0xFF and there is no wrap -- a driver
+    walking off the end gets 0xFF, exactly like silicon.
+
+    Args:
+        image: The SFDP image, see :func:`build`.
+        addr: The first byte to read.
+        length: The number of bytes to read.
+
+    Returns:
+        ``length`` bytes.
+    """
     out = bytearray()
     for offset in range(addr, addr + length):
         out.append(image[offset] if 0 <= offset < len(image) else 0xFF)

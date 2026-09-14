@@ -2,26 +2,26 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-"""Block protection: the status-register BP/TB/SEC decode plus an explicit
-per-region lock map.
+"""Block protection: the status-register BP/TB/SEC/CMP decode plus an explicit per-region lock map.
 
 Two independent sources, unioned:
 
-* the device's own `BP[2:0]` / `TB` / `SEC` bits, written through WRSR.
-  This is what a driver under test actually manipulates, so the model has
-  to decode it the way silicon does.
-* `set_protection(addr, num_bytes, locked)` from the testbench, which
+* the device's own ``BP[2:0]``, ``TB`` and ``SEC`` bits in SR1 and ``CMP``
+  in SR2, written through WRSR. This is what a driver under test actually
+  manipulates, so the model has to decode it.
+* ``set_protection(addr, num_bytes, locked)`` from the testbench, which
   models board-level write protect, a one-time-programmable lock, or
   simply "this region is precious, tell me if the DUT touches it".
 
-The critical behaviour, and the reason this is its own module: a program
+The critical behavior, and the reason this is its own module: a program
 or erase that touches a protected region is **silently ignored**. No
 exception, no error bit, nothing on the wire -- the device accepts the
 command, does nothing, and clears WEL. That is what real parts do, and a
 model that raises instead would turn a firmware bug into a simulator crash
 at the wrong place, hiding the fact that the firmware never noticed either.
 
-The BP decode is the generic JEDEC/W25Q-style one:
+The BP decode is a generic JEDEC/W25Q-style one with fixed units, not the
+density-dependent table of a particular datasheet::
 
     BP == 0b000             -> nothing protected
     BP == 0b111             -> the whole device, whatever its size
@@ -29,9 +29,12 @@ The BP decode is the generic JEDEC/W25Q-style one:
     SEC == 1, unit =  4 KiB -> 2**(BP-1) sectors
     TB  == 0                -> protected region at the top of the array
     TB  == 1                -> protected region at the bottom
+    CMP == 1                -> everything except that region
 
 clamped to the device size, so a BP value larger than the part protects
 everything rather than running off the end.
+
+Addresses and lengths are in bytes.
 """
 
 from __future__ import annotations
@@ -41,12 +44,26 @@ from operator import itemgetter
 
 _start_of = itemgetter(0)
 
+#: The BP unit in bytes when SEC is 1
 SEC_UNIT_BYTES = 4096
+#: The BP unit in bytes when SEC is 0
 BLOCK_UNIT_BYTES = 65536
 
 
 class Protection:
-    """Protection state for one device instance."""
+    """
+    Protection state for one device instance.
+
+    Args:
+        size_bytes: The device size in bytes.
+
+    Attributes:
+        size_bytes: The device size in bytes.
+        bp: The BP2..BP0 bits, 0 to 7.
+        tb: The TB bit: 0 protects from the top, 1 from the bottom.
+        sec: The SEC bit: 0 counts 64 KiB blocks, 1 counts 4 KiB sectors.
+        cmp: The CMP bit: 1 inverts the decoded region.
+    """
 
     def __init__(self, size_bytes: int) -> None:
         self.size_bytes = size_bytes
@@ -59,13 +76,30 @@ class Protection:
     # -- status-register driven -------------------------------------------
 
     def set_status_bits(self, *, bp: int, tb: int, sec: int, cmp_: int = 0) -> None:
+        """
+        Set the protection bits from the status registers.
+
+        Each value is masked to its width.
+
+        Args:
+            bp: The BP2..BP0 bits.
+            tb: The TB bit.
+            sec: The SEC bit.
+            cmp_: The CMP bit.
+        """
         self.bp = bp & 0b111
         self.tb = tb & 1
         self.sec = sec & 1
         self.cmp = cmp_ & 1
 
     def status_region(self) -> tuple[int, int] | None:
-        """`(start, length)` protected by BP/TB/SEC/CMP, or None."""
+        """
+        The region the status bits protect.
+
+        Returns:
+            ``(start, length)`` in bytes protected by BP, TB, SEC and CMP, or
+            None when they protect nothing.
+        """
         region = self._bp_region()
         if not self.cmp:
             return region
@@ -94,8 +128,20 @@ class Protection:
     # -- explicit lock map -------------------------------------------------
 
     def set_region(self, addr: int, num_bytes: int, locked: bool) -> None:
-        """Lock or unlock `[addr, addr+num_bytes)` explicitly. Overlapping
-        calls are merged/split, so lock-then-unlock-a-hole works."""
+        """
+        Lock or unlock ``[addr, addr + num_bytes)`` explicitly.
+
+        Overlapping calls are merged or split, so lock-then-unlock-a-hole works.
+
+        Args:
+            addr: The first byte of the region.
+            num_bytes: The length of the region in bytes. Zero or negative
+                does nothing.
+            locked: True to lock, False to unlock.
+
+        Raises:
+            ValueError: The region is not inside the device.
+        """
         if num_bytes <= 0:
             return
         if addr < 0 or addr + num_bytes > self.size_bytes:
@@ -124,19 +170,36 @@ class Protection:
         locks[i:j] = replacement
 
     def locked_regions(self) -> list[tuple[int, int]]:
+        """
+        The explicit lock map.
+
+        Returns:
+            Sorted, disjoint ``(addr, length)`` pairs in bytes, not including the
+            status-register region.
+        """
         return [(s, e - s) for s, e in self._locks]
 
     def clear_regions(self) -> None:
+        """Unlock every explicitly locked region. The status bits are unchanged."""
         self._locks.clear()
 
     # -- the question the device actually asks ------------------------------
 
     def is_protected(self, addr: int, num_bytes: int) -> bool:
-        """True if ANY byte of `[addr, addr+num_bytes)` is protected.
+        """
+        Whether any byte of ``[addr, addr + num_bytes)`` is protected.
 
         Any overlap protects the whole operation: silicon refuses the
         instruction outright rather than programming the unprotected part
         of a straddling page.
+
+        Args:
+            addr: The first byte of the range.
+            num_bytes: The length of the range in bytes.
+
+        Returns:
+            True if the range overlaps the status-register region or a locked
+            region, False for an empty range.
         """
         if num_bytes <= 0:
             return False
@@ -153,9 +216,12 @@ class Protection:
         return i < len(locks) and locks[i][0] < end
 
     def reset(self) -> None:
-        """A device reset restores the volatile protection bits but leaves
-        the testbench's explicit lock map alone -- that map models
-        something outside the chip."""
+        """
+        Clear the volatile protection bits.
+
+        A device reset restores them but leaves the testbench's explicit lock
+        map alone -- that map models something outside the chip.
+        """
         self.bp = 0
         self.tb = 0
         self.sec = 0

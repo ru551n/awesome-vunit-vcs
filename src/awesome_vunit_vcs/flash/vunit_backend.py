@@ -37,6 +37,8 @@ femtoseconds, ``t = hi * 2**30 + lo``, see :mod:`awesome_vunit_vcs.common.vunit_
     set_protection(addr, num_bytes, locked) -> num_reports
     get_stat('<name>')                    -> integer
 
+Addresses and lengths are in bytes.
+
 Errors never escape into the bridge. A content check that fails is a
 :attr:`~awesome_vunit_vcs.common.reports.Severity.ERROR` report, which VHDL logs as a check
 failure on the VC checker; any other exception (an invalid configuration,
@@ -84,6 +86,42 @@ def _bytes(values: Any) -> bytes:
 
 
 class FlashBackend:
+    """
+    The Python object behind a VHDL flash, ``vc`` in the session of the flash.
+
+    The arguments are the fields of
+    :class:`~awesome_vunit_vcs.flash.config.FlashConfig` as VHDL sends them.
+    An invalid configuration does not raise: it queues a failure report, and
+    the backend uses a default configuration so the calls that follow stay
+    harmless.
+
+    Args:
+        name: The name of the flash, used in messages.
+        size_bytes: Capacity in bytes.
+        page_bytes: Page size in bytes.
+        sector_bytes: Sector size in bytes.
+        block32_bytes: 32 KiB block size in bytes, 0 for none.
+        block_bytes: Block size in bytes.
+        addr_bytes: Addressing mode at power-up, 3 or 4 bytes.
+        addr_modes: A value of :class:`~awesome_vunit_vcs.flash.config.AddrModes`, 0, 3 or 4.
+        jedec_id: The 24-bit JEDEC ID.
+        electronic_id: The one-byte electronic ID, negative to derive it
+            from the JEDEC ID.
+        sr1_default: Status register 1 after power-up and reset.
+        sr2_default: Status register 2 after power-up and reset.
+        sr3_default: Status register 3 after power-up and reset.
+        busy: Every busy-time name of
+            :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS`, mapped to the
+            ``(hi, lo)`` halves of its time in fs.
+        timing_enabled: Whether busy times apply initially.
+
+    Attributes:
+        name: The name of the flash.
+        reports: The :class:`~awesome_vunit_vcs.common.reports.ReportQueue`
+            VHDL fetches with :meth:`take_reports`.
+        device: The :class:`~awesome_vunit_vcs.flash.device.FlashDevice`.
+    """
+
     def __init__(
         self,
         name: str,
@@ -144,26 +182,63 @@ class FlashBackend:
     # -- handshake and reports ---------------------------------------------
 
     def layout_version(self) -> int:
-        """The packed directive layout; VHDL checks it against its own constant."""
+        """
+        The packed directive layout; VHDL checks it against its own constant.
+
+        Returns:
+            :data:`~awesome_vunit_vcs.flash.directive.LAYOUT_VERSION`.
+        """
         return LAYOUT_VERSION
 
     def num_reports(self) -> int:
+        """
+        The number of reports waiting.
+
+        Returns:
+            The number of reports :meth:`take_reports` would return.
+        """
         return len(self.reports)
 
     def take_reports(self) -> str:
+        """
+        Take the waiting reports.
+
+        Returns:
+            The reports, encoded by :func:`~awesome_vunit_vcs.common.reports.encode_reports`.
+        """
         return encode_reports(self.reports.take())
 
     # -- the wire ------------------------------------------------------------
 
     def cs_assert(self, hi: int, lo: int) -> int:
-        """CS fell at time (hi, lo). Returns the directive for the first byte."""
+        """
+        CS fell.
+
+        Args:
+            hi: The upper half of the simulation time in fs.
+            lo: The lower half of the simulation time in fs.
+
+        Returns:
+            The packed directive for the first byte, or the ignore-rest
+            directive after a failure report.
+        """
         return self._guard("cs_assert", lambda: self.device.cs_assert(join_time(hi, lo)), ignore_rest())
 
     def xfer(self, byte_in: int, hi: int = -1, lo: int = 0) -> int:
         """
-        One byte moved on the wire; ``byte_in`` is -1 when the VC clocked a
-        byte out. ``hi < 0`` means no time, which is what VHDL sends unless
-        the previous directive was volatile.
+        One byte moved on the wire.
+
+        Args:
+            byte_in: The byte received from the host, or -1 when the VC clocked
+                a byte out.
+            hi: The upper half of the simulation time in fs, or negative for no
+                time, which is what VHDL sends unless the previous directive was
+                volatile.
+            lo: The lower half of the simulation time in fs.
+
+        Returns:
+            The packed directive for the next byte, or the ignore-rest
+            directive after a failure report.
         """
         return self._guard(
             "xfer",
@@ -172,59 +247,186 @@ class FlashBackend:
         )
 
     def cs_deassert(self, trailing_bits: int, hi: int, lo: int) -> npt.NDArray[np.int32]:
-        """CS rose. Returns ``[busy_hi, busy_lo, num_reports]``, the busy time being 0 when the device is not busy."""
+        """
+        CS rose; the device executes the command.
+
+        Args:
+            trailing_bits: SCK cycles after the last whole byte.
+            hi: The upper half of the simulation time in fs.
+            lo: The lower half of the simulation time in fs.
+
+        Returns:
+            ``[busy_hi, busy_lo, num_reports]``, the halves of the busy time in
+            fs being 0 when the command did not make the device busy.
+        """
         busy_fs = self._guard("cs_deassert", lambda: self.device.cs_deassert(trailing_bits, join_time(hi, lo)), 0)
         return _int32([*split_time(busy_fs), self.num_reports()])
 
     # -- control plane -------------------------------------------------------
 
     def reset(self) -> int:
-        """Power-on reset of the volatile state. The array is untouched: a reset is not an erase."""
+        """
+        Power-on reset of the volatile state, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.reset_state`.
+
+        The array is untouched: a reset is not an erase.
+
+        Returns:
+            The number of reports waiting.
+        """
         return self._control("reset", self.device.reset_state)
 
     def preload(self, data: Any, addr: int) -> int:
+        """
+        Seed content, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.preload`.
+
+        Args:
+            data: Byte values, an ``integer_array_t``. A value outside 0 to 255
+                is a failure report and nothing is written.
+            addr: The address of the first byte.
+
+        Returns:
+            The number of reports waiting.
+        """
         return self._control("preload", lambda: self.device.preload(addr, _bytes(data)))
 
     def preload_fill(self, addr: int, num_bytes: int, value: int) -> int:
+        """
+        Seed a constant region, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.preload_fill`.
+
+        Args:
+            addr: The first byte.
+            num_bytes: The number of bytes.
+            value: The byte value, masked to 8 bits.
+
+        Returns:
+            The number of reports waiting.
+        """
         return self._control("preload_fill", lambda: self.device.preload_fill(addr, num_bytes, value))
 
     def load_image(self, path: str, fmt: str, base: int) -> int:
-        """Load a .hex/.srec/.s19/.bin/.json image; ``fmt`` "auto" picks the format from the extension."""
+        """
+        Load an image file, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.load_image`.
+
+        Args:
+            path: The image file.
+            fmt: The format, see :func:`~awesome_vunit_vcs.flash.images.format_for`;
+                ``"auto"`` picks the format from the extension.
+            base: The load address of a raw binary, an offset for the other formats.
+
+        Returns:
+            The number of reports waiting.
+        """
         return self._control("load_image", lambda: self.device.load_image(path, None if fmt == "auto" else fmt, base))
 
     def read_back(self, addr: int, num_bytes: int) -> npt.NDArray[np.int32]:
-        """Content as the array holds it; an empty array when the request fails."""
+        """
+        Content as the array holds it.
+
+        Args:
+            addr: The first byte.
+            num_bytes: The number of bytes.
+
+        Returns:
+            The byte values, an empty array (and a failure report) when the
+            range is not inside the device.
+        """
         data = self._guard("read_back", lambda: self.device.read_back(addr, num_bytes), b"")
         return np.frombuffer(data, dtype=np.uint8).astype(np.int32)
 
     def check_content(self, expected: Any, addr: int) -> int:
+        """
+        Check content, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.check_content`.
+
+        A mismatch is an error report, which VHDL logs on the VC checker.
+
+        Args:
+            expected: Byte values, an ``integer_array_t``.
+            addr: The address of the first byte.
+
+        Returns:
+            The number of reports waiting.
+        """
         return self._control("check_content", lambda: self.device.check_content(addr, _bytes(expected)))
 
     def check_content_fill(self, addr: int, num_bytes: int, value: int) -> int:
+        """
+        Check a constant region, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.check_content_fill`.
+
+        Args:
+            addr: The first byte.
+            num_bytes: The number of bytes.
+            value: The expected byte value, masked to 8 bits.
+
+        Returns:
+            The number of reports waiting.
+        """
         return self._control("check_content_fill", lambda: self.device.check_content_fill(addr, num_bytes, value))
 
     def written_regions(self) -> npt.NDArray[np.int32]:
-        """Flat ``[addr, len, addr, len, ...]`` of everything the device programmed or erased, coalesced."""
+        """
+        What the device programmed or erased, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.written_regions`.
+
+        Returns:
+            A flat ``[addr, length, addr, length, ...]`` array in bytes, coalesced.
+        """
         no_regions: list[tuple[int, int]] = []
         regions = self._guard("written_regions", self.device.written_regions, no_regions)
         return _int32([value for region in regions for value in region])
 
     def set_timing_enable(self, enable: bool) -> int:
-        """``False`` collapses every busy time to zero."""
+        """
+        Enable or disable busy times; ``False`` collapses every busy time to zero.
+
+        Args:
+            enable: Whether busy times apply.
+
+        Returns:
+            The number of reports waiting.
+        """
         return self._control("set_timing_enable", lambda: self.device.set_timing_enable(bool(enable)))
 
     def set_timing(self, name: str, hi: int, lo: int) -> int:
+        """
+        Override one busy time. An unknown name or a negative time is a failure report.
+
+        Args:
+            name: A busy-time name of :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS`.
+            hi: The upper half of the busy time in fs.
+            lo: The lower half of the busy time in fs.
+
+        Returns:
+            The number of reports waiting.
+        """
         return self._control("set_timing", lambda: self.device.set_timing(name, join_time(hi, lo)))
 
     def set_protection(self, addr: int, num_bytes: int, locked: bool) -> int:
-        """Lock or unlock a region. A program or erase touching a locked region is silently ignored."""
+        """
+        Lock or unlock a region. A program or erase touching a locked region is silently ignored.
+
+        Args:
+            addr: The first byte.
+            num_bytes: The number of bytes.
+            locked: True to lock, False to unlock.
+
+        Returns:
+            The number of reports waiting.
+        """
         return self._control("set_protection", lambda: self.device.set_protection(addr, num_bytes, bool(locked)))
 
     def get_stat(self, name: str) -> int:
         """
-        One counter or piece of observable state; 0 and a failure report for an
-        unknown name or a value a VHDL integer cannot hold (``busy_deadline_fs``
-        passes 2**31 - 1 fs, about 2.1 us of simulation time).
+        One counter or piece of observable state.
+
+        This call returns the value rather than the number of reports, so VHDL
+        checks :meth:`num_reports` afterwards to see a failure.
+
+        Args:
+            name: A name listed by :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.get_stat`.
+
+        Returns:
+            The value. 0, with a failure report, for an unknown name or a value
+            a VHDL integer cannot hold; ``busy_deadline_fs`` passes ``2**31 - 1``
+            fs after about 2.1 microseconds of simulation time.
         """
 
         def stat() -> int:

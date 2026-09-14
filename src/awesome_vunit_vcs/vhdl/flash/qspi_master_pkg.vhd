@@ -60,6 +60,9 @@ package qspi_master_pkg is
   -- The provider of the ids of the flash family's components
   constant flash_provider : string := "awesome_vunit_vcs";
 
+  -- The handle of a QSPI master, created with new_qspi_master. It is the
+  -- generic of the qspi_master entity and the first argument of the
+  -- procedures below.
   type qspi_master_t is record
     -- Private. Use the accessors below.
     p_std_cfg : std_cfg_t;
@@ -73,6 +76,7 @@ package qspi_master_pkg is
     p_cs_deselect_time : delay_length;
   end record;
 
+  -- The default SCK period, 50 MHz
   constant qspi_default_sck_period : delay_length := 20 ns;
 
   -- Comfortably above the default tSHSL of the flash model (30 ns). Chosen as
@@ -80,7 +84,10 @@ package qspi_master_pkg is
   -- legal value; a test that wants to probe the limit sets it down.
   constant qspi_default_cs_deselect_time : delay_length := 50 ns;
 
-  -- The id defaults to awesome_vunit_vcs:qspi_master:<n>
+  -- A QSPI master. sck_period is the SCK period it starts with, and
+  -- cs_deselect_time the minimum CS high time between two transactions; CS
+  -- stays high for the longer of it and one SCK period. The id defaults to
+  -- awesome_vunit_vcs:qspi_master:<n>.
   impure function new_qspi_master(
     sck_period : delay_length := qspi_default_sck_period;
     cs_deselect_time : delay_length := qspi_default_cs_deselect_time;
@@ -91,6 +98,8 @@ package qspi_master_pkg is
   -- The configured minimum CS-high time between transactions.
   impure function cs_deselect_time(qspi_master : qspi_master_t) return delay_length;
 
+  -- The id, actor, logger and checker of the master, and its handle for
+  -- wait_until_idle and wait_for_time of sync_pkg
   impure function get_id(qspi_master : qspi_master_t) return id_t;
   impure function get_actor(qspi_master : qspi_master_t) return actor_t;
   impure function get_logger(qspi_master : qspi_master_t) return logger_t;
@@ -192,6 +201,7 @@ package qspi_master_pkg is
   -- Message types, for the VC implementation
   ---------------------------------------------------------------------------
 
+  -- The message types the procedures above send to the component
   constant qspi_transfer_msg : msg_type_t := new_msg_type("qspi transfer");
   constant qspi_transfer_reply_msg : msg_type_t := new_msg_type("qspi transfer reply");
   constant qspi_master_set_sck_period_msg : msg_type_t := new_msg_type("qspi master set sck period");

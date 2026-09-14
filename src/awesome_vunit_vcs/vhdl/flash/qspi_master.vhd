@@ -47,6 +47,7 @@ use work.qspi_master_pkg.all;
 
 entity qspi_master is
   generic (
+    -- Created with new_qspi_master
     qspi_master : qspi_master_t
   );
   port (

@@ -4,38 +4,39 @@
 
 """The device state machine: one QSPI NOR flash instance.
 
-The VC drives exactly three entry points -- `cs_assert`, `xfer`,
-`cs_deassert` -- and every one of them hands back a directive saying what
-to do with the *next* byte. The device therefore has to know, at all times,
-which phase of which command it is in; that is what `_phase` is.
+The VC drives exactly three entry points -- ``cs_assert``, ``xfer`` and
+``cs_deassert`` -- and the first two hand back a directive saying what to do
+with the *next* byte. The device therefore has to know, at all times, which
+phase of which command it is in; that is what :class:`Phase` is.
 
 Three rules shape almost all of the code below, and all three are real
-device behaviour rather than modelling convenience:
+device behavior rather than modelling convenience:
 
 1. **Nothing happens until CS rises.** Program data is latched into a page
    buffer, WRSR bytes into a list, WREN into nothing at all -- the
    instruction executes on the rising edge of CS. This is what makes the
-   trailing-partial-byte abort expressible: if the host drops CS in the
+   trailing-partial-byte abort expressible: if the host raises CS in the
    middle of a byte, a program or write-status instruction is simply not
    executed, and the model must agree.
 
 2. **Refusals are silent.** An unsupported opcode, a program without WEL, a
    read while busy, a quad command without QE, an erase of a protected
-   block: every one of these does nothing and reports nothing. Raising here
-   would be much friendlier to whoever is debugging -- and utterly wrong,
-   because the DUT's firmware gets no such courtesy from silicon.
+   block: every one of these does nothing and reports nothing, apart from a
+   counter of :meth:`FlashDevice.get_stat`. Raising here would be much
+   friendlier to whoever is debugging -- and utterly wrong, because the DUT's
+   firmware gets no such courtesy from silicon.
 
-3. **There is no busy flag.** WIP is `now_fs < deadline`, evaluated whenever
-   someone asks. See timing.py.
+3. **There is no busy flag.** WIP is ``now_fs < deadline``, evaluated whenever
+   someone asks. See :mod:`~awesome_vunit_vcs.flash.timing`.
 
 Python raises only for things that are *impossible on a wire*: a preload
 past the end of the device, an unknown timing name, a receive directive
 answered with "I was transmitting". Those are testbench or VC bugs, not
-device behaviour, and the backend turns them into a failure report on the
+device behavior, and the backend turns them into a failure report on the
 VC logger. A content check that fails raises :class:`ContentMismatch`,
 which the backend reports as a check failure instead.
 
-All times are integer femtoseconds.
+Addresses and lengths are in bytes. All times are integer femtoseconds (fs).
 """
 
 from __future__ import annotations
@@ -53,12 +54,18 @@ from .mode import ProtocolMode
 from .protection import Protection
 from .timing import Timing
 
-# WRSR may only change these bits. WIP and WEL are read-only status, the
-# lock bits are one-time-programmable, and ADS follows EN4B/EX4B.
+#: The bits of SR1, SR2 and SR3 that WRSR may change. These are SR1 bits 7..2
+#: (SRP, SEC, TB, BP2..BP0), SR2 bits 6, 1 and 0 (CMP, QE, SRL) and SR3 bits
+#: 7..5 and 2.
+#: WIP and WEL are read-only status, the lock bits are one-time-programmable,
+#: and ADS follows EN4B/EX4B.
 WRSR_MASK = (0xFC, 0x43, 0xE4)
 
+#: The Quad Enable bit of SR2
 SR2_QE = 0x02
+#: The complement protect bit of SR2
 SR2_CMP = 0x40
+#: The current address mode bit of SR3, set in 4-byte addressing
 SR3_ADS = 0x01
 
 
@@ -67,14 +74,19 @@ class ContentMismatch(Exception):
 
 
 class Phase(IntEnum):
-    """Where in a transaction the device is. `IGNORE` is the terminal
-    state for anything refused."""
+    """Where in a transaction the device is."""
 
+    #: CS is high
     IDLE = 0
+    #: The next byte is an opcode
     OPCODE = 1
+    #: The next byte is an address byte
     ADDRESS = 2
+    #: The next byte is the mode byte
     MODE_BYTE = 3
+    #: The next byte is data, in or out
     DATA = 4
+    #: The terminal state for anything refused or without a data phase
     IGNORE = 5
 
 
@@ -99,8 +111,8 @@ _COUNTERS = (
     "continuous_read_entries",
 )
 
-#: The counters `ignored_command_count` rolls up: every way a command can be
-#: silently dropped.
+# The counters `ignored_command_count` rolls up: every way a command can be
+# silently dropped.
 _IGNORE_REASONS = (
     "unknown_opcode_count",
     "wel_reject_count",
@@ -113,7 +125,33 @@ _IGNORE_REASONS = (
 
 
 class FlashDevice:
-    """One modelled flash chip."""
+    """
+    One modelled flash chip.
+
+    Args:
+        config: The configuration of the device.
+
+    Attributes:
+        config: The :class:`~awesome_vunit_vcs.flash.config.FlashConfig`.
+        size_bytes: Capacity in bytes.
+        page_bytes: Page size in bytes.
+        addr_mask: ``size_bytes - 1``; wire addresses are wrapped with it.
+        array: The :class:`~awesome_vunit_vcs.flash.array.FlashArray` holding the content.
+        protection: The :class:`~awesome_vunit_vcs.flash.protection.Protection` state.
+        timing: The :class:`~awesome_vunit_vcs.flash.timing.Timing` busy times and WIP deadline.
+        mode: The :class:`~awesome_vunit_vcs.flash.mode.ProtocolMode`.
+        sfdp_image: The SFDP image, see :func:`~awesome_vunit_vcs.flash.sfdp.build`.
+        jedec_bytes: The three bytes 0x9F returns.
+        electronic_id: The byte 0xAB returns.
+        stats: The counters of :meth:`get_stat` by name. They are never reset.
+        now_fs: The latest simulation time in fs VHDL passed.
+        wel: The write enable latch.
+        dpd: Whether the device is in deep power-down.
+
+    Raises:
+        ValueError: The configuration has no SFDP description, see
+            :func:`~awesome_vunit_vcs.flash.sfdp.basic_parameter_table`.
+    """
 
     def __init__(self, config: FlashConfig) -> None:
         self.config = config
@@ -135,9 +173,16 @@ class FlashDevice:
     # -- lifecycle ---------------------------------------------------------
 
     def reset_state(self) -> None:
-        """Power-on / hardware reset of everything volatile. The array and
-        the testbench's explicit lock map survive, because a reset is not
-        an erase and the lock map models something off-chip."""
+        """
+        Power-on or hardware reset of everything volatile.
+
+        The status registers return to their defaults, WEL, deep power-down,
+        WIP, QPI and continuous read are cleared, the addressing mode returns
+        to the power-up mode and any transaction in progress is dropped. The
+        array, the testbench's explicit lock map and the counters survive,
+        because a reset is not an erase and the lock map models something
+        off-chip.
+        """
         self._sr = [
             self.config.sr1_default & 0xFF,
             self.config.sr2_default & 0xFF,
@@ -180,14 +225,35 @@ class FlashDevice:
 
     @property
     def qe(self) -> bool:
+        """Whether the Quad Enable bit of SR2 is set."""
         return bool(self._sr[1] & SR2_QE)
 
     def wip(self, now_fs: int | None = None) -> bool:
+        """
+        Whether a program, erase or other busy period is in progress.
+
+        Args:
+            now_fs: The simulation time in fs, or None for :attr:`now_fs`, the
+                latest time VHDL passed.
+
+        Returns:
+            True while the busy deadline has not passed.
+        """
         return self.timing.is_busy(self.now_fs if now_fs is None else now_fs)
 
     def status_byte(self, index: int) -> int:
-        """SR1/SR2/SR3 assembled at read time. WIP and ADS are derived, not
-        stored, so they can never go stale."""
+        """
+        A status register, assembled at read time.
+
+        WIP and ADS are derived, not stored, so they can never go stale. WIP is
+        evaluated at :attr:`now_fs`.
+
+        Args:
+            index: 0 for SR1, 1 for SR2, any other value for SR3.
+
+        Returns:
+            The register value.
+        """
         if index == 0:
             return (self._sr[0] & 0xFC) | (1 if self.wip() else 0) | (0x02 if self.wel else 0x00)
         if index == 1:
@@ -197,9 +263,17 @@ class FlashDevice:
     # -- VC entry points ---------------------------------------------------
 
     def cs_assert(self, now_fs: int) -> int:
-        """CS fell. Returns the directive for the first byte of the
-        transaction -- which, in continuous read, is already an address
-        byte rather than an opcode."""
+        """
+        CS fell.
+
+        Args:
+            now_fs: The simulation time in fs.
+
+        Returns:
+            The packed directive for the first byte of the transaction --
+            which, in continuous read, is already an address byte rather than
+            an opcode.
+        """
         self.now_fs = int(now_fs)
         self._cs_active = True
         self._clear_transaction()
@@ -215,8 +289,22 @@ class FlashDevice:
         return pack(Action.RECEIVE, lanes=opcode_lanes, flags=FLAG_VOLATILE)
 
     def xfer(self, byte_in: int, now_fs: int | None = None) -> int:
-        """One byte moved on the wire. `byte_in` is -1 when the VC was
-        clocking a byte *out*."""
+        """
+        One byte moved on the wire.
+
+        Args:
+            byte_in: The byte received from the host, masked to 8 bits, or -1
+                when the VC was clocking a byte *out*.
+            now_fs: The simulation time in fs, or None to keep :attr:`now_fs`.
+                VHDL passes it after a volatile directive.
+
+        Returns:
+            The packed directive for the next byte.
+
+        Raises:
+            RuntimeError: CS is not asserted.
+            ValueError: The device expected to receive a byte and ``byte_in`` is negative.
+        """
         if not self._cs_active:
             raise RuntimeError(f"xfer(byte_in={byte_in}) without cs_assert: CS is not asserted")
         if now_fs is not None:
@@ -237,13 +325,21 @@ class FlashDevice:
         return ignore_rest()
 
     def cs_deassert(self, trailing_bits: int, now_fs: int) -> int:
-        """CS rose. Executes whatever the transaction asked for and returns
-        the busy time in femtoseconds (0 when nothing went busy).
+        """
+        CS rose. Executes whatever the transaction asked for.
 
-        `trailing_bits` is the number of clocks past the last whole byte. A
-        non-zero value aborts a page program or write-status -- the real
-        device requires a whole number of data bytes and simply does not
-        execute the instruction otherwise.
+        A non-zero ``trailing_bits`` aborts a page program or write-status --
+        the real device requires a whole number of data bytes and simply does
+        not execute the instruction otherwise. A command whose address phase
+        did not complete is not executed either, except 0xAB. A command that
+        does not go busy leaves a running busy period alone.
+
+        Args:
+            trailing_bits: The number of clocks past the last whole byte.
+            now_fs: The simulation time in fs.
+
+        Returns:
+            The busy time in fs, 0 when nothing went busy.
         """
         self.now_fs = int(now_fs)
         self._cs_active = False
@@ -331,7 +427,7 @@ class FlashDevice:
         return self._enter_data()
 
     def _enter_data(self) -> int:
-        """Start the data phase. `dummy_cycles` is emitted as the prefix of
+        """Start the data phase. ``dummy_cycles`` is emitted as the prefix of
         the first data directive, never as a phase, per the FFI contract."""
         cmd = self._cmd
         assert cmd is not None
@@ -373,7 +469,7 @@ class FlashDevice:
         self._id_index = 0
 
     def _out_flags(self) -> int:
-        """`volatile` tells the VC to pass the time on the next xfer. Only
+        """``volatile`` tells the VC to pass the time on the next xfer. Only
         status reads need it -- their WIP bit is a function of time."""
         cmd = self._cmd
         return FLAG_VOLATILE if cmd is not None and cmd.op is Op.READ_STATUS else 0
@@ -575,19 +671,73 @@ class FlashDevice:
 
     @property
     def ignored_command_count(self) -> int:
-        """Every command this device silently dropped, whatever the reason.
+        """
+        Every command this device silently dropped, whatever the reason.
 
-        The granular counters below say *why*; this says *how many*, which
-        is the number to reach for when a controller misbehaves and nobody
-        yet knows which rule it broke. A silent refusal leaves no trace on
-        the wire, so without a counter there is nothing at all to look at.
+        The sum of ``unknown_opcode_count``, ``wel_reject_count``,
+        ``wip_reject_count``, ``qe_reject_count``, ``dpd_reject_count``,
+        ``protect_reject_count`` and ``abort_count``. The granular counters say
+        *why*; this says *how many*, which is the number to reach for when a
+        controller misbehaves and nobody yet knows which rule it broke. A
+        silent refusal leaves no trace on the wire, so without a counter there
+        is nothing at all to look at.
         """
         return sum(self.stats[key] for key in _IGNORE_REASONS)
 
     def get_stat(self, name: str) -> int:
-        """One integer of observable state or one counter. Unknown names
-        raise -- a typo'd stat silently returning 0 would make a test pass
-        for the wrong reason."""
+        """
+        One counter or one integer of observable state.
+
+        Counters, since the device was created:
+
+        * ``cmd_count``: opcodes decoded, including unsupported and refused
+          ones, plus transactions continuing a continuous read.
+        * ``xfer_count``: bytes moved on the wire (``xfer`` calls).
+        * ``unknown_opcode_count``: unsupported opcodes.
+        * ``program_count``: page programs committed to the array.
+        * ``erase_count``: erases executed, including chip erases.
+        * ``chip_erase_count``: chip erases executed.
+        * ``wrsr_count``: status register writes executed.
+        * ``reset_count``: software resets (0x66 then 0x99) executed.
+        * ``protect_reject_count``: programs and erases refused because they
+          touch a protected region.
+        * ``abort_count``: commands not executed because CS rose within a data
+          byte of a program or status write, or before the address phase
+          completed.
+        * ``wel_reject_count``, ``wip_reject_count``, ``qe_reject_count`` and
+          ``dpd_reject_count``: commands refused without WEL, while busy,
+          without QE and in deep power-down.
+        * ``bytes_programmed``: bytes committed by page programs.
+        * ``bytes_erased``: bytes erased.
+        * ``bytes_read``: array bytes the read commands prepared for
+          transmission. The model prepares each byte when the previous one
+          completes, so this includes a byte read ahead that CS may cut off.
+        * ``continuous_read_entries``: times continuous read was entered.
+
+        Derived values:
+
+        * ``ignored_command_count``: see :attr:`ignored_command_count`.
+        * ``wip``, ``wel``, ``qe``, ``qpi``, ``dpd`` and ``continuous_read``:
+          1 when set, 0 otherwise.
+        * ``addr_bytes``: the current addressing mode, 3 or 4.
+        * ``sr1``, ``sr2`` and ``sr3``: the status registers.
+        * ``busy_deadline_fs``: the time in fs at which WIP clears.
+        * ``timing_enabled``: 1 when busy times apply.
+        * ``materialized_pages`` and ``run_count``: the memory use of the array.
+
+        ``wip`` and ``sr1`` are evaluated at :attr:`now_fs`, the latest time
+        VHDL passed, not at the time of the call.
+
+        Args:
+            name: The name of the counter or value.
+
+        Returns:
+            The value.
+
+        Raises:
+            KeyError: ``name`` is not a known name -- a typo'd stat silently
+                returning 0 would make a test pass for the wrong reason.
+        """
         if name in self.stats:
             return self.stats[name]
         derived: dict[str, Callable[[], int]] = {
@@ -620,18 +770,59 @@ class FlashDevice:
     # not a program cycle. Only `xfer`-driven programs go through AND.
 
     def preload(self, addr: int, data: bytes) -> None:
-        """Seed content at `addr`, overwriting. Not a program: no NOR AND,
-        no WEL, no protection check, not recorded as a written region."""
+        """
+        Seed content, overwriting.
+
+        Not a program: no NOR AND, no WEL, no protection check, not recorded
+        as a written region.
+
+        Args:
+            addr: The address of the first byte, wrapped to the device size.
+            data: The bytes.
+
+        Raises:
+            ValueError: The data runs past the end of the device.
+        """
         self.array.write_raw(addr & self.addr_mask, bytes(data))
 
     def preload_fill(self, addr: int, num_bytes: int, value: int) -> None:
-        """Seed a constant region. O(1) regardless of size -- filling the
-        whole 16 MiB device materializes nothing."""
+        """
+        Seed a constant region, as :meth:`preload` does.
+
+        O(1) regardless of size -- filling the whole 16 MiB device materializes nothing.
+
+        Args:
+            addr: The first byte. Unlike :meth:`preload` it is not wrapped.
+            num_bytes: The number of bytes.
+            value: The byte value, masked to 8 bits.
+
+        Raises:
+            ValueError: The region is not inside the device.
+        """
         self.array.fill(addr, num_bytes, value)
 
     def load_image(self, path: str, fmt: str | None = None, base: int = 0) -> int:
-        """Load a .hex/.srec/.bin/.json image. Returns the number of bytes
-        the image described; sparse formats stay sparse."""
+        """
+        Load an image file, as :meth:`preload` does.
+
+        Sparse formats stay sparse: bytes the image does not describe keep
+        their content. Segments are written in file order, so a later one wins
+        where they overlap.
+
+        Args:
+            path: The image file.
+            fmt: The format, see :func:`~awesome_vunit_vcs.flash.images.format_for`;
+                None infers it from the extension.
+            base: The load address of a raw binary, an offset for the other formats.
+
+        Returns:
+            The number of bytes the image described.
+
+        Raises:
+            ValueError: See :func:`~awesome_vunit_vcs.flash.images.load`, or a
+                segment is not inside the device.
+            OSError: The file cannot be read.
+        """
         total = 0
         for segment in images.load(path, fmt, base):
             if segment.data is not None:
@@ -643,14 +834,35 @@ class FlashDevice:
         return total
 
     def read_back(self, addr: int, num_bytes: int) -> bytes:
-        """Content as the array holds it, with no protocol in the way."""
+        """
+        Content as the array holds it, with no protocol in the way.
+
+        Args:
+            addr: The first byte.
+            num_bytes: The number of bytes.
+
+        Returns:
+            The bytes.
+
+        Raises:
+            ValueError: The range is not inside the device.
+        """
         return self.array.read(addr, num_bytes)
 
     def check_content(self, addr: int, expected: bytes) -> None:
         """
-        Raise :class:`ContentMismatch` with a precise diagnosis on the first
-        mismatching byte. The backend turns it into a check failure on the VC
-        checker.
+        Check that the array holds the expected bytes.
+
+        The backend turns a mismatch into a check failure on the VC checker.
+
+        Args:
+            addr: The address of the first byte.
+            expected: The expected bytes.
+
+        Raises:
+            ContentMismatch: A byte differs. The message gives the address and
+                values of the first mismatch and the number of bad bytes.
+            ValueError: The range is not inside the device.
         """
         actual = self.array.read(addr, len(expected))
         if actual == bytes(expected):
@@ -665,9 +877,21 @@ class FlashDevice:
         )
 
     def check_content_fill(self, addr: int, num_bytes: int, value: int) -> None:
-        """`check_content` against a constant, without building the
-        constant -- the point of which is that checking 1 MiB of 0xFF must
-        not allocate 1 MiB of expectation."""
+        """
+        :meth:`check_content` against a constant, without building the constant.
+
+        Checking 1 MiB of 0xFF must not allocate 1 MiB of expectation.
+
+        Args:
+            addr: The first byte.
+            num_bytes: The number of bytes.
+            value: The expected byte value, masked to 8 bits.
+
+        Raises:
+            ContentMismatch: A byte differs. The message gives the address and
+                value of the first mismatch.
+            ValueError: The range is not inside the device.
+        """
         actual = self.array.read(addr, num_bytes)
         want = value & 0xFF
         for offset, got in enumerate(actual):
@@ -677,16 +901,53 @@ class FlashDevice:
                 )
 
     def written_regions(self) -> list[tuple[int, int]]:
-        """Coalesced regions the *device* modified via program or erase.
+        """
+        The regions the *device* modified by program or erase.
+
         Preloading and image loading are excluded: they model how the part
-        arrived, not what the DUT did to it."""
+        arrived, not what the DUT did to it. The regions accumulate for the
+        life of the device; a reset does not clear them.
+
+        Returns:
+            Sorted, coalesced ``(addr, length)`` pairs in bytes.
+        """
         return self.array.written_regions()
 
     def set_protection(self, addr: int, num_bytes: int, locked: bool) -> None:
+        """
+        Lock or unlock a region, see :meth:`~awesome_vunit_vcs.flash.protection.Protection.set_region`.
+
+        A program or erase touching a locked region is silently ignored.
+
+        Args:
+            addr: The first byte.
+            num_bytes: The number of bytes.
+            locked: True to lock, False to unlock.
+
+        Raises:
+            ValueError: The region is not inside the device.
+        """
         self.protection.set_region(addr, num_bytes, bool(locked))
 
     def set_timing(self, name: str, duration_fs: int) -> None:
+        """
+        Override one busy time, see :meth:`~awesome_vunit_vcs.flash.timing.Timing.set_busy`.
+
+        Args:
+            name: A busy-time name of :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS`.
+            duration_fs: The busy time in fs.
+
+        Raises:
+            KeyError: ``name`` is not a busy-time name.
+            ValueError: ``duration_fs`` is negative.
+        """
         self.timing.set_busy(name, duration_fs)
 
     def set_timing_enable(self, enable: bool) -> None:
+        """
+        Enable or disable busy times, see :meth:`~awesome_vunit_vcs.flash.timing.Timing.set_enable`.
+
+        Args:
+            enable: True to apply the busy times, False to use 0 for all of them.
+        """
         self.timing.set_enable(enable)

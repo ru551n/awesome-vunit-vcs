@@ -35,7 +35,7 @@ Alpha: the APIs can still change, and the package is not on PyPI yet.
 | Ethernet | XGMII family: 2.5GMII, 5GMII, XGMII, 25GMII, XLGMII, CGMII, 200GMII, 400GMII | Available |
 | Ethernet | MII (10M, 100M) | Available |
 | Ethernet | RGMII, RMII, AXI-Stream MAC client | Planned |
-| Flash | QSPI NOR flash model | In progress |
+| Flash | QSPI NOR flash model and QSPI master | Available |
 
 GHDL and NVC are tested in CI. See the [roadmap](https://awesome-vunit-vcs.readthedocs.io/en/latest/roadmap.html).
 

@@ -18,6 +18,8 @@ with one record every 16 bytes becomes one segment, not thousands.
 Checksums are verified and a bad one raises: a truncated or corrupted image
 silently loading the wrong bytes is exactly the kind of thing that costs an
 afternoon.
+
+Addresses and lengths are in bytes.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+#: The format names :func:`format_for` resolves to
 FORMATS = ("hex", "srec", "bin", "json")
 
 _EXTENSIONS = {
@@ -46,9 +49,22 @@ _EXTENSIONS = {
 
 @dataclass(frozen=True)
 class Segment:
-    """One contiguous piece of an image. Either literal `data`, or a
-    constant `fill` repeated `length` times -- the latter exists so a JSON
-    image can describe "1 MiB of 0x00" without carrying 1 MiB."""
+    """
+    One contiguous piece of an image.
+
+    Either literal ``data``, or a constant ``fill`` repeated ``length`` times --
+    the latter exists so a JSON image can describe "1 MiB of 0x00" without
+    carrying 1 MiB.
+
+    Attributes:
+        addr: The address of the first byte.
+        data: The bytes, or None for a fill.
+        fill: The fill byte value, or None for data.
+        length: The number of fill bytes; ignored for data.
+
+    Raises:
+        ValueError: Both or neither of ``data`` and ``fill`` are given.
+    """
 
     addr: int
     data: bytes | None = None
@@ -61,11 +77,32 @@ class Segment:
 
     @property
     def size(self) -> int:
+        """The number of bytes the segment describes."""
         return len(self.data) if self.data is not None else self.length
 
 
 def format_for(path: str | Path, fmt: str | None = None) -> str:
-    """Resolve the format, from an explicit name or the file extension."""
+    """
+    Resolve the format of an image, from an explicit name or the file extension.
+
+    Extensions: ``.hex``, ``.ihex`` and ``.ihx`` are Intel HEX; ``.srec``,
+    ``.s19``, ``.s28``, ``.s37`` and ``.mot`` are S-record; ``.bin``,
+    ``.img`` and ``.raw`` are raw binary; ``.json`` is JSON. Case is ignored.
+
+    Args:
+        path: The image file; only its extension is used, and only when
+            ``fmt`` does not name the format.
+        fmt: A name of :data:`FORMATS`, or the aliases ``ihex``, ``s19`` and
+            ``s-record``, case-insensitive, with an optional leading dot. None,
+            ``""`` or ``"auto"`` infers the format from the extension.
+
+    Returns:
+        A name of :data:`FORMATS`.
+
+    Raises:
+        ValueError: ``fmt`` is not a known format, or the extension is not
+            known when inferring.
+    """
     if fmt and fmt not in ("", "auto"):
         name = fmt.lower().lstrip(".")
         name = {"ihex": "hex", "s19": "srec", "s-record": "srec"}.get(name, name)
@@ -79,8 +116,40 @@ def format_for(path: str | Path, fmt: str | None = None) -> str:
 
 
 def load(path: str | Path, fmt: str | None = None, base: int = 0) -> list[Segment]:
-    """Read an image file into sparse segments. `base` is the load address
-    for a raw binary and an offset added to every address otherwise."""
+    """
+    Read an image file into sparse segments.
+
+    * Intel HEX: data (00), end of file (01), extended segment address (02)
+      and extended linear address (04) records; start address records (03,
+      05) are ignored. Parsing stops at the end of file record.
+    * S-record: S1, S2 and S3 data records; S0 and S5 to S9 are ignored.
+    * Raw binary: one segment with the whole file.
+    * JSON: an object ``{"base": 0, "regions": [...]}`` or a bare list of
+      regions. Each region has an ``addr`` (default 0) and one of ``hex``
+      (a hexadecimal string), ``data`` (a list of byte values) or ``fill``
+      and ``length``. A top-level ``base`` is added to every address::
+
+          {"base": 0, "regions": [
+              {"addr": 4096, "hex": "deadbeef"},
+              {"addr": 8192, "data": [1, 2, 3]},
+              {"addr": 65536, "fill": 0, "length": 1048576}
+          ]}
+
+    Args:
+        path: The image file.
+        fmt: The format, see :func:`format_for`.
+        base: The load address of a raw binary, and an offset added to every
+            address of the other formats.
+
+    Returns:
+        The segments in file order. Contiguous HEX and S-record data is
+        coalesced; segments are not checked against any device size.
+
+    Raises:
+        ValueError: Unknown format, malformed record, bad checksum,
+            unsupported record type or malformed JSON region.
+        OSError: The file cannot be read.
+    """
     kind = format_for(path, fmt)
     if kind == "bin":
         return [Segment(addr=base, data=Path(path).read_bytes())]
@@ -187,7 +256,7 @@ def _load_srec(text: str) -> list[Segment]:
 
 
 def _load_json(path: Path, base: int) -> list[Segment]:
-    """JSON images, for tests that want to describe content inline:
+    """JSON images, for tests that want to describe content inline::
 
         {"base": 0, "regions": [
             {"addr": 4096, "hex": "deadbeef"},
@@ -195,7 +264,7 @@ def _load_json(path: Path, base: int) -> list[Segment]:
             {"addr": 65536, "fill": 0, "length": 1048576}
         ]}
 
-    A bare list of regions is accepted as shorthand. `fill` regions stay
+    A bare list of regions is accepted as shorthand. ``fill`` regions stay
     sparse all the way into the array.
     """
     doc = json.loads(path.read_text())

@@ -666,28 +666,6 @@ logs on its logger or checker.
 Performance
 -----------
 
-The wire path makes one bridge call per byte on the bus, plus one per CS edge. That is fine for
-the bus traffic of a test, up to some tens of KiB; image-sized content goes through
-``flash_preload_fill``, ``flash_load_image``, ``flash_check_content`` and
-``flash_check_content_fill``, which cost one call whatever the size.
-
-.. TODO-BENCHMARK: fill in the per-byte bridge call measurement below
-
-.. list-table::
-   :header-rows: 1
-
-   * - Traffic
-     - GHDL
-     - NVC
-     - Per byte GHDL
-     - Per byte NVC
-   * - no flash traffic
-     - TBD
-     - TBD
-     -
-     -
-   * - TBD KiB read over the bus
-     - TBD
-     - TBD
-     - TBD
-     - TBD
+The wire path makes one bridge call per byte on the bus, plus one per CS edge. Image-sized content
+goes through ``flash_preload_fill``, ``flash_load_image``, ``flash_preload`` and the content checks.
+:ref:`performance-flash` has the measurements.

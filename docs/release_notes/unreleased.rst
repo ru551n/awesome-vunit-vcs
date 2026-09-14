@@ -3,6 +3,9 @@ The first release is being prepared. Nothing has been released yet.
 * Ethernet: GMII, MII and XGMII-family sources, monitors and protocol checkers (the XGMII family
   from 2.5GMII up to 200GMII and 400GMII), with frame
   reconstruction, protocol checks, statistics, PCAPNG capture and packets from Python functions.
+* Flash: a QSPI NOR flash VC with a simulator independent Python device model (x1, x2 and x4 I/O,
+  3- and 4-byte addressing, QPI, continuous read, SFDP, protection, busy timing and pin-level
+  checks), and a QSPI master VC with a JEDEC command layer.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
 
 VHDL API

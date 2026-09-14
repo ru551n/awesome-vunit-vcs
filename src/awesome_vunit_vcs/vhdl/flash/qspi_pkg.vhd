@@ -41,8 +41,10 @@ package qspi_pkg is
   -- Pins
   ---------------------------------------------------------------------------
 
+  -- The number of IO wires of a QSPI bus
   constant qspi_io_width : positive := 4;
 
+  -- The four IO wires, IO3 down to IO0
   subtype qspi_io_t is std_ulogic_vector(qspi_io_width - 1 downto 0);
 
   -- One end's drive of the four IO wires. enable is per lane so that a
@@ -52,6 +54,7 @@ package qspi_pkg is
     enable : qspi_io_t;
   end record;
 
+  -- No lane driven
   constant qspi_drive_init : qspi_drive_t := (
     value => (others => '0'),
     enable => (others => '0')
@@ -64,6 +67,7 @@ package qspi_pkg is
     io : qspi_drive_t;
   end record;
 
+  -- SCK low, CS high and no lane driven: an idle master
   constant qspi_m2s_init : qspi_m2s_t := (
     sck => '0',
     cs_n => '1',
@@ -75,6 +79,7 @@ package qspi_pkg is
     io : qspi_drive_t;
   end record;
 
+  -- No lane driven: an idle slave
   constant qspi_s2m_init : qspi_s2m_t := (io => qspi_drive_init);
 
   -- What a probe on the four wires would see, given both ends' drive.
@@ -97,6 +102,7 @@ package qspi_pkg is
   constant qspi_mosi_lane : natural := 0;
   constant qspi_miso_lane : natural := 1;
 
+  -- True for 1, 2 and 4 lanes
   function qspi_is_valid_lane_count(lanes : lane_count_t) return boolean;
 
   -- SCK cycles needed to move one byte over lanes lanes.
@@ -149,7 +155,10 @@ package qspi_pkg is
   -- Byte conversion
   ---------------------------------------------------------------------------
 
+  -- A byte value, 0 to 255, as an 8-bit vector. A larger value is a failure.
   function qspi_to_byte(value : natural) return std_ulogic_vector;
+  -- The unsigned value of a vector. Every element other than '1' counts as
+  -- '0', so check for metavalues before converting.
   function qspi_to_natural(data : std_ulogic_vector) return natural;
 end package;
 

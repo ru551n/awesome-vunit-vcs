@@ -9,6 +9,10 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity register_bank is
+  generic (
+    -- A planted bug: writes to this address are lost. -1 for none.
+    stuck_address : integer := -1
+  );
   port (
     clk, rst, write_enable : in std_ulogic;
     address : in std_ulogic_vector(2 downto 0);
@@ -28,7 +32,7 @@ begin
     if rising_edge(clk) then
       if rst = '1' then
         registers <= (others => (others => '0'));
-      elsif write_enable = '1' then
+      elsif write_enable = '1' and to_integer(unsigned(address)) /= stuck_address then
         registers(to_integer(unsigned(address))) <= write_data;
       end if;
     end if;

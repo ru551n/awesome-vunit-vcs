@@ -1,5 +1,7 @@
 sphinx>=7.3
-furo>=2024.8.6
+sphinx-rtd-theme>=3.0
+sphinx-sitemap>=2.6
+sphinxext-opengraph>=0.9
 myst-parser>=3.0
 # Imported by the documented modules
 numpy>=1.24

@@ -35,9 +35,13 @@ version = __version__
 needs_sphinx = "7.3"
 
 extensions = [
+    "sphinx_rtd_theme",
+    "sphinx_sitemap",
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
     "sphinx.ext.todo",
+    "sphinxext.opengraph",
     "myst_parser",
 ]
 
@@ -67,19 +71,39 @@ myst_heading_anchors = 3
 
 # -- Options for HTML output --------------------------------------------------
 
-html_theme = "furo"
+# The Read the Docs theme, configured like the tsfpga documentation
+html_theme = "sphinx_rtd_theme"
 html_title = "awesome-vunit-vcs"
 
 html_theme_options = {
-    "source_repository": "https://github.com/ru551n/awesome-vunit-vcs",
-    "source_branch": environ.get("GITHUB_REF_NAME", "main"),
-    "source_directory": "docs",
+    "prev_next_buttons_location": "both",
 }
+
+# "Edit on GitHub" links
+html_context = {
+    "display_github": True,
+    "github_user": "ru551n",
+    "github_repo": "awesome-vunit-vcs",
+    "github_version": environ.get("GITHUB_REF_NAME", "main"),
+    "conf_py_path": "/docs/",
+}
+
+WEBSITE_URL = "https://awesome-vunit-vcs.readthedocs.io"
+
+# Base URL of the generated sitemap.xml, which needs the trailing slash
+html_baseurl = f"{WEBSITE_URL}/"
+# No language in the sitemap URLs
+sitemap_url_scheme = "{link}"
+
+# Open Graph metadata for link previews. Social card images need matplotlib and
+# a project image, neither of which the documentation has.
+ogp_site_url = WEBSITE_URL
+ogp_social_cards = {"enable": False}
 
 # -- Intersphinx --------------------------------------------------------------
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3/", None),
+    "python": ("https://docs.python.org/3", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "vunit": ("https://vunit.github.io/", None),
 }

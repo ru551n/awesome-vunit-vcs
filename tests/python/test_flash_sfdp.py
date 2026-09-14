@@ -166,3 +166,112 @@ def test_every_advertised_opcode_is_supported_by_the_device(config: FlashConfig)
     opcodes += [opcode for _, opcode in erase_types(table) if opcode != 0xFF]
     for opcode in opcodes:
         assert lookup(opcode, config) is not None, f"SFDP advertises unsupported 0x{opcode:02X}"
+
+
+def _le32(value: int) -> bytes:
+    return value.to_bytes(4, "little")
+
+
+def test_the_default_config_matches_jesd216_byte_for_byte() -> None:
+    """
+    The whole SFDP image of the default FlashConfig: 16 MiB, 4 KiB sectors,
+    32 and 64 KiB blocks, 3-byte addressing at power-up with both modes.
+
+    Every value is written from the JESD216 (revision 1.0) field
+    definitions, not from the model, so a wrong field in sfdp.py fails here.
+    """
+    header = bytes(
+        [
+            0x53, 0x46, 0x44, 0x50,  # signature "SFDP"
+            0x00,  # SFDP minor revision: JESD216 1.0
+            0x01,  # SFDP major revision
+            0x00,  # number of parameter headers, zero based: one header
+            0xFF,  # unused in JESD216 1.0 (access protocol 0xFF, legacy, in later revisions)
+        ]
+    )  # fmt: skip
+    parameter_header = bytes(
+        [
+            0x00,  # parameter ID LSB: 0x00, the JEDEC basic flash parameter table
+            0x00,  # parameter table minor revision
+            0x01,  # parameter table major revision
+            0x09,  # parameter table length: 9 DWORDs, the JESD216 1.0 basic table
+            0x10, 0x00, 0x00,  # parameter table pointer, 3 bytes little endian: 0x000010
+            0xFF,  # parameter ID MSB: 0xFF, so the ID is 0xFF00 (JEDEC)
+        ]
+    )  # fmt: skip
+    # DWORD 1
+    #   bits 1:0   01    4 KiB erase supported uniformly
+    #   bit 2      1     write granularity of 64 bytes or more (256-byte page buffer)
+    #   bit 3      0     block protect bits not solely volatile
+    #   bit 4      0     required to be 0 when bit 3 is 0 (would select 0x50 or 0x06)
+    #   bits 7:5   111   unused
+    #   bits 15:8  0x20  4 KiB erase opcode
+    #   bit 16     1     (1-1-2) fast read
+    #   bits 18:17 01    3- or 4-byte addressing
+    #   bit 19     0     no double transfer rate clocking
+    #   bit 20     1     (1-2-2) fast read
+    #   bit 21     1     (1-4-4) fast read
+    #   bit 22     1     (1-1-4) fast read
+    #   bit 23     1     unused
+    #   bits 31:24 0xFF  unused
+    dword1 = 0xFFF320E5
+    # DWORD 2: bit 31 = 0, bits 30:0 = density in bits - 1 = 16 MiB * 8 - 1
+    dword2 = 0x07FFFFFF
+    # DWORD 3
+    #   bits 4:0   4     (1-4-4) wait states (dummy clocks)
+    #   bits 7:5   2     (1-4-4) mode clocks: the mode byte over four lanes
+    #   bits 15:8  0xEB  (1-4-4) opcode
+    #   bits 20:16 8     (1-1-4) wait states
+    #   bits 23:21 0     (1-1-4) mode clocks
+    #   bits 31:24 0x6B  (1-1-4) opcode
+    dword3 = 0x6B08EB44
+    # DWORD 4
+    #   bits 4:0   8     (1-1-2) wait states
+    #   bits 7:5   0     (1-1-2) mode clocks
+    #   bits 15:8  0x3B  (1-1-2) opcode
+    #   bits 20:16 0     (1-2-2) wait states
+    #   bits 23:21 4     (1-2-2) mode clocks: the mode byte over two lanes
+    #   bits 31:24 0xBB  (1-2-2) opcode
+    dword4 = 0xBB803B08
+    # DWORD 5
+    #   bit 0      0     no (2-2-2) fast read
+    #   bits 3:1   111   reserved
+    #   bit 4      1     (4-4-4) fast read
+    #   bits 31:5  all 1 reserved
+    dword5 = 0xFFFFFFFE
+    # DWORD 6
+    #   bits 15:0  0xFFFF reserved
+    #   bits 31:16 0xFFFF (2-2-2) wait states, mode clocks and opcode; not
+    #                     supported (DWORD 5 bit 0), so all ones
+    dword6 = 0xFFFFFFFF
+    # DWORD 7
+    #   bits 15:0  0xFFFF reserved
+    #   bits 20:16 4     (4-4-4) wait states
+    #   bits 23:21 2     (4-4-4) mode clocks
+    #   bits 31:24 0xEB  (4-4-4) opcode
+    dword7 = 0xEB44FFFF
+    # DWORD 8
+    #   bits 7:0   12    erase type 1 size, 2**12 = 4 KiB
+    #   bits 15:8  0x20  erase type 1 opcode
+    #   bits 23:16 15    erase type 2 size, 2**15 = 32 KiB
+    #   bits 31:24 0x52  erase type 2 opcode
+    dword8 = 0x520F200C
+    # DWORD 9
+    #   bits 7:0   16    erase type 3 size, 2**16 = 64 KiB
+    #   bits 15:8  0xD8  erase type 3 opcode
+    #   bits 23:16 0     erase type 4 size: 0, the erase type does not exist
+    #   bits 31:24 0xFF  erase type 4 opcode, unused
+    dword9 = 0xFF00D810
+    table = b"".join(_le32(dword) for dword in (dword1, dword2, dword3, dword4, dword5, dword6, dword7, dword8, dword9))
+    expected = header + parameter_header + table
+    assert len(expected) == 52
+
+    image = sfdp.build(FlashConfig())
+    assert image[0:8].hex(" ") == header.hex(" "), "SFDP header"
+    assert image[8:16].hex(" ") == parameter_header.hex(" "), "parameter header"
+    for index in range(9):
+        offset = 16 + 4 * index
+        got = int.from_bytes(image[offset : offset + 4], "little")
+        want = int.from_bytes(expected[offset : offset + 4], "little")
+        assert got == want, f"DWORD {index + 1}: 0x{got:08X} != 0x{want:08X}"
+    assert image == expected

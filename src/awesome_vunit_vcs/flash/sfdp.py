@@ -116,8 +116,8 @@ def basic_parameter_table(config: FlashConfig) -> list[int]:
         [
             (0, 2, erase_4kib),  # uniform 4 KiB erase availability
             (2, 1, 1),  # write granularity >= 64 bytes (page buffer)
-            (3, 1, 0),  # volatile status write enable not required
-            (4, 1, 0),  # write enable opcode = 0x06
+            (3, 1, 0),  # block protect bits are not solely volatile
+            (4, 1, 0),  # volatile write enable opcode select, 0 as JESD216 requires when bit 3 is 0
             (5, 3, 0b111),  # reserved
             (8, 8, 0xFF if erase_4kib_op is None else erase_4kib_op),  # 4 KiB erase opcode
             (16, 1, 1),  # supports (1-1-2)

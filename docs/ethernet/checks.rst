@@ -1,6 +1,8 @@
 Checks
 ======
 
+.. seealso:: :doc:`monitors` shows how to create the monitor these procedures take.
+
 A protocol checker runs the protocol checks, all enabled by default; a monitor runs the scoreboard.
 A violation is an error on the checker of the VC that found it, with a message starting with the
 check ID in upper case:

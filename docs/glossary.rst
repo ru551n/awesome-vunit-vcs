@@ -70,6 +70,10 @@ Glossary
    protocol checker
       A VC that observes one direction of an interface and checks the protocol. A monitor can create one.
 
+   subscriber
+      A function or VUnit actor that a monitor notifies of every frame it receives: ``on_frame`` in Python,
+      ``subscribe`` and ``ethernet_frame_msg`` in VHDL.
+
    scoreboard
       The comparison of received frames with the frames ``check_ethernet_frame`` expects.
 

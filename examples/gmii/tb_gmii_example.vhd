@@ -33,12 +33,17 @@ architecture tb of tb_gmii_example is
   signal in_dv, in_er, out_dv, out_er : std_ulogic;
 
   constant source : gmii_source_t := new_gmii_source;
+  -- docs-start: monitors
+  -- The input monitor checks the protocol with custom limits: VLAN-tagged frames may be 1522 octets
   constant input_monitor : gmii_monitor_t := new_gmii_monitor(
-    protocol_checker => default_gmii_protocol_checker, id => get_id("tb_gmii_example:input_monitor")
+    protocol_checker => new_gmii_protocol_checker(max_frame_octets => 1522),
+    id => get_id("tb_gmii_example:input_monitor")
   );
+  -- The output monitor uses the default protocol checks
   constant output_monitor : gmii_monitor_t := new_gmii_monitor(
     protocol_checker => default_gmii_protocol_checker, id => get_id("tb_gmii_example:output_monitor")
   );
+  -- docs-end: monitors
 begin
   clk <= not clk after clk_period / 2;
 
@@ -176,6 +181,7 @@ begin
       out_er => out_er
     );
 
+  -- docs-start: monitor-instance
   output_monitor_inst : entity awesome_vunit_vcs.gmii_monitor
     generic map (
       monitor => output_monitor
@@ -186,4 +192,5 @@ begin
       dv => out_dv,
       er => out_er
     );
+  -- docs-end: monitor-instance
 end architecture;

@@ -1,6 +1,8 @@
 Statistics
 ==========
 
+.. seealso:: :doc:`monitors` shows how to create the monitor these procedures take.
+
 Every monitor keeps statistics of the frames it receives. Log them, or read them and check them.
 
 .. code-block:: vhdl

@@ -281,6 +281,7 @@ begin
         unmock(get_logger(source));
 
       elsif run("test_monitor_publishes_frames") then
+        -- docs-start: subscribe
         subscribe(subscriber, get_actor(default_monitor));
         push_ethernet_frame(net, source, frame_data(60));
         receive(net, subscriber, msg);
@@ -290,6 +291,7 @@ begin
         check_true(fcs_ok);
         check_equal(received(0 to 479), frame_data(60));
         unsubscribe(subscriber, get_actor(default_monitor));
+        -- docs-end: subscribe
 
       elsif run("test_pop_ethernet_frame") then
         pop_ethernet_frame(net, default_monitor, reference);

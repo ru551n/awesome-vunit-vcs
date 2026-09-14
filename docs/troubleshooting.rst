@@ -60,6 +60,11 @@ Simulation
    * - ``wait_until_idle`` never returns
      - The clock is stopped or the design holds the line. Use the ``timeout`` of ``wait_until_idle``;
        ``reset(net, vc)`` recovers a VC even without a clock.
+   * - A Python subscriber never runs
+     - It was registered after the frames arrived (subscribers only get frames received from then on), or
+       in another session: execute the module in ``new_session(get_id(monitor))``, the monitor's own. A
+       subscriber that raises is not silent; look for a failure naming it on the monitor's logger. See
+       :ref:`python-monitors-in-simulation`.
    * - Wrong IFG or utilization
      - ``link_rate_mbps`` does not match the clock of the interface.
 

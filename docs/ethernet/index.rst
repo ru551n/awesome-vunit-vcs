@@ -111,6 +111,8 @@ later with the matching ``await_<procedure>_reply``.
      - :doc:`gmii` (sending), :doc:`checks` (malformed frames)
    * - ``push_ethernet_packet``, ``push_ethernet_sequence``, ``check_ethernet_sequence``
      - :doc:`packets_and_sequences`
+   * - Creating and using a monitor
+     - :doc:`monitors`
    * - ``check_ethernet_frame``, ``pop_ethernet_frame``
      - :doc:`scoreboard`
    * - ``set_check_enabled``, ``get_check_count``
@@ -133,6 +135,7 @@ Every declaration is listed in the :doc:`../reference/vhdl/ethernet` reference.
    :maxdepth: 1
    :hidden:
 
+   monitors
    gmii
    xgmii
    mii

@@ -24,6 +24,7 @@ def test_every_example_is_listed() -> None:
         "capture_frames.py",
         "check_frames.py",
         "decode_samples.py",
+        "monitor_subscribers.py",
         "packet_functions.py",
         "property_based.py",
         "scapy_packets.py",

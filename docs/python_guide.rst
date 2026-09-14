@@ -79,7 +79,36 @@ still in progress is reported and captures are closed at the end.
 
 Checks are named like the VHDL check literals, in upper case: ``"ETH_FCS"``, ``"ETH_IFG"`` and so
 on. ``Monitor(interface, checks=["ETH_FCS"])`` runs only some, ``checks=False`` none.
-``rx.on_frame`` and ``rx.on_violation`` register subscribers, also as decorators.
+
+Subscribers
+~~~~~~~~~~~
+
+A subscriber is a function a monitor calls as it finds things, so a test can react while traffic is
+fed instead of inspecting ``rx.frames`` and ``rx.violations`` afterwards.
+
+.. literalinclude:: ../examples/python/monitor_subscribers.py
+   :language: python
+   :start-after: # docs-start: subscribers
+   :end-before: # docs-end: subscribers
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Subscriber
+     - Called with
+   * - ``rx.on_frame``
+     - Every :class:`~awesome_vunit_vcs.ethernet.api.Frame` received from now on: ``data``, ``payload``,
+       ``dst``, ``src``, ``ethertype``, ``fcs_ok``, ``ok``, ``index``, ``timestamp_fs`` and the
+       ``violations`` found on it.
+   * - ``rx.on_violation``
+     - Every :class:`~awesome_vunit_vcs.ethernet.checker.Violation` from now on: ``check``, ``message``,
+       ``timestamp_fs`` and ``frame_index``. A frame's violations come before the frame.
+
+* Both work as decorators and as plain calls, and return the function unchanged.
+* Only what is fed after subscribing is delivered, so subscribe before ``feed``.
+* Subscribers run in the order they subscribed. If one raises, the others still run, then the
+  exception propagates out of ``feed`` or ``feed_frames``.
 
 Captures
 ~~~~~~~~
@@ -149,16 +178,37 @@ state:
 The VHDL procedures call these objects, so a normal testbench never writes Python. When a test needs
 more, Python code executed in the session of a monitor uses its backend directly:
 
-* ``vc.on_frame(subscriber)``, also a decorator, calls the subscriber with every
-  :class:`~awesome_vunit_vcs.ethernet.api.Frame` the monitor receives;
+* ``vc.on_frame(subscriber)``, also a decorator (``@vc.on_frame``), calls the subscriber with every
+  :class:`~awesome_vunit_vcs.ethernet.api.Frame` the monitor receives from then on;
 * ``vc.frames`` is the most recent frames and ``vc.statistics`` the statistics;
 * ``vc.error(check, message)`` reports a finding as a counted check error, which
   ``get_check_count`` counts and ``set_check_enabled`` disables. A VHDL monitor runs the scoreboard
   check and leaves the protocol checks to its protocol checker, so a subscriber in the session of a
   monitor reports on ``"ETH_SCOREBOARD"``.
 
+.. _python-monitors-in-simulation:
+
 Adding a subscriber
 ~~~~~~~~~~~~~~~~~~~
+
+A subscriber in a simulation reports what it finds in one of two ways:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - In the subscriber
+     - Result in VUnit
+   * - ``vc.error("ETH_SCOREBOARD", message)``
+     - An error on the monitor's checker. It is counted by ``get_check_count`` and dropped while
+       ``set_check_enabled`` disables the check, so negative tests can count it.
+   * - An exception
+     - A failure on the monitor's logger naming the subscriber, which stops the test. Use it for bugs
+       in the subscriber itself.
+
+Annotate ``vc`` as :class:`~awesome_vunit_vcs.ethernet.vunit_backend.MonitorBackend` to get type
+checking in the subscriber module, as below. See :doc:`ethernet/monitors` for creating the monitor in
+VHDL.
 
 This file, ``examples/gmii/python/frame_sizes.py``, runs in the session of a monitor:
 

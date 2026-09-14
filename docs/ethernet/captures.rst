@@ -1,6 +1,8 @@
 Captures
 ========
 
+.. seealso:: :doc:`monitors` shows how to create the monitor these procedures take.
+
 A monitor writes the frames it receives to a PCAPNG file that Wireshark opens directly.
 
 .. code-block:: vhdl

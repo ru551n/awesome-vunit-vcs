@@ -1,6 +1,8 @@
 Scoreboard and received frames
 ==============================
 
+.. seealso:: :doc:`monitors` shows how to create the monitor these procedures take.
+
 A monitor offers three ways to use the frames it receives: compare them with expected frames, read
 them in the testbench, or subscribe to them.
 
@@ -42,17 +44,9 @@ octet by octet: ``pop_stream(net, as_stream(monitor), octet, last)``.
 Subscribing
 -----------
 
-While a monitor has subscribers it publishes every frame as an ``ethernet_frame_msg``:
-
-.. code-block:: vhdl
-
-   subscribe(my_actor, get_actor(monitor));
-   ...
-   receive(net, my_actor, msg);
-   pop_ethernet_frame(msg, data, length, fcs_ok);
-
-In Python, the backend of the monitor offers ``vc.on_frame(function)`` and ``vc.frames``; see
-:doc:`../python_guide`.
+While a monitor has subscribers it publishes every frame as an ``ethernet_frame_msg``; see
+:doc:`monitors` for an example. In Python, the backend of the monitor offers ``@vc.on_frame`` and
+``vc.frames``; see :ref:`python-monitors-in-simulation`.
 
 Limitations
 -----------

@@ -1,13 +1,13 @@
 VUnit integration
 =================
 
-awesome-vunit-vcs is a VUnit package. ``VUnit.add_package`` finds the installed Python package and
-compiles the VHDL sources its ``vunit_pkg.toml`` lists into the library ``awesome_vunit_vcs``.
+Add awesome-vunit-vcs to a VUnit project with two ``add_package`` calls and one context clause.
 
-Run script
-----------
+Add the packages to your run script
+-----------------------------------
 
 .. code-block:: python
+   :caption: run.py
 
    from pathlib import Path
 
@@ -30,45 +30,44 @@ Run script
    * - ``add_vhdl_builtins()``
      - First, as for any VUnit package.
    * - ``add_verification_components()``
-     - Required: the Ethernet components implement VUnit's verification component interfaces.
+     - Required. The components build on VUnit's verification components.
    * - ``add_package("vunit-python-bridge")``
-     - The Python bridge. There is no ``add_python()`` call.
+     - The Python bridge. Don't call ``add_python()``.
    * - ``add_package("awesome-vunit-vcs")``
-     - This package. The two ``add_package`` calls work in either order, and ``awesome_vunit_vcs`` works
-       as a name as well.
+     - This package. The two ``add_package`` calls work in either order.
 
-Testbench
----------
-
-One context clause makes the Ethernet components and VUnit visible:
+Use the components in a testbench
+---------------------------------
 
 .. code-block:: vhdl
+   :caption: Testbench context clause
 
    library awesome_vunit_vcs;
    context awesome_vunit_vcs.ethernet_context;
 
-It covers ``ieee.std_logic_1164``, VUnit's ``vunit_context`` and ``com_context``, ``sync_pkg``, the
-stream VCI packages, ``vc_pkg`` and the Ethernet packages. A testbench that also calls Python directly
-adds the bridge context:
+This one context clause gives you the Ethernet components and everything from VUnit a testbench
+needs. If your testbench also calls Python directly, add the bridge context:
 
 .. code-block:: vhdl
+   :caption: Only when calling Python directly
 
    library python_bridge;
    context python_bridge.python_context;
 
-Python environment
-------------------
+Make your own Python code importable
+------------------------------------
 
-The simulator's embedded interpreter runs in the environment that started VUnit, including an active
-virtual environment, and imports the Python backends from wherever pip installed the package. Your own
-Python modules, for example packet functions, are imported the same way: install them, or put their
-directory on ``sys.path`` (``PYTHONPATH``).
+The simulation runs Python in the environment that started VUnit, including an active virtual
+environment. Your own Python modules, such as packet functions, must be importable from there:
+install them, or put their directory on ``PYTHONPATH``.
 
-Output
-------
-
-Everything a component writes, such as captures, belongs in the test output path:
+Write output files to the test output path
+------------------------------------------
 
 .. code-block:: vhdl
+   :caption: Capture into the test output path
 
    start_capture(net, monitor, output_path(runner_cfg) & "rx.pcapng");
+
+Put files that components write, such as captures, in the test's output path. VUnit then keeps them
+per test run.

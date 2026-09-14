@@ -1,8 +1,8 @@
 Installation
 ============
 
-awesome-vunit-vcs is a Python package that VUnit loads as a VUnit package. Installing it installs the
-VHDL sources and the Python backends together, and a project never refers to their installed location.
+awesome-vunit-vcs is a Python package that VUnit loads by name. One install brings both the VHDL
+components and their Python side, and your project never needs their installed location.
 
 Requirements
 ------------
@@ -27,35 +27,34 @@ Requirements
      - GHDL or NVC, both tested in CI. Questa/ModelSim, Riviera-PRO and Active-HDL are supported by the
        bridge but not tested with these components.
 
-Install
--------
+Install the package
+-------------------
 
 .. tab-set::
 
    .. tab-item:: From the repository
 
-      Install the unreleased dependencies first. ``tests/packaging/unreleased-requirements.txt`` pins
-      VUnit and vunit-python-bridge to tested commits.
-
       .. code-block:: bash
+         :caption: Terminal
 
          git clone https://github.com/ru551n/awesome-vunit-vcs.git
          cd awesome-vunit-vcs
          pip install -r tests/packaging/unreleased-requirements.txt
          pip install .              # or: pip install -e ".[dev]" to develop the package
 
+      The first ``pip install`` adds the unreleased dependencies, pinned to tested commits.
+
    .. tab-item:: From PyPI
 
       .. code-block:: bash
+         :caption: Terminal
 
          pip install awesome-vunit-vcs
 
-      .. note::
+      Not released yet. Use the repository until the first release.
 
-         Not released yet. Only pre-releases will be published until the dependencies are on PyPI.
-
-Optional extras
----------------
+Add optional extras
+-------------------
 
 .. list-table::
    :widths: 20 80
@@ -73,9 +72,10 @@ Check the installation
 ----------------------
 
 .. code-block:: bash
+   :caption: Terminal
 
    python -c "import awesome_vunit_vcs, vunit_python_bridge; print('ok')"
    VUNIT_SIMULATOR=nvc python examples/quickstart/run.py
 
-The first simulation compiles the bridge library, which takes a few seconds; later runs reuse it. If
-something fails, see :doc:`../troubleshooting`.
+The first simulation takes a few seconds longer while the bridge builds itself. If something fails,
+see :doc:`../troubleshooting`.

@@ -6,29 +6,28 @@
 [![Python 3.10–3.14](https://img.shields.io/badge/python-3.10%E2%80%933.14-blue)](pyproject.toml)
 [![Simulators: GHDL | NVC](https://img.shields.io/badge/simulators-GHDL%20%7C%20NVC-informational)](https://awesome-vunit-vcs.readthedocs.io/en/latest/)
 
-Third-party verification components for [VUnit](https://vunit.github.io/), starting with Ethernet.
+Verification components for [VUnit](https://vunit.github.io/) that work like VUnit's own.
 
 **VHDL handles simulation timing. Python handles verification semantics.**
 
-The VHDL components sample and drive the pins of your design at the right simulation edges. Python
-reconstructs frames, checks the protocol, collects statistics, writes Wireshark captures and builds
-packets, optionally with Scapy. Your testbench stays in VHDL and never needs to write Python.
+Connect the components to the pins of your design, and they send, receive and check traffic for you.
+Your testbench stays in VHDL.
 
 **Documentation: <https://awesome-vunit-vcs.readthedocs.io>**
 
-## Highlights
+## What you get
 
-* Monitors that check every frame on their own: preamble, SFD, FCS, runts, oversized frames, PHY
-  errors, control characters, inter-frame gaps and metavalues, each check individually switchable.
-* Sources for good and deliberately malformed traffic: bad FCS, short preambles, wrong SFDs, injected
-  errors and short gaps.
-* A frame scoreboard, link statistics and PCAPNG captures with simulation timestamps.
-* Native VUnit components: handles, `com` messages, `wait_until_idle` and VUnit check failures.
-* A simulator independent Python core, unit tested and usable without a simulator.
+* **Monitors** that check every frame: preamble, SFD, FCS, runts, oversized frames, PHY errors,
+  control characters, inter-frame gaps and metavalues. Each check can be switched off.
+* **Sources** for good and deliberately broken traffic: bad FCS, short preambles, wrong SFDs, errors
+  and short gaps.
+* **A scoreboard, statistics and Wireshark captures** with simulation timestamps.
+* **Property-based testing** with Hypothesis inside the simulation, down to the smallest failing input.
+* **Native VUnit components**: handles, `com` messages, `wait_until_idle` and VUnit check failures.
 
 ## Status
 
-Alpha: the APIs can still change, and the first release on PyPI is pending.
+Alpha: the APIs can still change, and the package is not on PyPI yet.
 
 | Family | Interface | Status |
 |---|---|---|
@@ -40,29 +39,24 @@ Alpha: the APIs can still change, and the first release on PyPI is pending.
 
 GHDL and NVC are tested in CI. See the [roadmap](https://awesome-vunit-vcs.readthedocs.io/en/latest/roadmap.html).
 
-## Getting started
+## Install
 
 ```bash
 pip install awesome-vunit-vcs
 ```
 
-Until the first release, and while its dependencies vunit-python-bridge and a VUnit with package setup
-hooks are unreleased, install from the repository as the
-[documentation](https://awesome-vunit-vcs.readthedocs.io) describes. Then add both packages to your
-VUnit run script with `vu.add_package("vunit-python-bridge")` and `vu.add_package("awesome-vunit-vcs")`.
+Until the first release, install from the repository as the
+[installation guide](https://awesome-vunit-vcs.readthedocs.io/en/latest/getting_started/installation.html)
+describes.
 
-* [`examples/gmii`](examples/gmii): a complete testbench around a small DUT, with a source, monitors,
-  the scoreboard, statistics, a capture and Scapy.
-* [`examples/python`](examples/python): the Python core without a simulator, as used in the
-  [Python guide](https://awesome-vunit-vcs.readthedocs.io/en/latest/ethernet/python.html).
+## Next steps
 
-## Learn more
-
-* [Documentation](https://awesome-vunit-vcs.readthedocs.io): installation, user guides, Python and
-  VHDL API reference.
-* [Architecture](ARCHITECTURE.md):
-  how VHDL and Python share the work.
-* [Contributing](CONTRIBUTING.md): development setup, checks and how a new component family fits in.
+* [Quick start](https://awesome-vunit-vcs.readthedocs.io/en/latest/getting_started/quickstart.html):
+  your first testbench in five minutes.
+* [Cookbook](https://awesome-vunit-vcs.readthedocs.io/en/latest/cookbook/index.html): recipes for
+  common tasks.
+* [`examples/`](examples): complete, tested example projects.
+* [Contributing](CONTRIBUTING.md) and [Architecture](ARCHITECTURE.md) for developers.
 
 ## License
 

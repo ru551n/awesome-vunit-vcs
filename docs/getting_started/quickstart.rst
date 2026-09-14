@@ -1,17 +1,18 @@
 Quick start
 ===========
 
-In five minutes: install the package, run a testbench that sends GMII frames through a design and
-checks them, and open the captured traffic in Wireshark.
+In five minutes you install the package, run a testbench that sends GMII frames through a design,
+and open the captured traffic in Wireshark.
 
-1. Install
-----------
+1. Install the package
+----------------------
 
 .. tab-set::
 
    .. tab-item:: From the repository (today)
 
       .. code-block:: bash
+         :caption: Terminal
 
          git clone https://github.com/ru551n/awesome-vunit-vcs.git
          cd awesome-vunit-vcs
@@ -22,39 +23,39 @@ checks them, and open the captured traffic in Wireshark.
    .. tab-item:: From PyPI (once released)
 
       .. code-block:: bash
+         :caption: Terminal
 
          pip install awesome-vunit-vcs
 
 .. warning::
 
-   The package, vunit-python-bridge and the VUnit version they need are not released yet, so install
-   from the repository. Linux and macOS also need a C compiler and the Python development headers;
-   see :doc:`installation`.
+   The package and its dependencies are not released yet, so install from the repository. You also
+   need GHDL or NVC, and on Linux or macOS a C compiler; see :doc:`installation`.
 
-You also need GHDL or NVC.
-
-2. The run script
------------------
-
-The packages are added by name. Neither the script nor the testbench knows where they are installed.
+2. Write the run script
+-----------------------
 
 .. literalinclude:: ../../examples/quickstart/run.py
    :language: python
+   :caption: examples/quickstart/run.py
    :start-after: # docs-start: run-script
    :end-before: # docs-end: run-script
 
-3. The testbench
-----------------
+You add both packages by name. Neither the script nor the testbench needs to know where they are
+installed.
 
-A ``gmii_source`` drives the input of a one-register design, and a ``gmii_monitor`` with the default
-protocol checks observes its output. The test tells the monitor which frames to expect, pushes the
-same frames into the source, waits until both are idle and checks the statistics. The monitor also
-writes everything it receives to a capture file.
+3. Write the testbench
+----------------------
 
 .. literalinclude:: ../../examples/quickstart/tb_quickstart.vhd
    :language: vhdl
+   :caption: examples/quickstart/tb_quickstart.vhd
    :start-after: -- docs-start: testbench
    :end-before: -- docs-end: testbench
+
+A ``gmii_source`` drives the input of a one-register design. A ``gmii_monitor`` with the default
+:term:`protocol checker` watches its output and writes a capture file. The test queues the expected
+frames, sends the same frames, waits until everything is idle and checks the statistics.
 
 What each part does:
 
@@ -75,26 +76,29 @@ What each part does:
    * - ``get_statistics``, ``log_statistics``
      - Read or log the statistics of the received frames.
 
-4. Run it
----------
+4. Run the test
+---------------
 
 .. tab-set::
 
    .. tab-item:: GHDL
 
       .. code-block:: bash
+         :caption: Terminal
 
          VUNIT_SIMULATOR=ghdl python examples/quickstart/run.py
 
    .. tab-item:: NVC
 
       .. code-block:: bash
+         :caption: Terminal
 
          VUNIT_SIMULATOR=nvc python examples/quickstart/run.py
 
 The test passes, and ``log_statistics`` prints a summary like this one:
 
 .. code-block:: text
+   :caption: Statistics in the test log
 
    frames: total=10 good=10 bad=0
    octets: wire=894 frame=814 payload=634
@@ -102,24 +106,30 @@ The test passes, and ``log_statistics`` prints a summary like this one:
    inter-frame gap: min=12 max=12 mean=12.0 octets
    utilization: link 89.22 %, payload 63.27 %
 
-5. Look at the traffic in Wireshark
------------------------------------
-
-The capture is in the output path of the test:
+5. Open the traffic in Wireshark
+--------------------------------
 
 .. code-block:: bash
+   :caption: Terminal
 
    wireshark vunit_out/test_output/lib.tb_quickstart.all_*/quickstart.pcapng
 
-Timestamps are simulation time, and errored frames carry Wireshark's link-layer error flags. See
+The capture is in the output path of the test. Timestamps are simulation time. See
 :doc:`../ethernet/captures`.
 
 Next steps
 ----------
 
-* Break something on purpose: :doc:`../ethernet/checks` shows how to send a bad FCS and count the
-  error instead of failing the test.
-* Use another interface: :doc:`../ethernet/xgmii` and :doc:`../ethernet/mii`.
-* Generate traffic in Python: :doc:`../ethernet/packets_and_sequences`.
-* A larger example with random frames, two monitors, a Python subscriber and Scapy is described on
-  :doc:`../ethernet/gmii`.
+.. list-table::
+   :widths: 40 60
+
+   * - Send a bad FCS and count the error
+     - :doc:`../ethernet/checks`
+   * - Use another interface
+     - :doc:`../ethernet/xgmii`, :doc:`../ethernet/mii`
+   * - Generate traffic in Python
+     - :doc:`../ethernet/packets_and_sequences`
+   * - Find a recipe for a common task
+     - :doc:`../cookbook/index`
+   * - See a larger example with two monitors, a Python subscriber and Scapy
+     - :doc:`../ethernet/gmii`

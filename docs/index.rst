@@ -1,42 +1,13 @@
 awesome-vunit-vcs
 =================
 
-Verification components for `VUnit <https://vunit.github.io/>`__ that feel like VUnit's own:
-a handle per component, VUnit logging and checks, ``com`` messages and the standard VUnit interfaces.
-Ethernet is the first family.
+Verification components for `VUnit <https://vunit.github.io/>`__ that work like VUnit's own. You
+connect them to the pins of your design, and they send, receive and check traffic for you. Your
+testbench stays in VHDL; Python does the frame work behind the components.
 
 **VHDL handles simulation timing. Python handles verification semantics.**
 
-The VHDL components connect to the pins of your design. Frame reconstruction, protocol checks,
-statistics, Wireshark captures and packet construction happen in Python behind them, and a test never
-has to write Python.
-
-.. grid:: 1 1 2 2
-   :gutter: 2
-
-   .. grid-item-card:: Quick start
-      :link: getting_started/quickstart
-      :link-type: doc
-
-      Install, run a GMII testbench and open the traffic in Wireshark, in five minutes.
-
-   .. grid-item-card:: Ethernet guide
-      :link: ethernet/index
-      :link-type: doc
-
-      Sources, monitors and protocol checkers for MII, GMII and the XGMII family.
-
-   .. grid-item-card:: Cookbook
-      :link: cookbook/index
-      :link-type: doc
-
-      Short recipes for the common tasks, each from a tested example.
-
-   .. grid-item-card:: Property-based testing
-      :link: property_testing/index
-      :link-type: doc
-
-      Let Hypothesis find the smallest input that breaks your design, inside the simulation.
+The project is alpha: the APIs can still change, and the package is not on PyPI yet.
 
 Status
 ------
@@ -66,12 +37,63 @@ Status
      - Planned
      - See the :doc:`roadmap`
 
-Tested with GHDL and NVC in CI.
+Every component is tested with GHDL and NVC.
 
-.. note::
+Install
+-------
 
-   The project is alpha software: the APIs can still change, and the package is not released on PyPI
-   yet. See :doc:`getting_started/installation`.
+.. code-block:: bash
+   :caption: Install from the repository
+
+   git clone https://github.com/ru551n/awesome-vunit-vcs.git
+   cd awesome-vunit-vcs
+   pip install -r tests/packaging/unreleased-requirements.txt
+   pip install .
+
+You also need GHDL or NVC, and on Linux or macOS a C compiler. :doc:`getting_started/installation`
+has the details.
+
+Start here
+----------
+
+.. grid:: 1 1 2 2
+   :gutter: 2
+
+   .. grid-item-card:: Quick start
+      :link: getting_started/quickstart
+      :link-type: doc
+
+      Run a GMII testbench and open the traffic in Wireshark, in five minutes.
+
+   .. grid-item-card:: Cookbook
+      :link: cookbook/index
+      :link-type: doc
+
+      Short recipes for common tasks, each taken from a tested example.
+
+Components
+----------
+
+.. grid:: 1 1 3 3
+   :gutter: 2
+
+   .. grid-item-card:: Ethernet
+      :link: ethernet/index
+      :link-type: doc
+
+      Sources, monitors and protocol checkers for MII, GMII and the XGMII family.
+
+   .. grid-item-card:: Property-based testing
+      :link: property_testing/index
+      :link-type: doc
+
+      Let Hypothesis find the smallest input that breaks your design.
+
+   .. grid-item-card:: Common
+      :link: common/index
+      :link-type: doc
+
+      Calling your own Python code from VHDL, and the shared API.
 
 .. toctree::
    :maxdepth: 2

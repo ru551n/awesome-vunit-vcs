@@ -23,7 +23,7 @@ of ``0x5`` nibbles may precede its nibbles ``0x5`` ``0xD``, and a leading
 nibble that has no partner before the delimiter is dropped rather than
 misaligning the frame. A frame without a delimiter is paired from its first
 nibble. A frame that ends with an unpaired nibble ends with an octet word
-flagged :data:`~.common.WORD_ALIGNMENT`, which the checker reports as a
+flagged ``WORD_ALIGNMENT`` (see :mod:`.common`), which the checker reports as a
 termination violation (ETH_TERMINATION), an alignment error in the terms of
 IEEE 802.3 4.2.4.2.1.
 """

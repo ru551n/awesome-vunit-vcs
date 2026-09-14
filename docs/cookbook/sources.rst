@@ -5,6 +5,7 @@ The recipes on this page are test cases of :repo-file:`examples/cookbook/tb_cook
 its name:
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python examples/cookbook/run.py "*send_and_check_a_frame"
 

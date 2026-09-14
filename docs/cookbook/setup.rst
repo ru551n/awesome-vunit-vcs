@@ -20,6 +20,7 @@ Write the run script
 **Full example:** :repo-file:`examples/quickstart/run.py`
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python examples/quickstart/run.py
 

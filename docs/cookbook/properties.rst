@@ -6,6 +6,7 @@ The recipes come from :repo-file:`examples/property`, mostly the shared testbenc
 :repo-file:`examples/property/tb_property_examples.vhd`.
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python examples/property/run.py
 
@@ -211,6 +212,7 @@ Always test a known failure first
 **Full example:** :repo-file:`examples/property/python/strategies.py`
 
 .. code-block:: console
+   :caption: Terminal
 
    $ AWESOME_VUNIT_VCS_PROPERTY_PROFILE=long python examples/property/run.py
 

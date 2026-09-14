@@ -144,6 +144,7 @@ The recipe is in :doc:`../ethernet/monitors` and :doc:`../ethernet/python`, base
 :repo-file:`examples/gmii/tb_gmii_example.vhd`.
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python examples/gmii/run.py "*test_python_subscriber"
 
@@ -167,6 +168,7 @@ Put monitors on both sides of a DUT
 **Full example:** :repo-file:`examples/gmii/tb_gmii_example.vhd`
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python examples/gmii/run.py
 

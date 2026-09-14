@@ -5,6 +5,7 @@ The Ethernet Python API works without a simulator. Each recipe is a complete scr
 :repo-file:`examples/python` that runs as it is:
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python examples/python/build_frames.py
 
@@ -123,6 +124,7 @@ Write my own Hypothesis strategy
 **Full example:** :repo-file:`examples/python/property_based.py`
 
 .. code-block:: console
+   :caption: Terminal
 
    $ pytest examples/python/property_based.py
 

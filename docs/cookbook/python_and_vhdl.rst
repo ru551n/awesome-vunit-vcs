@@ -60,6 +60,7 @@ Call your own Python function
 **Full example:** ``test_call_a_python_function``
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python examples/cookbook/run.py "*test_call_a_python_function"
 
@@ -168,6 +169,7 @@ Unit test the Python part
 **When to use this:** for every Python file a testbench uses. A unit test fails in seconds.
 
 .. code-block:: console
+   :caption: Terminal
 
    $ PYTHONPATH=examples/cookbook/python pytest examples/cookbook/python
 

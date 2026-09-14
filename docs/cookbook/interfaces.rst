@@ -44,6 +44,7 @@ Use MII at 10 or 100 Mbit/s
 **Full example:** ``test_mii``
 
 .. code-block:: console
+   :caption: Terminal
 
    $ python examples/cookbook/run.py "*test_mii"
 

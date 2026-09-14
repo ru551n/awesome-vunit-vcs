@@ -12,8 +12,8 @@ change needs before it can be merged.
    conventions
    releasing
 
-The rule every component follows
---------------------------------
+Follow the core rule
+--------------------
 
 **VHDL handles simulation timing. Python handles verification semantics.**
 
@@ -23,13 +23,14 @@ VHDL user controls a component through VHDL procedures only; Python-specific fea
 `ARCHITECTURE.md <https://github.com/ru551n/awesome-vunit-vcs/blob/main/ARCHITECTURE.md>`__ explains the boundary and
 the reasons for it.
 
-Development setup
------------------
+Set up a development environment
+--------------------------------
 
 The package depends on two unreleased packages: a VUnit with package setup hooks and
 vunit-python-bridge. ``tests/packaging/unreleased-requirements.txt`` pins both to tested commits.
 
 .. code-block:: bash
+   :caption: Terminal
 
     git clone https://github.com/ru551n/awesome-vunit-vcs.git
     cd awesome-vunit-vcs
@@ -42,12 +43,13 @@ On Linux and macOS the bridge compiles its simulator library on first use, so a 
 Python development headers (for example ``python3-dev``) are needed. Install GHDL, NVC or both for
 the HDL tests.
 
-Checks
-------
+Run the checks
+--------------
 
 These are the checks CI runs. A pull request must pass all of them.
 
 .. code-block:: bash
+   :caption: Terminal
 
     ruff check .                                   # lint
     ruff format --check .                          # formatting, including code blocks in Markdown
@@ -60,14 +62,15 @@ These are the checks CI runs. A pull request must pass all of them.
 The documentation is built with warnings as errors:
 
 .. code-block:: bash
+   :caption: Terminal
 
     pip install -r docs/requirements.txt
     sphinx-build -W --keep-going -b html docs docs/_build
 
 The bridge benchmark is not part of CI; see `ARCHITECTURE.md <https://github.com/ru551n/awesome-vunit-vcs/blob/main/ARCHITECTURE.md#performance>`__.
 
-Commits and pull requests
--------------------------
+Make commits and pull requests
+------------------------------
 
 * Keep commits atomic, each with a message that says what changed and why.
 * Every commit on ``main`` passes the checks above.

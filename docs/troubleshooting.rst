@@ -1,8 +1,8 @@
 Troubleshooting
 ===============
 
-Installation and compilation
-----------------------------
+Installing and compiling
+------------------------
 
 .. list-table::
    :header-rows: 1
@@ -28,8 +28,8 @@ Installation and compilation
    * - ``ModuleNotFoundError`` for a packet or sequence function
      - Put the module's directory on ``sys.path`` (``PYTHONPATH``) or install it.
 
-Simulation
-----------
+Running simulations
+-------------------
 
 .. list-table::
    :header-rows: 1
@@ -68,8 +68,8 @@ Simulation
    * - Wrong IFG or utilization
      - ``link_rate_mbps`` does not match the clock of the interface.
 
-Performance
------------
+Slow simulations
+----------------
 
 .. list-table::
    :header-rows: 1
@@ -82,8 +82,8 @@ Performance
    * - Large output directories
      - Captures grow with the traffic; capture only the tests you inspect. See :doc:`ethernet/captures`.
 
-Simulators
-----------
+Choosing a simulator
+--------------------
 
 GHDL and NVC are tested in CI. Questa/ModelSim, Riviera-PRO and Active-HDL are supported by
 vunit-python-bridge but not tested with these components. Report problems on `GitHub <https://github.com/ru551n/awesome-vunit-vcs/issues>`__.

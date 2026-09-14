@@ -4,10 +4,11 @@ Adding a component family or interface
 A family (for example ``i2c``, ``axi`` or ``mdio``) is a Python subpackage plus a VHDL directory.
 Ethernet is the reference implementation.
 
-Repository layout
------------------
+Find your way around
+--------------------
 
 .. code-block:: text
+   :caption: Output
 
     src/awesome_vunit_vcs/
     ├── common/                       shared infrastructure, reused by every family
@@ -29,7 +30,7 @@ Repository layout
     │       └── ethernet_context.vhd      what a testbench uses
     └── vunit_pkg.toml
 
-A new family
+Add a family
 ------------
 
 For a new family ``<family>``:
@@ -73,8 +74,8 @@ For a new family ``<family>``:
 #. **Shared infrastructure.** Extract something into ``common/`` only when a second family actually
    needs it.
 
-A new Ethernet interface
-------------------------
+Add an Ethernet interface
+-------------------------
 
 Adding an interface to the Ethernet family (MII, RGMII and so on) needs:
 
@@ -87,8 +88,8 @@ Adding an interface to the Ethernet family (MII, RGMII and so on) needs:
 Handles, procedures and the Python core are shared. If the common model cannot express the interface,
 fix the model first rather than working around it in the frontend.
 
-Test requirements
------------------
+Test it
+-------
 
 * **Python unit tests** (``tests/python``) for all simulator independent logic. Compare against
   independent references, never against the code under test: ``tests/python/helpers.py`` builds wire
@@ -105,8 +106,8 @@ Test requirements
 
 .. _documentation-checklist:
 
-Documentation checklist
------------------------
+Document it
+-----------
 
 A new component or interface is not done until its documentation is. Before opening a pull request:
 

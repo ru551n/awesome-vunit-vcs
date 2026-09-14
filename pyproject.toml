@@ -39,6 +39,7 @@ dev = [
     "build>=1.2",
     "mypy>=1.10",
     "ruff>=0.6",
+    "twine>=5",
 ]
 
 [project.urls]
@@ -82,3 +83,4 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]
 addopts = "-ra"
+markers = ["packaging: slow tests that build distributions and virtual environments (tests/packaging)"]

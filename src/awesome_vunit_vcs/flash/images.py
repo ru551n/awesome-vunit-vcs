@@ -4,7 +4,7 @@
 
 """Memory-image readers: Intel HEX, Motorola S-record, raw binary, JSON.
 
-All four decode to the same thing: a list of `Segment`s. Intel HEX and
+All four decode to the same thing: a list of :class:`Segment` objects. Intel HEX and
 S-record are *natively sparse* formats -- a linker emits a few kilobytes of
 code at 0x0000 and a config word at 0xFF00, and nothing in between -- so
 the reader preserves that and hands the device two segments. Expanding them

@@ -127,6 +127,13 @@ Components
 
 .. toctree::
    :maxdepth: 2
+   :caption: Flash / QSPI
+   :hidden:
+
+   flash
+
+.. toctree::
+   :maxdepth: 2
    :caption: Common
    :hidden:
 

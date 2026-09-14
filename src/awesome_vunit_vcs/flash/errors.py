@@ -6,18 +6,28 @@
 The exceptions of the flash API.
 
 :class:`FlashError` is the base of both, so ``except FlashError`` catches
-everything the flash package raises on purpose::
+everything the flash package raises on purpose. It derives from
+:class:`~awesome_vunit_vcs.errors.AwesomeVunitVcsError`, the base of the errors
+of every family::
 
-    FlashError
-    +-- FlashValueError (also a ValueError)
-    +-- ContentMismatch
+    AwesomeVunitVcsError
+    +-- FlashError
+        +-- FlashValueError (also a ValueError)
+        +-- ContentMismatch
 """
 
 from __future__ import annotations
 
+from ..errors import AwesomeVunitVcsError
 
-class FlashError(Exception):
-    """The base of every exception the flash package raises on purpose."""
+
+class FlashError(AwesomeVunitVcsError):
+    """
+    The base of every exception the flash package raises on purpose.
+
+    It is an :class:`~awesome_vunit_vcs.errors.AwesomeVunitVcsError`, so
+    ``except AwesomeVunitVcsError`` also catches the flash errors.
+    """
 
 
 class FlashValueError(FlashError, ValueError):

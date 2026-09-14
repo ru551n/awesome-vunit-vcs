@@ -1,0 +1,5 @@
+sphinx>=7.3
+furo>=2024.8.6
+myst-parser>=3.0
+# Imported by the documented modules
+numpy>=1.24

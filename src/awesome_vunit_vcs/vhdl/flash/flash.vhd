@@ -22,9 +22,10 @@
 --     The model derives write-in-progress from a deadline and the time pins
 --     passes in, so a status poll never races this process.
 --
--- A flash_protocol_checker instance checks the pin timing of the controller.
--- Violations and metavalues sampled on the IOs are check failures on the
--- checker of the component, like the content checks of the model.
+-- A qspi_protocol_checker instance, when the handle has one, checks the pin
+-- timing of the controller on its own checker. Metavalues sampled on the IOs
+-- are check failures on the checker of the component, like the content checks
+-- of the model.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -34,18 +35,18 @@ context vunit_lib.vunit_context;
 context vunit_lib.com_context;
 use vunit_lib.integer_array_pkg.all;
 use vunit_lib.sync_pkg.all;
-use vunit_lib.vc_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
 use work.qspi_pkg.all;
 use work.flash_pkg.all;
+use work.qspi_protocol_checker_pkg.all;
 use work.vcs_python_pkg.all;
 
 entity flash is
   generic (
-    -- Created with new_flash
+    -- Created with :vhdl:`flash_pkg.new_flash`
     flash : flash_t
   );
   port (
@@ -127,7 +128,7 @@ begin
     initialized <= true;
 
     loop
-      receive(net, get_actor(flash.p_std_cfg), msg);
+      receive(net, get_actor(flash), msg);
       msg_type := message_type(msg);
 
       handle_sync_message(net, msg_type, msg);
@@ -233,18 +234,21 @@ begin
         reply(net, msg, reply_msg);
 
       else
-        unexpected_msg_type(msg_type, flash.p_std_cfg);
+        unexpected_msg_type(msg_type, flash);
       end if;
     end loop;
   end process;
 
-  flash_protocol_checker_inst : entity work.flash_protocol_checker
-    generic map (
-      flash => flash
-    )
-    port map (
-      m2s => m2s
-    );
+  protocol_checker_gen : if protocol_checker(flash) /= null_qspi_protocol_checker generate
+    protocol_checker_inst : entity work.qspi_protocol_checker
+      generic map (
+        protocol_checker => protocol_checker(flash)
+      )
+      port map (
+        m2s => m2s,
+        s2m => s2m
+      );
+  end generate;
 
   busy_active <= busy_started /= busy_finished;
 
@@ -283,7 +287,7 @@ begin
 
     procedure release_io is
     begin
-      s2m.io <= qspi_drive_init after flash.p_t_shqz;
+      s2m.io <= qspi_drive_init after output_delay_shqz(flash);
     end;
   begin
     if not initialized then
@@ -347,7 +351,7 @@ begin
                 lanes => directive.lanes,
                 beat => beat,
                 driver => qspi_slave_side
-              ) after flash.p_t_clqv;
+              ) after output_delay_clqv(flash);
               wait until rising_edge(m2s.sck) or m2s.cs_n /= '0';
               exit when m2s.cs_n /= '0';
               bits_since_byte := (bits_since_byte + directive.lanes) mod 8;

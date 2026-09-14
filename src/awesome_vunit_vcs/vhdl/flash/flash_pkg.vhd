@@ -11,6 +11,10 @@
 -- testbench configures the device with new_flash and controls it with the
 -- procedures below, and never needs to write Python.
 --
+-- The pin timing of the controller is checked by a
+-- :vhdl:`qspi_protocol_checker_pkg.qspi_protocol_checker_t` given to
+-- new_flash, which the component instantiates on its pins.
+--
 -- The package also holds the VHDL half of the packed directive the backend
 -- returns for every byte (awesome_vunit_vcs/flash/directive.py). The component
 -- checks the backend's layout version against flash_layout_version when it
@@ -28,7 +32,7 @@ use vunit_lib.sync_pkg.all;
 use vunit_lib.vc_pkg.all;
 
 use work.qspi_pkg.all;
-use work.qspi_master_pkg.flash_provider;
+use work.qspi_protocol_checker_pkg.all;
 use work.vcs_python_pkg.py_bool;
 use work.vcs_python_pkg.py_str;
 
@@ -40,11 +44,11 @@ package flash_pkg is
   -- The address widths a device advertises in SFDP
   type flash_addr_modes_t is (both, three_only, four_only);
 
-  -- The handle of a flash, created with new_flash. It is the generic of the
-  -- flash entity and the first argument of the procedures below.
+  -- The handle of a flash, created with :vhdl:`flash_pkg.new_flash`. It is
+  -- the generic of the flash entity and the first argument of the procedures
+  -- below.
   type flash_t is record
     -- Private. Use new_flash and the procedures below.
-    p_std_cfg : std_cfg_t;
     -- Geometry
     p_size_bytes : positive;
     p_page_bytes : positive;
@@ -72,43 +76,84 @@ package flash_pkg is
     p_t_res1 : delay_length;
     p_t_res2 : delay_length;
     p_timing_enabled : boolean;
-    -- Pin timing the controller must meet, 0 ns is not checked
-    p_t_sck_min : delay_length;
-    p_t_sck_high_min : delay_length;
-    p_t_sck_low_min : delay_length;
-    p_t_slch : delay_length;
-    p_t_chsh : delay_length;
-    p_t_shsl : delay_length;
-    p_t_dvch : delay_length;
-    p_t_chdx : delay_length;
     -- Output delays of the device
     p_t_clqv : delay_length;
     p_t_shqz : delay_length;
-    p_protocol_checks : boolean;
+    -- Pin timing of the controller
+    p_protocol_checker : qspi_protocol_checker_t;
+    -- Standard VC configuration
+    p_id : id_t;
+    p_logger : logger_t;
+    p_actor : actor_t;
+    p_checker : checker_t;
+    p_unexpected_msg_type_policy : unexpected_msg_type_policy_t;
   end record;
 
-  -- A QSPI NOR flash device. The id defaults to awesome_vunit_vcs:flash:<n>.
+  -- No flash
+  constant null_flash : flash_t := (
+    p_size_bytes => 1,
+    p_page_bytes => 1,
+    p_sector_bytes => 1,
+    p_block32_bytes => 0,
+    p_block_bytes => 1,
+    p_addr_bytes => 3,
+    p_addr_modes => both,
+    p_jedec_id => 0,
+    p_electronic_id => -1,
+    p_sr1_default => 0,
+    p_sr2_default => 0,
+    p_sr3_default => 0,
+    p_t_pp => 0 ns,
+    p_t_se => 0 ns,
+    p_t_be32 => 0 ns,
+    p_t_be64 => 0 ns,
+    p_t_ce => 0 ns,
+    p_t_w => 0 ns,
+    p_t_rst => 0 ns,
+    p_t_res1 => 0 ns,
+    p_t_res2 => 0 ns,
+    p_timing_enabled => false,
+    p_t_clqv => 0 ns,
+    p_t_shqz => 0 ns,
+    p_protocol_checker => null_qspi_protocol_checker,
+    p_id => null_id,
+    p_logger => null_logger,
+    p_actor => null_actor,
+    p_checker => null_checker,
+    p_unexpected_msg_type_policy => fail
+  );
+
+  -- A QSPI NOR flash device.
   --
-  -- Geometry: size_bytes, page_bytes, sector_bytes and block_bytes must be
-  -- powers of two that divide each other; block32_bytes = 0 means the device
-  -- has no 32 KiB block erase. addr_bytes is the power-up address width and
-  -- addr_modes the widths the device supports. electronic_id = -1 derives the
-  -- 0xAB electronic ID from the capacity byte of jedec_id. The device reports
+  -- Geometry: ``size_bytes``, ``page_bytes``, ``sector_bytes`` and
+  -- ``block_bytes`` must be powers of two that divide each other;
+  -- ``block32_bytes`` = 0 means the device has no 32 KiB block erase.
+  -- ``addr_bytes`` is the power-up address width and ``addr_modes`` the
+  -- widths the device supports. ``electronic_id`` = -1 derives the 0xAB
+  -- electronic ID from the capacity byte of ``jedec_id``. The device reports
   -- an invalid configuration on its logger when it starts.
   --
-  -- t_pp .. t_res2 are the busy times of a page program, sector erase, 32 KiB
-  -- and 64 KiB block erase, chip erase, status register write, reset and
-  -- release from deep power-down (tRES1 and tRES2). timing_enabled = false
-  -- makes every busy time 0 until flash_set_timing_enable.
+  -- ``t_pp`` .. ``t_res2`` are the busy times of a page program, sector
+  -- erase, 32 KiB and 64 KiB block erase, chip erase, status register write,
+  -- reset and release from deep power-down (tRES1 and tRES2).
+  -- ``timing_enabled`` = false makes every busy time 0 until
+  -- :vhdl:`flash_pkg.flash_set_timing_enable`. ``t_clqv`` and ``t_shqz`` are
+  -- the delays of the device's own output after SCK falls and CS rises.
   --
-  -- t_sck_min .. t_chdx are minimum times the controller must meet (SCK
-  -- period, high and low time, CS low to the first SCK rising edge, the last
-  -- SCK edge to CS high, CS high time between commands, data-in setup and
-  -- hold). A violation is a check failure; 0 ns disables that check and
-  -- protocol_checks = false disables all of them. t_clqv and t_shqz are the
-  -- delays of the device's own output after SCK falls and CS rises.
+  -- The pin timing of the controller is not checked unless
+  -- ``protocol_checker`` is a
+  -- :vhdl:`qspi_protocol_checker_pkg.new_qspi_protocol_checker`, which the
+  -- flash instantiates on its pins with the id ``<id>:protocol_checker``
+  -- unless it was created with an explicit id. Metavalues on the IOs the
+  -- device samples, content mismatches and backend errors are reported on
+  -- the checker of the flash.
+  --
+  -- ``id`` defaults to ``awesome_vunit_vcs:flash:<n>`` and is the identity of
+  -- the Python backend. The logger defaults to the logger of the id, the
+  -- actor to a new actor of the id and the checker to a checker on the
+  -- logger. ``unexpected_msg_type_policy`` says whether a message of an
+  -- unknown type is a failure (``fail``) or ignored (``ignore``).
   impure function new_flash(
-    id : id_t := null_id;
     size_bytes : positive := 16 * 1024 * 1024;
     page_bytes : positive := 256;
     sector_bytes : positive := 4096;
@@ -131,26 +176,36 @@ package flash_pkg is
     t_res1 : delay_length := 3 us;
     t_res2 : delay_length := 1800 ns;
     timing_enabled : boolean := true;
-    t_sck_min : delay_length := 7519 ps;
-    t_sck_high_min : delay_length := 3 ns;
-    t_sck_low_min : delay_length := 3 ns;
-    t_slch : delay_length := 5 ns;
-    t_chsh : delay_length := 5 ns;
-    t_shsl : delay_length := 30 ns;
-    t_dvch : delay_length := 2 ns;
-    t_chdx : delay_length := 3 ns;
     t_clqv : delay_length := 6 ns;
     t_shqz : delay_length := 6 ns;
-    protocol_checks : boolean := true;
+    protocol_checker : qspi_protocol_checker_t := null_qspi_protocol_checker;
+    id : id_t := null_id;
+    logger : logger_t := null_logger;
+    actor : actor_t := null_actor;
+    checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return flash_t;
 
-  -- The id, logger and checker of the flash, and its handle for
+  -- The id, logger, actor and checker of the flash, and its handle for
   -- wait_until_idle and wait_for_time of sync_pkg
   impure function get_id(flash : flash_t) return id_t;
   impure function get_logger(flash : flash_t) return logger_t;
+  impure function get_actor(flash : flash_t) return actor_t;
   impure function get_checker(flash : flash_t) return checker_t;
   impure function as_sync(flash : flash_t) return sync_handle_t;
+
+  -- The protocol checker the flash instantiates, with its final id, or
+  -- :vhdl:`qspi_protocol_checker_pkg.null_qspi_protocol_checker`
+  function protocol_checker(flash : flash_t) return qspi_protocol_checker_t;
+
+  -- The delay of the device's output after SCK falls (tCLQV) and of
+  -- releasing it after CS rises (tSHQZ)
+  function output_delay_clqv(flash : flash_t) return delay_length;
+  function output_delay_shqz(flash : flash_t) return delay_length;
+
+  -- Report a message of an unexpected type according to the
+  -- ``unexpected_msg_type_policy`` of the handle
+  procedure unexpected_msg_type(msg_type : msg_type_t; flash : flash_t);
 
   ---------------------------------------------------------------------------
   -- Initialization, tiered by size so the bytes crossing to Python stay few
@@ -198,7 +253,7 @@ package flash_pkg is
   -- Read-back and checking
   ---------------------------------------------------------------------------
 
-  -- A pending read-back, redeemed with await_flash_read_back_reply
+  -- A pending request, redeemed with the matching await procedure
   alias flash_reference_t is msg_t;
 
   -- Non-blocking: request num_bytes of content from address
@@ -249,12 +304,27 @@ package flash_pkg is
     value : natural range 0 to 255
   );
 
-  -- The regions the controller programmed or erased over the bus, coalesced,
-  -- as a flat [address, length, address, length, ...]. Preloads and images
-  -- are not included. The caller owns regions.
+  -- Blocking: the regions the controller programmed or erased over the bus,
+  -- coalesced, as a flat [address, length, address, length, ...]. Preloads
+  -- and images are not included. The caller owns regions.
   procedure flash_get_written_regions(
     signal net : inout network_t;
     flash : flash_t;
+    variable regions : out integer_array_t
+  );
+
+  -- Non-blocking: request the written regions
+  procedure flash_get_written_regions(
+    signal net : inout network_t;
+    flash : flash_t;
+    variable reference : inout flash_reference_t
+  );
+
+  -- Blocking: redeem a reference of
+  -- :vhdl:`flash_pkg.flash_get_written_regions`. The caller owns regions.
+  procedure await_flash_get_written_regions_reply(
+    signal net : inout network_t;
+    variable reference : inout flash_reference_t;
     variable regions : out integer_array_t
   );
 
@@ -290,14 +360,14 @@ package flash_pkg is
     locked : boolean
   );
 
-  -- Block until a busy time the device has started is over. timeout is the
-  -- timeout of the request: pass a longer one for a busy time above 1 s, such
-  -- as a chip erase (t_ce). A controller polling the status register over the
-  -- bus is the stronger check.
+  -- Block until a busy time the device has started is over. The default
+  -- timeout is longer than the default chip erase (t_ce); a request that
+  -- times out is a failure. A controller polling the status register over
+  -- the bus is the stronger check.
   procedure flash_wait_until_ready(
     signal net : inout network_t;
     flash : flash_t;
-    timeout : delay_length := 1 sec
+    timeout : delay_length := 1 min
   );
 
   -- Power-on reset of the volatile state (status registers, write enable,
@@ -308,14 +378,29 @@ package flash_pkg is
     flash : flash_t
   );
 
-  -- A counter or piece of state of the model, for example "program_count",
-  -- "erase_count", "ignored_command_count", "abort_count", "wip", "addr_bytes".
-  -- An unknown name, or a value that does not fit an integer, is reported on
-  -- the logger of the device and returns 0.
+  -- Blocking: a counter or piece of state of the model, for example
+  -- "program_count", "erase_count", "ignored_command_count", "abort_count",
+  -- "wip", "addr_bytes". An unknown name, or a value that does not fit an
+  -- integer, is reported on the logger of the device and returns 0.
   procedure flash_get_stat(
     signal net : inout network_t;
     flash : flash_t;
     name : string;
+    variable value : out integer
+  );
+
+  -- Non-blocking: request a counter or piece of state of the model
+  procedure flash_get_stat(
+    signal net : inout network_t;
+    flash : flash_t;
+    name : string;
+    variable reference : inout flash_reference_t
+  );
+
+  -- Blocking: redeem a reference of :vhdl:`flash_pkg.flash_get_stat`
+  procedure await_flash_get_stat_reply(
+    signal net : inout network_t;
+    variable reference : inout flash_reference_t;
     variable value : out integer
   );
 
@@ -379,22 +464,22 @@ package flash_pkg is
   ---------------------------------------------------------------------------
 
   -- The message types the procedures above send to the component
-  constant flash_preload_msg : msg_type_t := new_msg_type("flash preload");
-  constant flash_preload_fill_msg : msg_type_t := new_msg_type("flash preload fill");
-  constant flash_load_image_msg : msg_type_t := new_msg_type("flash load image");
-  constant flash_read_back_msg : msg_type_t := new_msg_type("flash read back");
-  constant flash_read_back_reply_msg : msg_type_t := new_msg_type("flash read back reply");
-  constant flash_check_content_msg : msg_type_t := new_msg_type("flash check content");
-  constant flash_check_content_fill_msg : msg_type_t := new_msg_type("flash check content fill");
-  constant flash_written_regions_msg : msg_type_t := new_msg_type("flash written regions");
-  constant flash_written_regions_reply_msg : msg_type_t := new_msg_type("flash written regions reply");
-  constant flash_set_timing_enable_msg : msg_type_t := new_msg_type("flash set timing enable");
-  constant flash_set_timing_msg : msg_type_t := new_msg_type("flash set timing");
-  constant flash_set_protection_msg : msg_type_t := new_msg_type("flash set protection");
-  constant flash_wait_until_ready_msg : msg_type_t := new_msg_type("flash wait until ready");
-  constant flash_reset_msg : msg_type_t := new_msg_type("flash reset");
-  constant flash_get_stat_msg : msg_type_t := new_msg_type("flash get stat");
-  constant flash_get_stat_reply_msg : msg_type_t := new_msg_type("flash get stat reply");
+  constant flash_preload_msg : msg_type_t := new_msg_type("preload flash content");
+  constant flash_preload_fill_msg : msg_type_t := new_msg_type("fill flash content");
+  constant flash_load_image_msg : msg_type_t := new_msg_type("load flash image");
+  constant flash_read_back_msg : msg_type_t := new_msg_type("read flash content");
+  constant flash_read_back_reply_msg : msg_type_t := new_msg_type("read flash content reply");
+  constant flash_check_content_msg : msg_type_t := new_msg_type("check flash content");
+  constant flash_check_content_fill_msg : msg_type_t := new_msg_type("check flash content fill");
+  constant flash_written_regions_msg : msg_type_t := new_msg_type("get flash written regions");
+  constant flash_written_regions_reply_msg : msg_type_t := new_msg_type("get flash written regions reply");
+  constant flash_set_timing_enable_msg : msg_type_t := new_msg_type("set flash timing enable");
+  constant flash_set_timing_msg : msg_type_t := new_msg_type("set flash timing");
+  constant flash_set_protection_msg : msg_type_t := new_msg_type("set flash protection");
+  constant flash_wait_until_ready_msg : msg_type_t := new_msg_type("wait until flash ready");
+  constant flash_reset_msg : msg_type_t := new_msg_type("reset flash");
+  constant flash_get_stat_msg : msg_type_t := new_msg_type("get flash stat");
+  constant flash_get_stat_reply_msg : msg_type_t := new_msg_type("get flash stat reply");
 
   ---------------------------------------------------------------------------
   -- Private, for the component
@@ -414,13 +499,17 @@ package flash_pkg is
 
   -- Private. The time of hi and lo returned by Python.
   function from_python_time(hi : natural; lo : natural) return time;
+
+  -- Private. The logger and checker of errors in new_flash, such as an id
+  -- that already has an actor.
+  constant flash_pkg_logger : logger_t := get_logger("awesome_vunit_vcs:flash_pkg");
+  constant flash_pkg_checker : checker_t := new_checker(flash_pkg_logger);
 end package;
 
 package body flash_pkg is
   constant time_split : time := 1073741824 fs;
 
   impure function new_flash(
-    id : id_t := null_id;
     size_bytes : positive := 16 * 1024 * 1024;
     page_bytes : positive := 256;
     sector_bytes : positive := 4096;
@@ -443,27 +532,16 @@ package body flash_pkg is
     t_res1 : delay_length := 3 us;
     t_res2 : delay_length := 1800 ns;
     timing_enabled : boolean := true;
-    t_sck_min : delay_length := 7519 ps;
-    t_sck_high_min : delay_length := 3 ns;
-    t_sck_low_min : delay_length := 3 ns;
-    t_slch : delay_length := 5 ns;
-    t_chsh : delay_length := 5 ns;
-    t_shsl : delay_length := 30 ns;
-    t_dvch : delay_length := 2 ns;
-    t_chdx : delay_length := 3 ns;
     t_clqv : delay_length := 6 ns;
     t_shqz : delay_length := 6 ns;
-    protocol_checks : boolean := true;
+    protocol_checker : qspi_protocol_checker_t := null_qspi_protocol_checker;
+    id : id_t := null_id;
+    logger : logger_t := null_logger;
+    actor : actor_t := null_actor;
+    checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return flash_t is
-  begin
-    return (
-      p_std_cfg => create_std_cfg(
-        id => id,
-        provider => flash_provider,
-        vc_name => "flash",
-        unexpected_msg_type_policy => unexpected_msg_type_policy
-      ),
+    variable result : flash_t := (
       p_size_bytes => size_bytes,
       p_page_bytes => page_bytes,
       p_sector_bytes => sector_bytes,
@@ -486,38 +564,78 @@ package body flash_pkg is
       p_t_res1 => t_res1,
       p_t_res2 => t_res2,
       p_timing_enabled => timing_enabled,
-      p_t_sck_min => t_sck_min,
-      p_t_sck_high_min => t_sck_high_min,
-      p_t_sck_low_min => t_sck_low_min,
-      p_t_slch => t_slch,
-      p_t_chsh => t_chsh,
-      p_t_shsl => t_shsl,
-      p_t_dvch => t_dvch,
-      p_t_chdx => t_chdx,
       p_t_clqv => t_clqv,
       p_t_shqz => t_shqz,
-      p_protocol_checks => protocol_checks
+      p_protocol_checker => null_qspi_protocol_checker,
+      p_id => id,
+      p_logger => logger,
+      p_actor => actor,
+      p_checker => checker,
+      p_unexpected_msg_type_policy => unexpected_msg_type_policy
     );
+  begin
+    if id = null_id then
+      result.p_id := enumerate(get_id("flash", parent => get_id("awesome_vunit_vcs")));
+    end if;
+    if logger = null_logger then
+      result.p_logger := get_logger(result.p_id);
+    end if;
+    if actor = null_actor then
+      result.p_actor := new_vc_actor(result.p_id, flash_pkg_checker);
+    end if;
+    if checker = null_checker then
+      result.p_checker := new_checker(result.p_logger);
+    end if;
+    result.p_protocol_checker := get_valid_protocol_checker(protocol_checker, result.p_id);
+
+    return result;
   end;
 
   impure function get_id(flash : flash_t) return id_t is
   begin
-    return get_id(flash.p_std_cfg);
+    return flash.p_id;
   end;
 
   impure function get_logger(flash : flash_t) return logger_t is
   begin
-    return get_logger(flash.p_std_cfg);
+    return flash.p_logger;
+  end;
+
+  impure function get_actor(flash : flash_t) return actor_t is
+  begin
+    return flash.p_actor;
   end;
 
   impure function get_checker(flash : flash_t) return checker_t is
   begin
-    return get_checker(flash.p_std_cfg);
+    return flash.p_checker;
   end;
 
   impure function as_sync(flash : flash_t) return sync_handle_t is
   begin
-    return get_actor(flash.p_std_cfg);
+    return flash.p_actor;
+  end;
+
+  function protocol_checker(flash : flash_t) return qspi_protocol_checker_t is
+  begin
+    return flash.p_protocol_checker;
+  end;
+
+  function output_delay_clqv(flash : flash_t) return delay_length is
+  begin
+    return flash.p_t_clqv;
+  end;
+
+  function output_delay_shqz(flash : flash_t) return delay_length is
+  begin
+    return flash.p_t_shqz;
+  end;
+
+  procedure unexpected_msg_type(msg_type : msg_type_t; flash : flash_t) is
+  begin
+    if flash.p_unexpected_msg_type_policy = fail then
+      unexpected_msg_type(msg_type, flash.p_logger);
+    end if;
   end;
 
   function python_time_arguments(value : time) return string is
@@ -624,7 +742,7 @@ package body flash_pkg is
   begin
     push(msg, address);
     push_integer_array_t_ref(msg, owned);
-    send(net, get_actor(flash.p_std_cfg), msg);
+    send(net, get_actor(flash), msg);
   end;
 
   procedure flash_preload(
@@ -661,7 +779,7 @@ package body flash_pkg is
     push(msg, address);
     push(msg, num_bytes);
     push(msg, value);
-    send(net, get_actor(flash.p_std_cfg), msg);
+    send(net, get_actor(flash), msg);
   end;
 
   procedure flash_load_image(
@@ -676,7 +794,7 @@ package body flash_pkg is
     push_string(msg, file_name);
     push_string(msg, format);
     push(msg, base_address);
-    send(net, get_actor(flash.p_std_cfg), msg);
+    send(net, get_actor(flash), msg);
   end;
 
   procedure flash_read_back(
@@ -690,7 +808,7 @@ package body flash_pkg is
     reference := new_msg(flash_read_back_msg);
     push(reference, address);
     push(reference, num_bytes);
-    send(net, get_actor(flash.p_std_cfg), reference);
+    send(net, get_actor(flash), reference);
   end;
 
   procedure await_flash_read_back_reply(
@@ -731,7 +849,7 @@ package body flash_pkg is
   begin
     push(msg, address);
     push_integer_array_t_ref(msg, owned);
-    send(net, get_actor(flash.p_std_cfg), msg);
+    send(net, get_actor(flash), msg);
   end;
 
   procedure flash_check_content_fill(
@@ -746,7 +864,30 @@ package body flash_pkg is
     push(msg, address);
     push(msg, num_bytes);
     push(msg, value);
-    send(net, get_actor(flash.p_std_cfg), msg);
+    send(net, get_actor(flash), msg);
+  end;
+
+  procedure flash_get_written_regions(
+    signal net : inout network_t;
+    flash : flash_t;
+    variable reference : inout flash_reference_t
+  ) is
+  begin
+    reference := new_msg(flash_written_regions_msg);
+    send(net, get_actor(flash), reference);
+  end;
+
+  procedure await_flash_get_written_regions_reply(
+    signal net : inout network_t;
+    variable reference : inout flash_reference_t;
+    variable regions : out integer_array_t
+  ) is
+    variable reply_msg : msg_t;
+  begin
+    receive_reply(net, reference, reply_msg);
+    regions := pop_integer_array_t_ref(reply_msg);
+    delete(reference);
+    delete(reply_msg);
   end;
 
   procedure flash_get_written_regions(
@@ -754,12 +895,10 @@ package body flash_pkg is
     flash : flash_t;
     variable regions : out integer_array_t
   ) is
-    variable request_msg : msg_t := new_msg(flash_written_regions_msg);
-    variable reply_msg : msg_t;
+    variable reference : flash_reference_t;
   begin
-    request(net, get_actor(flash.p_std_cfg), request_msg, reply_msg);
-    regions := pop_integer_array_t_ref(reply_msg);
-    delete(reply_msg);
+    flash_get_written_regions(net, flash, reference);
+    await_flash_get_written_regions_reply(net, reference, regions);
   end;
 
   procedure flash_set_timing_enable(
@@ -770,7 +909,7 @@ package body flash_pkg is
     variable msg : msg_t := new_msg(flash_set_timing_enable_msg);
   begin
     push(msg, enable);
-    send(net, get_actor(flash.p_std_cfg), msg);
+    send(net, get_actor(flash), msg);
   end;
 
   procedure flash_set_timing(
@@ -783,7 +922,7 @@ package body flash_pkg is
   begin
     push_string(msg, name);
     push_time(msg, duration);
-    send(net, get_actor(flash.p_std_cfg), msg);
+    send(net, get_actor(flash), msg);
   end;
 
   procedure flash_set_protection(
@@ -798,18 +937,19 @@ package body flash_pkg is
     push(msg, address);
     push(msg, num_bytes);
     push(msg, locked);
-    send(net, get_actor(flash.p_std_cfg), msg);
+    send(net, get_actor(flash), msg);
   end;
 
   procedure flash_wait_until_ready(
     signal net : inout network_t;
     flash : flash_t;
-    timeout : delay_length := 1 sec
+    timeout : delay_length := 1 min
   ) is
     variable request_msg : msg_t := new_msg(flash_wait_until_ready_msg);
     variable reply_msg : msg_t;
   begin
-    request(net, get_actor(flash.p_std_cfg), request_msg, reply_msg, timeout => timeout);
+    -- A timeout is a check failure of com
+    request(net, get_actor(flash), request_msg, reply_msg, timeout => timeout);
     delete(reply_msg);
   end;
 
@@ -821,7 +961,32 @@ package body flash_pkg is
     variable reply_msg : msg_t;
   begin
     -- Blocking, so the first stimulus of a test cannot race the reset
-    request(net, get_actor(flash.p_std_cfg), request_msg, reply_msg);
+    request(net, get_actor(flash), request_msg, reply_msg);
+    delete(reply_msg);
+  end;
+
+  procedure flash_get_stat(
+    signal net : inout network_t;
+    flash : flash_t;
+    name : string;
+    variable reference : inout flash_reference_t
+  ) is
+  begin
+    reference := new_msg(flash_get_stat_msg);
+    push_string(reference, name);
+    send(net, get_actor(flash), reference);
+  end;
+
+  procedure await_flash_get_stat_reply(
+    signal net : inout network_t;
+    variable reference : inout flash_reference_t;
+    variable value : out integer
+  ) is
+    variable reply_msg : msg_t;
+  begin
+    receive_reply(net, reference, reply_msg);
+    value := pop_integer(reply_msg);
+    delete(reference);
     delete(reply_msg);
   end;
 
@@ -831,12 +996,9 @@ package body flash_pkg is
     name : string;
     variable value : out integer
   ) is
-    variable request_msg : msg_t := new_msg(flash_get_stat_msg);
-    variable reply_msg : msg_t;
+    variable reference : flash_reference_t;
   begin
-    push_string(request_msg, name);
-    request(net, get_actor(flash.p_std_cfg), request_msg, reply_msg);
-    value := pop_integer(reply_msg);
-    delete(reply_msg);
+    flash_get_stat(net, flash, name, reference);
+    await_flash_get_stat_reply(net, reference, value);
   end;
 end package body;

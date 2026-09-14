@@ -31,6 +31,8 @@
 -- first rising edge, rises half a period after the last falling edge, and
 -- stays high for the longer of one period and the configured CS deselect time
 -- before the next transaction may start.
+--
+-- A protocol checker given to new_qspi_master is instantiated on the pins.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -40,14 +42,14 @@ library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
 use vunit_lib.sync_pkg.all;
-use vunit_lib.vc_pkg.all;
 
 use work.qspi_pkg.all;
 use work.qspi_master_pkg.all;
+use work.qspi_protocol_checker_pkg.all;
 
 entity qspi_master is
   generic (
-    -- Created with new_qspi_master
+    -- Created with :vhdl:`qspi_master_pkg.new_qspi_master`
     qspi_master : qspi_master_t
   );
   port (
@@ -254,8 +256,19 @@ begin
         acknowledge(net, msg, true);
 
       else
-        unexpected_msg_type(msg_type, qspi_master.p_std_cfg);
+        unexpected_msg_type(msg_type, qspi_master);
       end if;
     end loop;
   end process;
+
+  protocol_checker_gen : if protocol_checker(qspi_master) /= null_qspi_protocol_checker generate
+    protocol_checker_inst : entity work.qspi_protocol_checker
+      generic map (
+        protocol_checker => protocol_checker(qspi_master)
+      )
+      port map (
+        m2s => m2s,
+        s2m => s2m
+      );
+  end generate;
 end architecture;

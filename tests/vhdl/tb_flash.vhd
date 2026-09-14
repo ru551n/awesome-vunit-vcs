@@ -8,10 +8,11 @@
 -- The flash procedures only set a device up and inspect it afterwards; every
 -- claim about what a device does is made about bytes that crossed the wires.
 --
--- Six buses: flash_a is the device most tests use, flash_b a second
+-- Eight buses: flash_a is the device most tests use, flash_b a second
 -- independent device, checked_flash and unchecked_flash sit behind masters
--- that deselect CS too briefly (protocol checks on and off), custom_flash has
--- a non-default configuration and raw_flash is bit-banged by the testbench.
+-- that deselect CS too briefly (with and without a protocol checker),
+-- custom_flash has a non-default configuration, raw_flash is bit-banged by the
+-- testbench, and default_flash_1 and default_flash_2 have no explicit id.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -36,33 +37,43 @@ architecture tb of tb_flash is
   constant sector_bytes : positive := 4096;
   constant block_bytes : positive := 65536;
 
-  constant master_a : qspi_master_t := new_qspi_master(sck_period => 20 ns);
+  constant master_a : qspi_master_t := new_qspi_master(sck_period => 20 ns, id => get_id("tb_flash:master_a"));
   constant flash_a : flash_t := new_flash(
     page_bytes => page_bytes,
     sector_bytes => sector_bytes,
     block_bytes => block_bytes,
-    jedec_id => 16#EF4018#
+    jedec_id => 16#EF4018#,
+    protocol_checker => new_qspi_protocol_checker,
+    id => get_id("tb_flash:flash_a")
   );
   signal m2s_a : qspi_m2s_t := qspi_m2s_init;
   signal s2m_a : qspi_s2m_t := qspi_s2m_init;
 
   -- A second device on its own bus. Its state would leak into flash_a if the
   -- backends shared anything.
-  constant master_b : qspi_master_t := new_qspi_master(sck_period => 20 ns);
-  constant flash_b : flash_t := new_flash(jedec_id => 16#C22018#);
+  constant master_b : qspi_master_t := new_qspi_master(sck_period => 20 ns, id => get_id("tb_flash:master_b"));
+  constant flash_b : flash_t := new_flash(
+    jedec_id => 16#C22018#,
+    protocol_checker => new_qspi_protocol_checker,
+    id => get_id("tb_flash:flash_b")
+  );
   signal m2s_b : qspi_m2s_t := qspi_m2s_init;
   signal s2m_b : qspi_s2m_t := qspi_s2m_init;
 
-  -- Two masters that violate the 30 ns tSHSL of the device, one against a
-  -- checked and one against an unchecked device. Without the unchecked one, an
-  -- inert checker and a clean bus would look the same.
+  -- Two masters that violate the 30 ns tSHSL of a protocol checker, one
+  -- against a device with a protocol checker and one against a device
+  -- without. Without the unchecked one, an inert checker and a clean bus
+  -- would look the same.
   constant cs_deselect_too_short : delay_length := 5 ns;
 
   constant bad_master : qspi_master_t := new_qspi_master(
     sck_period => 20 ns,
     cs_deselect_time => cs_deselect_too_short
   );
-  constant checked_flash : flash_t := new_flash;
+  constant checked_flash : flash_t := new_flash(
+    protocol_checker => new_qspi_protocol_checker,
+    id => get_id("tb_flash:checked_flash")
+  );
   signal checked_m2s : qspi_m2s_t := qspi_m2s_init;
   signal checked_s2m : qspi_s2m_t := qspi_s2m_init;
 
@@ -70,30 +81,56 @@ architecture tb of tb_flash is
     sck_period => 20 ns,
     cs_deselect_time => cs_deselect_too_short
   );
-  constant unchecked_flash : flash_t := new_flash(protocol_checks => false);
+  constant unchecked_flash : flash_t := new_flash(id => get_id("tb_flash:unchecked_flash"));
   signal unchecked_m2s : qspi_m2s_t := qspi_m2s_init;
   signal unchecked_s2m : qspi_s2m_t := qspi_s2m_init;
 
-  -- 32 MiB, powering up in 4-byte addressing, another JEDEC ID and a tSHSL
-  -- longer than the 50 ns CS deselect time of a default master
+  -- 32 MiB, powering up in 4-byte addressing, another JEDEC ID and a
+  -- protocol checker with a tSHSL longer than the 50 ns CS deselect time of a
+  -- default master
   constant custom_master : qspi_master_t := new_qspi_master;
   constant custom_flash : flash_t := new_flash(
     size_bytes => 32 * 1024 * 1024,
     addr_bytes => 4,
     jedec_id => 16#20BA19#,
-    t_shsl => 60 ns,
-    timing_enabled => false
+    timing_enabled => false,
+    protocol_checker => new_qspi_protocol_checker(t_shsl => 60 ns),
+    id => get_id("tb_flash:custom_flash")
   );
   signal custom_m2s : qspi_m2s_t := qspi_m2s_init;
   signal custom_s2m : qspi_s2m_t := qspi_s2m_init;
 
   -- Driven by the testbench, no master
-  constant raw_flash : flash_t := new_flash;
+  constant raw_flash : flash_t := new_flash(
+    protocol_checker => new_qspi_protocol_checker,
+    id => get_id("tb_flash:raw_flash")
+  );
   signal raw_m2s : qspi_m2s_t := qspi_m2s_init;
   signal raw_s2m : qspi_s2m_t := qspi_s2m_init;
 
+  -- Two devices with default ids, logger and actor, each on its own bus. Their
+  -- Python sessions share nothing only if the default ids differ.
+  constant default_master_1 : qspi_master_t := new_qspi_master;
+  constant default_flash_1 : flash_t := new_flash;
+  signal default_m2s_1 : qspi_m2s_t := qspi_m2s_init;
+  signal default_s2m_1 : qspi_s2m_t := qspi_s2m_init;
+
+  constant default_master_2 : qspi_master_t := new_qspi_master;
+  constant default_flash_2 : flash_t := new_flash;
+  signal default_m2s_2 : qspi_m2s_t := qspi_m2s_init;
+  signal default_s2m_2 : qspi_s2m_t := qspi_s2m_init;
+
   type flash_vec_t is array (natural range <>) of flash_t;
-  constant flashes : flash_vec_t := (flash_a, flash_b, checked_flash, unchecked_flash, custom_flash, raw_flash);
+  constant flashes : flash_vec_t := (
+    flash_a,
+    flash_b,
+    checked_flash,
+    unchecked_flash,
+    custom_flash,
+    raw_flash,
+    default_flash_1,
+    default_flash_2
+  );
 
   -- first, first + 1, ...: a misordered or shifted transfer shows up as a
   -- wrong value
@@ -235,6 +272,42 @@ begin
     port map (
       m2s => raw_m2s,
       s2m => raw_s2m
+    );
+
+  default_master_1_inst : entity awesome_vunit_vcs.qspi_master
+    generic map (
+      qspi_master => default_master_1
+    )
+    port map (
+      m2s => default_m2s_1,
+      s2m => default_s2m_1
+    );
+
+  default_flash_1_inst : entity awesome_vunit_vcs.flash
+    generic map (
+      flash => default_flash_1
+    )
+    port map (
+      m2s => default_m2s_1,
+      s2m => default_s2m_1
+    );
+
+  default_master_2_inst : entity awesome_vunit_vcs.qspi_master
+    generic map (
+      qspi_master => default_master_2
+    )
+    port map (
+      m2s => default_m2s_2,
+      s2m => default_s2m_2
+    );
+
+  default_flash_2_inst : entity awesome_vunit_vcs.flash
+    generic map (
+      flash => default_flash_2
+    )
+    port map (
+      m2s => default_m2s_2,
+      s2m => default_s2m_2
     );
 
   main : process
@@ -463,13 +536,18 @@ begin
         deallocate(regions);
 
       elsif run("test_four_byte_addressing_reaches_the_same_data") then
+        -- The last 8 bytes of the 16 MiB device, reached with a 4-byte and a
+        -- 3-byte address
         expected := ramp(8, 16#C0#);
-        flash_preload(net, flash_a, 16#01000000#, expected);
+        flash_preload(net, flash_a, 16#00FFFFF8#, expected);
         qspi_flash_enter_4byte(net, master_a);
-        qspi_flash_read(net, master_a, 16#01000000#, 8, got, addr_bytes => 4);
+        qspi_flash_read(net, master_a, 16#00FFFFF8#, 8, got, addr_bytes => 4);
         check_bytes(got, expected, "4-byte addressed read");
         deallocate(got);
         qspi_flash_exit_4byte(net, master_a);
+        qspi_flash_read(net, master_a, 16#FFFFF8#, 8, got, addr_bytes => 3);
+        check_bytes(got, expected, "3-byte addressed read");
+        deallocate(got);
         deallocate(expected);
 
       elsif run("test_qpi_mode_opcode_is_transferred_at_x4") then
@@ -614,18 +692,21 @@ begin
       elsif run("test_protocol_violation_is_reported") then
         -- bad_master deselects CS for 20 ns, not the 5 ns configured: the
         -- master keeps CS high for at least one SCK period. The violation is in
-        -- the gap between two commands, and two commands have one gap: 1 error.
-        disable_stop(get_logger(checked_flash), error);
+        -- the gap between two commands, and two commands have one gap: 1 error,
+        -- on the logger of the protocol checker of the flash.
+        disable_stop(get_logger(protocol_checker(checked_flash)), error);
         qspi_flash_read_id(net, bad_master, got, 3);
         deallocate(got);
         qspi_flash_read_id(net, bad_master, got, 3);
         deallocate(got);
-        check_equal(get_log_count(get_logger(checked_flash), error), 1, "tSHSL violations");
-        reset_log_count(get_logger(checked_flash), error);
+        check_equal(get_log_count(get_logger(protocol_checker(checked_flash)), error), 1, "tSHSL violations");
+        get_check_count(net, protocol_checker(checked_flash), qspi_cs_deselect, count);
+        check_equal(count, 1, "qspi_cs_deselect count");
+        reset_log_count(get_logger(protocol_checker(checked_flash)), error);
 
       elsif run("test_protocol_checks_can_be_switched_off") then
-        -- The same traffic against a device created with protocol_checks =>
-        -- false logs nothing, which makes a clean log mean something elsewhere
+        -- The same traffic against a device created without a protocol checker
+        -- logs nothing, which makes a clean log mean something elsewhere
         disable_stop(get_logger(unchecked_flash), error);
         qspi_flash_read_id(net, unchecked_master, got, 3);
         deallocate(got);
@@ -658,7 +739,7 @@ begin
         reset_log_count(get_logger(flash_a), error);
 
       elsif run("test_non_default_configuration") then
-        disable_stop(get_logger(custom_flash), error);
+        disable_stop(get_logger(protocol_checker(custom_flash)), error);
 
         qspi_flash_read_id(net, custom_master, got, 3);
         check_equal(get(got, 0), 16#20#, "manufacturer id");
@@ -677,14 +758,27 @@ begin
 
         -- The two commands above are back to back with the 50 ns CS deselect
         -- time of the master, short of the 60 ns tSHSL: one violation
-        check_equal(get_log_count(get_logger(custom_flash), error), 1, "tSHSL violations");
-        reset_log_count(get_logger(custom_flash), error);
+        check_equal(get_log_count(get_logger(protocol_checker(custom_flash)), error), 1, "tSHSL violations");
+        reset_log_count(get_logger(protocol_checker(custom_flash)), error);
 
       elsif run("test_metavalue_on_io_is_reported") then
         disable_stop(get_logger(raw_flash), error);
         send_raw_byte(metavalue_beat => 3);
         check_equal(get_log_count(get_logger(raw_flash), error), 1, "metavalues on the IOs");
         reset_log_count(get_logger(raw_flash), error);
+
+      elsif run("test_default_id_instances_are_independent") then
+        check(get_id(default_flash_1) /= get_id(default_flash_2), "the default ids differ");
+        flash_preload(net, default_flash_1, 16#016000#, bytes_of((16#5A#, 16#A5#)));
+        flash_preload(net, default_flash_2, 16#016000#, bytes_of((16#C3#, 16#3C#)));
+
+        qspi_flash_read(net, default_master_1, 16#016000#, 2, got);
+        check_bytes(got, bytes_of((16#5A#, 16#A5#)), "default device 1");
+        deallocate(got);
+
+        qspi_flash_read(net, default_master_2, 16#016000#, 2, got);
+        check_bytes(got, bytes_of((16#C3#, 16#3C#)), "default device 2");
+        deallocate(got);
 
       elsif run("test_wait_for_time_and_until_idle") then
         start := now;

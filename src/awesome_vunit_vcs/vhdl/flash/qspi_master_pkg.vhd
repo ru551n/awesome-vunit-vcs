@@ -31,9 +31,9 @@
 -- so a redeemed reference is also the point at which the transaction is known
 -- to have completed on the bus.
 --
--- The handle is built on vc_pkg.create_std_cfg, so the VC gets an id, a
--- logger, a checker and an unexpected-message-type policy like every other
--- full-featured VUnit VC. as_sync makes sync_pkg.wait_until_idle work.
+-- The handle follows the constructor pattern of VUnit's own verification
+-- components: an id, a logger, an actor, a checker and an unexpected message
+-- type policy. as_sync makes sync_pkg.wait_until_idle work.
 --
 -- SPI mode 0 only (CPOL = 0, CPHA = 0): SCK idles low, the master changes its
 -- outputs on the falling edge and both ends sample on the rising edge. That is
@@ -51,21 +51,18 @@ use vunit_lib.sync_pkg.all;
 use vunit_lib.vc_pkg.all;
 
 use work.qspi_pkg.all;
+use work.qspi_protocol_checker_pkg.all;
 
 package qspi_master_pkg is
   ---------------------------------------------------------------------------
   -- Handle
   ---------------------------------------------------------------------------
 
-  -- The provider of the ids of the flash family's components
-  constant flash_provider : string := "awesome_vunit_vcs";
-
-  -- The handle of a QSPI master, created with new_qspi_master. It is the
-  -- generic of the qspi_master entity and the first argument of the
-  -- procedures below.
+  -- The handle of a QSPI master, created with
+  -- :vhdl:`qspi_master_pkg.new_qspi_master`. It is the generic of the
+  -- qspi_master entity and the first argument of the procedures below.
   type qspi_master_t is record
     -- Private. Use the accessors below.
-    p_std_cfg : std_cfg_t;
     p_sck_period : delay_length;
     -- Minimum CS-high time between two transactions. A real device specifies
     -- this as tSHSL and ignores a command that arrives too soon after the
@@ -74,29 +71,58 @@ package qspi_master_pkg is
     -- SCK period: tSHSL is a property of the device, not of the bus speed, and
     -- tying the two makes a fast bus silently violate a slow part.
     p_cs_deselect_time : delay_length;
+    p_protocol_checker : qspi_protocol_checker_t;
+    p_id : id_t;
+    p_logger : logger_t;
+    p_actor : actor_t;
+    p_checker : checker_t;
+    p_unexpected_msg_type_policy : unexpected_msg_type_policy_t;
   end record;
+
+  -- No QSPI master
+  constant null_qspi_master : qspi_master_t := (
+    p_sck_period => 0 ns,
+    p_cs_deselect_time => 0 ns,
+    p_protocol_checker => null_qspi_protocol_checker,
+    p_id => null_id,
+    p_logger => null_logger,
+    p_actor => null_actor,
+    p_checker => null_checker,
+    p_unexpected_msg_type_policy => fail
+  );
 
   -- The default SCK period, 50 MHz
   constant qspi_default_sck_period : delay_length := 20 ns;
 
-  -- Comfortably above the default tSHSL of the flash model (30 ns). Chosen as
-  -- a default that does not violate a typical part rather than as the fastest
+  -- Comfortably above the default tSHSL of a flash (30 ns). Chosen as a
+  -- default that does not violate a typical part rather than as the fastest
   -- legal value; a test that wants to probe the limit sets it down.
   constant qspi_default_cs_deselect_time : delay_length := 50 ns;
 
-  -- A QSPI master. sck_period is the SCK period it starts with, and
-  -- cs_deselect_time the minimum CS high time between two transactions; CS
-  -- stays high for the longer of it and one SCK period. The id defaults to
-  -- awesome_vunit_vcs:qspi_master:<n>.
+  -- A QSPI master. ``sck_period`` is the SCK period it starts with, and
+  -- ``cs_deselect_time`` the minimum CS high time between two transactions;
+  -- CS stays high for the longer of it and one SCK period.
+  --
+  -- A ``protocol_checker`` other than
+  -- :vhdl:`qspi_protocol_checker_pkg.null_qspi_protocol_checker` is
+  -- instantiated on the pins of the master, with the id
+  -- ``<id>:protocol_checker`` unless it was created with an explicit id.
+  --
+  -- ``id`` defaults to ``awesome_vunit_vcs:qspi_master:<n>``. The logger
+  -- defaults to the logger of the id, the actor to a new actor of the id and
+  -- the checker to a checker on the logger. ``unexpected_msg_type_policy``
+  -- says whether a message of an unknown type is a failure (``fail``) or
+  -- ignored (``ignore``).
   impure function new_qspi_master(
     sck_period : delay_length := qspi_default_sck_period;
     cs_deselect_time : delay_length := qspi_default_cs_deselect_time;
+    protocol_checker : qspi_protocol_checker_t := null_qspi_protocol_checker;
     id : id_t := null_id;
+    logger : logger_t := null_logger;
+    actor : actor_t := null_actor;
+    checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return qspi_master_t;
-
-  -- The configured minimum CS-high time between transactions.
-  impure function cs_deselect_time(qspi_master : qspi_master_t) return delay_length;
 
   -- The id, actor, logger and checker of the master, and its handle for
   -- wait_until_idle and wait_for_time of sync_pkg
@@ -110,6 +136,17 @@ package qspi_master_pkg is
   -- changed at run time with set_sck_period below and is then owned by the
   -- VC process, so this accessor reports the initial value only.
   function sck_period(qspi_master : qspi_master_t) return delay_length;
+
+  -- The configured minimum CS-high time between transactions
+  function cs_deselect_time(qspi_master : qspi_master_t) return delay_length;
+
+  -- The protocol checker the master instantiates, with its final id, or
+  -- :vhdl:`qspi_protocol_checker_pkg.null_qspi_protocol_checker`
+  function protocol_checker(qspi_master : qspi_master_t) return qspi_protocol_checker_t;
+
+  -- Report a message of an unexpected type according to the
+  -- ``unexpected_msg_type_policy`` of the handle
+  procedure unexpected_msg_type(msg_type : msg_type_t; qspi_master : qspi_master_t);
 
   ---------------------------------------------------------------------------
   -- Transactions
@@ -202,64 +239,104 @@ package qspi_master_pkg is
   ---------------------------------------------------------------------------
 
   -- The message types the procedures above send to the component
-  constant qspi_transfer_msg : msg_type_t := new_msg_type("qspi transfer");
-  constant qspi_transfer_reply_msg : msg_type_t := new_msg_type("qspi transfer reply");
-  constant qspi_master_set_sck_period_msg : msg_type_t := new_msg_type("qspi master set sck period");
+  constant qspi_transfer_msg : msg_type_t := new_msg_type("transfer qspi_master data");
+  constant qspi_transfer_reply_msg : msg_type_t := new_msg_type("transfer qspi_master data reply");
+  constant qspi_master_set_sck_period_msg : msg_type_t := new_msg_type("set qspi_master sck period");
+
+  ---------------------------------------------------------------------------
+  -- Private
+  ---------------------------------------------------------------------------
+
+  -- Private. The logger and checker of errors in new_qspi_master, such as an
+  -- id that already has an actor.
+  constant qspi_master_pkg_logger : logger_t := get_logger("awesome_vunit_vcs:qspi_master_pkg");
+  constant qspi_master_pkg_checker : checker_t := new_checker(qspi_master_pkg_logger);
 end package;
 
 package body qspi_master_pkg is
   impure function new_qspi_master(
     sck_period : delay_length := qspi_default_sck_period;
     cs_deselect_time : delay_length := qspi_default_cs_deselect_time;
+    protocol_checker : qspi_protocol_checker_t := null_qspi_protocol_checker;
     id : id_t := null_id;
+    logger : logger_t := null_logger;
+    actor : actor_t := null_actor;
+    checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return qspi_master_t is
-  begin
-    return (
-      p_std_cfg => create_std_cfg(
-        id => id,
-        provider => flash_provider,
-        vc_name => "qspi_master",
-        unexpected_msg_type_policy => unexpected_msg_type_policy
-      ),
+    variable result : qspi_master_t := (
       p_sck_period => sck_period,
-      p_cs_deselect_time => cs_deselect_time
+      p_cs_deselect_time => cs_deselect_time,
+      p_protocol_checker => null_qspi_protocol_checker,
+      p_id => id,
+      p_logger => logger,
+      p_actor => actor,
+      p_checker => checker,
+      p_unexpected_msg_type_policy => unexpected_msg_type_policy
     );
-  end;
-
-  impure function cs_deselect_time(qspi_master : qspi_master_t) return delay_length is
   begin
-    return qspi_master.p_cs_deselect_time;
+    if id = null_id then
+      result.p_id := enumerate(get_id("qspi_master", parent => get_id("awesome_vunit_vcs")));
+    end if;
+    if logger = null_logger then
+      result.p_logger := get_logger(result.p_id);
+    end if;
+    if actor = null_actor then
+      result.p_actor := new_vc_actor(result.p_id, qspi_master_pkg_checker);
+    end if;
+    if checker = null_checker then
+      result.p_checker := new_checker(result.p_logger);
+    end if;
+    result.p_protocol_checker := get_valid_protocol_checker(protocol_checker, result.p_id);
+
+    return result;
   end;
 
   impure function get_id(qspi_master : qspi_master_t) return id_t is
   begin
-    return get_id(qspi_master.p_std_cfg);
+    return qspi_master.p_id;
   end;
 
   impure function get_actor(qspi_master : qspi_master_t) return actor_t is
   begin
-    return get_actor(qspi_master.p_std_cfg);
+    return qspi_master.p_actor;
   end;
 
   impure function get_logger(qspi_master : qspi_master_t) return logger_t is
   begin
-    return get_logger(qspi_master.p_std_cfg);
+    return qspi_master.p_logger;
   end;
 
   impure function get_checker(qspi_master : qspi_master_t) return checker_t is
   begin
-    return get_checker(qspi_master.p_std_cfg);
+    return qspi_master.p_checker;
   end;
 
   impure function as_sync(qspi_master : qspi_master_t) return sync_handle_t is
   begin
-    return get_actor(qspi_master.p_std_cfg);
+    return qspi_master.p_actor;
   end;
 
   function sck_period(qspi_master : qspi_master_t) return delay_length is
   begin
     return qspi_master.p_sck_period;
+  end;
+
+  function cs_deselect_time(qspi_master : qspi_master_t) return delay_length is
+  begin
+    return qspi_master.p_cs_deselect_time;
+  end;
+
+  function protocol_checker(qspi_master : qspi_master_t) return qspi_protocol_checker_t is
+  begin
+    return qspi_master.p_protocol_checker;
+  end;
+
+  procedure unexpected_msg_type(msg_type : msg_type_t; qspi_master : qspi_master_t) is
+  begin
+    if qspi_master.p_unexpected_msg_type_policy = fail then
+      unexpected_msg_type(msg_type, qspi_master.p_logger);
+    end if;
   end;
 
   -- Bytes go into the message one integer at a time rather than by reference:

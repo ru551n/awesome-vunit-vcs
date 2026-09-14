@@ -135,3 +135,11 @@ Breaking changes
   arguments from ``args``/``kwargs`` or ``set_arguments``; ``packet_symbols`` (a Scapy expression) is
   removed.
 * ``PropertyRunner`` takes the strategy's arguments as a mapping, or later through ``start``.
+* Flash: the flash VC no longer checks the pin timing of the controller by default. Pass
+  ``protocol_checker => new_qspi_protocol_checker(...)`` to ``new_flash`` (or ``new_qspi_master``).
+  ``protocol_checks`` and the pin limits ``t_sck_min`` to ``t_chdx`` moved from ``new_flash`` to
+  ``new_qspi_protocol_checker``, and violations are reported on the checker of the protocol checker,
+  ``<flash id>:protocol_checker``.
+* Flash: ``new_flash`` and ``new_qspi_master`` end with ``protocol_checker``, ``id``, ``logger``,
+  ``actor``, ``checker`` and ``unexpected_msg_type_policy``, like VUnit's own VCs. ``id`` moved from
+  the first to that group.

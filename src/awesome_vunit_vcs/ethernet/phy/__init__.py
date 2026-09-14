@@ -14,10 +14,12 @@ from .common import (
     WireFrame,
 )
 from .gmii import GmiiPhy
+from .mii import MiiPhy
 from .xgmii import XgmiiPhy
 
 _INTERFACES: dict[str, type[Any]] = {
     "gmii": GmiiPhy,
+    "mii": MiiPhy,
     "xgmii": XgmiiPhy,
 }
 
@@ -37,6 +39,7 @@ __all__ = [
     "FrameAssembler",
     "GmiiPhy",
     "IdleEvent",
+    "MiiPhy",
     "OctetBatch",
     "PhyEvent",
     "PhyFrame",

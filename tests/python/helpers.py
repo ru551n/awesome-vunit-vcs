@@ -76,6 +76,57 @@ class GmiiLine:
         self.idle(ifg)
 
 
+MII_100M_PERIOD_FS = 40_000_000  # 25 MHz
+MII_10M_PERIOD_FS = 400_000_000  # 2.5 MHz
+
+
+@dataclass
+class MiiLine:
+    """
+    Records MII samples the way the VHDL monitor does: one word per clock cycle.
+
+    Octets go on the line least significant nibble first, as IEEE 802.3
+    Clause 22 specifies, written out nibble by nibble.
+    """
+
+    period_fs: int = MII_100M_PERIOD_FS
+    time_fs: int = 0
+    words: list[int] = field(default_factory=list)
+    times: list[int] = field(default_factory=list)
+
+    def cycle(self, word: int) -> None:
+        self.words.append(word)
+        self.times.append(self.time_fs)
+        self.time_fs += self.period_fs
+
+    def idle(self, cycles: int) -> None:
+        for _ in range(cycles):
+            self.cycle(0)
+
+    def nibbles(self, nibbles: list[int], *, error_at: tuple[int, ...] = ()) -> None:
+        for index, nibble in enumerate(nibbles):
+            self.cycle(nibble | VALID | (ERROR if index in error_at else 0))
+
+    def frame(
+        self,
+        frame: bytes,
+        *,
+        preamble_nibbles: int = 14,
+        error_octets: tuple[int, ...] = (),
+        extra_nibbles: tuple[int, ...] = (),
+        ifg_octets: int = 12,
+    ) -> None:
+        """0x5 nibbles (14 is standard), the SFD nibbles 0x5 0xD, the frame, extra nibbles, then IFG."""
+        nibbles = [0x5] * preamble_nibbles + [0x5, 0xD]
+        errors: list[int] = []
+        for index, octet in enumerate(frame):
+            if index in error_octets:
+                errors += [len(nibbles), len(nibbles) + 1]
+            nibbles += [octet % 16, octet // 16]
+        self.nibbles(nibbles + list(extra_nibbles), error_at=tuple(errors))
+        self.idle(2 * ifg_octets)
+
+
 # XGMII control characters, IEEE 802.3 Table 46-3 as reproduced in Xilinx
 # XAPP687 Table 2, and the link fault ordered sets of Table 46-5 as used by the
 # UNH-IOL Clause 49 PCS test suite

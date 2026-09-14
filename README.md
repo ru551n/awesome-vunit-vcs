@@ -18,7 +18,8 @@ Alpha. The APIs can still change.
 * GMII monitor and source: complete, 16 HDL tests passing on GHDL and NVC.
 * The simulator independent Python core (frames, checker, statistics, PCAPNG, sources): complete,
   unit tested.
-* XGMII family (4 or 8 lanes, 2.5G to 100G): available. MII, RGMII, RMII and an AXI-Stream MAC client: planned.
+* XGMII family (4 or 8 lanes, 2.5G to 100G) and MII (10M, 100M): available.
+* RGMII, RMII and an AXI-Stream MAC client: planned.
 * Not released on PyPI yet, and it depends on two unreleased packages (see [Installation](#installation)).
 
 ## Architecture
@@ -110,7 +111,13 @@ context awesome_vunit_vcs.ethernet_context;
 
 ## Examples
 
-The VHDL examples are taken from `examples/external_project/tb_gmii_monitor.vhd` and
+A complete, runnable example is [`examples/gmii`](examples/gmii): a DUT with a GMII source and a
+monitor on each side, the scoreboard, a counted FCS error, statistics, a PCAPNG capture, a Python
+subscriber and a Scapy packet. The Python side is covered by the
+[Python guide](https://awesome-vunit-vcs.readthedocs.io/en/latest/python_guide.html), whose
+examples are in [`examples/python`](examples/python).
+
+The VHDL snippets below are taken from `examples/external_project/tb_gmii_monitor.vhd` and
 `tests/vhdl/tb_gmii.vhd`, which run in CI. `frame` is a `std_ulogic_vector` with the octets from the
 destination address up to the FCS, leftmost octet first.
 
@@ -291,7 +298,7 @@ print(to_scapy(monitor.history[0]).dst)  # needs Scapy
 |---|---|---|---|
 | GMII | 1G, 2.5G (overclocked) | 8-bit data, EN/DV, ER | Done |
 | XGMII family (2.5GMII, 5GMII, XGMII, 25GMII, XLGMII, CGMII) | 2.5G to 100G | 32-bit data + 4 control, or 64-bit data + 8 control | Available |
-| MII | 10M, 100M | 4-bit data, DV, ER | Planned |
+| MII | 10M, 100M | 4-bit data, DV, ER | Available |
 | RGMII | 10M, 100M, 1G | 4-bit data, CTL on both clock edges | Planned |
 | RMII | 10M, 100M | 2-bit data, TX_EN, CRS_DV | Planned |
 | AXI-Stream MAC client | any | tdata, tkeep, tlast, tuser | Planned |

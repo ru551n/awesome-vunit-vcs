@@ -94,12 +94,35 @@ the protocol checks of a DUT are tested:
 Example
 -------
 
-A source drives a line that a monitor observes, using only the installed packages. This is
-``examples/external_project/tb_gmii_monitor.vhd``, which runs in CI:
+``examples/gmii`` verifies a small DUT, a GMII register pipeline, with a source on its input and a
+monitor on each side. Its tests show the scoreboard with seeded random frames, a deliberate FCS
+error counted instead of failing the test, statistics, a PCAPNG capture in the test output path, a
+Python subscriber added to a monitor and a Scapy packet. It runs in CI with GHDL and NVC:
 
-.. literalinclude:: ../examples/external_project/tb_gmii_monitor.vhd
+.. code-block:: console
+
+   python examples/gmii/run.py
+
+The run script adds the packages by name:
+
+.. literalinclude:: ../examples/gmii/run.py
+   :language: python
+   :lines: 5-
+
+The testbench:
+
+.. literalinclude:: ../examples/gmii/tb_gmii_example.vhd
    :language: vhdl
    :lines: 5-
+
+The DUT, ``examples/gmii/src/gmii_pipeline.vhd``:
+
+.. literalinclude:: ../examples/gmii/src/gmii_pipeline.vhd
+   :language: vhdl
+   :lines: 5-
+
+A smaller example, a source driving a line that a monitor observes, is
+``examples/external_project/tb_gmii_monitor.vhd``. CI runs it from the installed wheel.
 
 ``tests/vhdl/tb_gmii.vhd`` in the repository covers every check, two monitors on one line, PCAPNG
 capture, Scapy packets and randomized traffic.

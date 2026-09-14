@@ -24,6 +24,7 @@ statistics, capture to Wireshark files and packet construction are simulator ind
    installation
    vunit_integration
    gmii
+   python_guide
    vhdl_api
 
 .. toctree::

@@ -223,16 +223,16 @@ package qspi_protocol_checker_pkg is
 
   -- The message types the procedures above send to the component
   constant set_qspi_protocol_checker_check_enabled_msg : msg_type_t := new_msg_type(
-    "set qspi_protocol_checker check enabled"
+    "set qspi protocol checker check enabled"
   );
   constant get_qspi_protocol_checker_check_count_msg : msg_type_t := new_msg_type(
-    "get qspi_protocol_checker check count"
+    "get qspi protocol checker check count"
   );
   constant get_qspi_protocol_checker_check_count_reply_msg : msg_type_t := new_msg_type(
-    "get qspi_protocol_checker check count reply"
+    "get qspi protocol checker check count reply"
   );
-  constant reset_qspi_protocol_checker_msg : msg_type_t := new_msg_type("reset qspi_protocol_checker");
-  constant reset_qspi_protocol_checker_reply_msg : msg_type_t := new_msg_type("reset qspi_protocol_checker reply");
+  constant reset_qspi_protocol_checker_msg : msg_type_t := new_msg_type("reset qspi protocol checker");
+  constant reset_qspi_protocol_checker_reply_msg : msg_type_t := new_msg_type("reset qspi protocol checker reply");
 
   ---------------------------------------------------------------------------
   -- Private, for the flash and QSPI master constructors

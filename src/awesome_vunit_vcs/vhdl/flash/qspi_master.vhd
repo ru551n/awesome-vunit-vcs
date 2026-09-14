@@ -369,7 +369,8 @@ begin
       elsif msg_type = set_qspi_master_sck_period_msg then
         period := pop_time(msg);
         debug(logger, "SCK period set to " & to_string(period));
-        acknowledge(net, msg, true);
+        reply_msg := new_msg(set_qspi_master_sck_period_reply_msg);
+        reply(net, msg, reply_msg);
 
       else
         unexpected_msg_type(msg_type, qspi_master);

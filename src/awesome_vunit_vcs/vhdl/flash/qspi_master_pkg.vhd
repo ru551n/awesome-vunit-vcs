@@ -309,11 +309,14 @@ package qspi_master_pkg is
   ---------------------------------------------------------------------------
 
   -- The message types the procedures above send to the component
-  constant transfer_qspi_master_data_msg : msg_type_t := new_msg_type("transfer qspi_master data");
-  constant transfer_qspi_master_data_reply_msg : msg_type_t := new_msg_type("transfer qspi_master data reply");
-  constant set_qspi_master_sck_period_msg : msg_type_t := new_msg_type("set qspi_master sck period");
-  constant reset_qspi_master_msg : msg_type_t := new_msg_type("reset qspi_master");
-  constant reset_qspi_master_reply_msg : msg_type_t := new_msg_type("reset qspi_master reply");
+  constant transfer_qspi_master_data_msg : msg_type_t := new_msg_type("transfer qspi master data");
+  constant transfer_qspi_master_data_reply_msg : msg_type_t := new_msg_type("transfer qspi master data reply");
+  constant set_qspi_master_sck_period_msg : msg_type_t := new_msg_type("set qspi master sck period");
+  constant set_qspi_master_sck_period_reply_msg : msg_type_t := new_msg_type(
+    "set qspi master sck period reply"
+  );
+  constant reset_qspi_master_msg : msg_type_t := new_msg_type("reset qspi master");
+  constant reset_qspi_master_reply_msg : msg_type_t := new_msg_type("reset qspi master reply");
 
   ---------------------------------------------------------------------------
   -- Private
@@ -563,13 +566,12 @@ package body qspi_master_pkg is
     qspi_master : qspi_master_t;
     period : delay_length
   ) is
-    variable request_msg : msg_t;
-    variable ack : boolean;
+    variable request_msg : msg_t := new_msg(set_qspi_master_sck_period_msg);
+    variable reply_msg : msg_t;
   begin
-    request_msg := new_msg(set_qspi_master_sck_period_msg);
     push_time(request_msg, period);
-    request(net, get_actor(qspi_master), request_msg, ack);
-    assert ack report "Failed on set_sck_period command" severity failure;
+    request(net, get_actor(qspi_master), request_msg, reply_msg);
+    delete(reply_msg);
   end;
 
   procedure reset(

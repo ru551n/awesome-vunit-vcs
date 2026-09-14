@@ -155,3 +155,5 @@ Breaking changes
   logger of the second, as for the Ethernet VCs.
 * Flash: ``set_check_enabled`` and ``get_check_count``, blocking and with a reference, also take a
   flash or a QSPI master and act on the protocol checker it owns.
+* Flash: ``set_sck_period`` is answered with ``set_qspi_master_sck_period_reply_msg``, and the names
+  of the QSPI master and protocol checker message types are words, such as ``reset qspi master``.

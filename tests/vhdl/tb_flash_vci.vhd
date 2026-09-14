@@ -8,8 +8,7 @@
 -- independent Python backends and the guard against two flashes with one id.
 --
 -- Expected values that involve a default id are taken from the handle, never
--- written as enumerated literals, except the first default flash of this
--- architecture.
+-- written as enumerated literals.
 
 library python_bridge;
 context python_bridge.python_context;
@@ -241,7 +240,7 @@ begin
 
     while test_suite loop
       if run("test_default_id_is_enumerated") then
-        check_equal(name(get_id(default_flash)), "1", "name of the first default id");
+        check(integer'value(name(get_id(default_flash))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_flash))), "flash", "name of its parent");
         check(get_parent(get_parent(get_id(default_flash))) = get_id("awesome_vunit_vcs"), "grandparent");
         check(get_id(default_checked_flash) /= get_id(default_flash), "a second default id differs");

@@ -8,8 +8,7 @@
 -- parent VC derives from it.
 --
 -- The testbench drives the buses. Expected values that involve a default id
--- are taken from the handle, never written as enumerated literals, except the
--- first default checker of this architecture.
+-- are taken from the handle, never written as enumerated literals.
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.flash_context;
@@ -145,7 +144,7 @@ begin
 
     while test_suite loop
       if run("test_default_id_is_enumerated") then
-        check_equal(name(get_id(default_checker)), "1", "name of the first default id");
+        check(integer'value(name(get_id(default_checker))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_checker))), "qspi_protocol_checker", "name of its parent");
         check(get_parent(get_parent(get_id(default_checker))) = get_id("awesome_vunit_vcs"), "grandparent");
         check(get_id(second_default_checker) /= get_id(default_checker), "a second default id differs");

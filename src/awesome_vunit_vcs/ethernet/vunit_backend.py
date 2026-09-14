@@ -10,13 +10,12 @@ backend object as ``vc`` in the session of the VC.
 
 from __future__ import annotations
 
-import ast
-import importlib
 import itertools
 import os
 import traceback
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Callable, Iterator, Sequence
+from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -24,9 +23,11 @@ import numpy.typing as npt
 
 from ..common.reports import ReportQueue, Severity, encode_reports
 from ..common.vunit_bridge import bytes_from_unsigned, decode_samples, join_time
-from .api import Frame
+from . import traffic
+from .api import Frame, WireOptions, decode, expected_violations
 from .checker import CheckId, Violation
 from .frame import FCS_OCTETS, EthernetConfig, EthernetFrame
+from .interfaces import Interface
 from .metrics import EthernetStatistics
 from .monitor import EthernetMonitor
 from .pcap import CaptureOptions
@@ -61,29 +62,10 @@ def _exception_summary(exc: BaseException) -> str:
     return f"{type(exc).__name__}: {exc}{where}"
 
 
-def _call_function(function: str, arguments: str, seed: str = "") -> Any:
-    """
-    Call ``"package.module:function"`` with keyword arguments given as Python
-    literals, for example ``"port=1234, size=128"``. A non-empty seed is passed
-    as the ``seed`` keyword argument.
-    """
-    module_name, separator, attribute = function.partition(":")
-    if not separator or not module_name or not attribute:
-        raise ValueError(f"A function is given as 'package.module:function', got {function!r}")
-    target: Any = importlib.import_module(module_name)
-    for name in attribute.split("."):
-        target = getattr(target, name)
-    call = ast.parse(f"f({arguments})", mode="eval").body
-    if not isinstance(call, ast.Call) or call.args:
-        raise ValueError(f"Arguments are keyword arguments, got {arguments!r}")
-    keywords = {}
-    for keyword in call.keywords:
-        if keyword.arg is None:
-            raise ValueError(f"Arguments are keyword arguments, got {arguments!r}")
-        keywords[keyword.arg] = ast.literal_eval(keyword.value)
-    if seed:
-        keywords["seed"] = seed
-    return target(**keywords)
+def _interface(name: str, phy_options: dict[str, Any]) -> Interface:
+    """The :class:`~.interfaces.Interface` of a backend, from its interface name and PHY options."""
+    fields = ("link_rate_bps", "lanes", "allow_lane4_start", "deficit_idle")
+    return replace(traffic.interface_named(name), **{key: phy_options[key] for key in fields if key in phy_options})
 
 
 def _saturate(value: int | None) -> int:
@@ -156,6 +138,9 @@ class MonitorBackend:
             keep_frames=keep_frames,
             on_subscriber_error=self._subscriber_error,
         )
+        # After the monitor, so an unknown interface reports the error of create_phy
+        self._interface_value = _interface(interface, phy_options)
+        self._expected_violations: Counter[CheckId] = Counter()
         self.monitor.checker.violations.subscribe(self._violation)
         self.monitor.frames.subscribe(self._frame_logger)
         self.monitor.frames.subscribe(self._compare_with_expected)
@@ -200,7 +185,8 @@ class MonitorBackend:
         return data + bytes(max(0, minimum - len(data)))
 
     def _compare_with_expected(self, frame: EthernetFrame) -> None:
-        if not self._expected:
+        # Octets without an SFD are not a frame to compare; the protocol checker reports them
+        if not self._expected or frame.mac is None:
             return
         expected, message = self._expected.popleft()
         self._compared_count += 1
@@ -277,13 +263,42 @@ class MonitorBackend:
 
     def check_sequence(self, function: str, arguments: str = "", count: int = 0, seed: str = "") -> int:
         """
-        Expect the frames the generator ``function`` yields, see ``_call_function``:
-        ``count`` frames, or all when 0. Returns like :meth:`check_mac_octets`.
+        Expect the traffic a generator yields, see :func:`~.traffic.sequence`: ``count`` items, or all when 0.
+
+        Each item is expected as the monitor receives it, with its wire options
+        (bad FCS, preamble, SFD, errors, gap) applied; an item without a valid
+        SFD is not received as a frame and is not expected. The violations a
+        protocol checker must report for the items, by
+        :func:`~.api.expected_violations`, are added to
+        :meth:`expected_violation_count`. Returns like :meth:`check_mac_octets`.
         """
-        frames: Iterator[Any] = iter(_call_function(function, arguments, seed))
-        for frame in itertools.islice(frames, count or None):
-            self.check_mac_octets(bytes(frame))
+        try:
+            previous: WireOptions | None = None
+            for item in itertools.islice(traffic.sequence(function, arguments, seed=seed or None), count or None):
+                self._expect_item(item, previous)
+                previous = item.options
+        except Exception as exc:
+            self.reports.add(
+                Severity.FAILURE, f"{self.name} could not check the sequence {function!r}: {_exception_summary(exc)}"
+            )
         return self._queued_count
+
+    def _expect_item(self, item: traffic.TrafficItem, previous: WireOptions | None) -> None:
+        interface = self._interface_value
+        violations = expected_violations(item.frame, item.options, interface=interface, previous=previous)
+        self._expected_violations.update(violations)
+        if CheckId.SFD in violations:
+            return
+        received = decode(interface, interface.encode([item]), checks=False).frames
+        if received:
+            self.check_mac_octets(received[0].data)
+
+    def expected_violation_count(self, check: str) -> int:
+        """
+        Violations of a check that a protocol checker with the default limits must report for the
+        traffic given to :meth:`check_sequence`, the oracle of a property test.
+        """
+        return self._expected_violations[CheckId.parse(check)]
 
     def compared_count(self) -> int:
         """Expected frames compared with a received frame so far."""
@@ -430,6 +445,7 @@ class MonitorBackend:
         self._queued_count = 0
         self._compared_count = 0
         self._collected.clear()
+        self._expected_violations.clear()
         return len(self.reports)
 
     def finish(self) -> int:
@@ -517,7 +533,7 @@ class SourceBackend:
         self.name = name
         phy_options = {**(phy_options or {}), **({"link_rate_bps": link_rate_bps} if link_rate_bps else {})}
         self.source = EthernetSource(create_phy(interface, **phy_options), name=name)
-        self._sequences: dict[int, Iterator[Any]] = {}
+        self._sequences: dict[int, Iterator[traffic.TrafficItem]] = {}
 
     def _xgmii(self) -> XgmiiPhy:
         phy = self.source.phy
@@ -566,25 +582,39 @@ class SourceBackend:
         packet = eval(expression, namespace)
         return self.symbols(bytes(packet), error_offsets, **options)
 
+    def item_symbols(self, item: traffic.TrafficItem) -> npt.NDArray[np.int32]:
+        """The sample words VHDL drives for a traffic item, with its wire options applied."""
+        return self.take_symbols(self.source.queue(item.to_wire()))  # type: ignore[no-any-return]
+
     def function_symbols(
         self, function: str, arguments: str = "", error_offsets: Sequence[int] = (), **options: Any
     ) -> npt.NDArray[np.int32]:
-        """Like :meth:`symbols` for the frame ``function`` returns, see ``_call_function``."""
-        return self.symbols(bytes(_call_function(function, arguments)), error_offsets, **options)
+        """
+        The sample words of the frame a packet function returns, see :func:`~.traffic.call_packet_function`.
+
+        A function that returns wire options with its frame (a
+        :class:`~.traffic.TrafficItem` or a ``(packet, WireOptions)`` pair) is
+        transmitted with them; any other result with the options VHDL gives.
+        """
+        item = traffic.call_packet_function(function, arguments)
+        if item.options != WireOptions():
+            return self.item_symbols(item)
+        return self.symbols(item.frame.data, error_offsets, **options)
 
     def start_sequence(self, function: str, arguments: str = "", count: int = 0, seed: str = "") -> int:
         """
-        Start transmitting the frames the generator ``function`` yields, ``count``
-        of them or all when 0. Returns the id :meth:`sequence_symbols` takes.
+        Start transmitting the traffic a generator yields, see :func:`~.traffic.sequence`:
+        ``count`` items, or all when 0, each with its own wire options. Returns the id
+        :meth:`sequence_symbols` takes.
         """
-        frames: Iterator[Any] = iter(_call_function(function, arguments, seed))
+        items = traffic.sequence(function, arguments, seed=seed or None)
         sequence_id = len(self._sequences)
-        self._sequences[sequence_id] = itertools.islice(frames, count or None)
+        self._sequences[sequence_id] = itertools.islice(items, count or None)
         return sequence_id
 
     def sequence_symbols(self, sequence_id: int, frames: int = 64) -> npt.NDArray[np.int32]:
-        """The sample words of the next ``frames`` frames of a sequence, empty when it is exhausted."""
-        batch = [self.symbols(bytes(frame)) for frame in itertools.islice(self._sequences[sequence_id], frames)]
+        """The sample words of the next ``frames`` items of a sequence, empty when it is exhausted."""
+        batch = [self.item_symbols(item) for item in itertools.islice(self._sequences[sequence_id], frames)]
         if not batch:
             del self._sequences[sequence_id]
             return np.zeros(0, dtype=np.int32)

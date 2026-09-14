@@ -54,6 +54,15 @@ begin
   main : process
     variable rnd : RandomPType;
     variable count : natural;
+    variable total, expected_count : natural;
+
+    -- Seeded random traffic with malformations, see awesome_vunit_vcs.ethernet.traffic.
+    -- Without bad_sfd: after a short gap, the checker does not report the gap before
+    -- octets without an SFD, which expected_violations predicts
+    constant traffic_function : string := "awesome_vunit_vcs.ethernet.traffic:random_traffic";
+    constant traffic_arguments : string :=
+      "count=60, malformations=('bad_fcs', 'short_preamble', 'long_preamble', 'runt', 'giant', " &
+      "'phy_error', 'short_ifg'), malformed_fraction=0.3, interface='gmii'";
     variable statistics : ethernet_statistics_t;
 
     -- Frame data from the destination address up to the FCS: addresses, the
@@ -282,6 +291,37 @@ begin
         check_equal(statistics.good_frames, 50, "Seed " & get_string_seed(runner_cfg));
         check_equal(get_log_count(get_logger(monitor), error), 0);
         check_violations(eth_fcs, 0);
+
+      elsif run("test_malformed_sequence_matches_the_oracle") then
+        -- The monitors expect the frames as they are received, and each protocol
+        -- checker must find exactly the violations the Python oracle predicts
+        for idx in monitors'range loop
+          check_ethernet_sequence(
+            net, monitors(idx), traffic_function, traffic_arguments, seed => get_string_seed(runner_cfg)
+          );
+        end loop;
+        push_ethernet_sequence(net, source, traffic_function, traffic_arguments, seed => get_string_seed(runner_cfg));
+        wait_until_idle;
+        for idx in monitors'range loop
+          total := 0;
+          for check_id in eth_preamble to eth_link_fault loop
+            get_check_count(net, get_protocol_checker(monitors(idx)), check_id, count);
+            expected_count := eval_integer(
+              "vc.expected_violation_count('" & ethernet_check_t'image(check_id) & "')",
+              new_session(get_id(monitors(idx)))
+            );
+            check_equal(
+              count, expected_count,
+              ethernet_check_t'image(check_id) & " on monitor " & to_string(idx) & ", seed " &
+              get_string_seed(runner_cfg)
+            );
+            total := total + count;
+          end loop;
+          check(total > 0, "The sequence has malformed frames, seed " & get_string_seed(runner_cfg));
+          check_equal(get_log_count(get_logger(get_protocol_checker(monitors(idx))), error), total);
+          reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
+          check_equal(get_log_count(get_logger(monitors(idx)), error), 0, "Scoreboard errors on monitor " & to_string(idx));
+        end loop;
 
       elsif run("test_randomized_traffic") then
         for idx in 1 to 200 loop

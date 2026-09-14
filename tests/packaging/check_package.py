@@ -175,6 +175,10 @@ def main(argv: list[str] | None = None) -> int:
         help="pip arguments installing the unreleased dependencies",
     )
     parser.add_argument("--work-dir", type=Path, help="Keep the environments here instead of a temporary directory")
+    parser.add_argument(
+        "--dist", type=Path, help="Check the wheel and sdist already built in this directory instead of building"
+    )
+    parser.add_argument("--archives-only", action="store_true", help="Only check the content of the distributions")
     parser.add_argument("--skip-editable", action="store_true")
     parser.add_argument("--run-example", action="store_true", help="Run examples/external_project (needs a simulator)")
     args = parser.parse_args(argv)
@@ -183,8 +187,15 @@ def main(argv: list[str] | None = None) -> int:
         work_dir = (args.work_dir or Path(temporary)).resolve()
         work_dir.mkdir(parents=True, exist_ok=True)
         try:
-            wheel, sdist = build(work_dir / "dist")
+            if args.dist:
+                (wheel,) = args.dist.resolve().glob("*.whl")
+                (sdist,) = args.dist.resolve().glob("*.tar.gz")
+            else:
+                wheel, sdist = build(work_dir / "dist")
             check_archives(wheel, sdist)
+            if args.archives_only:
+                print("Distribution content check passed")
+                return 0
 
             wheel_env = create_environment(work_dir / "wheel_env", args.requirements, [str(wheel)])
             check_probe(probe(wheel_env, work_dir), editable=False)

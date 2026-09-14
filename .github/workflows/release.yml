@@ -1,0 +1,183 @@
+# Release to PyPI.
+#
+# A pushed v* tag builds the distribution, tests the built wheel, publishes it to PyPI
+# with trusted publishing and creates the GitHub release with the tag message as its
+# body. A manual run (workflow_dispatch) is a rehearsal: it gives the checkout a unique
+# development version (tools/release.py rehearse) and uploads to TestPyPI instead.
+#
+# Final versions are refused until the dependencies are on PyPI, see
+# ALLOW_FINAL_RELEASES in tools/release.py.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # VUnit with package setup hooks and vunit-python-bridge are not released yet
+  UNRELEASED_REQUIREMENTS: tests/packaging/unreleased-requirements.txt
+  PIP_PROGRESS_BAR: 'off'
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Check the version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check the version and the tag
+        id: version
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            python tools/release.py rehearse --run-number "$GITHUB_RUN_NUMBER"
+            python tools/release.py validate
+          else
+            python tools/release.py validate --tag "$GITHUB_REF_NAME"
+          fi
+          echo "version=$(python tools/release.py version)" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$(python tools/release.py prerelease)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build the distribution
+    needs: version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Set the rehearsal version
+        if: github.event_name == 'workflow_dispatch'
+        run: python tools/release.py rehearse --run-number "$GITHUB_RUN_NUMBER"
+      - name: Build the sdist and the wheel
+        run: |
+          pip install build twine
+          python -m build --outdir dist
+          twine check --strict dist/*
+      - name: Check the distribution content
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          test -f "dist/awesome_vunit_vcs-$VERSION.tar.gz"
+          test -f "dist/awesome_vunit_vcs-$VERSION-py3-none-any.whl"
+          python tests/packaging/check_package.py --dist dist --archives-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distribution
+          path: dist
+          if-no-files-found: error
+
+  test:
+    name: Test the built wheel
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      VUNIT_SIMULATOR: nvc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: distribution
+          path: dist
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v7
+      - uses: nickg/setup-nvc@v1
+        with:
+          version: latest
+      # Installs the downloaded wheel, not a rebuild, into a clean environment, checks that
+      # add_package finds it and runs examples/external_project against it
+      - name: Packaging check of the built wheel
+        run: python tests/packaging/check_package.py --dist dist --skip-editable --run-example
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [version, test]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/project/awesome-vunit-vcs/${{ needs.version.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distribution
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: [version, test]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/awesome-vunit-vcs/${{ needs.version.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distribution
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  github-release:
+    name: Create the GitHub release
+    needs: [version, publish-pypi]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: distribution
+          path: dist
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          # actions/checkout does not fetch the annotated tag object itself
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.md
+          if [ -s notes.md ]; then
+            notes=(--notes-file notes.md)
+          else
+            notes=(--generate-notes)
+          fi
+          flags=()
+          if [ "$PRERELEASE" = true ]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "awesome-vunit-vcs $VERSION" \
+            "${notes[@]}" "${flags[@]}"

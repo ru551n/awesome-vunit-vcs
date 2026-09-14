@@ -1,7 +1,7 @@
 Ethernet
 ========
 
-The Ethernet family verifies designs with MII, GMII and XGMII-family interfaces. Every interface has
+The Ethernet family verifies designs with MII, GMII, XGMII-family and AXI-Stream MAC client interfaces. Every interface has
 the same three verification components (VCs) and shares every procedure, so what you learn for one
 interface applies to all of them.
 
@@ -29,7 +29,7 @@ What's here
 
    * - Page
      - What's here
-   * - :doc:`gmii`, :doc:`xgmii`, :doc:`mii`
+   * - :doc:`gmii`, :doc:`xgmii`, :doc:`mii`, :doc:`axis_mac`
      - One page per interface: pins, constructors and options
    * - :doc:`monitors`, :doc:`packets_and_sequences`
      - Receiving and sending frames
@@ -67,8 +67,13 @@ Interfaces
      - 2.5G to 400G
      - ``data(8 * lanes - 1 downto 0)``, ``ctrl(lanes - 1 downto 0)``
      - :doc:`xgmii`
+   * - AXI-Stream MAC client
+     - any
+     - ``tdata``, ``tkeep``, ``tvalid``, ``tready``, ``tlast``, ``tuser``
+     - :doc:`axis_mac`
 
-RGMII, RMII and an AXI-Stream MAC client interface are on the :doc:`../roadmap`.
+The AXI-Stream MAC client also has a :vhdl:`axis_mac_sink` that drives ``tready`` with backpressure.
+RGMII and RMII are on the :doc:`../roadmap`.
 
 The pattern
 -----------
@@ -173,6 +178,7 @@ Every declaration is listed in the :doc:`vhdl_api`.
    gmii
    xgmii
    mii
+   axis_mac
    checks
    scoreboard
    statistics

@@ -139,7 +139,7 @@ turn them into failure reports with a one-line summary.
 | MII | Done | One nibble per rising edge, shared with GMII | Nibble pairing on the SFD, alignment errors |
 | RGMII | Planned | Both-edge sampling and driving; CTL is DV on the rising edge and DV xor ER on the falling edge | The GMII octet stream |
 | RMII | Planned | Dibit sampling on the 50 MHz reference clock | Dibit assembly, 10x replication at 10 Mbit/s, CRS_DV toggling |
-| AXI-Stream MAC client | Planned | tvalid/tready, tkeep, tlast, tuser | Frames without preamble or SFD, optional FCS |
+| AXI-Stream MAC client | Done | One word per tkeep octet on every clock with tvalid high or a bus change; the source holds each beat until tready; the sink drives tready | Frames without preamble or SFD, optional FCS, the tkeep, stability and tvalid rules |
 
 ## Active sources and responders
 
@@ -155,6 +155,9 @@ queued, so `wait_until_idle` returns only after monitors sampled the last column
 
 Components that must answer a bus, such as a memory model responding to an opcode, cannot batch in
 advance. They may call their backend once per transfer unit (octet or word), never once per clock cycle.
+
+The AXI-Stream MAC client source holds each beat until `tready` accepts it. A reset keeps `tvalid` low
+for one clock edge, so monitors see the abandoned frame end before the next one starts.
 
 ### The flash responder
 
@@ -336,6 +339,21 @@ Log messages therefore name the flash they belong to. A checker constructed with
 default id lazily, the first time it is needed, so a handle that is given to a parent uses up no
 `awesome_vunit_vcs:qspi_protocol_checker:<n>` number and leaves no actor behind.
 
+### AXI-Stream rules in the Ethernet protocol checker
+
+VUnit's `axi_stream_protocol_checker` checks the full AMBA AXI4-Stream protocol (22 rules, including
+`tid`, `tdest` and `tstrb`) with one checker per rule. The AXI-Stream MAC client protocol checker does
+not instantiate it: those rules could not be enabled, counted or reset through `set_check_enabled`,
+`get_check_count` and `reset`, and a stability violation would be reported twice. The three rules a MAC
+client relies on (`tkeep` contiguous and partial only on the last beat, the bus stable while `tvalid`
+waits for `tready`, `tvalid` held until the handshake) run in the Python decoder next to the frame
+checks, so each violation is reported once on one checker. A design that needs full AXI4-Stream
+coverage instantiates VUnit's checker on the same bus as well.
+
+A monitor records every clock with `tvalid` high, not only handshakes, so the decoder sees stalls.
+Frames start at the destination address: `MonitorConfig.has_preamble` turns off the preamble, SFD and
+gap handling of the Python core.
+
 ## Performance
 
 ### Bridge benchmark
@@ -414,10 +432,14 @@ x1 read without a flash, 3.6 s and 3.7 s.
 - Signal ordered sets (0x5C) are reported as unknown control characters.
 - With `deficit_idle`, a single gap may be up to `lanes - 1` octets shorter than requested.
 
-### Frames without a PHY
+### AXI-Stream MAC client
 
-The Python core expects a preamble and SFD; frontends without a PHY layer, such as the planned
-AXI-Stream MAC client, need a switch for frames starting at the destination address.
+- `tuser(0)` with `tlast` marks the whole frame errored; the error position inside the frame is not kept.
+- After `reset(net, monitor)` a monitor ignores beats until `tlast` or a clock with `tvalid` low, so a
+  source is reset before the monitors when a frame is in progress.
+- `tid`, `tdest` and `tstrb` are not modeled, and the full AXI4-Stream rule set is not checked.
+- The source's `tvalid` stall pattern is fixed when it is created; the sink's backpressure changes at
+  run time with `set_ready_pattern`.
 
 ### Property-based testing
 

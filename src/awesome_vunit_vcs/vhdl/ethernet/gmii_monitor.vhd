@@ -30,6 +30,7 @@ library python_bridge;
 context python_bridge.python_context;
 
 use work.ethernet_pkg.all;
+use work.ethernet_vc_pkg.all;
 use work.vcs_python_pkg.all;
 
 entity gmii_monitor is
@@ -52,8 +53,6 @@ architecture a of gmii_monitor is
 begin
   main : process
     constant session : python_session_t := new_vc_session(get_id(monitor));
-    constant logger : logger_t := get_logger(monitor);
-    constant checker : checker_t := get_checker(monitor);
     constant actor : actor_t := as_sync(monitor);
     -- wait_until_idle requests waiting for the end of a frame
     constant idle_requests : queue_t := new_queue;
@@ -69,8 +68,7 @@ begin
     variable previous_word : integer := -1;
     variable in_frame : boolean := false;
     variable finished : boolean := false;
-    variable msg, reply_msg : msg_t;
-    variable msg_type : msg_type_t;
+    variable msg : msg_t;
 
     impure function sample_word return sample_word_t is
       variable result : sample_word_t := to_integer(to_01(unsigned(data)));
@@ -94,108 +92,13 @@ begin
     begin
       return sample / valid_bit mod 2 = 1;
     end;
-
-    procedure reply_idle(variable request_msg : inout msg_t) is
-      variable idle_reply_msg : msg_t := new_msg(wait_until_idle_reply_msg);
-    begin
-      reply(net, request_msg, idle_reply_msg);
-    end;
-
-    procedure reply_integer(variable request_msg : inout msg_t; value : integer) is
-      variable integer_reply_msg : msg_t := new_msg(ethernet_reply_msg);
-    begin
-      push(integer_reply_msg, value);
-      reply(net, request_msg, integer_reply_msg);
-    end;
-
-    procedure expect_frame(frame : std_ulogic_vector) is
-      alias octets : std_ulogic_vector(0 to frame'length - 1) is frame;
-      variable values : integer_vector(0 to frame'length / 8 - 1);
-    begin
-      for idx in values'range loop
-        values(idx) := to_integer(to_01(unsigned(octets(8 * idx to 8 * idx + 7))));
-      end loop;
-      call("vc.expect_payload", arg(values), session => session);
-    end;
-
-    procedure start_capture_from(variable request_msg : inout msg_t) is
-      constant file_name : string := pop_string(request_msg);
-      constant include_fcs : boolean := pop(request_msg);
-      constant include_errored : boolean := pop(request_msg);
-    begin
-      backend_exec(
-        session,
-        "start_capture(" & py_str(file_name) &
-        ", include_fcs=" & py_bool(include_fcs) &
-        ", include_errored=" & py_bool(include_errored) & ")"
-      );
-    end;
-
-    procedure handle_message(variable request_msg : inout msg_t) is
-      variable check : ethernet_check_t;
-      variable enabled : boolean;
-      variable level : log_level_t;
-      variable values : integer_array_t;
-      variable statistics_reply_msg : msg_t;
-    begin
-      msg_type := message_type(request_msg);
-
-      -- Whatever the message is, it acts on everything sampled so far
-      flush_samples(batch);
-
-      if msg_type = wait_until_idle_msg then
-        if in_frame then
-          push(idle_requests, request_msg);
-        else
-          reply_idle(request_msg);
-        end if;
-
-      elsif msg_type = ethernet_set_check_enabled_msg then
-        check := ethernet_check_t'val(integer'(pop(request_msg)));
-        enabled := pop(request_msg);
-        backend_exec(
-          session,
-          "set_check_enabled(" & py_str(ethernet_check_t'image(check)) & ", " & py_bool(enabled) & ")"
-        );
-
-      elsif msg_type = ethernet_get_check_count_msg then
-        check := ethernet_check_t'val(integer'(pop(request_msg)));
-        reply_integer(
-          request_msg, backend_integer(session, "check_count(" & py_str(ethernet_check_t'image(check)) & ")")
-        );
-
-      elsif msg_type = ethernet_get_frame_count_msg then
-        reply_integer(request_msg, backend_integer(session, "frame_count()"));
-
-      elsif msg_type = ethernet_get_statistics_msg then
-        values := backend_integer_array(session, "statistics_values()");
-        statistics_reply_msg := new_msg(ethernet_reply_msg);
-        for idx in 0 to length(values) - 1 loop
-          push(statistics_reply_msg, get(values, idx));
-        end loop;
-        deallocate(values);
-        reply(net, request_msg, statistics_reply_msg);
-
-      elsif msg_type = ethernet_log_statistics_msg then
-        level := log_level_t'val(integer'(pop(request_msg)));
-        log(logger, backend_string(session, "statistics_summary()"), level);
-
-      elsif msg_type = ethernet_expect_frame_msg then
-        expect_frame(pop_std_ulogic_vector(request_msg));
-
-      elsif msg_type = ethernet_start_capture_msg then
-        start_capture_from(request_msg);
-
-      elsif msg_type = ethernet_stop_capture_msg then
-        backend_exec(session, "stop_captures()");
-
-      else
-        unexpected_msg_type(msg_type, monitor.p_std_cfg);
-      end if;
-    end;
   begin
+    assert monitor.p_phy = gmii
+      report "gmii_monitor needs a monitor created by new_gmii_monitor" severity failure;
     create_backend(session, ethernet_backend_module, ethernet_monitor_backend_class, backend_arguments(monitor));
-    batch := new_sample_batch(session, logger, checker, monitor.p_batch_length, monitor.p_delta_unit);
+    batch := new_sample_batch(
+      session, get_logger(monitor), get_checker(monitor), monitor.p_batch_length, monitor.p_delta_unit
+    );
 
     while not finished loop
       wait on clk, net, runner;
@@ -207,13 +110,7 @@ begin
         end if;
 
         if in_frame and not is_valid(word) then
-          if monitor.p_flush_at_frame_end or not is_empty(idle_requests) then
-            flush_samples(batch);
-          end if;
-          while not is_empty(idle_requests) loop
-            msg := pop(idle_requests);
-            reply_idle(msg);
-          end loop;
+          end_monitor_frame(net, monitor, batch, idle_requests);
         end if;
 
         in_frame := is_valid(word);
@@ -222,15 +119,12 @@ begin
 
       while has_message(actor) loop
         receive(net, actor, msg);
-        handle_message(msg);
+        handle_monitor_message(net, monitor, session, batch, idle_requests, in_frame, msg);
       end loop;
 
       -- Final checks when the test ends, within the gates of test_runner_cleanup
       if is_active(runner_phase) and is_within_gates_of(test_runner_cleanup) then
-        flush_samples(batch);
-        if backend_integer(session, "finish()") > 0 then
-          log_reports(session, logger, checker);
-        end if;
+        finish_monitor(monitor, session, batch);
         finished := true;
       end if;
     end loop;

@@ -21,6 +21,7 @@ library python_bridge;
 context python_bridge.python_context;
 
 use work.ethernet_pkg.all;
+use work.ethernet_vc_pkg.all;
 use work.vcs_python_pkg.all;
 
 entity gmii_source is
@@ -76,28 +77,9 @@ begin
       drive(symbols);
       deallocate(symbols);
     end;
-
-    impure function to_python_octets(frame : std_ulogic_vector) return string is
-      alias octets : std_ulogic_vector(0 to frame'length - 1) is frame;
-      variable values : integer_vector(0 to frame'length / 8 - 1);
-    begin
-      for idx in values'range loop
-        values(idx) := to_integer(to_01(unsigned(octets(8 * idx to 8 * idx + 7))));
-      end loop;
-      return py_int_list(values);
-    end;
-
-    procedure transmit_frame(frame : std_ulogic_vector; variable request_msg : inout msg_t) is
-    begin
-      transmit("symbols(" & to_python_octets(frame) & ", " & pop_transmit_options(request_msg) & ")");
-    end;
-
-    procedure transmit_packet(scapy_expression : string; variable request_msg : inout msg_t) is
-      constant options : string := pop_transmit_options(request_msg);
-    begin
-      transmit("packet_symbols(" & py_str(scapy_expression) & ", " & options & ")");
-    end;
   begin
+    assert source.p_phy = gmii
+      report "gmii_source needs a source created by new_gmii_source" severity failure;
     create_backend(session, ethernet_backend_module, ethernet_source_backend_class, backend_arguments(source));
 
     loop
@@ -106,10 +88,8 @@ begin
 
       handle_sync_message(net, msg_type, msg);
 
-      if msg_type = ethernet_send_frame_msg then
-        transmit_frame(pop_std_ulogic_vector(msg), msg);
-      elsif msg_type = ethernet_send_packet_msg then
-        transmit_packet(pop_string(msg), msg);
+      if msg_type = ethernet_send_frame_msg or msg_type = ethernet_send_packet_msg then
+        transmit(transmit_expression(msg_type, msg));
       else
         unexpected_msg_type(msg_type, source.p_std_cfg);
       end if;

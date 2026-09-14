@@ -4,13 +4,14 @@ Flash
 The flash family verifies designs that talk to serial NOR flash over QSPI. It has three verification
 components (VCs):
 
-* :doc:`qspi_flash`, the ``flash`` entity: a QSPI NOR flash responder. The VHDL entity samples and
-  drives the pins; every decision about what the bytes on the wire mean is taken by a simulator
-  independent Python device model, ``FlashDevice``, that also runs in plain ``pytest``.
-* :doc:`qspi_master`, the ``qspi_master`` entity: a QSPI master that drives the bus from a testbench,
-  with a JEDEC command layer on top. It replaces a flash controller DUT, or exercises the flash
-  without one.
-* :doc:`qspi_protocol_checker`, the ``qspi_protocol_checker`` entity: a passive checker of the pin
+* :doc:`qspi_flash`, the :vhdl:`flash` entity: a QSPI NOR flash responder for a DUT that reads,
+  programs or boots from flash. A testbench configures and inspects it from VHDL and never writes
+  Python; the same device model, :py:class:`~awesome_vunit_vcs.flash.device.FlashDevice`, can also be
+  used in plain ``pytest``.
+* :doc:`qspi_master`, the :vhdl:`qspi_master` entity: a QSPI master that drives the bus from a
+  testbench, with a flash command layer on top. It replaces a flash controller DUT, or exercises the
+  flash without one.
+* :doc:`qspi_protocol_checker`, the :vhdl:`qspi_protocol_checker` entity: a passive checker of the pin
   timing the master on a QSPI bus must meet.
 
 .. _flash-quick-start:
@@ -30,6 +31,8 @@ boot wrote nothing:
 
 ``tests/vhdl/tb_flash_boot_example.vhd`` runs in CI on GHDL and NVC. Its DUT,
 ``tests/vhdl/boot_reader.vhd``, reads a length header and then the image with fast read (``0x0B``).
+The test uses :vhdl:`flash_pkg.flash_load_image`, :vhdl:`flash_pkg.flash_check_content` and
+:vhdl:`flash_pkg.flash_get_written_regions`.
 The rest of this page and the pages of the components describe the deeper layers: device
 configuration, bus-level stimulus from a :doc:`qspi_master`, statistics, protection and busy times.
 
@@ -70,9 +73,14 @@ own one: pass a handle created with
 :vhdl:`qspi_master_pkg.new_qspi_master`, and the component instantiates the checker on its own pins.
 The default is :vhdl:`qspi_protocol_checker_pkg.null_qspi_protocol_checker`, so **pin timing is only
 checked where a protocol checker is passed or instantiated**. A checker in both the master and the
-flash of one bus reports every violation twice. ``set_check_enabled`` and ``get_check_count`` take
-the flash or the master for the checker it owns; ``protocol_checker(flash)`` returns that checker,
-for its logger and the rest of its procedures.
+flash of one bus reports every violation twice. :vhdl:`set_check_enabled <flash_pkg.set_check_enabled>`
+and :vhdl:`get_check_count <flash_pkg.get_check_count>` take the flash, and
+:vhdl:`set_check_enabled <qspi_master_pkg.set_check_enabled>` and
+:vhdl:`get_check_count <qspi_master_pkg.get_check_count>` the master, for the checker it owns;
+:vhdl:`protocol_checker(flash) <flash_pkg.protocol_checker>` returns that checker, for its logger and
+the rest of its procedures. :vhdl:`reset <flash_pkg.reset>`,
+:vhdl:`reset <qspi_master_pkg.reset>` and :vhdl:`reset <qspi_protocol_checker_pkg.reset>` return each
+component to its idle state between tests.
 
 .. code-block:: vhdl
 
@@ -107,18 +115,19 @@ are passed explicitly. Log messages therefore name the component they come from:
    * - A protocol checker with an explicit ``id``, passed to ``new_flash`` or ``new_qspi_master``
      - Its own id; the handle is used unchanged
 
-The flash is also the identity of its Python session: reports of its backend start with the full name
-of its id, for example ``tb:boot_flash: flash content mismatch at 0x00001000 ...``. Two flashes with
-the same id would share one Python backend, so the second is a failure on its logger while it is
-elaborated: ``Two verification components have the id tb:boot_flash and would share one Python
-backend``. Give every flash its own id, or leave the ids out.
+Reports of the flash model start with the full name of its id, for example
+``tb:boot_flash: flash content mismatch at 0x00001000 ...``. Two flashes with the same id are a
+failure on the logger of the second while it is elaborated: ``Two verification components have the id
+tb:boot_flash and would share one Python backend``. Give every flash its own id, or leave the ids out.
 
 Checks
 ------
 
 A protocol checker runs the pin timing checks, all enabled by default, with the minimum times given to
-:vhdl:`new_qspi_protocol_checker <qspi_protocol_checker_pkg.new_qspi_protocol_checker>`. A violation's
-message starts with the check ID in upper case, such as ``QSPI_CS_DESELECT``. Errors a VC detects are
+:vhdl:`new_qspi_protocol_checker <qspi_protocol_checker_pkg.new_qspi_protocol_checker>` and switched
+with :vhdl:`qspi_protocol_checker_pkg.set_check_enabled`; the check names are the literals of
+:vhdl:`qspi_protocol_checker_pkg.qspi_check_t`. A violation's message starts with the check ID in upper
+case, such as ``QSPI_CS_DESELECT``. Errors a VC detects are
 check failures on its checker; everything else is a failure on its logger. By default the first error
 stops the simulation, as any VUnit check failure does.
 
@@ -171,16 +180,18 @@ stops the simulation, as any VUnit check failure does.
      -
      - ``qspi_master``
    * - Content mismatch
-     - ``flash_check_content`` or ``flash_check_content_fill`` finds a byte that differs
+     - :vhdl:`flash_pkg.flash_check_content` or :vhdl:`flash_pkg.flash_check_content_fill` finds a byte
+       that differs (:py:class:`~awesome_vunit_vcs.flash.errors.ContentMismatch` in Python)
      -
      - ``flash``
-   * - Directive layout
-     - The Python backend has another directive layout version than ``flash_pkg``, at time 0
+   * - Version mismatch
+     - The VHDL and Python parts of the package come from different versions, at time 0
      -
      - ``flash``
-   * - Backend failure
+   * - Request failure
      - A request the model cannot carry out: an invalid configuration, a range outside the device, a value
        that is not a byte, an unknown timing or stat name, an image that cannot be read
+       (:py:class:`~awesome_vunit_vcs.flash.errors.FlashValueError` or another exception in Python)
      -
      - ``flash``, on its logger
    * - Duplicate id
@@ -200,16 +211,9 @@ A test that expects an error disables the stop, counts the errors and resets the
 unexpected error still fails the test at ``test_runner_cleanup``. The pages of the components have
 excerpts.
 
-Why not VUnit's memory model
-----------------------------
-
-VUnit's ``memory_pkg`` is a good model for a bus memory, but its ``memory_t`` is dense: every byte of
-the address space is allocated, with per-byte permissions and expectations. The flash content lives
-in Python instead, as a sparse array with NOR semantics (programming only clears bits, erasing sets
-``0xFF``) and region protection, which is what lets a 16 MiB part filled with a pattern cost a few
-objects. A ``memory_t`` view of it would duplicate that state and would have to be kept in step on
-every program and erase. The preload, read-back and check procedures of the flash are its memory
-access API.
+The content of a flash is read and checked with :vhdl:`flash_pkg.flash_read_back`,
+:vhdl:`flash_pkg.flash_check_content` and :vhdl:`flash_pkg.flash_check_content_fill`; there is no VUnit
+memory model view of it.
 
 .. toctree::
    :maxdepth: 2

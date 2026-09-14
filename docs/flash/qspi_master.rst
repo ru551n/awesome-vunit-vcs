@@ -4,11 +4,12 @@ QSPI master
 Overview
 --------
 
-The ``qspi_master`` verification component (VC) drives a QSPI bus from a testbench. It knows nothing
+The :vhdl:`qspi_master` verification component (VC) drives a QSPI bus from a testbench. It knows nothing
 about flash: it runs one transaction shape, whose bytes, lane widths and dummy cycles the caller
 chooses, and owns CS framing, SCK generation, lane placement and tri-stating. ``qspi_flash_cmd_pkg``
 builds the common JEDEC flash commands on top of it. Anything the command layer cannot express, such
-as a vendor command or a malformed frame for a negative test, goes through ``qspi_transfer``.
+as a vendor command or a malformed frame for a negative test, goes through
+:vhdl:`qspi_master_pkg.qspi_transfer`. Create the handle with :vhdl:`qspi_master_pkg.new_qspi_master`.
 
 At a glance
 -----------
@@ -131,10 +132,10 @@ Transactions
 
    * - Procedure
      - Purpose
-   * - ``qspi_transfer(net, qspi_master, cmd, reference, ...)``
+   * - :vhdl:`qspi_transfer(net, qspi_master, cmd, reference, ...) <qspi_master_pkg.qspi_transfer>`
      - Non-blocking: queue one transaction. ``cmd``, ``addr`` and ``wr_data`` are byte arrays read
        during the call only, so the caller keeps them; ``null_integer_array`` is an empty phase
-   * - ``await_qspi_transfer_reply(net, reference, data)``
+   * - :vhdl:`await_qspi_transfer_reply(net, reference, data) <qspi_master_pkg.await_qspi_transfer_reply>`
      - Blocking: wait until the transaction is complete. ``data`` is replaced by a new array of the
        ``num_read_bytes`` bytes read, which the caller deallocates; an array ``data`` already held is
        deallocated first. Without ``data``, the read bytes are discarded
@@ -142,7 +143,7 @@ Transactions
      - Blocking: queue and redeem in one call
    * - ``qspi_transfer(net, qspi_master, cmd, ...)``
      - Blocking, for a transaction without read bytes
-   * - ``set_sck_period(net, qspi_master, period)``
+   * - :vhdl:`set_sck_period(net, qspi_master, period) <qspi_master_pkg.set_sck_period>`
      - Blocking: the SCK period of every transaction queued after the call
    * - :vhdl:`reset(net, qspi_master) <qspi_master_pkg.reset>`
      - Blocking: abort a transfer in progress within its current SCK half period (SCK low, I/Os
@@ -150,15 +151,17 @@ Transactions
        deselect time. The callers of those transfers get replies: the bytes read before the abort, or
        none for a dropped transfer, so ``data`` can be shorter than ``num_read_bytes``. The master logs
        them at level info. It works while the far end is stuck, since the master drives the clock
-   * - ``set_check_enabled(net, qspi_master, check, enabled)``, ``get_check_count(net, qspi_master, check, count)``
-       and ``get_check_count(net, qspi_master, check, reference)``
+   * - :vhdl:`set_check_enabled(net, qspi_master, check, enabled) <qspi_master_pkg.set_check_enabled>`,
+       :vhdl:`get_check_count(net, qspi_master, check, count) <qspi_master_pkg.get_check_count>` and
+       ``get_check_count(net, qspi_master, check, reference)``
      - The procedures of the :doc:`qspi_protocol_checker` for the protocol checker of the master. A master
        without one reports ``<id> has no protocol checker`` as a check failure on its checker; the
        blocking ``get_check_count`` then returns 0, and the reference is ``null_msg``
    * - ``get_id``, ``get_logger``, ``get_actor``, ``get_checker``, ``as_sync``
      - The identity of the master. ``wait_until_idle(net, as_sync(qspi_master))`` waits for every
        queued transaction
-   * - ``sck_period``, ``cs_deselect_time``, ``protocol_checker``
+   * - :vhdl:`qspi_master_pkg.sck_period`, :vhdl:`qspi_master_pkg.cs_deselect_time`,
+       :vhdl:`qspi_master_pkg.protocol_checker`
      - The values of the handle. ``sck_period`` is the initial period, not one set later
 
 The optional parameters of ``qspi_transfer`` are ``cmd_lanes``, ``addr``, ``addr_lanes``,
@@ -180,53 +183,55 @@ cycles default to the JEDEC values and are parameters, since parts can differ.
    * - Procedure
      - Opcode
      - Shape
-   * - ``qspi_flash_read_id``
+   * - :vhdl:`qspi_flash_read_id <qspi_flash_cmd_pkg.qspi_flash_read_id>`
      - ``0x9F``
      - ``num_bytes`` ID bytes, 3 by default
-   * - ``qspi_flash_read``
+   * - :vhdl:`qspi_flash_read <qspi_flash_cmd_pkg.qspi_flash_read>`
      - ``0x03``
      - Address and data on ``lanes``
-   * - ``qspi_flash_fast_read``
+   * - :vhdl:`qspi_flash_fast_read <qspi_flash_cmd_pkg.qspi_flash_fast_read>`
      - ``0x0B``
      - Address and data on ``lanes``, 8 dummy cycles
-   * - ``qspi_flash_quad_output_read``
+   * - :vhdl:`qspi_flash_quad_output_read <qspi_flash_cmd_pkg.qspi_flash_quad_output_read>`
      - ``0x6B``
      - Address x1, 8 dummy cycles, data x4
-   * - ``qspi_flash_quad_io_read``
+   * - :vhdl:`qspi_flash_quad_io_read <qspi_flash_cmd_pkg.qspi_flash_quad_io_read>`
      - ``0xEB``
      - Address and ``mode_byte`` x4 (``send_mode_byte => false`` omits it), 4 dummy cycles, data x4
-   * - ``qspi_flash_write_enable``
+   * - :vhdl:`qspi_flash_write_enable <qspi_flash_cmd_pkg.qspi_flash_write_enable>`
      - ``0x06``
      -
-   * - ``qspi_flash_page_program``
+   * - :vhdl:`qspi_flash_page_program <qspi_flash_cmd_pkg.qspi_flash_page_program>`
      - ``0x02``
      - ``data`` is a byte array or a ``std_ulogic_vector`` of whole bytes, such as ``x"DEADBEEF"``;
        ``opcode => qspi_flash_op_quad_page_program, data_lanes => 4`` for ``0x32``
-   * - ``qspi_flash_sector_erase``
+   * - :vhdl:`qspi_flash_sector_erase <qspi_flash_cmd_pkg.qspi_flash_sector_erase>`
      - ``0x20``
      -
-   * - ``qspi_flash_block_erase``
+   * - :vhdl:`qspi_flash_block_erase <qspi_flash_cmd_pkg.qspi_flash_block_erase>`
      - ``0xD8``
      - ``opcode => qspi_flash_op_block_erase_32k`` for ``0x52``
-   * - ``qspi_flash_chip_erase``
+   * - :vhdl:`qspi_flash_chip_erase <qspi_flash_cmd_pkg.qspi_flash_chip_erase>`
      - ``0xC7``
      -
-   * - ``qspi_flash_read_status``
+   * - :vhdl:`qspi_flash_read_status <qspi_flash_cmd_pkg.qspi_flash_read_status>`
      - ``0x05``, ``0x35``, ``0x15``
      - Status register ``register_index`` 1, 2 or 3
-   * - ``qspi_flash_write_status``
+   * - :vhdl:`qspi_flash_write_status <qspi_flash_cmd_pkg.qspi_flash_write_status>`
      - ``0x01``, ``0x31``, ``0x11``
      - One byte to status register ``register_index`` 1, 2 or 3
-   * - ``qspi_flash_enter_4byte``, ``qspi_flash_exit_4byte``
+   * - :vhdl:`qspi_flash_enter_4byte <qspi_flash_cmd_pkg.qspi_flash_enter_4byte>`,
+       :vhdl:`qspi_flash_exit_4byte <qspi_flash_cmd_pkg.qspi_flash_exit_4byte>`
      - ``0xB7``, ``0xE9``
      -
-   * - ``qspi_flash_enter_qpi``, ``qspi_flash_exit_qpi``
+   * - :vhdl:`qspi_flash_enter_qpi <qspi_flash_cmd_pkg.qspi_flash_enter_qpi>`,
+       :vhdl:`qspi_flash_exit_qpi <qspi_flash_cmd_pkg.qspi_flash_exit_qpi>`
      - ``0x38``, ``0xFF``
      - ``qspi_flash_exit_qpi`` sends its opcode on four lanes by default
 
 The package also has the opcode constants (``qspi_flash_op_*``), the default dummy cycle counts, and
-``qspi_flash_opcode_bytes`` and ``qspi_flash_address_bytes`` to build byte arrays for
-``qspi_transfer``. Its commands target the :doc:`qspi_flash` model; the supported opcodes are listed
+:vhdl:`qspi_flash_cmd_pkg.qspi_flash_opcode_bytes` and :vhdl:`qspi_flash_cmd_pkg.qspi_flash_address_bytes`
+to build byte arrays for ``qspi_transfer``. Its commands target the :doc:`qspi_flash` model; the supported opcodes are listed
 there.
 
 Checks
@@ -245,11 +250,6 @@ Statistics notes
 
 The master keeps no statistics. With a protocol checker, ``get_check_count(net, master, check,
 count)`` counts violations per rule.
-
-Python backend
---------------
-
-None. The master is VHDL only and makes no Python bridge calls.
 
 Example
 -------
@@ -290,5 +290,3 @@ Limitations
      parameter.
    * **Addresses up to 2 GiB.** The command layer takes addresses as a ``natural``.
    * **One device per bus.** CS is a single line.
-
-   These are also listed in :ref:`limitations-flash`.

@@ -4,7 +4,7 @@ QSPI protocol checker
 Overview
 --------
 
-The ``qspi_protocol_checker`` verification component (VC) passively observes a QSPI bus and checks the
+The :vhdl:`qspi_protocol_checker` verification component (VC) passively observes a QSPI bus and checks the
 pin timing the master must meet: SCK period, high and low time, CS setup, hold and deselect time, and
 the setup and hold of the data lanes the master drives. It never drives a pin. Each rule has a check
 ID, a minimum time, a switch and a violation count.
@@ -139,10 +139,10 @@ Procedures
 
    * - Procedure
      - Purpose
-   * - ``set_check_enabled(net, protocol_checker, check, enabled)``
+   * - :vhdl:`set_check_enabled(net, protocol_checker, check, enabled) <qspi_protocol_checker_pkg.set_check_enabled>`
      - Switch one rule, a :vhdl:`qspi_protocol_checker_pkg.qspi_check_t`, on or off. A disabled rule
        neither reports nor counts. Not blocking; the next message to the checker sees it
-   * - ``get_check_count(net, protocol_checker, check, count)``
+   * - :vhdl:`get_check_count(net, protocol_checker, check, count) <qspi_protocol_checker_pkg.get_check_count>`
      - Blocking: the violations of a rule found while it was enabled
    * - ``get_check_count(net, protocol_checker, check, reference)`` and
        :vhdl:`await_get_check_count_reply <qspi_protocol_checker_pkg.await_get_check_count_reply>`
@@ -154,11 +154,14 @@ Procedures
    * - ``get_id``, ``get_logger``, ``get_actor``, ``get_checker``, ``as_sync``
      - The identity of the checker. ``wait_until_idle(net, as_sync(protocol_checker))`` and
        ``wait_for_time`` of ``sync_pkg`` work
-   * - ``t_sck_min`` to ``t_chdx``, ``limit(protocol_checker, check)``
+   * - :vhdl:`qspi_protocol_checker_pkg.t_sck_min` to :vhdl:`qspi_protocol_checker_pkg.t_chdx`,
+       :vhdl:`limit(protocol_checker, check) <qspi_protocol_checker_pkg.limit>`
      - The limits the handle was created with
 
-A flash or a QSPI master that owns a protocol checker has the same ``set_check_enabled`` and
-``get_check_count`` procedures, which act on that checker.
+A flash or a QSPI master that owns a protocol checker has the same procedures,
+:vhdl:`flash_pkg.set_check_enabled`, :vhdl:`flash_pkg.get_check_count`,
+:vhdl:`qspi_master_pkg.set_check_enabled` and :vhdl:`qspi_master_pkg.get_check_count`, which act on
+that checker.
 
 Checks
 ------
@@ -205,15 +208,10 @@ check ID, and times are in ns with up to three decimals::
 Statistics notes
 ----------------
 
-The checker keeps one violation count per rule, read with ``get_check_count``. A count only grows
-while its rule is enabled, and ``reset`` sets every count back to 0. The log counts of
+The checker keeps one violation count per rule, read with
+:vhdl:`qspi_protocol_checker_pkg.get_check_count`. A count only grows while its rule is enabled, and
+:vhdl:`qspi_protocol_checker_pkg.reset` sets every count back to 0. The log counts of
 ``get_logger(protocol_checker)`` are the other view, and the one a negative test resets.
-
-Python backend
---------------
-
-None. The checker is VHDL only and makes no Python bridge calls, so it adds no cost per clock cycle
-beyond its own process.
 
 Example
 -------
@@ -263,5 +261,3 @@ Limitations
      timing (tCLQV, tSHQZ) and bus contention are not checked.
    * **SPI mode 0.** Data setup and hold are measured around the SCK rising edge.
    * **Picosecond messages.** Times in messages are truncated to whole picoseconds.
-
-   These are also listed in :ref:`limitations-flash`.

@@ -4,12 +4,11 @@ QSPI NOR flash
 Overview
 --------
 
-The ``flash`` verification component (VC) is a QSPI NOR flash that a DUT controller reads, programs
-and erases over its pins. The VHDL entity owns the pins and simulation time: it samples and drives
-the I/O lanes at the SCK edges and applies the output delays. Every decision about what the bytes on
-the wire mean, from the opcode table to NOR semantics, protection and busy times, is taken by its
-Python backend, a :class:`~awesome_vunit_vcs.flash.device.FlashDevice` that also runs without a
-simulator.
+The :vhdl:`flash` verification component (VC) is a QSPI NOR flash that a DUT controller reads,
+programs and erases over its pins. Use it to verify a flash controller, or a DUT that boots from
+flash. The device behavior is modelled in Python by
+:py:class:`~awesome_vunit_vcs.flash.device.FlashDevice`, which a Python test can also use without a
+simulator, configured with :py:class:`~awesome_vunit_vcs.flash.config.FlashConfig`.
 
 The device is a generic JEDEC part. Every value that differs between two parts is a parameter of
 :vhdl:`flash_pkg.new_flash`, and the defaults describe a 16 MiB part, so a test only names what it
@@ -32,7 +31,7 @@ At a glance
      - 3- and 4-byte addressing, switched with ``0xB7`` and ``0xE9`` and limited by ``addr_modes``,
        plus commands with a fixed 4-byte address
    * - Features
-     - Continuous read (XIP), SFDP (JESD216 basic parameter table), status registers 1 to 3, status
+     - Continuous read (XIP), SFDP (basic parameter table), status registers 1 to 3, status
        register and region protection, busy times with write-in-progress, deep power-down, software
        reset
    * - Content
@@ -46,8 +45,7 @@ At a glance
 Supported commands
 ~~~~~~~~~~~~~~~~~~
 
-The opcode table is data in :mod:`awesome_vunit_vcs.flash.commands`; the list below is generated
-from it. Lanes are opcode/address/data outside QPI. "Current" addressing follows the 3- or 4-byte
+Lanes are opcode/address/data outside QPI. "Current" addressing follows the 3- or 4-byte
 mode. Any other opcode, and any command a configuration does not support, is ignored as an unknown
 opcode.
 
@@ -223,8 +221,8 @@ Device behavior
   the device from address 0, and a bus address is taken modulo ``size_bytes``.
 * **Busy time.** A program, erase, status write, software reset or release from deep power-down holds
   write-in-progress (WIP) for its busy time from the CS rising edge. While busy, only ``0x05``,
-  ``0x35``, ``0x15``, ``0xFF``, ``0x66`` and ``0x99`` are accepted, so status polling works. WIP is a
-  deadline in the model, evaluated whenever it is read, so it is right whenever a controller polls.
+  ``0x35``, ``0x15``, ``0xFF``, ``0x66`` and ``0x99`` are accepted, so status polling works. WIP is
+  current whenever a controller polls.
 * **Continuous read.** A mode byte with ``M5:M4 = 10`` after ``0xBB`` or ``0xEB`` makes the next
   transaction start with the address of the same command, without an opcode. Any other mode byte,
   ``0xFF`` or a reset ends it.
@@ -235,7 +233,7 @@ Device behavior
   region. ``flash_set_protection`` locks regions in addition.
 * **Addressing modes.** A ``three_only`` device ignores ``0xB7``, ``0xE9``, ``0x13``, ``0x0C``,
   ``0x12`` and ``0xDC``; a ``four_only`` device ignores ``0xE9``. SFDP advertises the same modes.
-* **SFDP.** ``0x5A`` returns a JESD216 basic parameter table computed from the configuration:
+* **SFDP.** ``0x5A`` returns a basic parameter table computed from the configuration:
   density, addressing modes and the erase types of ``sector_bytes``, ``block32_bytes`` and
   ``block_bytes`` with their opcodes.
 
@@ -276,7 +274,8 @@ handle is the only generic: ``flash : flash_t``.
 Constructor parameters
 ----------------------
 
-:vhdl:`flash_pkg.new_flash` checks the geometry, identity and busy times when the component starts.
+:vhdl:`flash_pkg.new_flash` checks the geometry, identity and busy times when the component starts,
+with the rules of :py:class:`~awesome_vunit_vcs.flash.config.FlashConfig`.
 An invalid combination is a failure on the logger of the flash, and the model then uses the default
 configuration so that the calls that follow stay harmless.
 
@@ -401,8 +400,8 @@ configuration so that the calls that follow stay harmless.
    * - ``id``
      - ``id_t``
      - ``null_id``
-     - ``awesome_vunit_vcs:flash:<n>`` when not given; also the identity of the Python session, so
-       two flashes with the same id are a failure on the logger
+     - ``awesome_vunit_vcs:flash:<n>`` when not given; two flashes with the same id are a failure on
+       the logger
    * - ``logger``
      - ``logger_t``
      - ``null_logger``
@@ -448,25 +447,24 @@ Content
 
    * - Procedure
      - Purpose
-   * - ``flash_preload(net, flash, address, data)``
+   * - :vhdl:`flash_preload(net, flash, address, data) <flash_pkg.flash_preload>`
      - Write bytes, an ``integer_array_t`` the caller keeps or a ``std_ulogic_vector`` whose leftmost
-       byte goes to ``address``. The data crosses the bridge, so keep it to a few KiB
-   * - ``flash_preload_fill(net, flash, address, num_bytes, value)``
-     - Fill a region with ``value`` (``16#FF#`` by default); only the length crosses, and nothing is
-       allocated per byte
-   * - ``flash_load_image(net, flash, file_name, format, base_address)``
-     - Load an image file that Python opens; ``format => "auto"`` picks the format from the extension
-   * - ``flash_read_back(net, flash, address, num_bytes, data)``
+       byte goes to ``address``. Meant for small data, up to a few KiB; fill or load an image for more
+   * - :vhdl:`flash_preload_fill(net, flash, address, num_bytes, value) <flash_pkg.flash_preload_fill>`
+     - Fill a region with ``value`` (``16#FF#`` by default); cheap for a region of any size
+   * - :vhdl:`flash_load_image(net, flash, file_name, format, base_address) <flash_pkg.flash_load_image>`
+     - Load an image file; ``format => "auto"`` picks the format from the extension
+   * - :vhdl:`flash_read_back(net, flash, address, num_bytes, data) <flash_pkg.flash_read_back>`
      - Blocking: the content as a new byte array the caller deallocates; also non-blocking with
-       ``await_flash_read_back_reply``
-   * - ``flash_check_content(net, flash, address, expected)``
-     - Compare the content with ``expected`` in Python, an ``integer_array_t`` the caller keeps or a
+       :vhdl:`flash_pkg.await_flash_read_back_reply`
+   * - :vhdl:`flash_check_content(net, flash, address, expected) <flash_pkg.flash_check_content>`
+     - Compare the content with ``expected``, an ``integer_array_t`` the caller keeps or a
        ``std_ulogic_vector`` of whole bytes with the byte of ``address`` leftmost
-   * - ``flash_check_content_fill(net, flash, address, num_bytes, value)``
+   * - :vhdl:`flash_check_content_fill(net, flash, address, num_bytes, value) <flash_pkg.flash_check_content_fill>`
      - Compare a region with a constant, ``16#FF#`` (erased) by default, for example to prove an erase
    * - :vhdl:`flash_get_written_regions <flash_pkg.flash_get_written_regions>`
      - Blocking: a flat ``[address, length, ...]`` array of everything programmed or erased over the
-       bus, coalesced; also non-blocking with ``await_flash_get_written_regions_reply``
+       bus, coalesced; also non-blocking with :vhdl:`flash_pkg.await_flash_get_written_regions_reply`
 
 Preloads and images are test setup, not device operations: they ignore WEL and protection, overwrite
 without NOR semantics and are not written regions. Every address range must lie inside the device and
@@ -517,27 +515,27 @@ Configuration and state
 
    * - Procedure
      - Purpose
-   * - ``flash_set_timing_enable(net, flash, enable)``
+   * - :vhdl:`flash_set_timing_enable(net, flash, enable) <flash_pkg.flash_set_timing_enable>`
      - False makes every busy time 0 and also ends a busy period that is running, so WIP reads clear
        and ``flash_wait_until_ready`` returns; true, the default, applies the busy times to commands
        that follow
-   * - ``flash_set_timing(net, flash, name, duration)``
+   * - :vhdl:`flash_set_timing(net, flash, name, duration) <flash_pkg.flash_set_timing>`
      - Override one busy time: ``"tPP"``, ``"tSE"``, ``"tBE32"``, ``"tBE64"``, ``"tCE"``, ``"tW"``,
        ``"tRST"``, ``"tRES1"`` or ``"tRES2"``. It applies to busy periods that start afterwards; another
        name is a failure on the logger that lists the valid ones
-   * - ``flash_set_protection(net, flash, address, num_bytes, locked)``
+   * - :vhdl:`flash_set_protection(net, flash, address, num_bytes, locked) <flash_pkg.flash_set_protection>`
      - Lock (``locked => true``, the default) or unlock a region in addition to the status register
-       protection. Locks survive a
-       ``reset``
-   * - ``flash_wait_until_ready(net, flash, timeout)``
+       protection. Locks survive a ``reset``
+   * - :vhdl:`flash_wait_until_ready(net, flash, timeout) <flash_pkg.flash_wait_until_ready>`
      - Blocking: wait until a busy time the component started is over. ``timeout`` defaults to 1 min,
        longer than the default ``t_ce``; a timeout is a failure
-   * - ``set_check_enabled(net, flash, check, enabled)``, ``get_check_count(net, flash, check, count)``
-       and ``get_check_count(net, flash, check, reference)``
+   * - :vhdl:`set_check_enabled(net, flash, check, enabled) <flash_pkg.set_check_enabled>`,
+       :vhdl:`get_check_count(net, flash, check, count) <flash_pkg.get_check_count>` and
+       ``get_check_count(net, flash, check, reference)``
      - The procedures of the :doc:`qspi_protocol_checker` for the protocol checker of the flash. A flash
        without one reports ``<id> has no protocol checker`` as a check failure on its checker; the
        blocking ``get_check_count`` then returns 0, and the reference is ``null_msg``
-   * - :vhdl:`reset(net, flash) <flash_pkg.reset>`
+   * - :vhdl:`reset(net, flash, clear_statistics) <flash_pkg.reset>`
      - Blocking: return to standby, as a power-on reset. Status registers, WEL, addressing and QPI
        mode, continuous read, deep power-down and the status register protection return to their
        defaults, and a busy period ends, so ``flash_wait_until_ready`` returns at once. A reset while
@@ -546,10 +544,10 @@ Configuration and state
        unless ``clear_statistics => true``
    * - :vhdl:`flash_get_stat <flash_pkg.flash_get_stat>`
      - Blocking: one statistic or piece of state, read at the current simulation time; also
-       non-blocking with ``await_flash_get_stat_reply``
+       non-blocking with :vhdl:`flash_pkg.await_flash_get_stat_reply`
    * - ``get_id``, ``get_logger``, ``get_actor``, ``get_checker``, ``as_sync``
      - The identity of the flash, and its handle for ``wait_until_idle`` and ``wait_for_time``
-   * - ``protocol_checker(flash)``
+   * - :vhdl:`protocol_checker(flash) <flash_pkg.protocol_checker>`
      - The protocol checker the flash instantiates, with its final id, or ``null_qspi_protocol_checker``
 
 ``flash_wait_until_ready`` cannot see a busy time the component has not started yet; the blocking
@@ -569,8 +567,8 @@ A typical setup:
 Checks
 ------
 
-The flash checks what the device itself sees. Errors are check failures on its checker; failures of
-the backend go to its logger.
+The flash checks what the device itself sees. Errors are check failures on its checker; requests the
+model cannot carry out are failures on its logger.
 
 .. list-table::
    :header-rows: 1
@@ -585,16 +583,18 @@ the backend go to its logger.
        ``W`` or ``-`` on a lane the flash samples for data in. The beat is read with ``to_01``
    * - Content mismatch
      - Checker
-     - ``<id>: flash content mismatch at 0x<address>: expected 0x<value>, got 0x<value> (first of <n>
+     - :py:class:`~awesome_vunit_vcs.flash.errors.ContentMismatch` in Python, reported as ``<id>: flash content mismatch at 0x<address>: expected 0x<value>, got 0x<value> (first of <n>
        bad bytes in [...])``, or ``expected fill 0x<value>`` for ``flash_check_content_fill``
-   * - Directive layout
+   * - Version mismatch
      - Checker
-     - ``The directive layout of the Python backend does not match flash_pkg``, at time 0
-   * - Backend failure
+     - ``The directive layout of the Python backend does not match flash_pkg``, at time 0: the VHDL and
+       Python parts of the package come from different versions. Reinstall the package
+   * - Request failure
      - Logger
      - ``<id>: <method> raised <exception>: <message>``, for example an invalid configuration, a range
        outside the device, a value that is not a byte, an unknown timing or stat name or an image that
-       cannot be read
+       cannot be read. The exception is a
+       :py:class:`~awesome_vunit_vcs.flash.errors.FlashValueError` for an invalid argument
    * - Duplicate id
      - Logger
      - ``Two verification components have the id <id> and would share one Python backend``, when a
@@ -611,7 +611,7 @@ the checker of the protocol checker; see :doc:`qspi_protocol_checker` for its ch
 Statistics notes
 ----------------
 
-``flash_get_stat(net, flash, name, value)`` returns one value by name. The flash passes the current
+:vhdl:`flash_get_stat(net, flash, name, value) <flash_pkg.flash_get_stat>` returns one value by name. The flash passes the current
 simulation time, so ``wip``, ``sr1`` and ``busy_remaining_us`` are current, not those of the last bus
 activity. An unknown name, or a value an ``integer`` cannot hold, is a failure on the logger that
 lists the valid names, and returns 0.
@@ -663,60 +663,16 @@ seems to do nothing, ``ignored_command_count`` and the reject counters say why. 
 written regions accumulate for the whole simulation, and
 ``reset(net, flash, clear_statistics => true)`` sets the counters to 0 and forgets the written regions.
 
-Python backend
---------------
+Using the model from Python
+---------------------------
 
-Every ``flash`` creates one :class:`~awesome_vunit_vcs.flash.vunit_backend.FlashBackend` as the object
-``vc`` in a Python session with the identity of the flash, so instances share nothing. The backend
-converts arguments, turns every exception into a report, and delegates to a
-:class:`~awesome_vunit_vcs.flash.device.FlashDevice` built from a
-:class:`~awesome_vunit_vcs.flash.config.FlashConfig` with the parameters of ``new_flash``, busy times
-in integer femtoseconds. The pin timing, the protocol checker and the output delays stay in VHDL.
-
-On the wire the flash calls ``cs_assert`` when CS falls, ``xfer`` after every byte and
-``cs_deassert`` when CS rises, which returns the busy time and the number of waiting reports. The
-procedures above call the other methods, and a backend method never raises into the bridge.
-``reset`` with ``clear_statistics => true`` calls the backend's ``reset(True)``, which also clears
-the statistics.
-
-``cs_assert`` and ``xfer`` return one packed directive, an integer that says what to do with the next
-byte:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 22 12 66
-
-   * - Field
-     - Bits
-     - Values
-   * - ``action``
-     - 1..0
-     - 0 receive, 1 transmit, 2 ignore the rest of the transaction
-   * - ``lanes``
-     - 4..2
-     - 1, 2 or 4
-   * - ``pre_dummy_cycles``
-     - 10..5
-     - SCK cycles with the I/Os released before the action
-   * - ``byte_out``
-     - 18..11
-     - The byte to transmit
-   * - ``flags``
-     - 20..19
-     - Bit 0, volatile: the next ``xfer`` passes the simulation time, because the byte depends on it
-   * - ``n_bytes``
-     - 29..21
-     - Always 1
-
-The layout fits in 30 bits, since a VHDL ``integer`` is signed 32-bit. The component compares
-``flash_layout_version`` with :data:`~awesome_vunit_vcs.flash.directive.LAYOUT_VERSION` at time 0.
-
-The model runs without a simulator; this file is ``examples/python/flash_jedec_id.py``, which the
-test suite runs:
-
-.. literalinclude:: ../../examples/python/flash_jedec_id.py
-   :language: python
-   :lines: 5-
+The device model runs without a simulator, for example to test an image or a driver sequence in
+``pytest``: construct a :py:class:`~awesome_vunit_vcs.flash.device.FlashDevice` from a
+:py:class:`~awesome_vunit_vcs.flash.config.FlashConfig`. Invalid arguments raise
+:py:class:`~awesome_vunit_vcs.flash.errors.FlashValueError` and failed content checks raise
+:py:class:`~awesome_vunit_vcs.flash.errors.ContentMismatch`, both
+:py:class:`~awesome_vunit_vcs.flash.errors.FlashError`. :doc:`../python_guide` has an example and
+:doc:`../python_api` the full API.
 
 Example
 -------
@@ -768,13 +724,10 @@ Limitations
 
 .. note::
 
-   * **One bridge call per byte on the bus**, plus one at each CS edge; bulk content goes through the
-     preload, image and check procedures. See :ref:`performance-flash`.
+   * **Bulk content is faster through the preload, image and check procedures** than over the bus.
    * **One device per bus.** ``s2m`` has one driver; two devices need two buses.
    * **Fixed protection units.** The BP bits count 4 KiB or 64 KiB units whatever the geometry.
    * **No hardware write protection.** SRP and SRL have no effect, and there is no WP# pin.
    * **Limited 4-byte command set**, no program or erase suspend, and fixed dummy cycles per opcode.
    * **Deep power-down** takes no time to enter.
    * **Released I/Os are metavalues** when the flash samples them for data in.
-
-   These are also listed, with details, in :ref:`limitations-flash`.

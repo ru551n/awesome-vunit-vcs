@@ -40,9 +40,11 @@ def build_wire_frame(
     Build what is transmitted for ``data``, the frame from destination address
     up to, not including, the FCS.
 
-    ``error_offsets`` are wire octet indexes, 0 being the first preamble octet.
-    Malformed traffic is intentional: every argument may describe a frame the
-    standard forbids (short preamble, wrong SFD, runt, bad FCS, short IFG).
+    ``error_offsets`` count like ``data``: 0 is the first octet after the SFD,
+    the same offsets ETH_PHY_ERROR reports. Negative offsets reach back into
+    the SFD (-1) and the preamble. Malformed traffic is intentional: every
+    argument may describe a frame the standard forbids (short preamble, wrong
+    SFD, runt, bad FCS, short IFG).
     """
     mode = FcsMode(fcs)
     if preamble_octets < 0:
@@ -58,7 +60,8 @@ def build_wire_frame(
             value ^= 0xFFFFFFFF
         body += value.to_bytes(FCS_OCTETS, "little")
     octets = bytes([PREAMBLE_OCTET] * preamble_octets + [sfd]) + body
-    return WireFrame(octets, tuple(error_offsets), ifg_octets)
+    # WireFrame indexes wire octets, 0 being the first preamble octet
+    return WireFrame(octets, tuple(offset + preamble_octets + 1 for offset in error_offsets), ifg_octets)
 
 
 class EthernetSource:

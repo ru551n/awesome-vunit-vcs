@@ -265,8 +265,10 @@ package ethernet_pkg is
   --
   -- The arguments may describe traffic the standard forbids: a bad FCS, no
   -- padding, a short or long preamble, a wrong SFD, a short IFG. The error
-  -- signal is asserted with the wire octets in error_offsets, where 0 is the
-  -- first preamble octet.
+  -- signal is asserted with the octets in error_offsets, which count like
+  -- data and like the offsets eth_phy_error reports: 0 is the first octet
+  -- after the SFD. Negative offsets reach back into the SFD (-1) and the
+  -- preamble. Interfaces with control characters send Error instead.
   procedure send_ethernet_frame(
     signal net : inout network_t;
     source : ethernet_source_t;

@@ -88,7 +88,7 @@ the protocol checks of a DUT are tested:
    send_ethernet_frame(net, source, frame, pad => false);            -- no padding: a runt
    send_ethernet_frame(net, source, frame, preamble_octets => 5);    -- short preamble
    send_ethernet_frame(net, source, frame, sfd => x"D4");            -- wrong SFD
-   send_ethernet_frame(net, source, frame, error_offsets => (0 => 20)); -- er on wire octet 20
+   send_ethernet_frame(net, source, frame, error_offsets => (0 => 20)); -- er on frame octet 20
    send_ethernet_frame(net, source, frame, ifg_octets => 8);         -- short IFG after the frame
 
 Example

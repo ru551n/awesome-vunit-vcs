@@ -154,7 +154,8 @@ def test_monitor_backend_accepts_a_delta_unit() -> None:
 def test_source_backend_symbols_carry_the_options() -> None:
     backend = SourceBackend("tb:gmii_source_0", "gmii")
     data = list(ethernet_payload(60))
-    symbols = backend.symbols(data, [3], fcs="bad", preamble_octets=5, ifg_octets=2)
+    # Offset -3 is the third octet before the first octet after the SFD: wire octet 3 of 5 + 1
+    symbols = backend.symbols(data, [-3], fcs="bad", preamble_octets=5, ifg_octets=2)
     assert symbols.dtype == np.int32
     assert len(symbols) == 5 + 1 + 60 + 4 + 2
     assert symbols[3] & 0x200

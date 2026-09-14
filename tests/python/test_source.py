@@ -32,6 +32,26 @@ def test_invalid_requests() -> None:
         WireFrame(b"\x55", ifg_octets=-1)
 
 
+def test_error_offsets_count_from_the_first_octet_after_the_sfd() -> None:
+    wire = build_wire_frame(ethernet_payload(60), preamble_octets=5, error_offsets=(0, 20, -1, -6))
+    # 5 preamble octets and the SFD come first on the wire
+    assert wire.error_offsets == (6, 26, 5, 0)
+    with pytest.raises(ValueError):
+        build_wire_frame(ethernet_payload(60), error_offsets=(-9,))
+
+
+def test_error_offsets_match_the_phy_error_report() -> None:
+    source = EthernetSource(GmiiPhy())
+    symbols = source.take_symbols(source.queue(build_wire_frame(ethernet_payload(60), error_offsets=(20,))))
+    monitor = EthernetMonitor(GmiiPhy())
+    violations: list[str] = []
+    monitor.checker.violations.subscribe(lambda violation: violations.append(violation.message))
+    words = np.concatenate([np.zeros(1, dtype=np.int32), symbols]).astype(np.int64)
+    monitor.feed(words, np.arange(len(words), dtype=np.int64) * 8_000_000)
+    assert monitor.history[0].mac_error_offsets == (20,)
+    assert any("frame offsets=20 " in message for message in violations)
+
+
 def test_gmii_encoding() -> None:
     wire = WireFrame(b"\x55\xd5\x01", error_offsets=(2,), ifg_octets=2)
     symbols = GmiiPhy().encode(wire)

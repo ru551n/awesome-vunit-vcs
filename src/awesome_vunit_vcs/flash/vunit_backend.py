@@ -221,5 +221,16 @@ class FlashBackend:
         return self._control("set_protection", lambda: self.device.set_protection(addr, num_bytes, bool(locked)))
 
     def get_stat(self, name: str) -> int:
-        """One counter or piece of observable state; 0 and a failure report for an unknown name."""
-        return self._guard("get_stat", lambda: self.device.get_stat(name), 0)
+        """
+        One counter or piece of observable state; 0 and a failure report for an
+        unknown name or a value a VHDL integer cannot hold (``busy_deadline_fs``
+        passes 2**31 - 1 fs, about 2.1 us of simulation time).
+        """
+
+        def stat() -> int:
+            value = self.device.get_stat(name)
+            if not -(2**31) <= value < 2**31:
+                raise ValueError(f"stat {name!r} = {value} does not fit a signed 32-bit integer")
+            return value
+
+        return self._guard("get_stat", stat, 0)

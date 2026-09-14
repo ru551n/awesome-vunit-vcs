@@ -228,7 +228,8 @@ def test_wip_follows_the_time_vhdl_sends() -> None:
     transaction(backend, [0x06])
     transaction(backend, [0x02, 0, 0, 0, 0x00], now_fs=SEC)
     assert backend.get_stat("wip") == 1
-    assert backend.get_stat("busy_deadline_fs") == SEC + 700 * US
+    # Past 2**31 fs, so read from the device: get_stat refuses what VHDL cannot hold
+    assert backend.device.get_stat("busy_deadline_fs") == SEC + 700 * US
     # A status read at a later time, passed on the volatile xfer, sees WIP clear
     out, _ = transaction(backend, [0x05], read=1, now_fs=SEC + 699 * US)
     assert out == [0x01]
@@ -457,6 +458,22 @@ def test_unknown_stat_is_a_failure_report_and_returns_0(fast: FlashBackend) -> N
     assert fast.get_stat("nope") == 0
     message = only_report(fast, Severity.FAILURE)
     assert message.startswith(f"{NAME}: get_stat raised KeyError: ")
+
+
+def test_a_stat_beyond_32_bits_is_a_failure_report_and_returns_0() -> None:
+    backend = make()
+    backend.set_timing("tSE", *split_time(MS))
+    transaction(backend, [0x06], now_fs=SEC)
+    transaction(backend, [0x20, 0, 0, 0], now_fs=SEC)
+    assert backend.num_reports() == 0
+    assert backend.get_stat("busy_deadline_fs") == 0
+    message = only_report(backend, Severity.FAILURE)
+    assert message.startswith(f"{NAME}: get_stat raised ValueError: ")
+    assert "'busy_deadline_fs'" in message
+    assert str(SEC + MS) in message
+    # A value that fits is returned unchanged
+    assert backend.get_stat("wip") == 1
+    assert backend.num_reports() == 0
 
 
 def test_reports_are_taken_in_order(fast: FlashBackend) -> None:

@@ -123,7 +123,7 @@ class PcapNgWriter:
             if options.include_fcs:
                 flags |= FCS_OCTETS << _FLAG_FCS_LENGTH_SHIFT
             else:
-                data = frame.mac.payload
+                data = frame.mac.mac_octets
         problems = []
         if frame.fcs_ok is False:
             flags |= FLAG_CRC_ERROR

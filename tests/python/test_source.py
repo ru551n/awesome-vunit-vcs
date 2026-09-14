@@ -1,20 +1,20 @@
 import numpy as np
 import pytest
-from helpers import VALID, ethernet_payload, reference_frame
+from helpers import VALID, ethernet_mac_octets, reference_frame
 
 from awesome_vunit_vcs.ethernet import CheckId, EthernetMonitor, EthernetSource, FcsMode, build_wire_frame
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy, WireFrame
 
 
 def test_wire_frame_matches_reference() -> None:
-    payload = ethernet_payload(30)
+    payload = ethernet_mac_octets(30)
     wire = build_wire_frame(payload)
     assert wire.octets == b"\x55" * 7 + b"\xd5" + reference_frame(payload)
     assert wire.ifg_octets == 12
 
 
 def test_bad_fcs_no_padding_and_raw_modes() -> None:
-    payload = ethernet_payload(30)
+    payload = ethernet_mac_octets(30)
     bad = build_wire_frame(payload, fcs=FcsMode.BAD, pad=False)
     good = build_wire_frame(payload, pad=False)
     assert bad.octets[:-4] == good.octets[:-4]
@@ -33,16 +33,16 @@ def test_invalid_requests() -> None:
 
 
 def test_error_offsets_count_from_the_first_octet_after_the_sfd() -> None:
-    wire = build_wire_frame(ethernet_payload(60), preamble_octets=5, error_offsets=(0, 20, -1, -6))
+    wire = build_wire_frame(ethernet_mac_octets(60), preamble_octets=5, error_offsets=(0, 20, -1, -6))
     # 5 preamble octets and the SFD come first on the wire
     assert wire.error_offsets == (6, 26, 5, 0)
     with pytest.raises(ValueError):
-        build_wire_frame(ethernet_payload(60), error_offsets=(-9,))
+        build_wire_frame(ethernet_mac_octets(60), error_offsets=(-9,))
 
 
 def test_error_offsets_match_the_phy_error_report() -> None:
     source = EthernetSource(GmiiPhy())
-    symbols = source.take_symbols(source.queue(build_wire_frame(ethernet_payload(60), error_offsets=(20,))))
+    symbols = source.take_symbols(source.queue(build_wire_frame(ethernet_mac_octets(60), error_offsets=(20,))))
     monitor = EthernetMonitor(GmiiPhy())
     violations: list[str] = []
     monitor.checker.violations.subscribe(lambda violation: violations.append(violation.message))
@@ -64,12 +64,12 @@ def test_source_to_monitor_round_trip_with_malformed_traffic() -> None:
     transmitted: list[WireFrame] = []
     source.transmitted.subscribe(transmitted.append)
     requests = [
-        build_wire_frame(ethernet_payload(60, seed=1)),
-        build_wire_frame(ethernet_payload(80, seed=2), fcs=FcsMode.BAD),
-        build_wire_frame(ethernet_payload(20, seed=3), pad=False),
-        build_wire_frame(ethernet_payload(60, seed=4), preamble_octets=5),
-        build_wire_frame(ethernet_payload(60, seed=5), error_offsets=(30,), ifg_octets=4),
-        build_wire_frame(ethernet_payload(60, seed=6)),
+        build_wire_frame(ethernet_mac_octets(60, seed=1)),
+        build_wire_frame(ethernet_mac_octets(80, seed=2), fcs=FcsMode.BAD),
+        build_wire_frame(ethernet_mac_octets(20, seed=3), pad=False),
+        build_wire_frame(ethernet_mac_octets(60, seed=4), preamble_octets=5),
+        build_wire_frame(ethernet_mac_octets(60, seed=5), error_offsets=(30,), ifg_octets=4),
+        build_wire_frame(ethernet_mac_octets(60, seed=6)),
     ]
     ids = [source.queue(request) for request in requests]
     symbols = np.concatenate([np.zeros(1, dtype=np.int32)] + [source.take_symbols(i) for i in ids])
@@ -81,7 +81,7 @@ def test_source_to_monitor_round_trip_with_malformed_traffic() -> None:
     monitor.checker.violations.subscribe(lambda violation: checks.append(violation.check))
     monitor.feed(symbols.astype(np.int64), np.arange(len(symbols), dtype=np.int64) * 8_000_000)
     assert checks == [CheckId.FCS, CheckId.RUNT, CheckId.PREAMBLE, CheckId.PHY_ERROR, CheckId.IFG]
-    assert monitor.history[0].payload == ethernet_payload(60, seed=1)
+    assert monitor.history[0].mac_octets == ethernet_mac_octets(60, seed=1)
 
 
 def test_unknown_frame_id() -> None:

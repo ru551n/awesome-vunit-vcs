@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from helpers import GMII_PERIOD_FS, GmiiLine, ethernet_payload, reference_frame
+from helpers import GMII_PERIOD_FS, GmiiLine, ethernet_mac_octets, reference_frame
 
 from awesome_vunit_vcs.ethernet import EthernetMonitor
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy
@@ -17,8 +17,8 @@ def test_statistics_of_known_traffic() -> None:
     line.idle(1)
     sizes = [64, 128, 1518]
     for size in sizes:
-        line.frame(reference_frame(ethernet_payload(size - 4)), ifg=20)
-    line.frame(reference_frame(ethernet_payload(60), bad_fcs=True), ifg=12)
+        line.frame(reference_frame(ethernet_mac_octets(size - 4)), ifg=20)
+    line.frame(reference_frame(ethernet_mac_octets(60), bad_fcs=True), ifg=12)
     stats = monitor_for(line).statistics.snapshot()
 
     assert stats.total_frames == 4
@@ -59,7 +59,7 @@ def test_summary_is_readable_and_empty_statistics_do_not_divide_by_zero() -> Non
 
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     text = monitor_for(line).statistics.snapshot().summary("gmii_monitor_0")
     assert text.splitlines()[0] == "gmii_monitor_0 statistics"
     assert "utilization: link" in text
@@ -68,7 +68,7 @@ def test_summary_is_readable_and_empty_statistics_do_not_divide_by_zero() -> Non
 def test_reset() -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     monitor = monitor_for(line)
     monitor.statistics.reset()
     assert monitor.statistics.snapshot().total_frames == 0

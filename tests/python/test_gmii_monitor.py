@@ -4,7 +4,7 @@ import random
 
 import numpy as np
 import pytest
-from helpers import ERROR, GMII_PERIOD_FS, META_CTRL, META_DATA, VALID, GmiiLine, ethernet_payload, reference_frame
+from helpers import ERROR, GMII_PERIOD_FS, META_CTRL, META_DATA, VALID, GmiiLine, ethernet_mac_octets, reference_frame
 
 from awesome_vunit_vcs.ethernet import CheckId, EthernetConfig, EthernetFrame, EthernetMonitor, Violation
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy
@@ -36,26 +36,26 @@ def run(line: GmiiLine, config: EthernetConfig | None = None, batch: int | None 
 
 
 def test_valid_minimum_size_frame() -> None:
-    payload = ethernet_payload(60)
+    payload = ethernet_mac_octets(60)
     line = GmiiLine()
     line.idle(4)
     line.frame(reference_frame(payload))
     recorder = run(line)
     assert len(recorder.frames) == 1
     frame = recorder.frames[0]
-    assert frame.payload == payload
+    assert frame.mac_octets == payload
     assert frame.mac is not None and frame.mac.size_with_fcs == 64
     assert frame.is_good
     assert recorder.violations == []
 
 
 def test_valid_larger_frame() -> None:
-    payload = ethernet_payload(1514, seed=9)
+    payload = ethernet_mac_octets(1514, seed=9)
     line = GmiiLine()
     line.idle(1)
     line.frame(reference_frame(payload))
     recorder = run(line)
-    assert recorder.frames[0].payload == payload
+    assert recorder.frames[0].mac_octets == payload
     assert recorder.frames[0].mac.size_with_fcs == 1518  # type: ignore[union-attr]
     assert recorder.violations == []
 
@@ -63,7 +63,7 @@ def test_valid_larger_frame() -> None:
 def test_preamble_and_sfd_timestamps() -> None:
     line = GmiiLine(time_fs=1_000_000_000)
     line.idle(3)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     frame = run(line).frames[0]
     start = 1_000_000_000 + 3 * GMII_PERIOD_FS
     assert frame.preamble_octets == 7
@@ -78,7 +78,7 @@ def test_fcs_pass() -> None:
     line = GmiiLine()
     line.idle(1)
     for seed in range(5):
-        line.frame(reference_frame(ethernet_payload(100 + seed, seed=seed)))
+        line.frame(reference_frame(ethernet_mac_octets(100 + seed, seed=seed)))
     recorder = run(line)
     assert [frame.fcs_ok for frame in recorder.frames] == [True] * 5
 
@@ -86,7 +86,7 @@ def test_fcs_pass() -> None:
 def test_bad_fcs_message() -> None:
     line = GmiiLine()
     line.idle(1)
-    payload = ethernet_payload(124)
+    payload = ethernet_mac_octets(124)
     line.frame(reference_frame(payload))
     line.frame(reference_frame(payload, bad_fcs=True))
     recorder = run(line)
@@ -107,7 +107,7 @@ def test_bad_fcs_message() -> None:
 def test_runt_frame() -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(20), pad_to=0))
+    line.frame(reference_frame(ethernet_mac_octets(20), pad_to=0))
     recorder = run(line)
     assert recorder.checks() == [CheckId.RUNT]
     assert recorder.frames[0].is_runt
@@ -116,7 +116,7 @@ def test_runt_frame() -> None:
 def test_oversized_frame_with_configured_maximum() -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(1518)))
+    line.frame(reference_frame(ethernet_mac_octets(1518)))
     assert run(line).checks() == [CheckId.GIANT]
     assert run(line, EthernetConfig(max_frame_octets=1522)).checks() == []
 
@@ -124,7 +124,7 @@ def test_oversized_frame_with_configured_maximum() -> None:
 def test_phy_error_offsets() -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)), error_offsets=(20,))
+    line.frame(reference_frame(ethernet_mac_octets(60)), error_offsets=(20,))
     recorder = run(line)
     assert recorder.checks() == [CheckId.PHY_ERROR]
     frame = recorder.frames[0]
@@ -136,8 +136,8 @@ def test_phy_error_offsets() -> None:
 def test_legal_ifg() -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)), ifg=12)
-    line.frame(reference_frame(ethernet_payload(60)), ifg=12)
+    line.frame(reference_frame(ethernet_mac_octets(60)), ifg=12)
+    line.frame(reference_frame(ethernet_mac_octets(60)), ifg=12)
     recorder = run(line)
     assert recorder.violations == []
     assert recorder.frames[1].ifg_octets == 12
@@ -147,8 +147,8 @@ def test_legal_ifg() -> None:
 def test_too_short_ifg() -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)), ifg=11)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)), ifg=11)
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     recorder = run(line)
     assert recorder.checks() == [CheckId.IFG]
     assert "is 11 octets" in recorder.violations[0].message
@@ -157,19 +157,19 @@ def test_too_short_ifg() -> None:
 def test_back_to_back_frames() -> None:
     line = GmiiLine()
     line.idle(1)
-    payloads = [ethernet_payload(60 + index, seed=index) for index in range(4)]
+    payloads = [ethernet_mac_octets(60 + index, seed=index) for index in range(4)]
     for payload in payloads:
         line.frame(reference_frame(payload), ifg=12)
     recorder = run(line)
-    assert [frame.payload for frame in recorder.frames] == payloads
+    assert [frame.mac_octets for frame in recorder.frames] == payloads
     assert [frame.ifg_octets for frame in recorder.frames] == [None, 12, 12, 12]
 
 
 def test_frames_without_gap_merge_and_are_reported() -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)), ifg=0)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)), ifg=0)
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     recorder = run(line)
     # Without a single idle cycle GMII cannot separate the frames
     assert len(recorder.frames) == 1
@@ -188,14 +188,14 @@ def test_frames_without_gap_merge_and_are_reported() -> None:
 def test_malformed_preamble_and_sfd(preamble: bytes, check: CheckId) -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)), preamble=preamble)
+    line.frame(reference_frame(ethernet_mac_octets(60)), preamble=preamble)
     assert check in run(line).checks()
 
 
 def test_preamble_tolerance() -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)), preamble=b"\x55" * 5 + b"\xd5")
+    line.frame(reference_frame(ethernet_mac_octets(60)), preamble=b"\x55" * 5 + b"\xd5")
     assert run(line, EthernetConfig(min_preamble_octets=5)).checks() == []
 
 
@@ -211,7 +211,7 @@ def test_frame_ending_in_preamble() -> None:
 def test_disabled_check_is_silent_and_not_counted() -> None:
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60), bad_fcs=True))
+    line.frame(reference_frame(ethernet_mac_octets(60), bad_fcs=True))
     recorder = Recorder()
     recorder.monitor.checker.disable("ETH_FCS")
     recorder.feed(line)
@@ -231,7 +231,7 @@ def test_metavalues_are_reported() -> None:
     line.cycle(META_CTRL)
     for octet in b"\x55" * 7 + b"\xd5":
         line.cycle(octet | VALID)
-    frame = reference_frame(ethernet_payload(60))
+    frame = reference_frame(ethernet_mac_octets(60))
     for offset, octet in enumerate(frame):
         line.cycle(octet | VALID | (META_DATA if offset == 3 else 0))
     line.idle(2)
@@ -251,7 +251,7 @@ def test_error_outside_frame_is_carrier_violation() -> None:
 
 def test_monitor_started_inside_frame() -> None:
     line = GmiiLine()
-    for octet in reference_frame(ethernet_payload(60)):
+    for octet in reference_frame(ethernet_mac_octets(60)):
         line.cycle(octet | VALID)
     line.idle(1)
     assert CheckId.FRAME_STATE in run(line).checks()
@@ -274,10 +274,10 @@ def test_batching_does_not_change_the_result(batch: int) -> None:
     line = GmiiLine()
     line.idle(2)
     for index in range(20):
-        line.frame(reference_frame(ethernet_payload(rng.randrange(46, 1500), seed=index)), ifg=rng.randrange(12, 40))
+        line.frame(reference_frame(ethernet_mac_octets(rng.randrange(46, 1500), seed=index)), ifg=rng.randrange(12, 40))
     reference = run(line)
     batched = run(line, batch=batch)
-    assert [f.payload for f in batched.frames] == [f.payload for f in reference.frames]
+    assert [f.mac_octets for f in batched.frames] == [f.mac_octets for f in reference.frames]
     assert [f.timestamp_sfd_fs for f in batched.frames] == [f.timestamp_sfd_fs for f in reference.frames]
     assert [f.ifg_octets for f in batched.frames] == [f.ifg_octets for f in reference.frames]
 
@@ -289,13 +289,13 @@ def test_long_randomized_traffic_sequence() -> None:
     expected = []
     for index in range(300):
         length = rng.choice([60, 61, 128, 512, 1000, 1514, rng.randrange(60, 1515)])
-        payload = ethernet_payload(length, seed=index)
+        payload = ethernet_mac_octets(length, seed=index)
         bad = rng.random() < 0.05
         error = (rng.randrange(8, 8 + length),) if rng.random() < 0.03 else ()
         line.frame(reference_frame(payload, bad_fcs=bad), error_offsets=error, ifg=rng.randrange(12, 100))
         expected.append((payload, not bad, bool(error)))
     recorder = run(line, batch=257)
-    assert [(f.payload, f.fcs_ok, f.has_phy_error) for f in recorder.frames] == expected
+    assert [(f.mac_octets, f.fcs_ok, f.has_phy_error) for f in recorder.frames] == expected
     stats = recorder.monitor.statistics.snapshot()
     assert stats.total_frames == 300
     assert stats.fcs_errors == sum(1 for _, ok, _ in expected if not ok)

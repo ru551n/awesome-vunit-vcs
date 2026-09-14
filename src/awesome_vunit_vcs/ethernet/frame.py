@@ -75,11 +75,16 @@ class MacFrame:
     has_fcs: bool = True
 
     @property
-    def payload(self) -> bytes:
-        """Destination address up to, not including, the FCS."""
+    def mac_octets(self) -> bytes:
+        """Destination address up to, not including, the FCS: what a MAC client sends."""
         if self.has_fcs:
             return self.data[:-FCS_OCTETS] if len(self.data) >= FCS_OCTETS else b""
         return self.data
+
+    @property
+    def payload(self) -> bytes:
+        """The octets after the 14-octet header, excluding the FCS, padding included."""
+        return self.mac_octets[HEADER_OCTETS:]
 
     @property
     def fcs_received(self) -> int | None:
@@ -91,7 +96,7 @@ class MacFrame:
     def fcs_expected(self) -> int | None:
         if not self.has_fcs or len(self.data) < FCS_OCTETS:
             return None
-        return fcs32(self.payload)
+        return fcs32(self.mac_octets)
 
     @property
     def fcs_ok(self) -> bool | None:
@@ -105,23 +110,23 @@ class MacFrame:
 
     @property
     def destination(self) -> bytes | None:
-        return self.payload[0:6] if len(self.payload) >= 6 else None
+        return self.mac_octets[0:6] if len(self.mac_octets) >= 6 else None
 
     @property
     def source(self) -> bytes | None:
-        return self.payload[6:12] if len(self.payload) >= 12 else None
+        return self.mac_octets[6:12] if len(self.mac_octets) >= 12 else None
 
     @property
     def ethertype(self) -> int | None:
         """The EtherType/length field, None for a frame shorter than the header."""
-        if len(self.payload) < HEADER_OCTETS:
+        if len(self.mac_octets) < HEADER_OCTETS:
             return None
-        return int.from_bytes(self.payload[12:14], "big")
+        return int.from_bytes(self.mac_octets[12:14], "big")
 
     @property
     def client_data(self) -> bytes:
-        """The data after the header, with padding removed when the type field is a length."""
-        body = self.payload[HEADER_OCTETS:]
+        """The payload with padding removed when the type field is a length."""
+        body = self.payload
         ethertype = self.ethertype
         if ethertype is not None and ethertype <= MAX_LENGTH_FIELD:
             return body[:ethertype]
@@ -169,8 +174,13 @@ class EthernetFrame:
         return self.phy.timestamp_start_fs
 
     @property
-    def payload(self) -> bytes:
+    def mac_octets(self) -> bytes:
         """Destination address up to, not including, the FCS. Empty without SFD."""
+        return b"" if self.mac is None else self.mac.mac_octets
+
+    @property
+    def payload(self) -> bytes:
+        """The octets after the 14-octet header, excluding the FCS. Empty without SFD."""
         return b"" if self.mac is None else self.mac.payload
 
     @property

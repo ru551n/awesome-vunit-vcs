@@ -8,7 +8,7 @@ when it (or Scapy) is not installed.
 
 import numpy as np
 import pytest
-from helpers import GmiiLine, ethernet_payload
+from helpers import GmiiLine, ethernet_mac_octets
 
 from awesome_vunit_vcs.ethernet import EthernetMonitor, build_wire_frame
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy
@@ -17,7 +17,7 @@ from awesome_vunit_vcs.ethernet.phy import GmiiPhy
 @pytest.mark.parametrize("length", [14, 46, 60, 61, 500, 1514])
 def test_wire_frame_matches_cocotbext_eth(length: int) -> None:
     eth = pytest.importorskip("cocotbext.eth")
-    payload = ethernet_payload(length, seed=length)
+    payload = ethernet_mac_octets(length, seed=length)
     reference = eth.GmiiFrame.from_payload(payload)
     assert build_wire_frame(payload).octets == bytes(reference.data)
 
@@ -25,7 +25,7 @@ def test_wire_frame_matches_cocotbext_eth(length: int) -> None:
 @pytest.mark.parametrize("length", [60, 333, 1514])
 def test_monitor_payload_and_fcs_agree_with_cocotbext_eth(length: int) -> None:
     eth = pytest.importorskip("cocotbext.eth")
-    payload = ethernet_payload(length, seed=7)
+    payload = ethernet_mac_octets(length, seed=7)
     reference = eth.GmiiFrame.from_payload(payload)
     line = GmiiLine()
     line.idle(1)
@@ -35,7 +35,7 @@ def test_monitor_payload_and_fcs_agree_with_cocotbext_eth(length: int) -> None:
     monitor = EthernetMonitor(GmiiPhy())
     monitor.feed(np.array(line.words, dtype=np.int64), np.array(line.times, dtype=np.int64))
     frame = monitor.history[0]
-    assert frame.payload == bytes(reference.get_payload())
+    assert frame.mac_octets == bytes(reference.get_payload())
     assert frame.fcs_ok is reference.check_fcs()
 
 

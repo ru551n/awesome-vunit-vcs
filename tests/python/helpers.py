@@ -38,8 +38,8 @@ def reference_frame(payload: bytes, *, pad_to: int = 60, bad_fcs: bool = False) 
     return body + struct.pack("<I", crc)
 
 
-def ethernet_payload(length: int, seed: int = 0, dst: bytes = b"\x02\x00\x00\x00\x00\x01") -> bytes:
-    """A payload of length octets starting with a unicast header and IPv4 EtherType."""
+def ethernet_mac_octets(length: int, seed: int = 0, dst: bytes = b"\x02\x00\x00\x00\x00\x01") -> bytes:
+    """Frame octets from the destination address, length octets, starting with a unicast header and IPv4 EtherType."""
     rng = random.Random(seed)
     header = dst + b"\x02\x00\x00\x00\x00\x02" + b"\x08\x00"
     return (header + bytes(rng.randrange(256) for _ in range(max(0, length - len(header)))))[:length]

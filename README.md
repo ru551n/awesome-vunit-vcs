@@ -272,8 +272,8 @@ from awesome_vunit_vcs.ethernet.phy import GmiiPhy
 from awesome_vunit_vcs.ethernet.scapy_adapter import to_scapy
 
 phy = GmiiPhy()
-payload = bytes.fromhex("02000000000102000000000288b5") + b"hello"
-words = np.concatenate([phy.encode(build_wire_frame(payload)), phy.encode(build_wire_frame(payload, fcs="bad"))])
+mac_octets = bytes.fromhex("02000000000102000000000288b5") + b"hello"  # destination address .. before the FCS
+words = np.concatenate([phy.encode(build_wire_frame(mac_octets)), phy.encode(build_wire_frame(mac_octets, fcs="bad"))])
 times_fs = np.arange(words.size, dtype=np.int64) * 8_000_000  # 125 MHz
 
 monitor = EthernetMonitor(phy, name="gmii_rx")

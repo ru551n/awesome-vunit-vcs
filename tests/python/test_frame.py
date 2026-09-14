@@ -1,5 +1,5 @@
 import pytest
-from helpers import ethernet_payload, reference_crc32, reference_frame
+from helpers import ethernet_mac_octets, reference_crc32, reference_frame
 
 from awesome_vunit_vcs.ethernet.frame import EthernetConfig, MacFrame, append_fcs, fcs32
 
@@ -10,19 +10,22 @@ def test_fcs_matches_known_check_value() -> None:
 
 @pytest.mark.parametrize("length", [0, 1, 59, 60, 1514, 9000])
 def test_fcs_matches_bitwise_reference(length: int) -> None:
-    data = ethernet_payload(length, seed=length)
+    data = ethernet_mac_octets(length, seed=length)
     assert fcs32(data) == reference_crc32(data)
 
 
 def test_frame_with_fcs_has_the_crc_residue() -> None:
     # The CRC over data followed by its FCS is the well-known residue
-    assert fcs32(append_fcs(ethernet_payload(100))) == 0x2144DF1C
+    assert fcs32(append_fcs(ethernet_mac_octets(100))) == 0x2144DF1C
 
 
 def test_mac_frame_fields() -> None:
-    payload = ethernet_payload(60, seed=3)
+    payload = ethernet_mac_octets(60, seed=3)
     mac = MacFrame(reference_frame(payload))
-    assert mac.payload == payload
+    assert mac.mac_octets == payload
+    # The payload follows the 14-octet header, like the payload_octets statistic
+    assert mac.payload == payload[14:]
+    assert len(mac.payload) == 46
     assert mac.fcs_ok is True
     assert mac.destination == b"\x02\x00\x00\x00\x00\x01"
     assert mac.source == b"\x02\x00\x00\x00\x00\x02"
@@ -31,7 +34,7 @@ def test_mac_frame_fields() -> None:
 
 
 def test_mac_frame_bad_fcs_values() -> None:
-    payload = ethernet_payload(60)
+    payload = ethernet_mac_octets(60)
     mac = MacFrame(reference_frame(payload, bad_fcs=True))
     assert mac.fcs_ok is False
     assert mac.fcs_expected == reference_crc32(payload)
@@ -47,7 +50,7 @@ def test_client_data_strips_padding_for_length_field() -> None:
 def test_frame_without_fcs() -> None:
     mac = MacFrame(b"\x01" * 60, has_fcs=False)
     assert mac.fcs_ok is None
-    assert mac.payload == b"\x01" * 60
+    assert mac.mac_octets == b"\x01" * 60
     assert mac.size_with_fcs == 64
 
 

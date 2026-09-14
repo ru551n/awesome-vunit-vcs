@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from helpers import GmiiLine, ethernet_payload, reference_frame
+from helpers import GmiiLine, ethernet_mac_octets, reference_frame
 
 from awesome_vunit_vcs.ethernet import CaptureOptions, EthernetMonitor
 from awesome_vunit_vcs.ethernet.phy import GmiiPhy
@@ -57,7 +57,7 @@ def parse_pcapng(path: Path) -> tuple[dict[int, bytes], list[dict[str, object]]]
 def capture(tmp_path: Path, options: CaptureOptions | None = None) -> tuple[Path, list[bytes]]:
     line = GmiiLine(time_fs=3_000_000_000)
     line.idle(1)
-    payloads = [ethernet_payload(60, seed=1), ethernet_payload(200, seed=2)]
+    payloads = [ethernet_mac_octets(60, seed=1), ethernet_mac_octets(200, seed=2)]
     line.frame(reference_frame(payloads[0]))
     line.frame(reference_frame(payloads[1], bad_fcs=True))
     path = tmp_path / "capture.pcapng"

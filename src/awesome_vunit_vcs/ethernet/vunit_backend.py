@@ -136,7 +136,7 @@ class MonitorBackend:
         if not self._expected:
             return
         expected = self._expected.popleft()
-        received = frame.payload
+        received = frame.mac_octets
         if received in (expected, self._padded(expected)):
             return
         mismatch = next(
@@ -186,7 +186,7 @@ class MonitorBackend:
     def good_frame_count(self) -> int:
         return self.statistics().good_frames
 
-    def expect_payload(self, data: Sequence[int]) -> None:
+    def expect_mac_octets(self, data: Sequence[int]) -> None:
         """Queue the frame (destination address up to the FCS) the next received frame must equal."""
         self._expected.append(bytes(data))
 
@@ -220,9 +220,9 @@ class MonitorBackend:
     def statistics_summary(self) -> str:
         return self.statistics().summary(self.name)
 
-    def last_payload_hex(self) -> str:
-        """Payload of the most recent frame as hex, empty when there is none."""
-        return self.monitor.history[-1].payload.hex() if self.monitor.history else ""
+    def last_mac_octets_hex(self) -> str:
+        """Destination address up to the FCS of the most recent frame as hex, empty when there is none."""
+        return self.monitor.history[-1].mac_octets.hex() if self.monitor.history else ""
 
     def last_packet(self) -> Any:
         """The most recent frame decoded by Scapy (needs the scapy extra)."""

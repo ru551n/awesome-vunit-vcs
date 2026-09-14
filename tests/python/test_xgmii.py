@@ -11,7 +11,7 @@ from helpers import (
     XGMII_START,
     XGMII_TERMINATE,
     XgmiiLine,
-    ethernet_payload,
+    ethernet_mac_octets,
     reference_frame,
 )
 
@@ -50,12 +50,12 @@ def run(line: XgmiiLine, batch: int | None = None, **options: object) -> Recorde
 def test_terminate_on_every_lane(lanes: int) -> None:
     line = XgmiiLine(lanes=lanes)
     line.idle_columns(2)
-    payloads = [ethernet_payload(60 + extra, seed=extra) for extra in range(lanes)]
+    payloads = [ethernet_mac_octets(60 + extra, seed=extra) for extra in range(lanes)]
     for payload in payloads:
         line.frame(reference_frame(payload), idle_columns=2)
     recorder = run(line)
     assert recorder.violations == []
-    assert [frame.payload for frame in recorder.frames] == payloads
+    assert [frame.mac_octets for frame in recorder.frames] == payloads
     for frame in recorder.frames:
         # Start replaces the first of the seven preamble octets
         assert frame.preamble_octets == 7
@@ -66,7 +66,7 @@ def test_terminate_on_every_lane(lanes: int) -> None:
 def test_batches_split_columns_anywhere(batch: int) -> None:
     line = XgmiiLine(lanes=8)
     for seed in range(3):
-        line.frame(reference_frame(ethernet_payload(100 + seed, seed)))
+        line.frame(reference_frame(ethernet_mac_octets(100 + seed, seed)))
     recorder = run(line, batch=batch)
     assert len(recorder.frames) == 3
     assert recorder.violations == []
@@ -74,16 +74,16 @@ def test_batches_split_columns_anywhere(batch: int) -> None:
 
 def test_ifg_counts_terminate_and_idles() -> None:
     line = XgmiiLine(lanes=4)
-    line.frame(reference_frame(ethernet_payload(60)), idle_columns=2)
-    line.frame(reference_frame(ethernet_payload(60)), idle_columns=0)
+    line.frame(reference_frame(ethernet_mac_octets(60)), idle_columns=2)
+    line.frame(reference_frame(ethernet_mac_octets(60)), idle_columns=0)
     recorder = run(line)
     # 1 + 7 + 64 = 72 octets end on lane 3 of a column: T and 3 idles fill the next one
     first_gap, second_gap = recorder.frames[1].ifg_octets, 4
     assert first_gap == 4 + 8
     assert recorder.frames[1].ifg_fs == 12 * XGMII_10G_OCTET_FS
     line = XgmiiLine(lanes=4)
-    line.frame(reference_frame(ethernet_payload(60)), idle_columns=0)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)), idle_columns=0)
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     recorder = run(line)
     assert recorder.frames[1].ifg_octets == second_gap
     assert recorder.checks() == [CheckId.IFG]
@@ -91,7 +91,7 @@ def test_ifg_counts_terminate_and_idles() -> None:
 
 def test_error_character_in_frame() -> None:
     line = XgmiiLine()
-    line.frame(reference_frame(ethernet_payload(60)), error_offsets=(20,))
+    line.frame(reference_frame(ethernet_mac_octets(60)), error_offsets=(20,))
     recorder = run(line)
     assert CheckId.PHY_ERROR in recorder.checks()
     assert CheckId.FCS in recorder.checks()
@@ -110,7 +110,7 @@ def test_start_on_wrong_lane() -> None:
     line = XgmiiLine()
     line.control(XGMII_IDLE)
     line.control(XGMII_START)
-    line.data(b"\x55" * 6 + b"\xd5" + reference_frame(ethernet_payload(60)))
+    line.data(b"\x55" * 6 + b"\xd5" + reference_frame(ethernet_mac_octets(60)))
     line.control(XGMII_TERMINATE)
     line.fill_column()
     recorder = run(line)
@@ -124,7 +124,7 @@ def test_lane4_start_when_allowed() -> None:
     for _ in range(4):
         line.control(XGMII_IDLE)
     line.control(XGMII_START)
-    line.data(b"\x55" * 6 + b"\xd5" + reference_frame(ethernet_payload(60)))
+    line.data(b"\x55" * 6 + b"\xd5" + reference_frame(ethernet_mac_octets(60)))
     line.control(XGMII_TERMINATE)
     line.fill_column()
     assert run(line, allow_lane4_start=True).violations == []
@@ -133,7 +133,7 @@ def test_lane4_start_when_allowed() -> None:
 
 def test_missing_terminate() -> None:
     line = XgmiiLine()
-    line.frame(reference_frame(ethernet_payload(60)), terminate=False)
+    line.frame(reference_frame(ethernet_mac_octets(60)), terminate=False)
     recorder = run(line)
     assert recorder.checks() == [CheckId.TERMINATION]
     assert len(recorder.frames) == 1
@@ -144,7 +144,7 @@ def test_start_inside_frame() -> None:
     line.control(XGMII_START)
     line.data(b"\x55" * 6 + b"\xd5" + bytes(9))
     line.fill_column()
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     recorder = run(line)
     assert recorder.checks()[0] == CheckId.TERMINATION
     assert recorder.frames[-1].is_good
@@ -197,9 +197,9 @@ def test_reserved_ordered_set_and_wrong_lane() -> None:
 def test_metavalue_in_frame() -> None:
     line = XgmiiLine()
     line.control(XGMII_START)
-    line.data(b"\x55" * 6 + b"\xd5" + reference_frame(ethernet_payload(60))[:10])
+    line.data(b"\x55" * 6 + b"\xd5" + reference_frame(ethernet_mac_octets(60))[:10])
     line.lane_word(0x00 | (1 << 10))
-    line.data(reference_frame(ethernet_payload(60))[11:])
+    line.data(reference_frame(ethernet_mac_octets(60))[11:])
     line.control(XGMII_TERMINATE)
     line.fill_column()
     recorder = run(line)
@@ -210,7 +210,7 @@ def test_metavalue_in_frame() -> None:
 def test_encoder_alignment_and_round_trip(lanes: int) -> None:
     phy = XgmiiPhy(lanes=lanes)
     words: list[int] = []
-    payloads = [ethernet_payload(60 + seed, seed) for seed in range(20)]
+    payloads = [ethernet_mac_octets(60 + seed, seed) for seed in range(20)]
     for payload in payloads:
         symbols = phy.encode(build_wire_frame(payload, ifg_octets=12))
         assert symbols.size % lanes == 0
@@ -220,7 +220,7 @@ def test_encoder_alignment_and_round_trip(lanes: int) -> None:
     recorder = Recorder(lanes)
     recorder.feed(words, times)
     assert recorder.violations == []
-    assert [frame.payload for frame in recorder.frames] == [reference_frame(p)[:-4] for p in payloads]
+    assert [frame.mac_octets for frame in recorder.frames] == [reference_frame(p)[:-4] for p in payloads]
     gaps = [frame.ifg_octets for frame in recorder.frames[1:]]
     assert all(gap is not None and 12 - (lanes - 1) <= gap <= 12 + lanes - 1 for gap in gaps)
     # The deficit keeps the average close to the requested gap
@@ -228,7 +228,7 @@ def test_encoder_alignment_and_round_trip(lanes: int) -> None:
 
 
 def test_encoder_matches_hand_built_columns() -> None:
-    frame = reference_frame(ethernet_payload(60))
+    frame = reference_frame(ethernet_mac_octets(60))
     line = XgmiiLine(lanes=4)
     line.frame(frame, idle_columns=2)
     phy = XgmiiPhy(lanes=4, deficit_idle=False)

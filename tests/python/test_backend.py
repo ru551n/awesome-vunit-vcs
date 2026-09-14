@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from helpers import GmiiLine, ethernet_payload, reference_frame
+from helpers import GmiiLine, ethernet_mac_octets, reference_frame
 
 from awesome_vunit_vcs.common.reports import Severity, decode_reports
 from awesome_vunit_vcs.common.vunit_bridge import encode_samples, split_time
@@ -18,8 +18,8 @@ def test_monitor_backend_reports_violations_as_errors() -> None:
     backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
     line = GmiiLine(time_fs=5 << 40)
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)))
-    line.frame(reference_frame(ethernet_payload(60), bad_fcs=True))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60), bad_fcs=True))
     assert push_line(backend, line) == 1
     reports = decode_reports(backend.take_reports())
     assert [report.severity for report in reports] == [Severity.ERROR]
@@ -28,7 +28,7 @@ def test_monitor_backend_reports_violations_as_errors() -> None:
     assert backend.frame_count() == 2
     assert backend.good_frame_count() == 1
     assert backend.check_count("ETH_FCS") == 1
-    assert backend.last_payload_hex() == ethernet_payload(60).hex()
+    assert backend.last_mac_octets_hex() == ethernet_mac_octets(60).hex()
 
 
 def test_disabled_check_and_unknown_check() -> None:
@@ -36,7 +36,7 @@ def test_disabled_check_and_unknown_check() -> None:
     backend.set_check_enabled("ETH_FCS", False)
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60), bad_fcs=True))
+    line.frame(reference_frame(ethernet_mac_octets(60), bad_fcs=True))
     assert push_line(backend, line) == 0
     with pytest.raises(ValueError, match="Unknown Ethernet check"):
         backend.set_check_enabled("ETH_BOGUS", False)
@@ -59,7 +59,7 @@ def test_broken_subscriber_becomes_a_failure_report() -> None:
     backend.monitor.frames.subscribe(broken)
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     assert push_line(backend, line) == 1
     report = decode_reports(backend.take_reports())[0]
     assert report.severity is Severity.FAILURE
@@ -71,7 +71,7 @@ def test_frame_logging() -> None:
     backend = MonitorBackend("m", "gmii", log_frames=True)
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     push_line(backend, line)
     report = decode_reports(backend.take_reports())[0]
     assert report.severity is Severity.DEBUG
@@ -82,7 +82,7 @@ def test_independent_backends_do_not_share_state() -> None:
     first, second = MonitorBackend("a", "gmii"), MonitorBackend("b", "gmii")
     line = GmiiLine()
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     push_line(first, line)
     assert first.frame_count() == 1
     assert second.frame_count() == 0
@@ -90,7 +90,7 @@ def test_independent_backends_do_not_share_state() -> None:
 
 def test_source_backend_from_vhdl_vector() -> None:
     backend = SourceBackend("s", "gmii")
-    payload = b"\x00\x01" + ethernet_payload(58)[2:]
+    payload = b"\x00\x01" + ethernet_mac_octets(58)[2:]
     frame_id = backend.queue_unsigned(int.from_bytes(payload, "big"), len(payload), fcs="bad", ifg_octets=3)
     symbols = backend.take_symbols(frame_id)
     octets = bytes(int(word) & 0xFF for word in symbols[:-3])
@@ -103,12 +103,12 @@ def test_unknown_interface() -> None:
         MonitorBackend("m", "xaui")
 
 
-def test_monitor_backend_scoreboard_compares_payloads() -> None:
+def test_monitor_backend_scoreboard_compares_mac_octets() -> None:
     backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
-    first, second = ethernet_payload(60), ethernet_payload(80)
-    backend.expect_payload(list(first))
-    backend.expect_payload(list(first))
-    backend.expect_payload(list(second))
+    first, second = ethernet_mac_octets(60), ethernet_mac_octets(80)
+    backend.expect_mac_octets(list(first))
+    backend.expect_mac_octets(list(first))
+    backend.expect_mac_octets(list(second))
     line = GmiiLine(time_fs=1 << 40)
     line.idle(1)
     line.frame(reference_frame(first))
@@ -129,8 +129,8 @@ def test_monitor_backend_statistics_values_are_vhdl_integers() -> None:
     assert backend.statistics_values()[-4:] == [-1, -1, -1, -1]
     line = GmiiLine(time_fs=0)
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)))
-    line.frame(reference_frame(ethernet_payload(60), bad_fcs=True))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60), bad_fcs=True))
     push_line(backend, line)
     values = dict(zip(STATISTICS_FIELDS, backend.statistics_values(), strict=True))
     assert values["total_frames"] == 2
@@ -144,7 +144,7 @@ def test_monitor_backend_accepts_a_delta_unit() -> None:
     backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
     line = GmiiLine(time_fs=0)
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_mac_octets(60)))
     line.idle(1)
     samples = encode_samples(line.words, line.times, 0, delta_unit_fs=1000)
     assert backend.push(samples, 0, 0, 1000) == 0
@@ -153,7 +153,7 @@ def test_monitor_backend_accepts_a_delta_unit() -> None:
 
 def test_source_backend_symbols_carry_the_options() -> None:
     backend = SourceBackend("tb:gmii_source_0", "gmii")
-    data = list(ethernet_payload(60))
+    data = list(ethernet_mac_octets(60))
     # Offset -3 is the third octet before the first octet after the SFD: wire octet 3 of 5 + 1
     symbols = backend.symbols(data, [-3], fcs="bad", preamble_octets=5, ifg_octets=2)
     assert symbols.dtype == np.int32
@@ -165,8 +165,8 @@ def test_source_backend_symbols_carry_the_options() -> None:
 
 def test_monitor_backend_scoreboard_accepts_transmitter_padding() -> None:
     backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
-    short = ethernet_payload(20)
-    backend.expect_payload(list(short))
+    short = ethernet_mac_octets(20)
+    backend.expect_mac_octets(list(short))
     line = GmiiLine(time_fs=0)
     line.idle(1)
     line.frame(reference_frame(short))
@@ -177,8 +177,8 @@ def test_monitor_backend_scoreboard_accepts_transmitter_padding() -> None:
 
 def test_monitor_backend_scoreboard_rejects_nonzero_padding() -> None:
     backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
-    short = ethernet_payload(20)
-    backend.expect_payload(list(short))
+    short = ethernet_mac_octets(20)
+    backend.expect_mac_octets(list(short))
     line = GmiiLine(time_fs=0)
     line.idle(1)
     line.frame(reference_frame(short + b"\x01"))
@@ -189,11 +189,11 @@ def test_monitor_backend_scoreboard_rejects_nonzero_padding() -> None:
 
 def test_monitor_backend_scoreboard_is_a_check() -> None:
     backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
-    backend.expect_payload(list(ethernet_payload(60, seed=1)))
-    backend.expect_payload(list(ethernet_payload(60, seed=2)))
+    backend.expect_mac_octets(list(ethernet_mac_octets(60, seed=1)))
+    backend.expect_mac_octets(list(ethernet_mac_octets(60, seed=2)))
     line = GmiiLine(time_fs=0)
     line.idle(1)
-    line.frame(reference_frame(ethernet_payload(60, seed=3)))
+    line.frame(reference_frame(ethernet_mac_octets(60, seed=3)))
     assert push_line(backend, line) == 1
     assert backend.check_count("ETH_SCOREBOARD") == 1
     backend.take_reports()

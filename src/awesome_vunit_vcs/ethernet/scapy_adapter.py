@@ -22,7 +22,7 @@ def _ether() -> Any:
 
 def to_scapy(frame: EthernetFrame | MacFrame | bytes) -> Any:
     """Decode a frame (without FCS) into a Scapy ``Ether`` packet."""
-    data = frame.payload if isinstance(frame, EthernetFrame | MacFrame) else bytes(frame)
+    data = frame.mac_octets if isinstance(frame, EthernetFrame | MacFrame) else bytes(frame)
     return _ether()(data)
 
 

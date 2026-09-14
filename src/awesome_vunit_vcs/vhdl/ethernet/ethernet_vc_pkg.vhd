@@ -157,7 +157,7 @@ package body ethernet_vc_pkg is
       log(get_logger(monitor), backend_string(session, "statistics_summary()"), level);
 
     elsif msg_type = ethernet_expect_frame_msg then
-      call("vc.expect_payload", arg(to_octets(pop_std_ulogic_vector(request_msg))), session => session);
+      call("vc.expect_mac_octets", arg(to_octets(pop_std_ulogic_vector(request_msg))), session => session);
 
     elsif msg_type = ethernet_start_capture_msg then
       start_capture;

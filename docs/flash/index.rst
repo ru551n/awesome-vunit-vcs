@@ -13,6 +13,8 @@ components (VCs):
 * :doc:`qspi_protocol_checker`, the ``qspi_protocol_checker`` entity: a passive checker of the pin
   timing the master on a QSPI bus must meet.
 
+.. _flash-quick-start:
+
 Quick start
 -----------
 
@@ -114,79 +116,82 @@ backend``. Give every flash its own id, or leave the ids out.
 Checks
 ------
 
-Errors a VC detects are check failures on its checker; everything else is a failure on its logger. By
-default the first error stops the simulation, as any VUnit check failure does.
+A protocol checker runs the pin timing checks, all enabled by default, with the minimum times given to
+:vhdl:`new_qspi_protocol_checker <qspi_protocol_checker_pkg.new_qspi_protocol_checker>`. A violation's
+message starts with the check ID in upper case, such as ``QSPI_CS_DESELECT``. Errors a VC detects are
+check failures on its checker; everything else is a failure on its logger. By default the first error
+stops the simulation, as any VUnit check failure does.
 
 .. list-table::
    :header-rows: 1
-   :widths: 22 12 22 44
+   :widths: 20 45 20 15
 
    * - Check
-     - Datasheet
+     - Violation
+     - Configured by
      - Reported by
-     - Trigger
-   * - ``QSPI_SCK_PERIOD``
-     - 1/fC
+   * - ``qspi_sck_period``
+     - SCK rising edge to the next rising edge too short (1/fC)
+     - ``t_sck_min``
      - ``qspi_protocol_checker``
-     - SCK rising edge to the next rising edge shorter than ``t_sck_min``
-   * - ``QSPI_SCK_HIGH``
-     - tCLH
+   * - ``qspi_sck_high``
+     - SCK rising edge to the next falling edge too short (tCLH)
+     - ``t_sck_high_min``
      - ``qspi_protocol_checker``
-     - SCK rising edge to the next falling edge shorter than ``t_sck_high_min``
-   * - ``QSPI_SCK_LOW``
-     - tCLL
+   * - ``qspi_sck_low``
+     - SCK falling edge to the next rising edge too short (tCLL)
+     - ``t_sck_low_min``
      - ``qspi_protocol_checker``
-     - SCK falling edge to the next rising edge shorter than ``t_sck_low_min``
-   * - ``QSPI_CS_SETUP``
-     - tSLCH
+   * - ``qspi_cs_setup``
+     - CS falling edge to the first SCK rising edge too short (tSLCH)
+     - ``t_slch``
      - ``qspi_protocol_checker``
-     - CS falling edge to the first SCK rising edge shorter than ``t_slch``
-   * - ``QSPI_CS_HOLD``
-     - tCHSH
+   * - ``qspi_cs_hold``
+     - Last SCK edge to the CS rising edge too short (tCHSH)
+     - ``t_chsh``
      - ``qspi_protocol_checker``
-     - Last SCK edge to the CS rising edge shorter than ``t_chsh``
-   * - ``QSPI_CS_DESELECT``
-     - tSHSL
+   * - ``qspi_cs_deselect``
+     - CS high time between two commands too short (tSHSL)
+     - ``t_shsl``
      - ``qspi_protocol_checker``
-     - CS high time between two commands shorter than ``t_shsl``
-   * - ``QSPI_DATA_SETUP``
-     - tDVCH
+   * - ``qspi_data_setup``
+     - Last change of a lane the master drives to the SCK rising edge too short (tDVCH)
+     - ``t_dvch``
      - ``qspi_protocol_checker``
-     - Last change of a lane the master drives to the SCK rising edge shorter than ``t_dvch``
-   * - ``QSPI_DATA_HOLD``
-     - tCHDX
+   * - ``qspi_data_hold``
+     - SCK rising edge to a change or release of a lane the master drove at it too short (tCHDX)
+     - ``t_chdx``
      - ``qspi_protocol_checker``
-     - SCK rising edge to a change or release of a lane the master drove at it shorter than ``t_chdx``
    * - Metavalue on sampled lanes
+     - ``U``, ``X``, ``Z``, ``W`` or ``-`` on a lane the flash samples for data in
      -
      - ``flash``
-     - ``U``, ``X``, ``Z``, ``W`` or ``-`` on a lane the flash samples for data in
    * - Metavalue on read lanes
+     - A metavalue on a lane the master samples in a read phase
      -
      - ``qspi_master``
-     - A metavalue on a lane the master samples in a read phase
    * - Content mismatch
-     -
-     - ``flash``
      - ``flash_check_content`` or ``flash_check_content_fill`` finds a byte that differs
-   * - Directive layout
      -
      - ``flash``
+   * - Directive layout
      - The Python backend has another directive layout version than ``flash_pkg``, at time 0
+     -
+     - ``flash``
    * - Backend failure
+     - A request the model cannot carry out: an invalid configuration, a range outside the device, a value
+       that is not a byte, an unknown timing or stat name, an image that cannot be read
      -
      - ``flash``, on its logger
-     - A request the model cannot carry out: an invalid configuration, a range outside the device, a
-       value that is not a byte, an unknown timing or stat name, an image that cannot be read
    * - Duplicate id
+     - A second flash with the id of another, which would share its Python backend, at elaboration
      -
      - ``flash``, on its logger
-     - A second flash with the id of another, which would share its Python backend, at elaboration
    * - Unexpected message
-     -
+     - A message of an unknown type with the ``fail`` policy (the default) is a check failure,
+       ``Got unexpected message <type>``; ``ignore`` drops it silently
+     - ``unexpected_msg_type_policy``
      - All three
-     - A message of an unknown type with ``unexpected_msg_type_policy => fail`` (the default) is a
-       check failure, ``Got unexpected message <type>``; ``ignore`` drops it silently
 
 Commands a real part refuses silently, such as a program without write enable, are not errors: the
 flash counts them instead, see :ref:`flash-statistics`.

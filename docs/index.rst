@@ -32,6 +32,10 @@ Status
      - 2.5G to 400G
      - Done
      - ``xgmii_source``, ``xgmii_monitor``, ``xgmii_protocol_checker``
+   * - QSPI NOR flash
+     - x1, x2, x4 lanes
+     - Done
+     - ``flash``, ``qspi_master``, ``qspi_protocol_checker``
    * - RGMII, RMII, AXI-Stream MAC client
      -
      - Planned

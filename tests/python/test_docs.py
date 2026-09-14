@@ -187,11 +187,7 @@ _PYTHON_BYTE = re.compile(r"\bbyte\b|\d[\d_,]*[\s-]+bytes\b")
 _CODE_SPAN = re.compile(r"``.*?``", re.DOTALL)
 #: The Ethernet pages outside ``docs/ethernet``, by name
 _ETHERNET_PAGES = (
-    "gmii.rst",
-    "notes-gmii.md",
-    "notes-mii.md",
-    "notes-xgmii.md",
-    "vhdl_api.rst",
+    "getting_started/quickstart.rst",
     "reference/vhdl/ethernet.rst",
 )
 _ETHERNET_SUFFIXES = {".md", ".py", ".rst", ".vhd"}
@@ -199,8 +195,8 @@ _ETHERNET_SUFFIXES = {".md", ".py", ".rst", ".vhd"}
 
 def _ethernet_material(repo: Path) -> list[Path]:
     """
-    The documentation and sources of the Ethernet family: ``docs/ethernet``, the Ethernet pages that are
-    not there yet, and the Python and VHDL sources of the family.
+    The documentation and sources of the Ethernet family: ``docs/ethernet``, the Ethernet pages outside
+    it, and the Python and VHDL sources of the family.
     """
     docs = repo / "docs"
     package = repo / "src" / "awesome_vunit_vcs"
@@ -235,8 +231,8 @@ def _write(path: Path, text: str) -> None:
 def test_the_octet_guardrail_checks_ethernet_material(tmp_path: Path) -> None:
     package = tmp_path / "src" / "awesome_vunit_vcs"
     _write(tmp_path / "docs" / "ethernet" / "checks.rst", "A frame of 64 bytes.\n")
-    _write(tmp_path / "docs" / "gmii.rst", "One byte per clock cycle.\n")
-    _write(tmp_path / "docs" / "notes-mii.md", "Frames are counted in octets.\n")
+    _write(tmp_path / "docs" / "getting_started" / "quickstart.rst", "One byte per clock cycle.\n")
+    _write(tmp_path / "docs" / "ethernet" / "notes-mii.md", "Frames are counted in octets.\n")
     _write(package / "vhdl" / "ethernet" / "gmii_pkg.vhd", "-- A preamble of 7 bytes\n")
     _write(package / "ethernet" / "frame.py", '"""A 4-byte FCS."""\n\n\ndef fcs(data: bytes) -> bytes: ...\n')
     _write(
@@ -244,7 +240,7 @@ def test_the_octet_guardrail_checks_ethernet_material(tmp_path: Path) -> None:
     )
     assert set(_octet_offenders(tmp_path)) == {
         "docs/ethernet/checks.rst",
-        "docs/gmii.rst",
+        "docs/getting_started/quickstart.rst",
         "src/awesome_vunit_vcs/vhdl/ethernet/gmii_pkg.vhd",
         "src/awesome_vunit_vcs/ethernet/frame.py",
     }

@@ -12,8 +12,14 @@ signed words laid out as ``[word_0, dt_0, word_1, dt_1, ...]``:
 
 * ``word_i`` is the interface specific sample word (see the PHY modules)
 * ``dt_i`` is the time of sample ``i`` minus the time of sample ``i - 1`` in
-  femtoseconds, with sample ``-1`` being the batch base time. VHDL starts a new
-  batch before a delta would exceed 32 bits.
+  delta units, with sample ``-1`` being the batch base time. The delta unit is
+  chosen by the VC (1 ps by default: 32 bits then span 2.1 ms, which covers
+  the 400 ns symbol period of 10 Mbit/s MII) and sent with the batch. VHDL
+  starts a new batch before a delta would exceed 32 bits.
+
+Several words may share one time: a PHY whose sample does not fit one word
+(XGMII: 4 or 8 lanes of octet + control bit) records one word per lane, the
+lanes after the first with a delta of 0.
 
 The base time is given as two integers since VHDL integers are 32 bits in
 several simulators: ``base = hi * 2**30 + lo``.
@@ -45,7 +51,7 @@ def split_time(time_fs: int) -> tuple[int, int]:
     return time_fs >> TIME_SPLIT_BITS, time_fs & ((1 << TIME_SPLIT_BITS) - 1)
 
 
-def decode_samples(samples: Any, base_fs: int) -> tuple[Int64Array, Int64Array]:
+def decode_samples(samples: Any, base_fs: int, delta_unit_fs: int = 1) -> tuple[Int64Array, Int64Array]:
     """
     Decode a sample batch into (words, absolute times in fs).
 
@@ -59,15 +65,22 @@ def decode_samples(samples: Any, base_fs: int) -> tuple[Int64Array, Int64Array]:
     deltas = flat[1::2]
     if deltas.size and int(deltas.min()) < 0:
         raise ValueError("A sample batch has a negative time delta")
-    times = base_fs + np.cumsum(deltas, dtype=np.int64)
+    if delta_unit_fs < 1:
+        raise ValueError(f"The delta unit must be at least 1 fs, got {delta_unit_fs}")
+    times = base_fs + np.cumsum(deltas, dtype=np.int64) * delta_unit_fs
     return words, times
 
 
-def encode_samples(words: npt.ArrayLike, times: npt.ArrayLike, base_fs: int) -> npt.NDArray[np.int32]:
+def encode_samples(
+    words: npt.ArrayLike, times: npt.ArrayLike, base_fs: int, delta_unit_fs: int = 1
+) -> npt.NDArray[np.int32]:
     """Inverse of :func:`decode_samples`, used by tests and benchmarks."""
     word_array = np.asarray(words, dtype=np.int64)
     time_array = np.asarray(times, dtype=np.int64)
     deltas = np.diff(time_array, prepend=np.int64(base_fs))
+    if bool((deltas % delta_unit_fs).any()):
+        raise ValueError(f"Sample times are not multiples of the delta unit {delta_unit_fs} fs")
+    deltas //= delta_unit_fs
     out = np.empty(2 * word_array.size, dtype=np.int32)
     out[0::2] = word_array
     out[1::2] = deltas

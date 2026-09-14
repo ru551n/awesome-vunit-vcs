@@ -21,7 +21,7 @@ from .checker import ProtocolChecker
 from .frame import EthernetConfig, EthernetFrame, FrameDecoder
 from .metrics import PerformanceMonitor
 from .pcap import CaptureOptions, PcapNgWriter
-from .phy.common import FrameAssembler, IdleEvent, Int64Array, PhyFrame, PhyInterface
+from .phy.common import FrameAssembler, IdleEvent, Int64Array, PhyEvent, PhyFrame, PhyInterface
 
 
 class EthernetMonitor:
@@ -39,6 +39,8 @@ class EthernetMonitor:
         self.config = config or EthernetConfig()
         self.frames: Publisher[EthernetFrame] = Publisher(on_subscriber_error)
         self.idle_events: Publisher[IdleEvent] = Publisher(on_subscriber_error)
+        #: Events of PHY decoders that signal with control characters (XGMII)
+        self.phy_events: Publisher[PhyEvent] = Publisher(on_subscriber_error)
         self.checker = ProtocolChecker(self.config)
         self.statistics = PerformanceMonitor(phy.link_rate_bps)
         #: The most recent frames, oldest first
@@ -53,10 +55,16 @@ class EthernetMonitor:
         self.frames.subscribe(self.statistics.on_frame)
         self.idle_events.subscribe(self.checker.on_idle_event)
         self.idle_events.subscribe(self.statistics.on_idle_event)
+        self.phy_events.subscribe(self.checker.on_phy_event)
 
     def feed(self, words: Int64Array, times: Int64Array) -> None:
         """Process sample words with their times in fs."""
-        for item in self._assembler.feed(self.phy.decode(words, times)):
+        batch = self.phy.decode(words, times)
+        # A batch is at most a few frames, so publishing its PHY events first
+        # keeps them close enough to the frames they occurred around
+        for event in batch.events:
+            self.phy_events.publish(event)
+        for item in self._assembler.feed(batch):
             if isinstance(item, PhyFrame):
                 self.frame_count += 1
                 self.frames.publish(self._decoder.decode(item))

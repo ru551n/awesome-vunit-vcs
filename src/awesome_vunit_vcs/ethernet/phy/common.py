@@ -38,11 +38,29 @@ Int32Array = npt.NDArray[np.int32]
 
 
 @dataclass(slots=True, frozen=True)
+class PhyEvent:
+    """
+    Something a PHY decoder found that the octet words cannot express.
+
+    Interfaces that signal with control characters rather than valid/error
+    pins (XGMII: Start not on lane 0, a missing Terminate, an unknown control
+    character, a local/remote fault ordered set) report it this way. ``check``
+    names a :class:`~awesome_vunit_vcs.ethernet.checker.CheckId`.
+    """
+
+    timestamp_fs: int
+    check: str
+    message: str
+    details: tuple[str, ...] = ()
+
+
+@dataclass(slots=True, frozen=True)
 class OctetBatch:
-    """Octet words and the time of each octet in fs."""
+    """Octet words, the time of each octet in fs, and PHY events found while decoding."""
 
     words: Int64Array
     times: Int64Array
+    events: tuple[PhyEvent, ...] = ()
 
 
 @dataclass(slots=True, frozen=True)

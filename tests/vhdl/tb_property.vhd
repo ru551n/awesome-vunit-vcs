@@ -183,6 +183,14 @@ begin
         check_equal(get_outcome(prop), "aborted");
         check(get_counterexample(prop) /= "", "The smallest failing example is kept");
 
+      elsif run("test_scores_reach_hypothesis") then
+        prop := new_test_property("payloads");
+        while next_example(prop) loop
+          report_score(prop, "length", real(get_length(prop)));
+          report_example(prop, passed => true);
+        end loop;
+        check_property(prop);
+
       elsif run("test_composite_fields") then
         prop := new_test_property("composite");
         while next_example(prop) loop

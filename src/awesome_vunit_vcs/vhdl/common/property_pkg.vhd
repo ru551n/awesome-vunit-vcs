@@ -131,6 +131,11 @@ package property_pkg is
     msg : string := ""
   );
 
+  -- Report a score of the current example before its verdict. Hypothesis steers
+  -- the generation towards examples with higher scores for each ``name``
+  -- (``hypothesis.target``); report each name at most once per example.
+  procedure report_score(prop : property_t; name : string; value : real);
+
   -- ``running``, then ``passed``, ``failed``, ``flaky``, ``aborted`` or ``error``.
   impure function get_outcome(prop : property_t) return string;
   -- The number of examples run, shrinking included.
@@ -270,6 +275,11 @@ package body property_pkg is
       prop.p_session,
       "report(" & py_bool(passed) & ", timed_out=" & py_bool(timed_out) & ", recovered=" & py_bool(recovered) &
       ", message=" & py_str(msg) & ")");
+  end;
+
+  procedure report_score(prop : property_t; name : string; value : real) is
+  begin
+    backend_exec(prop.p_session, "score(" & py_str(name) & ", " & real'image(value) & ")");
   end;
 
   impure function get_outcome(prop : property_t) return string is

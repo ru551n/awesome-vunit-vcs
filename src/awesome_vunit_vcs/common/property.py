@@ -130,7 +130,7 @@ class PropertyRunner:
         user_strategy = _load_strategy(strategy, arguments)
 
         self._examples: queue.Queue[tuple[str, Any]] = queue.Queue()
-        self._verdicts: queue.Queue[tuple[str, str]] = queue.Queue()
+        self._verdicts: queue.Queue[tuple[str, str, float]] = queue.Queue()
         self._timeout_s = timeout_s
         self._seed = seed
         self._journal, self._failures_file = _files(output_path, name)
@@ -145,19 +145,10 @@ class PropertyRunner:
         self.detail = ""
         """What Hypothesis reported when the property ended."""
 
+        # The driver: a @given test whose body runs each drawn example in VHDL. Other
+        # drivers, such as a stateful rule machine, call run_example the same way.
         def body(example: Any) -> None:
-            self._write_journal(example)
-            self._examples.put(("example", example))
-            kind, message = self._verdicts.get()
-            if kind == "passed":
-                return
-            self._failures.append((kind, repr(example), message))
-            self._save_failure(repr(example))
-            if kind == "timeout":
-                raise ExampleTimeout(message)
-            if kind == "abort":
-                raise PropertyAborted(message)
-            raise ExampleFailed(message)
+            self.run_example(example)
 
         test: Any = hypothesis.given(user_strategy)(body)  # type: ignore[no-untyped-call]
         for value in self._saved_failures():
@@ -233,7 +224,45 @@ class PropertyRunner:
             kind = "timeout"
         else:
             kind = "failed"
-        self._verdicts.put((kind, message))
+        self._verdicts.put((kind, message, 0.0))
+
+    def score(self, label: str, value: float) -> None:
+        """
+        Report a score of the current example, forwarded to :func:`hypothesis.target`.
+
+        Hypothesis steers generation towards examples with higher scores. Report
+        each label at most once per example, before :meth:`report`.
+        """
+        if not self._has_current:
+            raise PropertyError("report_score was called without a current example")
+        self._verdicts.put(("score", label, float(value)))
+
+    # Called in the Hypothesis thread
+    def run_example(self, example: Any) -> None:
+        """
+        Run one example in VHDL: hand it over, wait for the verdict and raise on a failure.
+
+        This is the step every driver uses; the ``@given`` driver calls it for each
+        drawn example. It must run inside a Hypothesis test, in the driver thread.
+        """
+        self._write_journal(example)
+        self._examples.put(("example", example))
+        while True:
+            kind, message, value = self._verdicts.get()
+            if kind != "score":
+                break
+            import hypothesis
+
+            hypothesis.target(value, label=message)
+        if kind == "passed":
+            return
+        self._failures.append((kind, repr(example), message))
+        self._save_failure(repr(example))
+        if kind == "timeout":
+            raise ExampleTimeout(message)
+        if kind == "abort":
+            raise PropertyAborted(message)
+        raise ExampleFailed(message)
 
     # Field access. A path names a value inside the example: fields of dicts,
     # dataclasses and named tuples by name, items of lists, tuples and bytes by a

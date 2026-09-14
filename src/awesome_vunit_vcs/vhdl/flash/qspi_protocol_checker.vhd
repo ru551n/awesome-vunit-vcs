@@ -149,9 +149,11 @@ begin
     variable have_cs_rise : boolean := false;
     -- The next SCK rising edge is the first of the command, the end of t_slch
     variable awaiting_first_sck : boolean := false;
-    -- The last SCK edge within the command, the start of t_chsh
-    variable sck_edge_time : time := 0 fs;
-    variable have_sck_edge : boolean := false;
+    -- The last SCK rising edge within the command, the start of t_chsh. A
+    -- datasheet measures tCHSH from the rising edge, not from the falling
+    -- edge that follows it in SPI mode 0.
+    variable sck_rise_time : time := 0 fs;
+    variable have_sck_rise : boolean := false;
 
     -- The last change of each IO lane, its value or whether the master drives
     -- it, and the lanes the master drove at the last sampling edge. A lane
@@ -173,7 +175,7 @@ begin
         have_fall := false;
         have_cs_rise := false;
         awaiting_first_sck := false;
-        have_sck_edge := false;
+        have_sck_rise := false;
         lane_change_time := (others => 0 fs);
         sampled_lanes := (others => '0');
         last_drive := m2s.io;
@@ -206,25 +208,26 @@ begin
         cs_fall_time := now;
         awaiting_first_sck := true;
         -- The edges of the previous command say nothing about this one
-        have_sck_edge := false;
+        have_sck_rise := false;
         sampled_lanes := (others => '0');
       elsif rising_edge(m2s.cs_n) then
-        if have_sck_edge then
-          check_min(now - sck_edge_time, qspi_cs_hold, "last SCK edge to CS high");
+        if have_sck_rise then
+          check_min(now - sck_rise_time, qspi_cs_hold, "last SCK rising edge to CS high");
         end if;
         cs_rise_time := now;
         have_cs_rise := true;
       end if;
 
-      -- SCK edges while selected, after the CS branch so that an SCK edge at
-      -- the time CS falls belongs to the new command: t_slch
-      if m2s.cs_n = '0' and (rising_edge(m2s.sck) or falling_edge(m2s.sck)) then
-        if awaiting_first_sck and rising_edge(m2s.sck) then
+      -- SCK rising edges while selected, after the CS branch so that an edge
+      -- at the time CS falls belongs to the new command: t_slch ends at the
+      -- first rising edge and t_chsh starts at the last one
+      if m2s.cs_n = '0' and rising_edge(m2s.sck) then
+        if awaiting_first_sck then
           check_min(now - cs_fall_time, qspi_cs_setup, "CS low to the first SCK rising edge");
           awaiting_first_sck := false;
         end if;
-        sck_edge_time := now;
-        have_sck_edge := true;
+        sck_rise_time := now;
+        have_sck_rise := true;
       end if;
 
       -- Data in around the rising edge the device samples on: t_dvch, t_chdx.

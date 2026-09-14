@@ -38,7 +38,7 @@ package qspi_protocol_checker_pkg is
     qspi_sck_low,
     -- CS low to the first SCK rising edge, ``t_slch``
     qspi_cs_setup,
-    -- The last SCK edge to CS high, ``t_chsh``
+    -- The last SCK rising edge to CS high, ``t_chsh``
     qspi_cs_hold,
     -- CS high time between commands, ``t_shsl``
     qspi_cs_deselect,
@@ -106,7 +106,7 @@ package qspi_protocol_checker_pkg is
   -- * ``t_sck_min``, ``t_sck_high_min``, ``t_sck_low_min``: SCK period, high
   --   and low time
   -- * ``t_slch``: CS low to the first SCK rising edge
-  -- * ``t_chsh``: the last SCK edge to CS high
+  -- * ``t_chsh``: the last SCK rising edge to CS high
   -- * ``t_shsl``: CS high time between commands
   -- * ``t_dvch``, ``t_chdx``: setup and hold of the driven IO lanes around
   --   the SCK rising edge

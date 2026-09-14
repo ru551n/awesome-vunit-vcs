@@ -147,7 +147,7 @@ stops the simulation, as any VUnit check failure does.
      - ``t_slch``
      - ``qspi_protocol_checker``
    * - ``qspi_cs_hold``
-     - Last SCK edge to the CS rising edge too short (tCHSH)
+     - Last SCK rising edge to the CS rising edge too short (tCHSH)
      - ``t_chsh``
      - ``qspi_protocol_checker``
    * - ``qspi_cs_deselect``

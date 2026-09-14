@@ -194,10 +194,25 @@ begin
         check_one_error;
 
       elsif run("test_cs_hold_violation") then
+        -- The last rising edge is 3 ns + 1 ns before CS rises
         send_frame;
-        send_frame(chsh => 2 ns);
+        mock(get_logger(raw_checker), error);
+        send_frame(high => 3 ns, chsh => 1 ns);
+        check_only_log(
+          get_logger(raw_checker),
+          "QSPI_CS_HOLD: last SCK rising edge to CS high 4 ns is shorter than the 5 ns minimum",
+          error
+        );
+        unmock(get_logger(raw_checker));
         check_counts(raw_checker, qspi_cs_hold, 1);
-        check_one_error;
+        reset_log_count(get_logger(raw_checker), error);
+
+      elsif run("test_cs_hold_is_measured_from_the_last_rising_edge") then
+        -- SPI mode 0: the last rising edge is 10 ns + 2 ns before CS rises,
+        -- the falling edge after it only 2 ns
+        send_frame(chsh => 2 ns);
+        check_no_violations(raw_checker);
+        check_equal(get_log_count(get_logger(raw_checker), error), 0, "errors of a compliant CS hold");
 
       elsif run("test_cs_deselect_violation") then
         -- docs-start: protocol_checker_cs_deselect
@@ -236,12 +251,12 @@ begin
       elsif run("test_disabled_check_is_not_reported") then
         -- docs-start: protocol_checker_disable
         set_check_enabled(net, raw_checker, qspi_cs_hold, false);
-        send_frame(chsh => 2 ns);
+        send_frame(high => 3 ns, chsh => 1 ns);
         check_no_violations(raw_checker);
         check_equal(get_log_count(get_logger(raw_checker), error), 0, "errors of a disabled check");
 
         set_check_enabled(net, raw_checker, qspi_cs_hold, true);
-        send_frame(chsh => 2 ns);
+        send_frame(high => 3 ns, chsh => 1 ns);
         check_counts(raw_checker, qspi_cs_hold, 1);
         check_one_error;
         -- docs-end: protocol_checker_disable

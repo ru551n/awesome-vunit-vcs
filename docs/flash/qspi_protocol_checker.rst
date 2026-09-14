@@ -94,7 +94,7 @@ minimum times of a typical 133 MHz part. A limit of ``0 ns`` disables its rule.
    * - ``t_chsh``
      - ``delay_length``
      - 5 ns
-     - Last SCK edge to CS high, ``QSPI_CS_HOLD``
+     - Last SCK rising edge to CS high, ``QSPI_CS_HOLD``
    * - ``t_shsl``
      - ``delay_length``
      - 30 ns
@@ -183,8 +183,8 @@ Checks
      - CS falling edge to the first SCK rising edge of the command
      -
    * - ``QSPI_CS_HOLD``
-     - Last SCK edge, rising or falling, while CS is low, to the CS rising edge
-     - Not measured for a command without SCK edges
+     - Last SCK rising edge while CS is low to the CS rising edge
+     - Not measured for a command without SCK rising edges
    * - ``QSPI_CS_DESELECT``
      - CS rising edge to the next CS falling edge
      - Not measured before the first CS rising edge

@@ -30,6 +30,8 @@ def test_every_bridge_add_package_call_allows_setup() -> None:
     missing = []
     calls = 0
     for path in tracked_text_files():
+        if path == Path(__file__).resolve():
+            continue
         for match in BRIDGE_CALL.finditer(path.read_text(encoding="utf-8")):
             calls += 1
             if "allow_setup=True" not in match.group("rest").replace(" ", ""):

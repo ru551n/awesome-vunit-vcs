@@ -70,7 +70,6 @@ def test_vhdl_checks_are_the_python_check_ids() -> None:
     assert vhdl_checks == {check.value.upper() for check in CheckId}
 
 
-@pytest.mark.xfail(reason="The checks table arrives with the Ethernet user guide (docs WP2)", strict=False)
 def test_every_check_is_in_the_checks_table() -> None:
     from awesome_vunit_vcs.ethernet.checker import CheckId
 
@@ -93,7 +92,6 @@ def test_every_public_vhdl_declaration_has_a_doc_comment() -> None:
     assert not missing, "Undocumented: " + ", ".join(missing)
 
 
-@pytest.mark.xfail(reason="The status matrix arrives with the landing page (docs WP2)", strict=False)
 def test_every_entity_is_in_the_status_matrix() -> None:
     index = (DOCS / "index.rst").read_text(encoding="utf-8")
     entities = [

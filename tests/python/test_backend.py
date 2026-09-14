@@ -6,7 +6,7 @@ from helpers import GmiiLine, ethernet_payload, reference_frame
 
 from awesome_vunit_vcs.common.reports import Severity, decode_reports
 from awesome_vunit_vcs.common.vunit_bridge import encode_samples, split_time
-from awesome_vunit_vcs.ethernet.vunit_backend import MonitorBackend, SourceBackend
+from awesome_vunit_vcs.ethernet.vunit_backend import STATISTICS_FIELDS, MonitorBackend, SourceBackend
 
 
 def push_line(backend: MonitorBackend, line: GmiiLine) -> int:
@@ -101,3 +101,62 @@ def test_source_backend_from_vhdl_vector() -> None:
 def test_unknown_interface() -> None:
     with pytest.raises(ValueError, match="Unknown Ethernet interface"):
         MonitorBackend("m", "xaui")
+
+
+def test_monitor_backend_scoreboard_compares_payloads() -> None:
+    backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
+    first, second = ethernet_payload(60), ethernet_payload(80)
+    backend.expect_payload(list(first))
+    backend.expect_payload(list(first))
+    backend.expect_payload(list(second))
+    line = GmiiLine(time_fs=1 << 40)
+    line.idle(1)
+    line.frame(reference_frame(first))
+    line.frame(reference_frame(second))
+    assert push_line(backend, line) == 1
+    reports = decode_reports(backend.take_reports())
+    assert reports[0].message.splitlines()[:2] == [
+        "ETH_SCOREBOARD: frame 1 is not the expected frame",
+        "expected length=60 bytes",
+    ]
+    assert backend.expected_count() == 1
+    assert backend.finish() == 1
+    assert "1 expected frame(s) were not received" in backend.take_reports()
+
+
+def test_monitor_backend_statistics_values_are_vhdl_integers() -> None:
+    backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
+    assert backend.statistics_values()[-4:] == [-1, -1, -1, -1]
+    line = GmiiLine(time_fs=0)
+    line.idle(1)
+    line.frame(reference_frame(ethernet_payload(60)))
+    line.frame(reference_frame(ethernet_payload(60), bad_fcs=True))
+    push_line(backend, line)
+    values = dict(zip(STATISTICS_FIELDS, backend.statistics_values(), strict=True))
+    assert values["total_frames"] == 2
+    assert values["good_frames"] == 1
+    assert values["fcs_errors"] == 1
+    assert values["min_frame_octets"] == 64
+    assert all(isinstance(value, int) for value in values.values())
+
+
+def test_monitor_backend_accepts_a_delta_unit() -> None:
+    backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
+    line = GmiiLine(time_fs=0)
+    line.idle(1)
+    line.frame(reference_frame(ethernet_payload(60)))
+    line.idle(1)
+    samples = encode_samples(line.words, line.times, 0, delta_unit_fs=1000)
+    assert backend.push(samples, 0, 0, 1000) == 0
+    assert backend.good_frame_count() == 1
+
+
+def test_source_backend_symbols_carry_the_options() -> None:
+    backend = SourceBackend("tb:gmii_source_0", "gmii")
+    data = list(ethernet_payload(60))
+    symbols = backend.symbols(data, [3], fcs="bad", preamble_octets=5, ifg_octets=2)
+    assert symbols.dtype == np.int32
+    assert len(symbols) == 5 + 1 + 60 + 4 + 2
+    assert symbols[3] & 0x200
+    assert symbols[5] & 0xFF == 0xD5
+    assert not symbols[-1] & 0x100

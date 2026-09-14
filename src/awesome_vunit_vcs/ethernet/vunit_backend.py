@@ -12,8 +12,12 @@ from __future__ import annotations
 
 import os
 import traceback
-from collections.abc import Callable
+from collections import deque
+from collections.abc import Callable, Sequence
 from typing import Any
+
+import numpy as np
+import numpy.typing as npt
 
 from ..common.reports import ReportQueue, Severity, encode_reports
 from ..common.vunit_bridge import bytes_from_unsigned, decode_samples, join_time
@@ -25,11 +29,37 @@ from .pcap import CaptureOptions
 from .phy import create_phy
 from .source import EthernetSource, build_wire_frame
 
+#: Largest value a VHDL integer holds; statistics saturate at it
+VHDL_INTEGER_MAX = 2**31 - 1
+
+#: Order of the values returned by :meth:`MonitorBackend.statistics_values`,
+#: mirrored by the ``ethernet_statistics_t`` record in ethernet_pkg.vhd
+STATISTICS_FIELDS = (
+    "total_frames",
+    "good_frames",
+    "bad_frames",
+    "wire_octets",
+    "payload_octets",
+    "fcs_errors",
+    "phy_error_frames",
+    "runts",
+    "giants",
+    "min_frame_octets",
+    "max_frame_octets",
+    "min_ifg_octets",
+    "max_ifg_octets",
+)
+
 
 def _exception_summary(exc: BaseException) -> str:
     frames = traceback.extract_tb(exc.__traceback__)
     where = f" ({frames[-1].filename}:{frames[-1].lineno})" if frames else ""
     return f"{type(exc).__name__}: {exc}{where}"
+
+
+def _saturate(value: int | None) -> int:
+    """A statistic as a VHDL integer: -1 when there is no value."""
+    return -1 if value is None else min(value, VHDL_INTEGER_MAX)
 
 
 class MonitorBackend:
@@ -69,6 +99,8 @@ class MonitorBackend:
         )
         self.monitor.checker.violations.subscribe(self._violation)
         self.monitor.frames.subscribe(self._frame_logger)
+        self.monitor.frames.subscribe(self._compare_with_expected)
+        self._expected: deque[bytes] = deque()
         self._last_time_fs = 0
 
     # Events -> reports
@@ -93,11 +125,35 @@ class MonitorBackend:
             )
         self.reports.add(Severity.DEBUG, text)
 
+    def _compare_with_expected(self, frame: EthernetFrame) -> None:
+        if not self._expected:
+            return
+        expected = self._expected.popleft()
+        received = frame.payload
+        if received == expected:
+            return
+        mismatch = next(
+            (offset for offset, (a, b) in enumerate(zip(expected, received, strict=False)) if a != b),
+            min(len(expected), len(received)),
+        )
+        self.reports.add(
+            Severity.ERROR,
+            "\n".join(
+                [
+                    f"ETH_SCOREBOARD: frame {frame.index} is not the expected frame",
+                    f"expected length={len(expected)} bytes",
+                    f"received length={len(received)} bytes",
+                    f"first difference at offset {mismatch}",
+                    f"SFD time={frame.timestamp_sfd_fs} fs",
+                ]
+            ),
+        )
+
     # Called by VHDL
-    def push(self, samples: Any, base_hi: int, base_lo: int) -> int:
+    def push(self, samples: Any, base_hi: int, base_lo: int, delta_unit_fs: int = 1) -> int:
         """Process a sample batch. Returns the number of reports waiting to be fetched."""
         try:
-            words, times = decode_samples(samples, join_time(base_hi, base_lo))
+            words, times = decode_samples(samples, join_time(base_hi, base_lo), delta_unit_fs)
             if times.size:
                 self._last_time_fs = int(times[-1])
             self.monitor.feed(words, times)
@@ -123,8 +179,36 @@ class MonitorBackend:
     def good_frame_count(self) -> int:
         return self.statistics().good_frames
 
+    def expect_payload(self, data: Sequence[int]) -> None:
+        """Queue the frame (destination address up to the FCS) the next received frame must equal."""
+        self._expected.append(bytes(data))
+
+    def expected_count(self) -> int:
+        """Expected frames not yet received."""
+        return len(self._expected)
+
     def statistics(self) -> EthernetStatistics:
         return self.monitor.statistics.snapshot()
+
+    def statistics_values(self) -> list[int]:
+        """The statistics in :data:`STATISTICS_FIELDS` order, as VHDL integers."""
+        stats = self.statistics()
+        values: dict[str, int | None] = {
+            "total_frames": stats.total_frames,
+            "good_frames": stats.good_frames,
+            "bad_frames": stats.bad_frames,
+            "wire_octets": stats.wire_octets,
+            "payload_octets": stats.payload_octets,
+            "fcs_errors": stats.fcs_errors,
+            "phy_error_frames": stats.phy_error_frames,
+            "runts": stats.runts,
+            "giants": stats.giants,
+            "min_frame_octets": stats.frame_size.minimum,
+            "max_frame_octets": stats.frame_size.maximum,
+            "min_ifg_octets": stats.ifg_octets.minimum,
+            "max_ifg_octets": stats.ifg_octets.maximum,
+        }
+        return [_saturate(values[name]) for name in STATISTICS_FIELDS]
 
     def statistics_summary(self) -> str:
         return self.statistics().summary(self.name)
@@ -133,8 +217,21 @@ class MonitorBackend:
         """Payload of the most recent frame as hex, empty when there is none."""
         return self.monitor.history[-1].payload.hex() if self.monitor.history else ""
 
-    def start_capture(self, path: str, include_fcs: bool = True, include_errored: bool = True,
-                      timestamp_resolution_exponent: int = 9) -> None:
+    def last_packet(self) -> Any:
+        """The most recent frame decoded by Scapy (needs the scapy extra)."""
+        from .scapy_adapter import to_scapy
+
+        if not self.monitor.history:
+            raise LookupError(f"{self.name} has not received a frame")
+        return to_scapy(self.monitor.history[-1])
+
+    def start_capture(
+        self,
+        path: str,
+        include_fcs: bool = True,
+        include_errored: bool = True,
+        timestamp_resolution_exponent: int = 9,
+    ) -> None:
         options = CaptureOptions(
             include_fcs=include_fcs,
             include_errored=include_errored,
@@ -148,8 +245,18 @@ class MonitorBackend:
         self.monitor.stop_captures()
 
     def finish(self) -> int:
-        """Report a frame still in progress; returns the number of waiting reports."""
+        """
+        End of monitoring: report a frame still in progress and expected frames
+        never received, close captures. Returns the number of waiting reports.
+        """
         self.monitor.finish(self._last_time_fs)
+        if self._expected:
+            self.reports.add(
+                Severity.ERROR,
+                f"ETH_SCOREBOARD: {len(self._expected)} expected frame(s) were not received",
+            )
+            self._expected.clear()
+        self.monitor.stop_captures()
         return len(self.reports)
 
 
@@ -172,3 +279,20 @@ class SourceBackend:
 
     def take_symbols(self, frame_id: int) -> Any:
         return self.source.take_symbols(frame_id)
+
+    def symbols(self, data: Sequence[int], error_offsets: Sequence[int] = (), **options: Any) -> npt.NDArray[np.int32]:
+        """
+        The sample words VHDL drives, one per clock cycle, for a frame given as
+        octets from the destination address up to the FCS.
+        """
+        frame_id = self.queue_bytes(bytes(data), error_offsets=tuple(error_offsets), **options)
+        return self.take_symbols(frame_id)  # type: ignore[no-any-return]
+
+    def packet_symbols(self, expression: str, error_offsets: Sequence[int] = (), **options: Any) -> Any:
+        """Like :meth:`symbols` for a Scapy expression such as ``"Ether()/IP()/UDP()"``."""
+        # The expression is testbench code, as trusted as the VHDL that passes
+        # it; evaluating it is the point, like python_pkg's own exec and eval
+        namespace: dict[str, Any] = {}
+        exec("from scapy.all import *", namespace)
+        packet = eval(expression, namespace)
+        return self.symbols(bytes(packet), error_offsets, **options)

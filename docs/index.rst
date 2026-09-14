@@ -31,6 +31,10 @@ statistics, capture to Wireshark files and packet construction are simulator ind
    :maxdepth: 2
    :caption: Reference
 
-   architecture
+   explanation/architecture
+   explanation/design_decisions
+   explanation/performance
+   explanation/limitations
    python_api
    roadmap
+   contributing/index

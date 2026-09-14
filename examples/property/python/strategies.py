@@ -71,6 +71,12 @@ def frame_data():
     return st.binary(min_size=60, max_size=128)
 
 
+def backpressure():
+    return st.fixed_dictionaries(
+        {"frame": frame_data(), "ready_high_percent": st.integers(10, 100), "seed": st.integers(0, 1000)}
+    )
+
+
 # docs-start: pin
 @pin([255, 0])  # the lockup found once, always tried first
 def byte_stream():

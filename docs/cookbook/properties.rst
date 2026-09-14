@@ -235,3 +235,29 @@ Test Ethernet frames with properties
 **Full example:** :repo-file:`examples/property/tb_property_ethernet.vhd`
 
 **See also:** :doc:`../property_testing/index`, :doc:`python`
+
+Fuzz backpressure on an AXI-Stream bus
+--------------------------------------
+
+**Goal:** frames that must survive any ``tready`` pattern, with Hypothesis drawing the pattern.
+
+.. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
+   :caption: examples/property/tb_property_ethernet.vhd
+   :language: vhdl
+   :start-after: -- docs-start: axis-backpressure
+   :end-before: -- docs-end: axis-backpressure
+   :dedent:
+
+.. literalinclude:: ../../examples/property/python/strategies.py
+   :caption: examples/property/python/strategies.py
+   :language: python
+   :pyobject: backpressure
+
+**When to use this:** to find the stall pattern that makes an AXI-Stream DUT drop or corrupt a frame.
+
+* ``set_ready_pattern`` changes the sink's backpressure for each example.
+* A failure shrinks to the shortest frame and the simplest pattern that break the DUT.
+
+**Full example:** ``test_axis_backpressure``
+
+**See also:** :doc:`../ethernet/axis_mac`

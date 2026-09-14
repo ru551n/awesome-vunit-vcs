@@ -78,6 +78,36 @@ Use XGMII, from 10G up to 400G
 
 **See also:** :doc:`../ethernet/xgmii`
 
+Use an AXI-Stream MAC client with backpressure
+----------------------------------------------
+
+**Goal:** frames on an AXI-Stream bus, with a sink that holds ``tready`` low on some clocks.
+
+.. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
+   :language: vhdl
+   :start-after: -- docs-start: axis-mac
+   :end-before: -- docs-end: axis-mac
+   :dedent:
+
+.. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
+   :language: vhdl
+   :start-after: -- docs-start: axis-mac-instances
+   :end-before: -- docs-end: axis-mac-instances
+   :dedent:
+
+**When to use this:** for designs that take or give Ethernet frames on AXI-Stream, such as the client
+side of a MAC core.
+
+* Frame data starts at the destination address, as with every other interface.
+* Connect the monitor to the same ``tready`` as the sink; it only observes.
+* Change the backpressure during a test with ``set_ready_pattern``.
+
+**Full example:** ``test_axis_mac``
+
+**See also:** :doc:`../ethernet/axis_mac`
+
 Run one testbench at several rates
 ----------------------------------
 

@@ -5,8 +5,9 @@
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
 
--- The same frame over MII and XGMII, each source connected straight to a
--- monitor. run.py runs it at 10M/10G and at 100M/400G.
+-- The same frame over MII, XGMII and an AXI-Stream MAC client bus, each source
+-- connected straight to a monitor (and a sink on AXI-Stream). run.py runs it at
+-- 10M/10G and at 100M/400G.
 entity tb_cookbook_interfaces is
   generic (
     runner_cfg : string;
@@ -41,9 +42,24 @@ architecture tb of tb_cookbook_interfaces is
   signal xgmii_data : std_ulogic_vector(data_length(xgmii_source) - 1 downto 0);
   signal xgmii_ctrl : std_ulogic_vector(ctrl_length(xgmii_source) - 1 downto 0);
   -- docs-end: xgmii
+
+  -- docs-start: axis-mac
+  -- AXI-Stream MAC client: frames without preamble, a sink with tready high on 60 % of the clocks
+  constant axis_source : axis_mac_source_t := new_axis_mac_source(bytes_per_beat => 8);
+  constant axis_sink : axis_mac_sink_t := new_axis_mac_sink(ready_high_percent => 60);
+  constant axis_monitor : axis_mac_monitor_t := new_axis_mac_monitor(
+    bytes_per_beat => 8, protocol_checker => default_axis_mac_protocol_checker
+  );
+  signal axis_clk : std_ulogic := '0';
+  signal tdata : std_ulogic_vector(data_length(axis_source) - 1 downto 0);
+  signal tkeep : std_ulogic_vector(keep_length(axis_source) - 1 downto 0);
+  signal tvalid, tready, tlast : std_ulogic;
+  signal tuser : std_ulogic_vector(user_length(axis_source) - 1 downto 0);
+  -- docs-end: axis-mac
 begin
   mii_clk <= not mii_clk after (4000 ns / mii_link_rate_mbps) / 2;
   xgmii_clk <= not xgmii_clk after xgmii_clk_period / 2;
+  axis_clk <= not axis_clk after 3200 ps;
 
   main : process
   begin
@@ -60,6 +76,12 @@ begin
         push_ethernet_frame(net, xgmii_source, frame);
         wait_until_idle(net, as_sync(xgmii_source));
         wait_until_idle(net, as_sync(xgmii_monitor));
+
+      elsif run("test_axis_mac") then
+        check_ethernet_frame(net, axis_monitor, frame, blocking => false);
+        push_ethernet_frame(net, axis_source, frame);
+        wait_until_idle(net, as_sync(axis_source));
+        wait_until_idle(net, as_sync(axis_monitor));
       end if;
     end loop;
     test_runner_cleanup(runner);
@@ -86,4 +108,18 @@ begin
     generic map (xgmii_monitor)
     port map (xgmii_clk, xgmii_data, xgmii_ctrl);
   -- docs-end: xgmii-instances
+
+  -- docs-start: axis-mac-instances
+  axis_source_inst : entity awesome_vunit_vcs.axis_mac_source
+    generic map (axis_source)
+    port map (axis_clk, tdata, tkeep, tvalid, tready, tlast, tuser);
+
+  axis_sink_inst : entity awesome_vunit_vcs.axis_mac_sink
+    generic map (axis_sink)
+    port map (axis_clk, tready);
+
+  axis_monitor_inst : entity awesome_vunit_vcs.axis_mac_monitor
+    generic map (axis_monitor)
+    port map (axis_clk, tdata, tkeep, tvalid, tready, tlast, tuser);
+  -- docs-end: axis-mac-instances
 end architecture;

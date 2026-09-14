@@ -74,3 +74,78 @@ class GmiiLine:
         for offset, octet in enumerate(preamble + frame):
             self.cycle(octet | VALID | (ERROR if offset in error_offsets else 0))
         self.idle(ifg)
+
+
+# XGMII control characters, IEEE 802.3 Table 46-3 as reproduced in Xilinx
+# XAPP687 Table 2, and the link fault ordered sets of Table 46-5 as used by the
+# UNH-IOL Clause 49 PCS test suite
+XGMII_IDLE = 0x07
+XGMII_START = 0xFB
+XGMII_TERMINATE = 0xFD
+XGMII_ERROR = 0xFE
+XGMII_SEQUENCE = 0x9C
+XGMII_CONTROL = 1 << 8
+XGMII_10G_OCTET_FS = 800_000
+
+
+@dataclass
+class XgmiiLine:
+    """
+    Builds XGMII columns lane by lane, the way the VHDL monitor records them.
+
+    A frame is written as the standard describes it: Start in place of the
+    first preamble octet, data lanes, Terminate, then Idle up to the end of
+    the column and for ``idle_columns`` more columns.
+    """
+
+    lanes: int = 4
+    octet_fs: int = XGMII_10G_OCTET_FS
+    time_fs: int = 0
+    lane: int = 0
+    words: list[int] = field(default_factory=list)
+    times: list[int] = field(default_factory=list)
+
+    def lane_word(self, word: int) -> None:
+        self.words.append(word)
+        self.times.append(self.time_fs)
+        self.lane += 1
+        if self.lane == self.lanes:
+            self.lane = 0
+            self.time_fs += self.lanes * self.octet_fs
+
+    def control(self, code: int) -> None:
+        self.lane_word(code | XGMII_CONTROL)
+
+    def data(self, octets: bytes) -> None:
+        for octet in octets:
+            self.lane_word(octet)
+
+    def idle_columns(self, columns: int) -> None:
+        for _ in range(columns * self.lanes):
+            self.control(XGMII_IDLE)
+
+    def fill_column(self) -> None:
+        while self.lane:
+            self.control(XGMII_IDLE)
+
+    def frame(
+        self,
+        frame: bytes,
+        *,
+        preamble: bytes = b"\x55" * 6 + b"\xd5",
+        error_offsets: tuple[int, ...] = (),
+        terminate: bool = True,
+        idle_columns: int = 1,
+    ) -> None:
+        """``error_offsets`` index the octets after Start (0 is the first preamble octet after it)."""
+        assert self.lane == 0, "frames start on lane 0"
+        self.control(XGMII_START)
+        for offset, octet in enumerate(preamble + frame):
+            if offset in error_offsets:
+                self.control(XGMII_ERROR)
+            else:
+                self.lane_word(octet)
+        if terminate:
+            self.control(XGMII_TERMINATE)
+        self.fill_column()
+        self.idle_columns(idle_columns)

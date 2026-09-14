@@ -14,9 +14,11 @@ from .common import (
     WireFrame,
 )
 from .gmii import GmiiPhy
+from .xgmii import XgmiiPhy
 
 _INTERFACES: dict[str, type[Any]] = {
     "gmii": GmiiPhy,
+    "xgmii": XgmiiPhy,
 }
 
 
@@ -40,5 +42,6 @@ __all__ = [
     "PhyFrame",
     "PhyInterface",
     "WireFrame",
+    "XgmiiPhy",
     "create_phy",
 ]

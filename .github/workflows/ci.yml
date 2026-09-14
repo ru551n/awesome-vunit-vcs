@@ -115,6 +115,8 @@ jobs:
         run: python examples/quickstart/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_quickstart"
       - name: Run examples/gmii
         run: python examples/gmii/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_gmii"
+      - name: Run examples/cookbook
+        run: python examples/cookbook/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_cookbook"
       - name: Restore saved property failures
         uses: actions/cache/restore@v4
         with:

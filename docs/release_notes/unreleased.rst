@@ -73,9 +73,10 @@ Property-based testing
 * A lockup is reported with ``timed_out`` as a failure of its own, a design that does not recover
   aborts the property, each example is journaled before it runs, and the smallest failure is
   replayed first on the next run.
-* Examples in ``examples/property``: an integer, a record, octet vectors, a tagged union, a register
-  sequence against a reference model and composite Ethernet traffic. The package does not depend on
-  Hypothesis.
+* ``report_score`` forwards a score of an example to ``hypothesis.target``.
+* Examples in ``examples/property``: a scalar, a record with a list, a tagged union, a register
+  sequence against a reference model and a generated record in one testbench, plus an Ethernet frame
+  property and a lockup. The package does not depend on Hypothesis.
 
 Python API
 ----------

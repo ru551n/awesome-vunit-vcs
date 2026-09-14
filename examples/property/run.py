@@ -6,14 +6,10 @@
 Property-based testing
 ----------------------
 
-Shows property-based testing of VHDL designs with Hypothesis, from a single
-integer to composite examples: a record of configuration fields, a list of
-variable-length byte vectors, a tagged union of transaction kinds and a
-sequence of operations checked against a Python reference model.
-
-The strategies are plain Python functions in ``python/property_examples.py``.
-Each testbench loops over the examples Hypothesis draws with ``property_pkg``;
-Hypothesis shrinks a failure to a minimal counterexample through the same loop.
+Hypothesis properties of VHDL designs. tb_property_examples holds the examples
+that share its ALU and register bank; tb_property_ethernet uses the GMII VCs and
+tb_property_lockup a design that stalls. The strategies are plain Python
+functions in python/strategies.py.
 
 Needs Hypothesis: ``pip install hypothesis``.
 """
@@ -28,11 +24,11 @@ from awesome_vunit_vcs.gen_vhdl import write_vhdl
 ROOT = Path(__file__).parent
 
 # docs-start: generate
-# VHDL records of the register operation dataclasses, regenerated when they change
+# The VHDL record of the Pair dataclass, regenerated when the dataclass changes
 sys.path.insert(0, str(ROOT / "python"))
-from register_records import OperationSequence  # noqa: E402
+from example_records import Pair  # noqa: E402
 
-write_vhdl([OperationSequence], "register_records_pkg", ROOT / "generated" / "register_records_pkg.vhd")
+write_vhdl([Pair], "example_records_pkg", ROOT / "generated" / "example_records_pkg.vhd")
 # docs-end: generate
 
 vu = VUnit.from_argv()

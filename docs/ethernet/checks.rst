@@ -21,7 +21,8 @@ Get the protocol checks
    :caption: Monitors with protocol checks
 
    -- A monitor with the default protocol checks
-   constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+   constant monitor : gmii_monitor_t :=
+     new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
 
    -- A monitor with a protocol checker of your own limits
    constant monitor : gmii_monitor_t := new_gmii_monitor(

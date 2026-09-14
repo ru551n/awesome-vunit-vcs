@@ -83,8 +83,9 @@ Size your signals with the accessor functions, so they follow the handle:
 .. code-block:: vhdl
    :caption: An 8-lane 100G monitor and its signals
 
-   constant monitor : xgmii_monitor_t := new_xgmii_monitor(lanes => 8, link_rate_mbps => 100000,
-                                                           protocol_checker => default_xgmii_protocol_checker);
+   constant monitor : xgmii_monitor_t := new_xgmii_monitor(
+     lanes => 8, link_rate_mbps => 100000, protocol_checker => default_xgmii_protocol_checker
+   );
    signal data : std_ulogic_vector(data_length(monitor) - 1 downto 0);
    signal ctrl : std_ulogic_vector(ctrl_length(monitor) - 1 downto 0);
 

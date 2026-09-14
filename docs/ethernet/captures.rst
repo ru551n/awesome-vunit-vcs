@@ -38,7 +38,8 @@ Choose what a capture contains
 .. code-block:: vhdl
    :caption: Capture only good frames
 
-   start_capture(net, monitor, output_path(runner_cfg) & "good_frames.pcapng", include_errored => false);
+   start_capture(net, monitor, output_path(runner_cfg) & "good_frames.pcapng",
+                 include_errored => false);
 
 Open a capture in Wireshark
 ---------------------------

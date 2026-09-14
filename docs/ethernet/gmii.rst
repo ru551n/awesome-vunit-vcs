@@ -63,7 +63,8 @@ Create the components
    :caption: Handles in the testbench architecture
 
    constant source : gmii_source_t := new_gmii_source;
-   constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+   constant monitor : gmii_monitor_t :=
+     new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
    constant checker : gmii_protocol_checker_t := new_gmii_protocol_checker(max_frame_octets => 9018);
 
 Every parameter has a default. Pass ``protocol_checker`` to a monitor to get the protocol checks.

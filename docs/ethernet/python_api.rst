@@ -1,7 +1,7 @@
 Python API
 ==========
 
-The public Python API, grouped by topic. :doc:`python` shows how the pieces fit together.
+The public Python API, grouped by topic. :doc:`python` and :doc:`python_simulation` show how to use it.
 
 Everything a test normally needs is importable from one module::
 

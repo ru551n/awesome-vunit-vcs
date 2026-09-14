@@ -46,13 +46,14 @@ A :term:`packet function` is a plain Python function that returns a frame. It ca
    :start-after: from scapy.all import
 
 .. code-block:: vhdl
-   :caption: VHDL
+   :caption: Send the packet from the testbench
 
    push_ethernet_packet(net, source, "packets:udp_packet", kwarg("dport", 1234));
 
-* The function is named ``"module:function"`` and imported in the simulator's Python environment; put its
-  directory on ``sys.path`` or install it.
-* Its arguments follow the name, see :ref:`passing-arguments` in :doc:`../common/index`. Leave them out when the function takes none.
+* Name the function as ``"module:function"``. Install its module, or put its directory on
+  ``PYTHONPATH``.
+* Pass its arguments after the name; see :ref:`passing-arguments`. Leave them out when the function
+  takes none.
 * ``frame_options`` applies to the returned frame as for ``push_ethernet_frame``.
 
 Send and expect a sequence
@@ -75,13 +76,15 @@ single pushes.
            yield eth.Frame.from_payload(rng.randbytes(rng.randint(46, 1500)))
 
 .. code-block:: vhdl
-   :caption: VHDL
+   :caption: Expect and send the same sequence
 
-   check_ethernet_sequence(net, monitor, "my_packets:my_traffic", kwarg("count", 100), seed => get_string_seed(runner_cfg));
-   push_ethernet_sequence(net, source, "my_packets:my_traffic", kwarg("count", 100), seed => get_string_seed(runner_cfg));
+   check_ethernet_sequence(net, monitor, "my_packets:my_traffic", kwarg("count", 100),
+                           seed => get_string_seed(runner_cfg));
+   push_ethernet_sequence(net, source, "my_packets:my_traffic", kwarg("count", 100),
+                          seed => get_string_seed(runner_cfg));
 
-* A function with a ``seed`` parameter gets the ``seed`` of the call. The same function, arguments and seed
-  give the same frames, so the source and the monitor agree, and a failing seed reproduces the test.
+* A function with a ``seed`` parameter gets the ``seed`` of the call. The same function, arguments and
+  seed give the same frames, so the source and the monitor agree, and a failing seed repeats the test.
 * ``get_string_seed(runner_cfg)`` is VUnit's seed of the test, logged with every run.
 * ``count => 0`` sends until the generator is exhausted.
 
@@ -92,7 +95,7 @@ Use ready-made random traffic
 ones. The monitor expects the violations the malformed frames cause.
 
 .. code-block:: vhdl
-   :caption: VHDL
+   :caption: Random traffic with 10 % malformed frames
 
    push_ethernet_sequence(
      net, source, "awesome_vunit_vcs.ethernet.traffic:random_traffic",

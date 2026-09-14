@@ -37,6 +37,8 @@ What's here
      - What a monitor gives you
    * - :doc:`python`
      - Frames, monitors and subscribers in Python, and your own Hypothesis strategies
+   * - :doc:`python_simulation`
+     - Your own Python code in a running simulation: subscribers, packet functions, seeds
    * - :doc:`vhdl_api`
      - Every VHDL package, context and entity of the family
    * - :doc:`python_api`
@@ -75,7 +77,8 @@ The pattern
    :caption: VHDL
 
    constant source : gmii_source_t := new_gmii_source;
-   constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+   constant monitor : gmii_monitor_t :=
+     new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
    ...
    check_ethernet_frame(net, monitor, frame, blocking => false);  -- expect
    push_ethernet_frame(net, source, frame);                       -- send
@@ -176,5 +179,6 @@ Every declaration is listed in the :doc:`vhdl_api`.
    captures
    packets_and_sequences
    python
+   python_simulation
    vhdl_api
    python_api

@@ -31,14 +31,8 @@ Components should feel like VUnit's own verification components (VCs). The Ether
   created with ``new_vc_session(get_id(handle), get_logger(handle))`` from ``vc_python_pkg``. That
   function is also the guard every family inherits: a second session for the same id is a failure on
   the logger, since the two VCs would share one backend. Families do not keep their own copy.
-* **Calling Python**: only ``vc_python_pkg`` uses the bridge. Create backends with
-  ``create_backend`` and call them with ``backend_call`` and its typed variants, passing arguments
-  built with ``arg``/``kwarg`` for numbers, booleans, identifier-like strings and vectors,
-  ``arg_text``/``kwarg_text`` for free text, and ``arg_time``/``kwarg_time`` for times. Never build
-  Python source text from VHDL values, and never call ``exec`` or ``eval`` from a family package;
-  ``tests/python/test_python_call_guardrail.py`` enforces this. Carry a user's arguments in messages
-  with ``push_arg``/``pop_arg``, and hand them to the backend in a separate call such as
-  ``set_arguments``.
+* **Calling Python**: only ``vc_python_pkg`` uses the bridge, with typed arguments and never Python
+  source text. The rules are in ``CONTRIBUTING.md`` under "Calling Python from VHDL".
 * **Protocol checks** run in a separate ``<interface>_protocol_checker`` entity, which a monitor
   instantiates when its handle has one, as ``axi_stream_monitor`` does. The monitor keeps the
   scoreboard.

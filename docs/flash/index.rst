@@ -14,6 +14,24 @@ components (VCs):
 * :doc:`qspi_protocol_checker`, the :vhdl:`qspi_protocol_checker` entity: a passive checker of the pin
   timing the master on a QSPI bus must meet.
 
+What's here
+-----------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Page
+     - What's here
+   * - :doc:`qspi_flash`, :doc:`qspi_master`, :doc:`qspi_protocol_checker`
+     - One page per VC: pins, constructors, procedures and options
+   * - :doc:`python`
+     - The flash device model in Python, without a simulator
+   * - :doc:`vhdl_api`
+     - Every VHDL package, context and entity of the family
+   * - :doc:`python_api`
+     - Every public Python name of ``awesome_vunit_vcs.flash``
+
 .. _flash-quick-start:
 
 Quick start
@@ -44,8 +62,8 @@ configuration, bus-level stimulus from a :doc:`qspi_master`, statistics, protect
 ``flash_context`` is the only context clause a flash testbench needs. It makes ``qspi_pkg``,
 ``qspi_master_pkg``, ``qspi_flash_cmd_pkg``, ``qspi_protocol_checker_pkg`` and ``flash_pkg`` visible,
 together with ``ieee.std_logic_1164``, ``vunit_context``, ``com_context``, ``sync_pkg``,
-``integer_array_pkg`` and ``vc_pkg``. Add ``ieee.numeric_std`` where a testbench needs it. The
-generated reference of every declaration is :doc:`../reference/vhdl/flash`.
+``integer_array_pkg`` and ``vc_pkg``. Add ``ieee.numeric_std`` where a testbench needs it. Every
+declaration is listed in the :doc:`vhdl_api`.
 
 How the components relate
 -------------------------
@@ -216,8 +234,12 @@ The content of a flash is read and checked with :vhdl:`flash_pkg.flash_read_back
 memory model view of it.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :hidden:
 
    qspi_flash
    qspi_master
    qspi_protocol_checker
+   python
+   vhdl_api
+   python_api

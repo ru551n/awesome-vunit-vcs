@@ -231,8 +231,8 @@ cycles default to the JEDEC values and are parameters, since parts can differ.
 
 The package also has the opcode constants (``qspi_flash_op_*``), the default dummy cycle counts, and
 :vhdl:`qspi_flash_cmd_pkg.qspi_flash_opcode_bytes` and :vhdl:`qspi_flash_cmd_pkg.qspi_flash_address_bytes`
-to build byte arrays for ``qspi_transfer``. Its commands target the :doc:`qspi_flash` model; the supported opcodes are listed
-there.
+to build byte arrays for ``qspi_transfer``. Its commands target the :doc:`qspi_flash` model; the
+supported opcodes are listed there.
 
 Checks
 ------

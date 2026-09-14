@@ -583,7 +583,8 @@ model cannot carry out are failures on its logger.
        ``W`` or ``-`` on a lane the flash samples for data in. The beat is read with ``to_01``
    * - Content mismatch
      - Checker
-     - :py:class:`~awesome_vunit_vcs.flash.errors.ContentMismatch` in Python, reported as ``<id>: flash content mismatch at 0x<address>: expected 0x<value>, got 0x<value> (first of <n>
+     - :py:class:`~awesome_vunit_vcs.flash.errors.ContentMismatch` in Python, reported as
+       ``<id>: flash content mismatch at 0x<address>: expected 0x<value>, got 0x<value> (first of <n>
        bad bytes in [...])``, or ``expected fill 0x<value>`` for ``flash_check_content_fill``
    * - Version mismatch
      - Checker
@@ -611,10 +612,10 @@ the checker of the protocol checker; see :doc:`qspi_protocol_checker` for its ch
 Statistics notes
 ----------------
 
-:vhdl:`flash_get_stat(net, flash, name, value) <flash_pkg.flash_get_stat>` returns one value by name. The flash passes the current
-simulation time, so ``wip``, ``sr1`` and ``busy_remaining_us`` are current, not those of the last bus
-activity. An unknown name, or a value an ``integer`` cannot hold, is a failure on the logger that
-lists the valid names, and returns 0.
+:vhdl:`flash_get_stat(net, flash, name, value) <flash_pkg.flash_get_stat>` returns one value by name.
+The flash passes the current simulation time, so ``wip``, ``sr1`` and ``busy_remaining_us`` are current,
+not those of the last bus activity. An unknown name, or a value an ``integer`` cannot hold, is a failure
+on the logger that lists the valid names, and returns 0.
 
 .. list-table::
    :header-rows: 1
@@ -671,8 +672,8 @@ The device model runs without a simulator, for example to test an image or a dri
 :py:class:`~awesome_vunit_vcs.flash.config.FlashConfig`. Invalid arguments raise
 :py:class:`~awesome_vunit_vcs.flash.errors.FlashValueError` and failed content checks raise
 :py:class:`~awesome_vunit_vcs.flash.errors.ContentMismatch`, both
-:py:class:`~awesome_vunit_vcs.flash.errors.FlashError`. :doc:`../python_guide` has an example and
-:doc:`../python_api` the full API.
+:py:class:`~awesome_vunit_vcs.flash.errors.FlashError`. :doc:`python` has an example and
+:doc:`python_api` the full API.
 
 Example
 -------

@@ -116,7 +116,7 @@ Python API
   ``vc.error``, a counted check error.
 * Every invalid argument raises ``EthernetValueError``, a ``ValueError``.
 * ``AwesomeVunitVcsError``, exported from ``awesome_vunit_vcs``, is the base of every error of the
-  package: ``EthernetValueError`` derives from it, and other families will too.
+  package: ``EthernetValueError`` and ``FlashError`` derive from it.
 
 Breaking changes
 ~~~~~~~~~~~~~~~~

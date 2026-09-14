@@ -39,7 +39,7 @@ def _families() -> list[Path]:
 
 
 #: The documentation section of every component family, holding its VHDL and Python API pages
-SECTIONS = ("ethernet", "property_testing", "common")
+SECTIONS = ("ethernet", "property_testing", "flash", "common")
 
 
 def _generated_includes() -> set[str]:
@@ -74,6 +74,7 @@ PUBLIC_MODULES = (
     "awesome_vunit_vcs.ethernet",
     "awesome_vunit_vcs.ethernet.lowlevel",
     "awesome_vunit_vcs.common.property",
+    "awesome_vunit_vcs.flash",
     "awesome_vunit_vcs.records",
     "awesome_vunit_vcs.gen_vhdl",
 )
@@ -186,10 +187,7 @@ _PYTHON_BYTE = re.compile(r"\bbyte\b|\d[\d_,]*[\s-]+bytes\b")
 #: Inline code, which names objects such as ``bytes()`` rather than counting data
 _CODE_SPAN = re.compile(r"``.*?``", re.DOTALL)
 #: The Ethernet pages outside ``docs/ethernet``, by name
-_ETHERNET_PAGES = (
-    "getting_started/quickstart.rst",
-    "reference/vhdl/ethernet.rst",
-)
+_ETHERNET_PAGES = ("getting_started/quickstart.rst",)
 _ETHERNET_SUFFIXES = {".md", ".py", ".rst", ".vhd"}
 
 
@@ -249,7 +247,7 @@ def test_the_octet_guardrail_checks_ethernet_material(tmp_path: Path) -> None:
 def test_the_octet_guardrail_leaves_out_the_flash_family(tmp_path: Path) -> None:
     package = tmp_path / "src" / "awesome_vunit_vcs"
     _write(tmp_path / "docs" / "flash" / "qspi_flash.rst", "A 16 MiB part holds 16777216 bytes.\n")
-    _write(tmp_path / "docs" / "explanation" / "limitations.rst", "One bridge call per byte on the bus.\n")
+    _write(tmp_path / "docs" / "flash" / "python.rst", "One bridge call per byte on the bus.\n")
     _write(package / "vhdl" / "flash" / "flash_pkg.vhd", "-- A vector of whole bytes\n")
     _write(package / "flash" / "device.py", "# One byte at a time\n")
     assert _octet_offenders(tmp_path) == []

@@ -1,0 +1,67 @@
+name: Nightly
+
+# Long property-based runs: ten times the examples of the pull request runs
+# (AWESOME_VUNIT_VCS_PROPERTY_PROFILE=long). Saved failures are kept between runs
+# in the Actions cache, so a counterexample found once is tried first next time.
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # VUnit with package setup hooks and vunit-python-bridge are not released yet
+  UNRELEASED_REQUIREMENTS: tests/packaging/unreleased-requirements.txt
+  PIP_PROGRESS_BAR: 'off'
+  AWESOME_VUNIT_VCS_PROPERTY_PROFILE: long
+
+permissions:
+  contents: read
+
+jobs:
+  properties:
+    name: Long property run with ${{ matrix.simulator }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        simulator: [ghdl, nvc]
+    env:
+      VUNIT_SIMULATOR: ${{ matrix.simulator }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - if: matrix.simulator == 'ghdl'
+        uses: ghdl/setup-ghdl@v1.5.1
+        with:
+          version: latest
+          backend: mcode
+      - if: matrix.simulator == 'nvc'
+        uses: nickg/setup-nvc@v1
+        with:
+          version: latest
+      - name: Install
+        run: |
+          pip install -r "$UNRELEASED_REQUIREMENTS"
+          pip install -e ".[scapy]" hypothesis
+      - name: Restore saved property failures
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/vunit_out/test_output/property_failures
+          key: property-failures-nightly-${{ matrix.simulator }}-${{ github.run_id }}
+          restore-keys: property-failures-nightly-${{ matrix.simulator }}-
+      - name: Run the properties
+        run: |
+          python tests/vhdl/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out" "*property*"
+          python examples/property/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out"
+      - name: Save property failures
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/vunit_out/test_output/property_failures
+          key: property-failures-nightly-${{ matrix.simulator }}-${{ github.run_id }}

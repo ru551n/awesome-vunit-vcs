@@ -115,5 +115,17 @@ jobs:
         run: python examples/quickstart/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_quickstart"
       - name: Run examples/gmii
         run: python examples/gmii/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_gmii"
+      - name: Restore saved property failures
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/vunit_out_examples_property/test_output/property_failures
+          key: property-failures-${{ matrix.simulator }}-${{ github.run_id }}
+          restore-keys: property-failures-${{ matrix.simulator }}-
       - name: Run examples/property
         run: python examples/property/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_property"
+      - name: Save property failures
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/vunit_out_examples_property/test_output/property_failures
+          key: property-failures-${{ matrix.simulator }}-${{ github.run_id }}

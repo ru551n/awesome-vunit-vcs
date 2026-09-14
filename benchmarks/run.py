@@ -40,5 +40,9 @@ configs = {
 for name, generics in configs.items():
     tb.add_config(name=name, generics={"config_name": name, **generics})
 
+getters = lib.test_bench("tb_property_getters")
+for reads in (0, 50):
+    getters.add_config(name=f"reads_{reads}", generics={"reads": reads})
+
 if __name__ == "__main__":
     vu.main()

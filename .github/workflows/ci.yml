@@ -92,34 +92,21 @@ jobs:
       VUNIT_SIMULATOR: ${{ matrix.simulator }}
     steps:
       - uses: actions/checkout@v4
-      # TODO: remove this guard once tests/vhdl/run.py is committed
-      - name: Check for HDL tests
-        id: guard
-        run: |
-          if [ -f tests/vhdl/run.py ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::tests/vhdl/run.py does not exist yet, skipping the HDL tests"
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.guard.outputs.present == 'true'
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - if: steps.guard.outputs.present == 'true' && matrix.simulator == 'ghdl'
+      - if: matrix.simulator == 'ghdl'
         uses: ghdl/setup-ghdl@v1.5.1
         with:
           version: latest
           backend: mcode
-      - if: steps.guard.outputs.present == 'true' && matrix.simulator == 'nvc'
+      - if: matrix.simulator == 'nvc'
         uses: nickg/setup-nvc@v1
         with:
           version: latest
       - name: Install
-        if: steps.guard.outputs.present == 'true'
         run: |
           pip install -r "$UNRELEASED_REQUIREMENTS"
           pip install -e ".[scapy]"
       - name: Run tests/vhdl
-        if: steps.guard.outputs.present == 'true'
         run: python tests/vhdl/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out"

@@ -4,12 +4,13 @@ Checking and receiving frames
 The recipes on this page are test cases of :repo-file:`examples/cookbook/tb_cookbook.vhd` unless they
 say otherwise. :doc:`../ethernet/monitors` explains monitors in full.
 
-How do I wait for one frame to be checked?
-------------------------------------------
+Wait for one frame to be checked
+--------------------------------
 
 **Goal:** block until the next frame has been received and compared.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: blocking-check
    :end-before: -- docs-end: blocking-check
@@ -24,12 +25,13 @@ changing the DUT's configuration.
 
 **See also:** :doc:`../ethernet/scoreboard`
 
-How do I turn a check off?
---------------------------
+Turn a check off
+----------------
 
 **Goal:** stop one protocol check.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: disable-check
    :end-before: -- docs-end: disable-check
@@ -39,19 +41,19 @@ How do I turn a check off?
 count it.
 
 * :doc:`../ethernet/checks` lists every check name.
-* To assert that an error happened, count it instead; see :doc:`sources`, *How do I send a malformed
-  frame?*
+* To assert that an error happened, count it instead; see :doc:`sources`, *Send a malformed frame*
 
 **Full example:** ``test_disable_a_check``
 
 **See also:** :doc:`../ethernet/checks`
 
-How do I get the frames a monitor received?
--------------------------------------------
+Get the frames a monitor received
+---------------------------------
 
 **Goal:** read a received frame into a variable.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: pop-frame
    :end-before: -- docs-end: pop-frame
@@ -66,12 +68,13 @@ How do I get the frames a monitor received?
 
 **See also:** :doc:`../ethernet/monitors`
 
-How do I get every frame as a message?
---------------------------------------
+Get every frame as a message
+----------------------------
 
 **Goal:** receive each frame a monitor reconstructs in a process of your own.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: subscribe
    :end-before: -- docs-end: subscribe
@@ -86,12 +89,13 @@ How do I get every frame as a message?
 
 **See also:** :doc:`../ethernet/monitors`
 
-How do I get statistics?
-------------------------
+Get statistics
+--------------
 
 **Goal:** check frame counts, sizes and gaps, and print a summary.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: statistics
    :end-before: -- docs-end: statistics
@@ -105,12 +109,13 @@ How do I get statistics?
 
 **See also:** :doc:`../ethernet/statistics`
 
-How do I capture traffic for Wireshark?
----------------------------------------
+Capture traffic for Wireshark
+-----------------------------
 
 **Goal:** write what a monitor receives to a PCAPNG file.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: capture
    :end-before: -- docs-end: capture
@@ -127,8 +132,8 @@ How do I capture traffic for Wireshark?
 
 **See also:** :doc:`../ethernet/captures`
 
-How do I run Python on every received frame?
---------------------------------------------
+Run Python on every received frame
+----------------------------------
 
 **Goal:** attach a Python subscriber to a monitor inside a simulation.
 
@@ -142,12 +147,13 @@ The recipe is in :doc:`../ethernet/monitors` and :doc:`../ethernet/python`, base
 
    $ python examples/gmii/run.py "*test_python_subscriber"
 
-How do I put monitors on both sides of a DUT?
----------------------------------------------
+Put monitors on both sides of a DUT
+-----------------------------------
 
 **Goal:** check that frames leave the DUT as they entered it.
 
 .. literalinclude:: ../../examples/gmii/tb_gmii_example.vhd
+   :caption: examples/gmii/tb_gmii_example.vhd
    :language: vhdl
    :start-after: -- docs-start: monitors
    :end-before: -- docs-end: monitors

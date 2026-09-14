@@ -8,12 +8,13 @@ its name:
 
    $ python examples/cookbook/run.py "*send_and_check_a_frame"
 
-How do I send a frame?
-----------------------
+Send a frame
+------------
 
 **Goal:** transmit a frame and check that it arrives unchanged.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: send-frame
    :end-before: -- docs-end: send-frame
@@ -29,12 +30,13 @@ How do I send a frame?
 
 **See also:** :doc:`../ethernet/scoreboard`, :doc:`../getting_started/quickstart`
 
-How do I send a frame from its header fields?
----------------------------------------------
+Send a frame from its header fields
+-----------------------------------
 
 **Goal:** give the addresses, the EtherType and the payload separately.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: header-fields
    :end-before: -- docs-end: header-fields
@@ -48,12 +50,13 @@ How do I send a frame from its header fields?
 
 **See also:** :doc:`../ethernet/packets_and_sequences`
 
-How do I send a malformed frame?
---------------------------------
+Send a malformed frame
+----------------------
 
 **Goal:** send a deliberate error, such as a bad FCS, and count the error it causes.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: malformed-frame
    :end-before: -- docs-end: malformed-frame
@@ -70,12 +73,13 @@ How do I send a malformed frame?
 
 **See also:** :doc:`../ethernet/checks`, :doc:`../ethernet/packets_and_sequences`
 
-How do I send a packet built in Python?
----------------------------------------
+Send a packet built in Python
+-----------------------------
 
 **Goal:** let a Python function decide what to send, for example an IP packet.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: packet
    :end-before: -- docs-end: packet
@@ -84,6 +88,7 @@ How do I send a packet built in Python?
 The function lives in an ordinary Python file:
 
 .. literalinclude:: ../../examples/cookbook/python/cookbook_traffic.py
+   :caption: examples/cookbook/python/cookbook_traffic.py
    :language: python
    :start-after: # docs-start: packet-function
    :end-before: # docs-end: packet-function
@@ -98,18 +103,20 @@ headers, or packets made with Scapy.
 
 **See also:** :doc:`../ethernet/packets_and_sequences`, :doc:`../ethernet/python`
 
-How do I send a reproducible random sequence?
----------------------------------------------
+Send a reproducible random sequence
+-----------------------------------
 
 **Goal:** send many random frames that are the same every time the test runs with the same seed.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: sequence
    :end-before: -- docs-end: sequence
    :dedent:
 
 .. literalinclude:: ../../examples/cookbook/python/cookbook_traffic.py
+   :caption: examples/cookbook/python/cookbook_traffic.py
    :language: python
    :start-after: # docs-start: sequence-function
    :end-before: # docs-end: sequence-function
@@ -123,12 +130,13 @@ How do I send a reproducible random sequence?
 
 **See also:** :doc:`../ethernet/packets_and_sequences`
 
-How do I reset a source?
-------------------------
+Reset a source
+--------------
 
 **Goal:** abort what a source is doing and start clean.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: reset
    :end-before: -- docs-end: reset

@@ -1,12 +1,13 @@
 Setup
 =====
 
-How do I write the run script?
-------------------------------
+Write the run script
+--------------------
 
 **Goal:** add VUnit, the Python bridge and awesome-vunit-vcs to a VUnit project.
 
 .. literalinclude:: ../../examples/quickstart/run.py
+   :caption: examples/quickstart/run.py
    :language: python
    :start-after: # docs-start: run-script
    :end-before: # docs-end: run-script
@@ -24,12 +25,13 @@ How do I write the run script?
 
 **See also:** :doc:`../getting_started/vunit_integration`
 
-How do I make the components visible in a testbench?
-----------------------------------------------------
+Make the components visible in a testbench
+------------------------------------------
 
 **Goal:** one context clause gives a testbench everything it needs.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: context
    :end-before: -- docs-end: context
@@ -42,12 +44,13 @@ How do I make the components visible in a testbench?
 
 **See also:** :doc:`../getting_started/vunit_integration`
 
-How do I create a source and a monitor?
----------------------------------------
+Create a source and a monitor
+-----------------------------
 
 **Goal:** declare the handles that the entities and procedures use.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: handles
    :end-before: -- docs-end: handles
@@ -64,12 +67,13 @@ How do I create a source and a monitor?
 
 **See also:** :doc:`../ethernet/monitors`
 
-How do I structure the tests?
------------------------------
+Structure the tests
+-------------------
 
 **Goal:** one VUnit test case per behaviour.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: test-structure
    :end-before: -- docs-end: test-structure

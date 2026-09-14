@@ -218,7 +218,7 @@ def test_every_include_marker_exists() -> None:
     assert not missing
 
 
-def test_every_example_is_in_the_examples_library() -> None:
+def test_every_example_is_in_the_cookbook() -> None:
     index = (DOCS / "cookbook" / "index.rst").read_text(encoding="utf-8")
     examples = sorted(path.name for path in (REPO / "examples").iterdir() if path.is_dir())
     missing = [name for name in examples if f"examples/{name}" not in index]

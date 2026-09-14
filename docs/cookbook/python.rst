@@ -8,12 +8,13 @@ The Ethernet Python API works without a simulator. Each recipe is a complete scr
 
    $ python examples/python/build_frames.py
 
-How do I build frames and malformed traffic?
---------------------------------------------
+Build frames and malformed traffic
+----------------------------------
 
 **Goal:** make a frame, see what goes on the wire, and describe deliberate errors.
 
 .. literalinclude:: ../../examples/python/build_frames.py
+   :caption: examples/python/build_frames.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -26,12 +27,13 @@ How do I build frames and malformed traffic?
 
 **See also:** :doc:`../ethernet/python`
 
-How do I decode samples from any interface?
--------------------------------------------
+Decode samples from any interface
+---------------------------------
 
 **Goal:** turn recorded GMII, MII or XGMII samples into frames.
 
 .. literalinclude:: ../../examples/python/decode_samples.py
+   :caption: examples/python/decode_samples.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -44,12 +46,13 @@ How do I decode samples from any interface?
 
 **See also:** :doc:`../ethernet/python`
 
-How do I check frames and get statistics?
------------------------------------------
+Check frames and get statistics
+-------------------------------
 
 **Goal:** run the protocol checks and read the results.
 
 .. literalinclude:: ../../examples/python/check_frames.py
+   :caption: examples/python/check_frames.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -62,12 +65,13 @@ How do I check frames and get statistics?
 
 **See also:** :doc:`../ethernet/python`, :doc:`../ethernet/checks`
 
-How do I write a PCAPNG file?
------------------------------
+Write a PCAPNG file
+-------------------
 
 **Goal:** save frames for Wireshark.
 
 .. literalinclude:: ../../examples/python/capture_frames.py
+   :caption: examples/python/capture_frames.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example
@@ -80,12 +84,13 @@ How do I write a PCAPNG file?
 
 **See also:** :doc:`../ethernet/captures`
 
-How do I react to each frame in Python?
----------------------------------------
+React to each frame in Python
+-----------------------------
 
 **Goal:** run a function for every frame or violation a monitor finds.
 
 .. literalinclude:: ../../examples/python/monitor_subscribers.py
+   :caption: examples/python/monitor_subscribers.py
    :language: python
    :start-after: # docs-start: subscribers
    :end-before: # docs-end: subscribers
@@ -99,12 +104,13 @@ How do I react to each frame in Python?
 
 **See also:** :doc:`../ethernet/python`
 
-How do I write my own Hypothesis strategy?
-------------------------------------------
+Write my own Hypothesis strategy
+--------------------------------
 
 **Goal:** generate frames and malformations for property-based tests.
 
 .. literalinclude:: ../../examples/python/property_based.py
+   :caption: examples/python/property_based.py
    :language: python
    :start-after: # docs-start: example
    :end-before: # docs-end: example

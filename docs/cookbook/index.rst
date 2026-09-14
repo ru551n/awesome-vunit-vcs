@@ -1,8 +1,8 @@
-Examples library
-================
+Cookbook
+========
 
-Short recipes for the things a testbench does most. Every recipe answers one "How do I ...?" question
-with a snippet from an example that CI runs on GHDL and NVC, so what you copy works.
+Short recipes for the tasks a testbench does most. Each recipe shows one task with a snippet from an
+example that CI runs on GHDL and NVC. What you copy works.
 
 Every recipe has the same parts:
 

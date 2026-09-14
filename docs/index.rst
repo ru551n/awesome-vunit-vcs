@@ -11,7 +11,7 @@ The VHDL components connect to the pins of your design. Frame reconstruction, pr
 statistics, Wireshark captures and packet construction happen in Python behind them, and a test never
 has to write Python.
 
-.. grid:: 1 1 3 3
+.. grid:: 1 1 2 2
    :gutter: 2
 
    .. grid-item-card:: Quick start
@@ -25,6 +25,12 @@ has to write Python.
       :link-type: doc
 
       Sources, monitors and protocol checkers for MII, GMII and the XGMII family.
+
+   .. grid-item-card:: Cookbook
+      :link: cookbook/index
+      :link-type: doc
+
+      Short recipes for the common tasks, each from a tested example.
 
    .. grid-item-card:: Property-based testing
       :link: property_testing/index

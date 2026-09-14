@@ -5,8 +5,8 @@ Every interface uses the same procedures; only the handles, the entities and the
 recipes come from :repo-file:`examples/cookbook/tb_cookbook_interfaces.vhd`, which connects each
 source straight to a monitor.
 
-How do I use GMII?
-------------------
+Use GMII
+--------
 
 **Goal:** 1G traffic with 8-bit data, data valid and error signals.
 
@@ -17,18 +17,20 @@ How do I use GMII?
 
 **See also:** :doc:`../ethernet/gmii`
 
-How do I use MII at 10 or 100 Mbit/s?
--------------------------------------
+Use MII at 10 or 100 Mbit/s
+---------------------------
 
 **Goal:** 4-bit MII with the clock for the link rate.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
    :language: vhdl
    :start-after: -- docs-start: mii
    :end-before: -- docs-end: mii
    :dedent:
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
    :language: vhdl
    :start-after: -- docs-start: mii-instances
    :end-before: -- docs-end: mii-instances
@@ -47,18 +49,20 @@ How do I use MII at 10 or 100 Mbit/s?
 
 **See also:** :doc:`../ethernet/mii`
 
-How do I use XGMII, from 10G up to 400G?
-----------------------------------------
+Use XGMII, from 10G up to 400G
+------------------------------
 
 **Goal:** the XGMII family with 4 or 8 lanes.
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
    :language: vhdl
    :start-after: -- docs-start: xgmii
    :end-before: -- docs-end: xgmii
    :dedent:
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
+   :caption: examples/cookbook/tb_cookbook_interfaces.vhd
    :language: vhdl
    :start-after: -- docs-start: xgmii-instances
    :end-before: -- docs-end: xgmii-instances
@@ -73,12 +77,13 @@ How do I use XGMII, from 10G up to 400G?
 
 **See also:** :doc:`../ethernet/xgmii`
 
-How do I run one testbench at several rates?
---------------------------------------------
+Run one testbench at several rates
+----------------------------------
 
 **Goal:** reuse a testbench for different lane counts and link rates.
 
 .. literalinclude:: ../../examples/cookbook/run.py
+   :caption: examples/cookbook/run.py
    :language: python
    :start-after: # docs-start: interface-configs
    :end-before: # docs-end: interface-configs

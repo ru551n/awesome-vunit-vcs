@@ -9,12 +9,13 @@ The recipes come from :repo-file:`examples/property`, mostly the shared testbenc
 
    $ python examples/property/run.py
 
-How do I write the simplest property?
--------------------------------------
+Write the simplest property
+---------------------------
 
 **Goal:** check one rule for many generated values.
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: scalar
    :end-before: -- docs-end: scalar
@@ -29,12 +30,13 @@ How do I write the simplest property?
 
 **See also:** :doc:`../property_testing/index`
 
-How do I read composite examples?
----------------------------------
+Read composite examples
+-----------------------
 
 **Goal:** get fields, lists and optional parts of a generated example.
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: composite
    :end-before: -- docs-end: composite
@@ -49,17 +51,19 @@ frames.
 
 **See also:** :doc:`../property_testing/index`
 
-How do I use a record from a Python dataclass?
-----------------------------------------------
+Use a record from a Python dataclass
+------------------------------------
 
 **Goal:** define the data once in Python and read it as a typed VHDL record.
 
 .. literalinclude:: ../../examples/property/run.py
+   :caption: examples/property/run.py
    :language: python
    :start-after: # docs-start: generate
    :end-before: # docs-end: generate
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: generated_record
    :end-before: -- docs-end: generated_record
@@ -74,12 +78,13 @@ repeat.
 
 **See also:** :doc:`../property_testing/index`
 
-How do I test a sequence of operations?
----------------------------------------
+Test a sequence of operations
+-----------------------------
 
 **Goal:** let Hypothesis generate operation sequences and shrink to the shortest failing one.
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: stateful
    :end-before: -- docs-end: stateful
@@ -93,12 +98,13 @@ How do I test a sequence of operations?
 
 **See also:** :doc:`../property_testing/index`
 
-How do I steer the search towards corner cases?
------------------------------------------------
+Steer the search towards corner cases
+-------------------------------------
 
 **Goal:** give Hypothesis a score so it looks for larger values of it.
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: score
    :end-before: -- docs-end: score
@@ -110,12 +116,13 @@ How do I steer the search towards corner cases?
 
 **See also:** :doc:`../property_testing/index`
 
-How do I compare two runs instead of expected values?
------------------------------------------------------
+Compare two runs instead of expected values
+-------------------------------------------
 
 **Goal:** check a relation between outputs, such as "the order of the operands doesn't matter".
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: metamorphic
    :end-before: -- docs-end: metamorphic
@@ -127,12 +134,13 @@ How do I compare two runs instead of expected values?
 
 **See also:** :doc:`../property_testing/index`
 
-How do I generate timing separately from data?
-----------------------------------------------
+Generate timing separately from data
+------------------------------------
 
 **Goal:** vary delays between operations, independently of the data.
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: timing
    :end-before: -- docs-end: timing
@@ -145,12 +153,13 @@ of a transfer.
 
 **See also:** :doc:`../property_testing/index`
 
-How do I test with random feature subsets?
-------------------------------------------
+Test with random feature subsets
+--------------------------------
 
 **Goal:** each example enables only some kinds of operation.
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: swarm
    :end-before: -- docs-end: swarm
@@ -163,12 +172,13 @@ feature on its own.
 
 **See also:** :doc:`../property_testing/index`
 
-How do I handle a DUT that locks up?
-------------------------------------
+Handle a DUT that locks up
+--------------------------
 
 **Goal:** turn a hang into a failed example that still shrinks.
 
 .. literalinclude:: ../../examples/property/tb_property_lockup.vhd
+   :caption: examples/property/tb_property_lockup.vhd
    :language: vhdl
    :start-after: -- docs-start: lockup
    :end-before: -- docs-end: lockup
@@ -182,12 +192,13 @@ How do I handle a DUT that locks up?
 
 **See also:** :doc:`../property_testing/index`
 
-How do I always test a known failure first?
--------------------------------------------
+Always test a known failure first
+---------------------------------
 
 **Goal:** pin examples, and choose a short or a long run.
 
 .. literalinclude:: ../../examples/property/python/strategies.py
+   :caption: examples/property/python/strategies.py
    :language: python
    :start-after: # docs-start: pin
    :end-before: # docs-end: pin
@@ -205,12 +216,13 @@ How do I always test a known failure first?
 
 **See also:** :doc:`../property_testing/index`
 
-How do I test Ethernet frames with properties?
-----------------------------------------------
+Test Ethernet frames with properties
+------------------------------------
 
 **Goal:** send generated frames through the Ethernet components.
 
 .. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
+   :caption: examples/property/tb_property_ethernet.vhd
    :language: vhdl
    :start-after: -- docs-start: ethernet
    :end-before: -- docs-end: ethernet

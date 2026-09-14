@@ -110,3 +110,5 @@ jobs:
           pip install -e ".[scapy]"
       - name: Run tests/vhdl
         run: python tests/vhdl/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out"
+      - name: Run examples/gmii
+        run: python examples/gmii/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_gmii"

@@ -454,7 +454,8 @@ Content
      - Blocking: the content as a new byte array the caller deallocates; also non-blocking with
        ``await_flash_read_back_reply``
    * - ``flash_check_content(net, flash, address, expected)``
-     - Compare the content with ``expected`` in Python
+     - Compare the content with ``expected`` in Python, an ``integer_array_t`` the caller keeps or a
+       ``std_ulogic_vector`` of whole bytes with the byte of ``address`` leftmost
    * - ``flash_check_content_fill(net, flash, address, num_bytes, value)``
      - Compare a region with a constant, for example to prove an erase
    * - :vhdl:`flash_get_written_regions <flash_pkg.flash_get_written_regions>`

@@ -293,6 +293,15 @@ package flash_pkg is
     expected : integer_array_t
   );
 
+  -- Compare the content with expected, a vector of whole bytes with the byte
+  -- of address leftmost, such as the RAM of a DUT that booted from the flash
+  procedure flash_check_content(
+    signal net : inout network_t;
+    flash : flash_t;
+    address : natural;
+    expected : std_ulogic_vector
+  );
+
   -- Compare num_bytes of content from address with the constant value in
   -- Python, without an expected array. A mismatch is a check failure on the
   -- checker of the device naming the first differing address.
@@ -751,24 +760,32 @@ package body flash_pkg is
     send(net, get_actor(flash), msg);
   end;
 
-  procedure flash_preload(
-    signal net : inout network_t;
-    flash : flash_t;
-    address : natural;
-    data : std_ulogic_vector
-  ) is
+  -- A vector of whole bytes as a byte array, leftmost byte first. The caller
+  -- owns the result.
+  impure function to_byte_array(data : std_ulogic_vector; procedure_name : string) return integer_array_t is
     constant num_bytes : natural := data'length / 8;
     alias bits : std_ulogic_vector(0 to data'length - 1) is data;
     variable bytes : integer_array_t := new_1d(length => num_bytes, bit_width => 8, is_signed => false);
   begin
     assert data'length mod 8 = 0
-      report "flash_preload: vector length " & integer'image(data'length) & " is not a whole number of bytes"
+      report procedure_name & ": vector length " & integer'image(data'length) & " is not a whole number of bytes"
       severity failure;
 
     for idx in 0 to num_bytes - 1 loop
       set(bytes, idx, to_integer(unsigned(bits(8 * idx to 8 * idx + 7))));
     end loop;
 
+    return bytes;
+  end;
+
+  procedure flash_preload(
+    signal net : inout network_t;
+    flash : flash_t;
+    address : natural;
+    data : std_ulogic_vector
+  ) is
+    variable bytes : integer_array_t := to_byte_array(data, "flash_preload");
+  begin
     flash_preload(net, flash, address, bytes);
     deallocate(bytes);
   end;
@@ -856,6 +873,18 @@ package body flash_pkg is
     push(msg, address);
     push_integer_array_t_ref(msg, owned);
     send(net, get_actor(flash), msg);
+  end;
+
+  procedure flash_check_content(
+    signal net : inout network_t;
+    flash : flash_t;
+    address : natural;
+    expected : std_ulogic_vector
+  ) is
+    variable bytes : integer_array_t := to_byte_array(expected, "flash_check_content");
+  begin
+    flash_check_content(net, flash, address, bytes);
+    deallocate(bytes);
   end;
 
   procedure flash_check_content_fill(

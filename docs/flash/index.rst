@@ -13,6 +13,24 @@ components (VCs):
 * :doc:`qspi_protocol_checker`, the ``qspi_protocol_checker`` entity: a passive checker of the pin
   timing the master on a QSPI bus must meet.
 
+Quick start
+-----------
+
+A DUT that boots from a flash image, tested in full. The flash has the default configuration of a
+16 MiB part and checks the pin timing of the DUT with a default protocol checker. The test loads an
+Intel HEX image, releases the reset, and checks that the RAM of the DUT holds the image and that the
+boot wrote nothing:
+
+.. literalinclude:: ../../tests/vhdl/tb_flash_boot_example.vhd
+   :language: vhdl
+   :start-after: -- docs-start: boot-example
+   :end-before: -- docs-end: boot-example
+
+``tests/vhdl/tb_flash_boot_example.vhd`` runs in CI on GHDL and NVC. Its DUT,
+``tests/vhdl/boot_reader.vhd``, reads a length header and then the image with fast read (``0x0B``).
+The rest of this page and the pages of the components describe the deeper layers: device
+configuration, bus-level stimulus from a :doc:`qspi_master`, statistics, protection and busy times.
+
 .. code-block:: vhdl
 
    library awesome_vunit_vcs;

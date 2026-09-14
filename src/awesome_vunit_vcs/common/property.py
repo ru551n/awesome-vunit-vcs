@@ -13,6 +13,11 @@ each drawn example to VHDL and blocks until VHDL reports the verdict. The
 Python bridge holds the GIL only while a call from VHDL is running, so the
 thread makes progress between those calls.
 
+A strategy function may instead return a
+:class:`hypothesis.stateful.RuleBasedStateMachine` subclass. Its rules run
+steps in VHDL with :func:`step`, and Hypothesis shrinks a failure to the
+shortest failing sequence of steps.
+
 Hypothesis is imported only when a runner is created; the package does not
 depend on it.
 """
@@ -36,11 +41,32 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-__all__ = ["ExampleFailed", "ExampleTimeout", "PropertyError", "PropertyRunner"]
+__all__ = [
+    "PROFILE_VARIABLE",
+    "START_RULE",
+    "ExampleFailed",
+    "ExampleTimeout",
+    "PropertyError",
+    "PropertyRunner",
+    "pin",
+    "step",
+]
 
 #: How long, in wall-clock seconds, VHDL waits for Hypothesis to produce the next
 #: example before giving up. Simulation time is never limited from Python.
 DEFAULT_TIMEOUT_S = 3600.0
+
+#: The rule of the step a stateful property runs before each sequence of steps:
+#: VHDL resets the design when it gets it.
+START_RULE = "start"
+
+#: The environment variable selecting the example budget: ``quick`` (the
+#: default) runs ``max_examples`` examples, ``long`` ten times as many, for
+#: example in a nightly run.
+PROFILE_VARIABLE = "AWESOME_VUNIT_VCS_PROPERTY_PROFILE"
+_PROFILE_SCALES = {"quick": 1, "long": 10}
+
+_driver = threading.local()
 
 # Hypothesis raises an exception group for several distinct failures; the builtin
 # exists from Python 3.11 (older Pythons get the exceptiongroup backport's type).
@@ -71,6 +97,39 @@ class PropertyAborted(BaseException):
 
     Not an :class:`Exception`, so Hypothesis stops at once instead of shrinking.
     """
+
+
+def pin(*examples: Any) -> Any:
+    """
+    Always run ``examples`` first, like :func:`hypothesis.example`.
+
+    Decorate the strategy function with it to keep a counterexample found once as
+    a regression::
+
+        @pin([255, 0])
+        def byte_stream():
+            return st.lists(st.integers(0, 255))
+    """
+
+    def decorate(function: Any) -> Any:
+        function.__property_examples__ = (*getattr(function, "__property_examples__", ()), *examples)
+        return function
+
+    return decorate
+
+
+def step(rule: str, **fields: Any) -> int:
+    """
+    Run one step of a stateful property in VHDL and return the value VHDL reports.
+
+    Call it from the rules of a :class:`hypothesis.stateful.RuleBasedStateMachine`.
+    VHDL reads ``rule`` with ``get_rule`` and the fields by name, and reports
+    with ``report_step``.
+    """
+    runner = getattr(_driver, "runner", None)
+    if runner is None:
+        raise PropertyError("step() can only be called from the rules of a property run from VHDL")
+    return int(runner.run_example({"rule": rule, **fields}))
 
 
 class PropertyRunner:
@@ -127,13 +186,17 @@ class PropertyRunner:
 
         if search_path and search_path not in sys.path:
             sys.path.insert(0, search_path)
-        user_strategy = _load_strategy(strategy, arguments)
+        target, pins = _load_property(strategy, arguments)
+        self._stateful = isinstance(target, type)
 
         self._examples: queue.Queue[tuple[str, Any]] = queue.Queue()
         self._verdicts: queue.Queue[tuple[str, str, float]] = queue.Queue()
         self._timeout_s = timeout_s
         self._seed = seed
         self._journal, self._failures_file = _files(output_path, name)
+        if self._stateful:
+            self._failures_file = ""  # Hypothesis cannot replay a step sequence as an example
+        self._steps: list[dict[str, Any]] = []
         self._current: Any = None
         self._has_current = False
         self._cache: dict[str, Any] = {}
@@ -145,30 +208,50 @@ class PropertyRunner:
         self.detail = ""
         """What Hypothesis reported when the property ended."""
 
-        # The driver: a @given test whose body runs each drawn example in VHDL. Other
-        # drivers, such as a stateful rule machine, call run_example the same way.
-        def body(example: Any) -> None:
-            self.run_example(example)
-
-        test: Any = hypothesis.given(user_strategy)(body)  # type: ignore[no-untyped-call]
-        for value in self._saved_failures():
-            test = hypothesis.example(value)(test)
-        test = hypothesis.settings(
-            max_examples=max_examples,
+        settings = hypothesis.settings(
+            max_examples=max_examples * _profile_scale(),
             deadline=None,
             suppress_health_check=list(hypothesis.HealthCheck),
             phases=_phases(hypothesis, phases),
             print_blob=False,
             database=None,
-        )(test)
-        if seed:
-            # @seed turns Hypothesis's own example database off (hypothesis/core.py,
-            # seed()), which is why failures are saved and replayed by this class.
-            test = hypothesis.seed(int.from_bytes(hashlib.sha256(seed.encode()).digest()[:8], "big"))(test)
+        )
+        hashed_seed = int.from_bytes(hashlib.sha256(seed.encode()).digest()[:8], "big")
+        test: Any
+        if self._stateful:
+            # The stateful driver: every sequence starts with the start step, then
+            # the rules of the machine run their steps through step().
+            from hypothesis.stateful import run_state_machine_as_test
+
+            def new_machine() -> Any:
+                self._steps = []
+                self.run_example({"rule": START_RULE})
+                return target()
+
+            if seed:
+                new_machine = hypothesis.seed(hashed_seed)(new_machine)
+
+            def test() -> None:
+                run_state_machine_as_test(new_machine, settings=settings)  # type: ignore[no-untyped-call]
+
+        else:
+            # The @given driver: its body runs each drawn example in VHDL.
+            def body(example: Any) -> None:
+                self.run_example(example)
+
+            test = hypothesis.given(target)(body)  # type: ignore[no-untyped-call]
+            for value in (*pins, *self._saved_failures()):
+                test = hypothesis.example(value)(test)
+            test = settings(test)
+            if seed:
+                # @seed turns Hypothesis's own example database off (hypothesis/core.py,
+                # seed()), which is why failures are saved and replayed by this class.
+                test = hypothesis.seed(hashed_seed)(test)
 
         def run() -> None:
             from hypothesis.errors import Flaky
 
+            _driver.runner = self
             try:
                 test()
             except PropertyAborted:
@@ -202,7 +285,9 @@ class PropertyRunner:
         self.count += 1
         return True
 
-    def report(self, passed: bool, timed_out: bool = False, recovered: bool = True, message: str = "") -> None:
+    def report(
+        self, passed: bool, timed_out: bool = False, recovered: bool = True, message: str = "", value: int = 0
+    ) -> None:
         """
         The verdict on the current example.
 
@@ -212,6 +297,7 @@ class PropertyRunner:
             recovered: After a lockup, the design worked again once reset. False
                 ends the property as aborted.
             message: What went wrong, shown with the counterexample.
+            value: What the step of a stateful property returns to its rule.
         """
         if not self._has_current:
             raise PropertyError("report_example was called without a current example")
@@ -224,7 +310,7 @@ class PropertyRunner:
             kind = "timeout"
         else:
             kind = "failed"
-        self._verdicts.put((kind, message, 0.0))
+        self._verdicts.put((kind, message, float(value)))
 
     def score(self, label: str, value: float) -> None:
         """
@@ -238,14 +324,18 @@ class PropertyRunner:
         self._verdicts.put(("score", label, float(value)))
 
     # Called in the Hypothesis thread
-    def run_example(self, example: Any) -> None:
+    def run_example(self, example: Any) -> float:
         """
         Run one example in VHDL: hand it over, wait for the verdict and raise on a failure.
+
+        Returns the value VHDL reported with the verdict.
 
         This is the step every driver uses; the ``@given`` driver calls it for each
         drawn example. It must run inside a Hypothesis test, in the driver thread.
         """
         self._write_journal(example)
+        if self._stateful:
+            self._steps.append(example)
         self._examples.put(("example", example))
         while True:
             kind, message, value = self._verdicts.get()
@@ -255,7 +345,7 @@ class PropertyRunner:
 
             hypothesis.target(value, label=message)
         if kind == "passed":
-            return
+            return value
         self._failures.append((kind, repr(example), message))
         self._save_failure(repr(example))
         if kind == "timeout":
@@ -321,6 +411,8 @@ class PropertyRunner:
 
     def counterexample(self) -> str:
         """The minimal failing example, or an empty string when there is none."""
+        if self._stateful and self.outcome in ("failed", "flaky"):
+            return "; ".join(_format_step(item) for item in self._steps if item["rule"] != START_RULE)
         if not self._failures:
             return ""
         if self.outcome in ("failed", "flaky"):
@@ -332,14 +424,14 @@ class PropertyRunner:
         """A description of how the property ended, for the log."""
         examples = f"{self.count} example{'s' if self.count != 1 else ''}"
         last_message = f": {self._failures[-1][2]}" if self._failures and self._failures[-1][2] else ""
+        if self._stateful and not last_message and self.detail:
+            last_message = f": {self.detail.splitlines()[0]}"
         if self.outcome == "passed":
             return f"Property passed after {examples}"
         if self.outcome == "failed":
             kind = "lockup" if self._failures and self._failures[-1][0] == "timeout" else "wrong behavior"
-            return (
-                f"Property failed after {examples}. "
-                f"Minimal counterexample ({kind}{last_message}): {self.counterexample()}"
-            )
+            what = "Minimal failing steps" if self._stateful else "Minimal counterexample"
+            return f"Property failed after {examples}. {what} ({kind}{last_message}): {self.counterexample()}"
         if self.outcome == "flaky":
             return (
                 f"Property is flaky after {examples}: {self.counterexample()} failed once and then passed; "
@@ -464,19 +556,40 @@ def _vhdl_integer(value: Any, path: str) -> int:
     return value
 
 
-def _load_strategy(spec: str, arguments: str) -> Any:
+def _load_property(spec: str, arguments: str) -> tuple[Any, tuple[Any, ...]]:
+    """The strategy or state machine class the function ``spec`` returns, and its pinned examples."""
     from ..ethernet.traffic import TrafficError, parse_arguments, resolve
 
     try:
         function = resolve(spec)
-        strategy = function(**parse_arguments(arguments))
+        target = function(**parse_arguments(arguments))
     except TrafficError as exc:
         raise PropertyError(str(exc)) from None
+    from hypothesis.stateful import RuleBasedStateMachine
     from hypothesis.strategies import SearchStrategy
 
-    if not isinstance(strategy, SearchStrategy):
-        raise PropertyError(f"{spec!r} returned {strategy!r}, not a Hypothesis strategy")
-    return strategy
+    pins = tuple(getattr(function, "__property_examples__", ()))
+    if isinstance(target, type) and issubclass(target, RuleBasedStateMachine):
+        if pins:
+            raise PropertyError(f"{spec!r} returns a state machine, which cannot have pinned examples")
+        return target, pins
+    if not isinstance(target, SearchStrategy):
+        raise PropertyError(
+            f"{spec!r} returned {target!r}, not a Hypothesis strategy or a RuleBasedStateMachine subclass"
+        )
+    return target, pins
+
+
+def _profile_scale() -> int:
+    profile = os.environ.get(PROFILE_VARIABLE, "quick") or "quick"
+    if profile not in _PROFILE_SCALES:
+        raise PropertyError(f"{PROFILE_VARIABLE}={profile!r} is not a profile; use {' or '.join(_PROFILE_SCALES)}")
+    return _PROFILE_SCALES[profile]
+
+
+def _format_step(item: dict[str, Any]) -> str:
+    fields = ", ".join(f"{name}={value!r}" for name, value in item.items() if name != "rule")
+    return f"{item['rule']}({fields})"
 
 
 def _phases(hypothesis: Any, phases: str) -> Any:

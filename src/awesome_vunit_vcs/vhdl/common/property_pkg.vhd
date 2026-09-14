@@ -109,6 +109,20 @@ package property_pkg is
   impure function has_field(prop : property_t; path : string) return boolean;
 
   ----------------------------------------------------------------------------
+  -- Stateful properties
+  ----------------------------------------------------------------------------
+  -- When the strategy function returns a ``RuleBasedStateMachine`` subclass, each
+  -- example is one step: the rule that runs it, with the arguments of the rule
+  -- as fields. Every sequence of steps starts with the rule ``"start"``, when
+  -- the design is reset.
+
+  -- The rule of the current step.
+  impure function get_rule(prop : property_t) return string;
+
+  -- Report that the current step ran, returning ``value`` to the rule.
+  procedure report_step(prop : property_t; value : integer := 0);
+
+  ----------------------------------------------------------------------------
   -- Verdicts
   ----------------------------------------------------------------------------
 
@@ -256,6 +270,16 @@ package body property_pkg is
   impure function has_field(prop : property_t; path : string) return boolean is
   begin
     return backend_boolean(prop.p_session, "has(" & py_str(path) & ")");
+  end;
+
+  impure function get_rule(prop : property_t) return string is
+  begin
+    return get_string(prop, "rule");
+  end;
+
+  procedure report_step(prop : property_t; value : integer := 0) is
+  begin
+    backend_exec(prop.p_session, "report(True, value=" & integer'image(value) & ")");
   end;
 
   function example_budget(base : delay_length; per_item : delay_length; items : natural) return delay_length is

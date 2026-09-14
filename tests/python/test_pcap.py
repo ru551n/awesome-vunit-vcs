@@ -85,8 +85,9 @@ def test_capture_contains_the_frames_with_fcs_and_error_flags(tmp_path: Path) ->
 
 
 def test_capture_options(tmp_path: Path) -> None:
-    path, payloads = capture(tmp_path, CaptureOptions(include_fcs=False, include_errored=False,
-                                                      timestamp_resolution_exponent=15))
+    path, payloads = capture(
+        tmp_path, CaptureOptions(include_fcs=False, include_errored=False, timestamp_resolution_exponent=15)
+    )
     idb, packets = parse_pcapng(path)
     assert idb[9] == bytes([15])
     assert [p["data"] for p in packets] == [payloads[0]]

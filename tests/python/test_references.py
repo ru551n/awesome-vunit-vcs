@@ -47,8 +47,11 @@ def test_scapy_decode_of_monitored_frame() -> None:
 
     from awesome_vunit_vcs.ethernet.scapy_adapter import to_scapy
 
-    packet = Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:02") / IP(dst="192.168.1.10") / UDP(dport=1234) / Raw(
-        b"hello"
+    packet = (
+        Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:02")
+        / IP(dst="192.168.1.10")
+        / UDP(dport=1234)
+        / Raw(b"hello")
     )
     wire = build_wire_frame(bytes(packet))
     symbols = GmiiPhy().encode(wire)

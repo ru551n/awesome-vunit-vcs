@@ -16,9 +16,7 @@ def _ether() -> Any:
     try:
         from scapy.layers.l2 import Ether
     except ImportError as exc:
-        raise ImportError(
-            "Scapy integration needs the scapy package: pip install awesome-vunit-vcs[scapy]"
-        ) from exc
+        raise ImportError("Scapy integration needs the scapy package: pip install awesome-vunit-vcs[scapy]") from exc
     return Ether
 
 

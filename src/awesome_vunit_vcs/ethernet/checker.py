@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 from ..common.events import Publisher
 from .frame import SFD_OCTET, EthernetConfig, EthernetFrame
-from .phy.common import IdleEvent
+from .phy.common import IdleEvent, PhyEvent
 
 
 class CheckId(str, enum.Enum):
@@ -29,6 +29,10 @@ class CheckId(str, enum.Enum):
     TERMINATION = "ETH_TERMINATION"
     METAVALUE = "ETH_METAVALUE"
     FRAME_STATE = "ETH_FRAME_STATE"
+    #: A misplaced or unknown control character (control character PHYs such as XGMII)
+    CONTROL = "ETH_CONTROL"
+    #: A local or remote fault signaled by the PHY
+    LINK_FAULT = "ETH_LINK_FAULT"
 
     @classmethod
     def parse(cls, check: CheckId | str) -> CheckId:
@@ -142,8 +146,11 @@ class ProtocolChecker:
                 [
                     f"preamble octets={frame.preamble_octets}",
                     f"expected={config.min_preamble_octets}"
-                    + ("" if config.min_preamble_octets == config.max_preamble_octets else
-                       f"..{config.max_preamble_octets}"),
+                    + (
+                        ""
+                        if config.min_preamble_octets == config.max_preamble_octets
+                        else f"..{config.max_preamble_octets}"
+                    ),
                     f"first octet={first}",
                     *context,
                 ],
@@ -239,6 +246,15 @@ class ProtocolChecker:
                 event.timestamp_fs,
                 None,
             )
+
+    def on_phy_event(self, event: PhyEvent) -> None:
+        self._report(
+            CheckId.parse(event.check),
+            event.message,
+            [*event.details, f"time={event.timestamp_fs} fs"],
+            event.timestamp_fs,
+            None,
+        )
 
     def on_unfinished_frame(self, frame: EthernetFrame) -> None:
         self._report(

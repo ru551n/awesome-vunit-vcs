@@ -33,7 +33,14 @@ def test_statistics_of_known_traffic() -> None:
     assert stats.ifg_octets.minimum == 20
     assert stats.ifg_octets.maximum == 20
     assert dict(stats.size_histogram) == {
-        "<64": 0, "64": 2, "65-127": 0, "128-255": 1, "256-511": 0, "512-1023": 0, "1024-1518": 1, ">1518": 0,
+        "<64": 0,
+        "64": 2,
+        "65-127": 0,
+        "128-255": 1,
+        "256-511": 0,
+        "512-1023": 0,
+        "1024-1518": 1,
+        ">1518": 0,
     }
 
     # Window: first frame start to end of the last frame (first idle cycle)

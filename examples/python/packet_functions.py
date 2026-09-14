@@ -12,6 +12,8 @@ get_seed(runner_cfg), gives the same traffic.
 Here the functions live in this file, so their module is __main__.
 """
 
+# docs-start: example
+
 from collections.abc import Iterator
 
 from awesome_vunit_vcs import ethernet as eth
@@ -46,3 +48,4 @@ for frame, sent, before in zip(rx.frames, items, previous, strict=False):
     expected = eth.expected_violations(sent.frame, sent.options, previous=before and before.options)
     assert {violation.check for violation in frame.violations} == expected
 print(f"{len(rx.frames)} frames, {len(rx.violations)} violations, all as expected")
+# docs-end: example

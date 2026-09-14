@@ -10,6 +10,8 @@ immutable and validated with one exception, LIMITS bounds the parameter space
 and expected_violations is the oracle, so strategies are a few lines each.
 """
 
+# docs-start: example
+
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -46,3 +48,4 @@ if __name__ == "__main__":
     test_every_interface_delivers_the_frame()
     test_the_checker_reports_exactly_the_malformations()
     print("Both properties hold")
+# docs-end: example

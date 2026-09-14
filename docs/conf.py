@@ -97,6 +97,8 @@ myst_heading_anchors = 3
 extlinks = {
     "issue": ("https://github.com/ru551n/awesome-vunit-vcs/issues/%s", "#%s"),
     "vunit-pr": ("https://github.com/VUnit/vunit/pull/%s", "VUnit PR #%s"),
+    # A file in the repository, :repo-file:`examples/cookbook/tb_cookbook.vhd`
+    "repo-file": ("https://github.com/ru551n/awesome-vunit-vcs/blob/main/%s", "%s"),
 }
 
 copybutton_prompt_text = r"\$ |>>> |\.\.\. "

@@ -43,7 +43,8 @@ the checks a monitor reports for it.
 
 .. literalinclude:: ../examples/python/build_frames.py
    :language: python
-   :lines: 5-
+   :start-after: # docs-start: example
+   :end-before: # docs-end: example
 
 Error offsets always count from the first octet after the SFD; negative offsets reach into the SFD
 and the preamble. The VHDL ``frame_options`` use the same convention.
@@ -59,7 +60,8 @@ VHDL monitor records (sample words and their times), and
 
 .. literalinclude:: ../examples/python/decode_samples.py
    :language: python
-   :lines: 5-
+   :start-after: # docs-start: example
+   :end-before: # docs-end: example
 
 The round trip is exact: a frame sent with default options is received padded to the minimum frame
 size, ``frame.padded()``.
@@ -75,7 +77,8 @@ still in progress is reported and captures are closed at the end.
 
 .. literalinclude:: ../examples/python/check_frames.py
    :language: python
-   :lines: 5-
+   :start-after: # docs-start: example
+   :end-before: # docs-end: example
 
 Checks are named like the VHDL check literals, in upper case: ``"ETH_FCS"``, ``"ETH_IFG"`` and so
 on. ``Monitor(interface, checks=["ETH_FCS"])`` runs only some, ``checks=False`` none.
@@ -119,7 +122,8 @@ SFD; timestamps are those of the first octet after the SFD, in nanoseconds by de
 
 .. literalinclude:: ../examples/python/capture_frames.py
    :language: python
-   :lines: 5-
+   :start-after: # docs-start: example
+   :end-before: # docs-end: example
 
 Packets with Scapy
 ~~~~~~~~~~~~~~~~~~
@@ -129,7 +133,8 @@ capture frames; it adds the protocol layers above Ethernet.
 
 .. literalinclude:: ../examples/python/scapy_packets.py
    :language: python
-   :lines: 5-
+   :start-after: # docs-start: example
+   :end-before: # docs-end: example
 
 Property-based testing
 ----------------------
@@ -154,7 +159,8 @@ Strategies are then a few lines each:
 
 .. literalinclude:: ../examples/python/property_based.py
    :language: python
-   :lines: 5-
+   :start-after: # docs-start: example
+   :end-before: # docs-end: example
 
 The repository's own property tests, in ``tests/python/test_properties.py``, go further: sequences
 of frames with generated malformation parameters on every interface, statistics invariants and a
@@ -214,7 +220,8 @@ This file, ``examples/gmii/python/frame_sizes.py``, runs in the session of a mon
 
 .. literalinclude:: ../examples/gmii/python/frame_sizes.py
    :language: python
-   :lines: 5-
+   :start-after: # docs-start: example
+   :end-before: # docs-end: example
 
 The testbench executes it with ``exec_file`` from the Python bridge and reads the result back with
 ``eval``, from ``examples/gmii/tb_gmii_example.vhd``:
@@ -249,7 +256,8 @@ machinery for Python code: :func:`~awesome_vunit_vcs.ethernet.traffic.call_packe
 
 .. literalinclude:: ../examples/python/packet_functions.py
    :language: python
-   :lines: 5-
+   :start-after: # docs-start: example
+   :end-before: # docs-end: example
 
 Reproducible traffic from VUnit's seed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

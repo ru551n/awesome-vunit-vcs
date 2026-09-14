@@ -6,6 +6,8 @@
 Check frames and collect statistics with a Monitor, the pipeline of a VHDL monitor.
 """
 
+# docs-start: example
+
 from awesome_vunit_vcs import ethernet as eth
 
 frame = eth.Frame.from_payload(bytes(100))
@@ -26,3 +28,4 @@ assert rx.count("ETH_IFG") == 1  # the second short gap was not checked
 statistics = rx.statistics
 assert (statistics.total_frames, statistics.good_frames, statistics.fcs_errors) == (6, 5, 1)
 print(statistics.summary("rx"))
+# docs-end: example

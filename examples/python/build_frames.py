@@ -10,6 +10,8 @@ adds what a transmitter puts around them; WireOptions describe deliberate
 errors as data, and expected_violations says what a monitor reports for them.
 """
 
+# docs-start: example
+
 from awesome_vunit_vcs import ethernet as eth
 
 # A frame with a correct FCS, and what a transmitter puts on the wire for it
@@ -33,3 +35,4 @@ assert eth.expected_violations(frame, bad) == {
 assert eth.Frame.from_bytes(frame.octets) == frame
 assert len({frame, eth.Frame.from_bytes(frame.data, has_fcs=False)}) == 1
 print(f"{len(wire.octets)} octets on the wire, FCS 0x{frame.fcs:08X}")
+# docs-end: example

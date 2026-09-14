@@ -79,6 +79,13 @@ Tested with GHDL and NVC in CI.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Examples library
+   :hidden:
+
+   cookbook/index
+
+.. toctree::
+   :maxdepth: 2
    :caption: Ethernet
    :hidden:
 

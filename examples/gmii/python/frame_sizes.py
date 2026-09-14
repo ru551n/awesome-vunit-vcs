@@ -13,6 +13,8 @@ with vc.error, a counted check error, while an exception it raises becomes a
 failure on the logger of the monitor.
 """
 
+# docs-start: example
+
 from awesome_vunit_vcs.ethernet import Frame
 from awesome_vunit_vcs.ethernet.vunit_backend import MonitorBackend
 
@@ -25,3 +27,6 @@ def record_frame_size(frame: Frame) -> None:
     frame_sizes.append(len(frame.data))
     if len(frame.data) > 1514:
         vc.error("ETH_SCOREBOARD", f"frame {frame.index} is longer than this test sends")
+
+
+# docs-end: example

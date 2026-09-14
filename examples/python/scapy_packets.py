@@ -10,6 +10,8 @@ monitored, checked and captured without it. It adds the protocol layers above
 Ethernet.
 """
 
+# docs-start: example
+
 from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import Ether
 
@@ -22,3 +24,4 @@ received = eth.decode(eth.GMII, eth.GMII.encode([frame])).frames[0].to_scapy()
 assert received.dst == "02:00:00:00:00:01"
 assert IP in received and received[UDP].dport == 1234
 print(received.summary())
+# docs-end: example

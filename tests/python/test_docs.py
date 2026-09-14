@@ -115,3 +115,39 @@ def test_ethernet_data_is_counted_in_octets() -> None:
         if "_generated" not in path.parts and re.search(r"\bbytes?\b", path.read_text(encoding="utf-8"))
     ]
     assert not offenders
+
+
+def _literalincludes() -> list[tuple[Path, Path, dict[str, str]]]:
+    includes = []
+    for page in sorted(DOCS.rglob("*.rst")):
+        if "_generated" in page.parts:
+            continue
+        text = page.read_text(encoding="utf-8")
+        for match in re.finditer(r"^\.\. literalinclude:: (\S+)\n((?:[ \t]+:[\w-]+:[^\n]*\n)*)", text, re.MULTILINE):
+            options = dict(re.findall(r":([\w-]+):[ \t]*([^\n]*)", match[2]))
+            includes.append((page, (page.parent / match[1]).resolve(), options))
+    return includes
+
+
+def test_no_include_selects_lines_by_number() -> None:
+    offenders = [
+        f"{page.relative_to(REPO)}: {path.name}" for page, path, options in _literalincludes() if "lines" in options
+    ]
+    assert not offenders, "Use docs-start/docs-end markers instead of :lines:"
+
+
+def test_every_include_marker_exists() -> None:
+    missing = []
+    for page, path, options in _literalincludes():
+        text = path.read_text(encoding="utf-8")
+        for option in ("start-after", "end-before"):
+            if option in options and options[option] not in text:
+                missing.append(f"{page.relative_to(REPO)}: {options[option]!r} not in {path.relative_to(REPO)}")
+    assert not missing
+
+
+def test_every_example_is_in_the_examples_library() -> None:
+    index = (DOCS / "cookbook" / "index.rst").read_text(encoding="utf-8")
+    examples = sorted(path.name for path in (REPO / "examples").iterdir() if path.is_dir())
+    missing = [name for name in examples if f"examples/{name}" not in index]
+    assert not missing, "Add these examples to the table in docs/cookbook/index.rst"

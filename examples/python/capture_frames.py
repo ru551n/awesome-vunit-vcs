@@ -10,6 +10,8 @@ simulation timestamps and error flags; built frames are timed as if sent back
 to back.
 """
 
+# docs-start: example
+
 from awesome_vunit_vcs import ethernet as eth
 
 frames = [eth.Frame.from_payload(bytes(size)) for size in (46, 100, 1500)]
@@ -20,3 +22,4 @@ with eth.Monitor(eth.XGMII()) as rx:
     rx.capture("received.pcapng", fcs=False)
     rx.feed_frames(frames)
 assert rx.frames == [frame.padded() for frame in frames]
+# docs-end: example

@@ -71,6 +71,10 @@ def frame_data():
     return st.binary(min_size=60, max_size=128)
 
 
+# docs-start: pin
 @pin([255, 0])  # the lockup found once, always tried first
 def byte_stream():
     return st.lists(st.sampled_from([0x00, 0xFF]) | BYTE, max_size=6)
+
+
+# docs-end: pin

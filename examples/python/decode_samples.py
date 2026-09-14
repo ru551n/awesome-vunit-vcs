@@ -9,6 +9,8 @@ An Interface turns frames into Samples, the words and femtosecond times a VHDL
 monitor sends to Python, and decode runs them through the same pipeline.
 """
 
+# docs-start: example
+
 from awesome_vunit_vcs import ethernet as eth
 
 frames = [eth.Frame.from_payload(bytes(100)), eth.Frame.from_payload(b"hello")]
@@ -24,3 +26,4 @@ for interface in (eth.GMII, eth.MII.with_rate("10M"), eth.XGMII(lanes=8, rate="1
 recorded = eth.Samples.from_arrays(samples.words.tolist(), samples.times.tolist())
 assert eth.decode(eth.XGMII(lanes=8, rate="100G"), recorded).frames[1].payload == b"hello" + bytes(41)
 assert eth.fs("8 ns") == eth.GMII.clock_period_fs
+# docs-end: example

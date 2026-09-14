@@ -32,6 +32,10 @@ Status
      - 2.5G to 400G
      - Done
      - ``xgmii_source``, ``xgmii_monitor``, ``xgmii_protocol_checker``
+   * - QSPI NOR flash
+     - x1, x2, x4 lanes
+     - Done
+     - ``flash``, ``qspi_master``, ``qspi_protocol_checker``
    * - RGMII, RMII, AXI-Stream MAC client
      -
      - Planned
@@ -74,7 +78,7 @@ Start here
 Components
 ----------
 
-.. grid:: 1 1 3 3
+.. grid:: 1 1 2 2
    :gutter: 2
 
    .. grid-item-card:: Ethernet
@@ -88,6 +92,12 @@ Components
       :link-type: doc
 
       Let Hypothesis find the smallest input that breaks your design.
+
+   .. grid-item-card:: Flash / QSPI
+      :link: flash/index
+      :link-type: doc
+
+      A QSPI NOR flash model, a QSPI master and a QSPI protocol checker.
 
    .. grid-item-card:: Common
       :link: common/index
@@ -124,6 +134,13 @@ Components
    :hidden:
 
    property_testing/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Flash / QSPI
+   :hidden:
+
+   flash/index
 
 .. toctree::
    :maxdepth: 2

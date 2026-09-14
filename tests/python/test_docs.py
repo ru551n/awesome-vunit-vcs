@@ -39,7 +39,7 @@ def _families() -> list[Path]:
 
 
 #: The documentation section of every component family, holding its VHDL and Python API pages
-SECTIONS = ("ethernet", "property_testing", "common")
+SECTIONS = ("ethernet", "property_testing", "flash", "common")
 
 
 def _generated_includes() -> set[str]:
@@ -74,6 +74,7 @@ PUBLIC_MODULES = (
     "awesome_vunit_vcs.ethernet",
     "awesome_vunit_vcs.ethernet.lowlevel",
     "awesome_vunit_vcs.common.property",
+    "awesome_vunit_vcs.flash",
     "awesome_vunit_vcs.records",
     "awesome_vunit_vcs.gen_vhdl",
 )
@@ -179,14 +180,82 @@ def test_readme_has_no_code_beyond_the_install_line() -> None:
     assert all(block.strip().startswith("pip install") for block in blocks)
 
 
+#: A count of data in bytes, which Ethernet material gives in octets
+_BYTE = re.compile(r"\bbytes?\b")
+#: In Python sources ``bytes`` is also the name of a type, so only a byte and a number of bytes count
+_PYTHON_BYTE = re.compile(r"\bbyte\b|\d[\d_,]*[\s-]+bytes\b")
+#: Inline code, which names objects such as ``bytes()`` rather than counting data
+_CODE_SPAN = re.compile(r"``.*?``", re.DOTALL)
+#: The Ethernet pages outside ``docs/ethernet``, by name
+_ETHERNET_PAGES = ("getting_started/quickstart.rst",)
+_ETHERNET_SUFFIXES = {".md", ".py", ".rst", ".vhd"}
+
+
+def _ethernet_material(repo: Path) -> list[Path]:
+    """
+    The documentation and sources of the Ethernet family: ``docs/ethernet``, the Ethernet pages outside
+    it, and the Python and VHDL sources of the family.
+    """
+    docs = repo / "docs"
+    package = repo / "src" / "awesome_vunit_vcs"
+    trees = [docs / "ethernet", package / "ethernet", package / "vhdl" / "ethernet"]
+    files = {
+        path
+        for tree in trees
+        if tree.is_dir()
+        for path in tree.rglob("*")
+        if path.is_file() and path.suffix in _ETHERNET_SUFFIXES
+    }
+    files |= {docs / name for name in _ETHERNET_PAGES if (docs / name).is_file()}
+    return sorted(files)
+
+
+def _octet_offenders(repo: Path) -> list[str]:
+    """The Ethernet material of repo that counts data in bytes."""
+    offenders = []
+    for path in _ethernet_material(repo):
+        text = _CODE_SPAN.sub("", path.read_text(encoding="utf-8"))
+        pattern = _PYTHON_BYTE if path.suffix == ".py" else _BYTE
+        if pattern.search(text):
+            offenders.append(path.relative_to(repo).as_posix())
+    return offenders
+
+
+def _write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def test_the_octet_guardrail_checks_ethernet_material(tmp_path: Path) -> None:
+    package = tmp_path / "src" / "awesome_vunit_vcs"
+    _write(tmp_path / "docs" / "ethernet" / "checks.rst", "A frame of 64 bytes.\n")
+    _write(tmp_path / "docs" / "getting_started" / "quickstart.rst", "One byte per clock cycle.\n")
+    _write(tmp_path / "docs" / "ethernet" / "notes-mii.md", "Frames are counted in octets.\n")
+    _write(package / "vhdl" / "ethernet" / "gmii_pkg.vhd", "-- A preamble of 7 bytes\n")
+    _write(package / "ethernet" / "frame.py", '"""A 4-byte FCS."""\n\n\ndef fcs(data: bytes) -> bytes: ...\n')
+    _write(
+        package / "ethernet" / "api.py", 'def frame(data: bytes) -> None:\n    """Anything ``bytes()`` accepts."""\n'
+    )
+    assert set(_octet_offenders(tmp_path)) == {
+        "docs/ethernet/checks.rst",
+        "docs/getting_started/quickstart.rst",
+        "src/awesome_vunit_vcs/vhdl/ethernet/gmii_pkg.vhd",
+        "src/awesome_vunit_vcs/ethernet/frame.py",
+    }
+
+
+def test_the_octet_guardrail_leaves_out_the_flash_family(tmp_path: Path) -> None:
+    package = tmp_path / "src" / "awesome_vunit_vcs"
+    _write(tmp_path / "docs" / "flash" / "qspi_flash.rst", "A 16 MiB part holds 16777216 bytes.\n")
+    _write(tmp_path / "docs" / "flash" / "python.rst", "One bridge call per byte on the bus.\n")
+    _write(package / "vhdl" / "flash" / "flash_pkg.vhd", "-- A vector of whole bytes\n")
+    _write(package / "flash" / "device.py", "# One byte at a time\n")
+    assert _octet_offenders(tmp_path) == []
+
+
 def test_ethernet_data_is_counted_in_octets() -> None:
-    sources = [REPO / "src" / "awesome_vunit_vcs" / "ethernet" / "checker.py", *DOCS.rglob("*.rst")]
-    offenders = [
-        path.relative_to(REPO).as_posix()
-        for path in sources
-        if "_generated" not in path.parts and re.search(r"\bbytes?\b", path.read_text(encoding="utf-8"))
-    ]
-    assert not offenders
+    assert _ethernet_material(REPO), "No Ethernet material found"
+    assert not _octet_offenders(REPO)
 
 
 def _literalincludes() -> list[tuple[Path, Path, dict[str, str]]]:

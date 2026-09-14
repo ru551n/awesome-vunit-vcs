@@ -92,5 +92,33 @@ Glossary
    delta_unit
       The time resolution of the samples in a batch.
 
+   JEDEC
+      The standards body whose common serial NOR flash commands, such as READ_ID (``0x9F``), the flash
+      model and the command layer of the QSPI master implement.
+
+   SFDP
+      Serial Flash Discoverable Parameters (JESD216): the table a flash returns for ``0x5A``, describing
+      its density, addressing modes and erase types.
+
+   QPI
+      A flash mode, entered with ``0x38``, in which every phase of a command, the opcode included, uses
+      all four I/O lanes.
+
+   continuous read
+      Also XIP (execute in place): after a read with a continuous mode value, the next transaction starts
+      with the address, without an opcode.
+
+   WIP
+      Write in progress, status register 1 bit 0: the flash is busy with a program, erase or status
+      write.
+
+   WEL
+      Write enable latch, status register 1 bit 1: set by write enable (``0x06``) and needed before a
+      program, erase or status write.
+
+   tSHSL
+      The minimum CS high time between two flash commands, ``t_shsl`` of a QSPI protocol checker.
+      Datasheet names such as tSLCH and tCHDX name the other pin timing rules; see :doc:`flash/index`.
+
    packet function
       A Python function named ``"module:function"`` that returns a frame for ``push_ethernet_packet``.

@@ -67,6 +67,9 @@ Running simulations
        :ref:`python-monitors-in-simulation`.
    * - Wrong IFG or utilization
      - ``link_rate_mbps`` does not match the clock of the interface.
+   * - A flash reads ``0xFF`` everywhere
+     - Nothing was written: the flash starts erased. Call ``flash_preload`` or ``flash_load_image`` before
+       the DUT reads; see :doc:`flash/qspi_flash`.
 
 Slow simulations
 ----------------

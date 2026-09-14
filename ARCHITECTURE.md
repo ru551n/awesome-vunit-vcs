@@ -16,6 +16,7 @@ the models follow. User documentation lives at <https://awesome-vunit-vcs.readth
 - [Reports](#reports)
 - [What belongs where, per interface](#what-belongs-where-per-interface)
 - [Active sources and responders](#active-sources-and-responders)
+  - [The flash responder](#the-flash-responder)
 - [Design decisions](#design-decisions)
 - [Performance](#performance)
 - [Known limitations](#known-limitations)
@@ -155,6 +156,65 @@ queued, so `wait_until_idle` returns only after monitors sampled the last column
 Components that must answer a bus, such as a memory model responding to an opcode, cannot batch in
 advance. They may call their backend once per transfer unit (octet or word), never once per clock cycle.
 
+### The flash responder
+
+The flash family is the first responder. `flash` owns the pins, the output delays, the protocol checker
+it may instantiate and the simulation time; `awesome_vunit_vcs.flash` decides what every byte means.
+The QSPI master and the protocol checker are VHDL only and make no bridge calls, so they cost nothing
+per clock cycle beyond their own processes.
+
+Every `flash` creates its session with `new_vc_session(get_id(flash), get_logger(flash))`, so a second
+flash with the same id is a failure on the logger of that flash, and one `FlashBackend` as the object
+`vc` in it:
+
+```vhdl
+create_backend(
+  session, "awesome_vunit_vcs.flash.vunit_backend", "FlashBackend",
+  arg_text(full_name(get_id(flash))) & kwarg("size_bytes", ...) & kwarg("addr_modes", 0) &
+  kwarg("timing_enabled", true) & kwarg_time("t_pp", ...) & ... & kwarg_time("t_res2", ...)
+);
+```
+
+The backend decodes the name with `decode_text` and each busy time (`t_pp`, `t_se`, `t_be32`, `t_be64`,
+`t_ce`, `t_w`, `t_rst`, `t_res1`, `t_res2`) with `decode_time_fs`, builds a `FlashConfig` and delegates
+to a `FlashDevice`. An invalid configuration is a failure report, and a default device keeps the calls
+that follow harmless.
+
+On the wire the flash makes three calls, all with typed arguments:
+
+| When | Call | Returns |
+|---|---|---|
+| CS falls | `backend_call_integer(session, "cs_assert", arg_time(now))` | The directive for the first byte |
+| After every byte | `backend_call_integer(session, "xfer", arg(byte_in))`, with `& arg_time(now)` when the previous directive was volatile | The directive for the next byte |
+| CS rises | `backend_call_integer_array(session, "cs_deassert", arg(bits) & arg_time(now))` | The busy time and the number of waiting reports |
+
+`byte_in` is -1 when the flash clocked a byte out. The procedures of `flash_pkg` call the other methods
+through the flash's `com` messages: `preload` and `check_content` with `arg(data) & arg(address)`,
+`load_image` with `arg_text(file) & arg_text(format) & arg(base)`, `set_timing` with
+`arg_text(name) & arg_time(duration)`, `get_stat` with `arg_text(name) & arg_time(now)`, and
+`set_timing_enable`, `set_protection` and `reset` with booleans. Content-sized calls cost one bridge call
+whatever the size: `flash_preload_fill` sends only the length, Python opens image files itself, and
+`flash_check_content` compares in Python.
+
+The device state machine follows three rules of real parts: nothing executes until CS rises, so a CS
+edge inside a data byte aborts a program or status write; refusals are silent and only counted; and WIP
+is a deadline, `now < deadline`, evaluated whenever it is read. The opcode table is data in
+`awesome_vunit_vcs.flash.commands`, resolved against the configuration.
+
+`cs_assert` and `xfer` return one packed directive:
+
+| Field | Bits | Values |
+|---|---|---|
+| `action` | 1..0 | 0 receive, 1 transmit, 2 ignore the rest of the transaction |
+| `lanes` | 4..2 | 1, 2 or 4 |
+| `pre_dummy_cycles` | 10..5 | SCK cycles with the I/Os released before the action |
+| `byte_out` | 18..11 | The byte to transmit |
+| `flags` | 20..19 | Bit 0, volatile: the next `xfer` passes the simulation time, because the byte depends on it |
+| `n_bytes` | 29..21 | Always 1 |
+
+`flash_pkg` has the same table written by hand and compares `flash_layout_version` with
+`LAYOUT_VERSION` from the backend at time 0; a difference is a failure on the logger of the flash.
+
 ## Design decisions
 
 Investigated on 2026-09-14 against VUnit `feature/package-setup-hooks` (1ecac00),
@@ -219,6 +279,63 @@ Like VUnit's `axi_stream_protocol_checker`, protocol checks run in a separate en
 instantiates when its handle has one. The line is sampled twice when both are used (see
 [Performance](#performance)).
 
+### Flash content in sparse Python storage, not VUnit's memory model
+
+VUnit's `memory_t` is dense: every byte of the address space is allocated, with per-byte permissions
+and expectations. The flash content lives in Python as a sparse array with NOR semantics (programming
+only clears bits, erasing sets `0xFF`) and region protection, so a 16 MiB part filled with a pattern
+costs a few objects. A `memory_t` view would duplicate that state and would have to follow every
+program and erase. The preload, read-back and check procedures of the flash are its memory access API.
+
+### One bridge call per byte for a responder
+
+A monitor batches because nothing it drives depends on what it samples. A responder cannot: after an
+opcode the model decides whether an address, dummy cycles, a read or nothing follows, and after an
+address the next byte out is the content at that address. The flash calls its backend once per byte on
+the bus and once per CS edge, never once per clock cycle, and moves bulk content through calls whose
+cost does not grow with the size.
+
+### A packed 30-bit directive and a layout version handshake
+
+The bridge returns one value per call, and a directive is needed for every byte. Packing the fields
+into one integer keeps it one call per byte instead of one per field. The layout stops at 30 bits
+because a VHDL `integer` is signed 32-bit. The table is written twice, in VHDL and in Python, so the
+flash checks `LAYOUT_VERSION` at time 0 instead of misreading bytes when the two halves of the package
+come from different versions.
+
+### Integer femtoseconds
+
+Every time in the flash model is an integer number of femtoseconds, the resolution of the simulators.
+Floating-point seconds would make a busy deadline and the time VHDL passes disagree by rounding, and a
+WIP read exactly at the deadline would depend on it. Times cross the bridge with `arg_time`, which
+handles times beyond the range of one 32-bit integer.
+
+### Reports instead of exceptions
+
+A backend method never raises into the bridge: an exception would stop the simulation with a Python
+traceback and no VUnit log entry. `FlashBackend` turns a `ContentMismatch` into an error report, logged
+as a check failure on the checker of the flash, and any other exception into a failure report on its
+logger, prefixed with the name of the flash. Calls return the number of waiting reports, so VHDL
+fetches them only when there are some. Standalone, `FlashDevice` raises `FlashValueError` and
+`ContentMismatch` like any Python API.
+
+### No protocol checker by default
+
+Pin timing depends on the part a design is built for, and a DUT flash controller often fails the
+datasheet minimums of a generic default in ways a test does not care about. `new_flash` and
+`new_qspi_master` therefore default to `null_qspi_protocol_checker`, and a test opts in with
+`protocol_checker => new_qspi_protocol_checker(...)` and the times of its part, like a monitor's
+protocol checker in the Ethernet family. The metavalue checks of the flash and the master stay on,
+because they are never a property of a part.
+
+### Protocol checker ids inherited from their parent
+
+A protocol checker passed to `new_flash` or `new_qspi_master` without an explicit id gets the id
+`<parent id>:protocol_checker`, and its logger, actor and checker follow it unless they were passed.
+Log messages therefore name the flash they belong to. A checker constructed without an id takes its
+default id lazily, the first time it is needed, so a handle that is given to a parent uses up no
+`awesome_vunit_vcs:qspi_protocol_checker:<n>` number and leaves no actor behind.
+
 ## Performance
 
 ### Bridge benchmark
@@ -246,6 +363,28 @@ Rerun the bridge benchmark one configuration at a time:
 VUNIT_SIMULATOR=ghdl python benchmarks/run.py -p 1 -v | grep BENCHMARK
 VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 -v | grep BENCHMARK
 ```
+
+### Flash responder
+
+A QSPI master reads 262,144 bytes (256 KiB) at a 20 ns SCK period, once with the flash answering and
+once from a constant bus. The cost per byte is (flash - constant bus) / 262,144. Wall clock time per
+test, VUnit `-p 1`, two identical runs.
+
+Measured on 2026-09-14, with the typed bridge arguments of `vc_python_pkg`, with GHDL 7.0.0-dev
+(6.0.0.r418.g753dfcf0b, mcode backend), NVC 1.23-devel (1.22.0.r66.gef5084a94, LLVM 21.1.8), CPython 3.12,
+VUnit (1ecac00) and vunit-python-bridge (28ff9b4). Both runs gave the same times to 0.1 s, except the NVC
+x1 read without a flash, 3.6 s and 3.7 s.
+
+| Read | NVC, constant bus (s) | NVC, flash (s) | NVC, per byte | GHDL, constant bus (s) | GHDL, flash (s) | GHDL, per byte |
+|---|---|---|---|---|---|---|
+| x1 (`0x03`) | 3.65 | 7.6 | 15 µs | 7.5 | 15.5 | 31 µs |
+| x4 (`0xEB`) | 1.0 | 4.6 | 14 µs | 2.1 | 8.5 | 24 µs |
+
+- **The x4 row is closest to the cost of the bridge call itself.** An x1 read also pays for four times
+  the VHDL clock edges.
+- **Image-sized content goes through the preload and check procedures.** `flash_preload_fill` and
+  `flash_load_image` cost one bridge call regardless of size, `flash_preload` and `flash_check_content`
+  one array transfer.
 
 ## Known limitations
 
@@ -286,6 +425,40 @@ AXI-Stream MAC client, need a switch for frames starting at the destination addr
 - A path reaches fields by name only for dicts with string keys, dataclasses and named tuples.
 - Hypothesis's example database is disabled by `@seed`, so the runner saves failures itself.
 
+### QSPI NOR flash
+
+- One bridge call per byte on the bus, plus one at each CS edge (see
+  [Flash responder](#flash-responder)).
+- One device per bus: `s2m` is an unresolved record with one driver, and the flash selects itself with
+  `m2s.cs_n`. Two devices need two buses.
+- The BP bits count 4 KiB (`SEC` set) or 64 KiB units whatever `sector_bytes` and `block_bytes` are, in
+  a generic decode rather than the density table of a particular part.
+- No hardware write protection: SRP and SRL can be written but have no effect, there is no WP# pin, and
+  the one-time-programmable lock bits cannot be written.
+- The fixed 4-byte address commands are `0x13`, `0x0C`, `0x12` and `0xDC`; dual and quad 4-byte
+  commands such as `0x3C`, `0x6C`, `0xBC`, `0xEC` and `0x34` are unknown opcodes. Addressing is switched
+  with `0xB7` and `0xE9` only, not through a status register bit.
+- No program or erase suspend: `0x75` and `0x7A` are unknown opcodes.
+- The dummy cycle count of each command is fixed by the opcode table; parts that configure it through a
+  register are not modeled.
+- Only the deep power-down release times `tRES1` and `tRES2` are modeled; entering deep power-down
+  takes no time.
+- The flash reads `Z` on a lane it samples for data in as a metavalue. A transfer that clocks SCK with
+  the controller's I/Os released while the flash expects data in, such as trailing clocks after a
+  program to end it in a partial byte, is reported as one metavalue per sampled beat, with or without a
+  protocol checker.
+
+### QSPI master
+
+- SPI mode 0 only, with CS setup and hold fixed at half an SCK period.
+- The command layer takes addresses as a `natural`, so up to 2 GiB.
+
+### QSPI protocol checker
+
+- Minimum times of the master only: no maximum times are checked, and `s2m` is unused by the current
+  rules, so the output timing of the device (tCLQV, tSHQZ) and bus contention are not checked.
+- Times in messages are truncated to whole picoseconds.
+
 ## Specification references
 
 - **MII:** IEEE 802.3 Clause 22 (nibble order, 2.5/25 MHz clocks); the trailing half octet as alignment
@@ -296,4 +469,9 @@ AXI-Stream MAC client, need a switch for frames starting at the destination addr
   receive gap is IEEE 802.3 interpretation 1-11/09 of 4.4.2; deficit idle follows 46.3.1.4.
 - **200GMII/400GMII:** IEEE 802.3bs 119.2.3.3 to 119.2.3.8 use the control characters and ordered sets
   of CGMII (Table 82-1, 82.2.3.6 to 82.2.3.9). Checked against draft P802.3bs/D3.1.
+- **Serial NOR flash:** SFDP follows JESD216: the `SFDP` signature, one parameter header for the JEDEC
+  Basic Flash Parameter Table and a 9-DWORD basic table whose density, erase types and fast-read fields
+  are computed from the configuration and the opcode table. RDSFDP (`0x5A`) always takes 3 address
+  bytes, also in 4-byte mode. The opcodes are the common JEDEC set of W25Q-style parts, and the BP
+  decode is a generic W25Q-style one.
 - cocotbext-eth's `XgmiiCtrl` uses the same control codes.

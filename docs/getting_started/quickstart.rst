@@ -131,5 +131,7 @@ Next steps
      - :doc:`../ethernet/packets_and_sequences`
    * - Find a recipe for a common task
      - :doc:`../cookbook/index`
+   * - Test a design that boots from QSPI flash
+     - :ref:`flash quick start <flash-quick-start>`
    * - See a larger example with two monitors, a Python subscriber and Scapy
      - :doc:`../ethernet/gmii`

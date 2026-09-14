@@ -12,6 +12,8 @@ import awesome_vunit_vcs
 from awesome_vunit_vcs import AwesomeVunitVcsError
 from awesome_vunit_vcs import ethernet as eth
 from awesome_vunit_vcs.ethernet.errors import EthernetValueError
+from awesome_vunit_vcs.flash.config import FlashConfig
+from awesome_vunit_vcs.flash.errors import ContentMismatch, FlashError, FlashValueError
 
 
 def test_ethernet_validation_errors_are_package_errors() -> None:
@@ -19,6 +21,15 @@ def test_ethernet_validation_errors_are_package_errors() -> None:
         eth.fs("eight nanoseconds")
     assert issubclass(EthernetValueError, AwesomeVunitVcsError)
     assert issubclass(EthernetValueError, ValueError)
+
+
+def test_flash_errors_are_package_errors() -> None:
+    with pytest.raises(AwesomeVunitVcsError):
+        FlashConfig(size_bytes=3)
+    assert issubclass(FlashError, AwesomeVunitVcsError)
+    assert issubclass(FlashValueError, FlashError)
+    assert issubclass(FlashValueError, ValueError)
+    assert issubclass(ContentMismatch, FlashError)
 
 
 def test_the_base_exception_is_exported_from_the_package() -> None:

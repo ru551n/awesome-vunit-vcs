@@ -77,8 +77,11 @@ Other VC families
      - Scope
      - Status
    * - Flash / QSPI
-     - A QSPI NOR flash memory model with a simulator independent Python model, and a QSPI master
-     - In progress
+     - A QSPI NOR flash responder with a simulator independent Python device model: SPI mode 0, x1,
+       x2 and x4 I/O, QPI, 3- and 4-byte addressing, continuous read, SFDP, status register and
+       region protection, and busy times. A QSPI master with a JEDEC command layer, and a passive
+       QSPI protocol checker of the master's pin timing. See :doc:`flash/index`.
+     - Done
 
 New families follow :doc:`contributing/new_family`. Ideas such as I2C, MDIO or AXI monitors are
 welcome as issues or pull requests.

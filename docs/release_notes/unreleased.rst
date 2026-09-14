@@ -3,6 +3,12 @@ The first release is being prepared. Nothing has been released yet.
 * Ethernet: GMII, MII and XGMII-family sources, monitors and protocol checkers (the XGMII family
   from 2.5GMII up to 200GMII and 400GMII), with frame
   reconstruction, protocol checks, statistics, PCAPNG capture and packets from Python functions.
+* Flash: a QSPI NOR flash VC with a simulator independent Python device model (SPI mode 0, x1, x2
+  and x4 I/O, QPI, 3- and 4-byte addressing, continuous read, SFDP, status register and region
+  protection, busy times, and erase sizes and addressing modes from the configuration), a QSPI master
+  VC with a JEDEC command layer, and a QSPI protocol checker VC for the pin timing of the master.
+  Every flash VC has ``reset(net, handle)``; the master's aborts a transfer in progress. Bytes can be
+  given as ``std_ulogic_vector`` literals such as ``x"DEADBEEF"``, or with ``new_byte_array``.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
 
 VHDL API
@@ -110,7 +116,7 @@ Python API
   ``vc.error``, a counted check error.
 * Every invalid argument raises ``EthernetValueError``, a ``ValueError``.
 * ``AwesomeVunitVcsError``, exported from ``awesome_vunit_vcs``, is the base of every error of the
-  package: ``EthernetValueError`` derives from it, and other families will too.
+  package: ``EthernetValueError`` and ``FlashError`` derive from it.
 
 Breaking changes
 ~~~~~~~~~~~~~~~~
@@ -132,3 +138,22 @@ Breaking changes
   arguments from ``args``/``kwargs`` or ``set_arguments``; ``packet_symbols`` (a Scapy expression) is
   removed.
 * ``PropertyRunner`` takes the strategy's arguments as a mapping, or later through ``start``.
+* Flash: the flash VC no longer checks the pin timing of the controller by default: the
+  ``protocol_checker`` parameter of ``new_flash`` and ``new_qspi_master`` defaults to
+  ``null_qspi_protocol_checker``. Pass ``protocol_checker => new_qspi_protocol_checker(...)`` to check
+  it. The pin limits ``t_sck_min`` to ``t_chdx`` moved from ``new_flash`` to
+  ``new_qspi_protocol_checker``, and the switch that disabled every pin check is gone: leave out the
+  protocol checker, or switch single rules off with ``set_check_enabled``. Violations are check
+  failures on the checker of the protocol checker, ``<flash id>:protocol_checker`` unless it has an
+  id of its own, and their messages start with the check ID, such as ``QSPI_CS_DESELECT``.
+* Flash: ``new_flash`` and ``new_qspi_master`` end with ``protocol_checker``, ``id``, ``logger``,
+  ``actor``, ``checker`` and ``unexpected_msg_type_policy``, like VUnit's own VCs. ``id`` moved from
+  the first to that group.
+* Flash: a message of an unknown type is a check failure ``Got unexpected message <type>`` on the
+  checker of the VC, as for the Ethernet VCs, instead of a failure on its logger.
+* Flash: two flashes with the same id, which would share one Python backend, are a failure on the
+  logger of the second, as for the Ethernet VCs.
+* Flash: ``set_check_enabled`` and ``get_check_count``, blocking and with a reference, also take a
+  flash or a QSPI master and act on the protocol checker it owns.
+* Flash: ``set_sck_period`` is answered with ``set_qspi_master_sck_period_reply_msg``, and the names
+  of the QSPI master and protocol checker message types are words, such as ``reset qspi master``.

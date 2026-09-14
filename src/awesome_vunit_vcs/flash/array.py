@@ -37,6 +37,8 @@ from __future__ import annotations
 import bisect
 from operator import itemgetter
 
+from .errors import FlashValueError
+
 #: The value of an erased byte
 ERASED_BYTE = 0xFF
 
@@ -76,12 +78,12 @@ class FlashArray:
         erased_value: The value of an erased or untouched byte.
 
     Raises:
-        ValueError: ``size_bytes`` is not a positive multiple of a positive ``page_bytes``.
+        FlashValueError: ``size_bytes`` is not a positive multiple of a positive ``page_bytes``.
     """
 
     def __init__(self, size_bytes: int, page_bytes: int, erased_value: int = ERASED_BYTE) -> None:
         if size_bytes <= 0 or page_bytes <= 0 or size_bytes % page_bytes:
-            raise ValueError(f"size_bytes={size_bytes} must be a positive multiple of page_bytes={page_bytes}")
+            raise FlashValueError(f"size_bytes={size_bytes} must be a positive multiple of page_bytes={page_bytes}")
         self.size_bytes = size_bytes
         self.page_bytes = page_bytes
         self.erased_value = erased_value & 0xFF
@@ -114,7 +116,7 @@ class FlashArray:
 
     def _check(self, addr: int, length: int) -> None:
         if addr < 0 or length < 0 or addr + length > self.size_bytes:
-            raise ValueError(f"[0x{addr:x}, +{length}) outside device size 0x{self.size_bytes:x}")
+            raise FlashValueError(f"[0x{addr:x}, +{length}) outside device size 0x{self.size_bytes:x}")
 
     # -- run bookkeeping -------------------------------------------------
 
@@ -198,7 +200,7 @@ class FlashArray:
             The bytes at ``[addr, addr + length)``. Untouched bytes read as erased.
 
         Raises:
-            ValueError: The range is not inside the array.
+            FlashValueError: The range is not inside the array.
         """
         self._check(addr, length)
         if length == 0:
@@ -268,7 +270,7 @@ class FlashArray:
             mark: Record the range as a written region, see :meth:`written_regions`.
 
         Raises:
-            ValueError: The range is not inside the array.
+            FlashValueError: The range is not inside the array.
         """
         self._check(addr, length)
         if length == 0:
@@ -320,7 +322,7 @@ class FlashArray:
             mark: Record the range as a written region, see :meth:`written_regions`.
 
         Raises:
-            ValueError: The range is not inside the array.
+            FlashValueError: The range is not inside the array.
         """
         self._check(addr, len(data))
         if not data:
@@ -345,7 +347,7 @@ class FlashArray:
             data: The bytes to program.
 
         Raises:
-            ValueError: The range is not inside the array.
+            FlashValueError: The range is not inside the array.
         """
         self._check(addr, len(data))
         if not data:
@@ -372,7 +374,7 @@ class FlashArray:
             length: The number of bytes.
 
         Raises:
-            ValueError: The range is not inside the array.
+            FlashValueError: The range is not inside the array.
         """
         self.fill(addr, length, self.erased_value, mark=True)
 

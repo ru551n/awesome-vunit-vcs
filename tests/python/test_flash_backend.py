@@ -142,7 +142,7 @@ def test_a_negative_electronic_id_is_derived_from_the_jedec_id() -> None:
 def test_an_invalid_configuration_is_a_failure_report_not_an_exception() -> None:
     backend = make(size_bytes=3)
     message = only_report(backend, Severity.FAILURE)
-    assert message.startswith(f"{NAME}: __init__ raised ValueError: ")
+    assert message.startswith(f"{NAME}: __init__ raised FlashValueError: ")
     assert "size_bytes=3" in message
     # The fallback device keeps later calls harmless
     assert backend.get_stat("addr_bytes") == 3
@@ -155,7 +155,7 @@ def test_invalid_busy_times_are_a_failure_report() -> None:
     busy = {key: split_time(DEFAULT_BUSY_FS[key]) for key in BUSY_KEYS}
     busy["tSE"] = (0, -1)
     message = only_report(make(busy=busy), Severity.FAILURE)
-    assert message.startswith(f"{NAME}: __init__ raised ValueError: ")
+    assert message.startswith(f"{NAME}: __init__ raised FlashValueError: ")
     assert "lo=-1" in message
 
 
@@ -265,14 +265,14 @@ def test_driving_the_bus_when_a_byte_was_expected_is_a_failure_report(fast: Flas
 
 def test_invalid_time_halves_are_failure_reports(fast: FlashBackend) -> None:
     assert fast.cs_assert(-1, 0) == ignore_rest()
-    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: cs_assert raised ValueError: ")
+    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: cs_assert raised FlashValueError: ")
     fast.cs_assert(0, 0)
     assert fast.xfer(0x9F, 0, 1 << 30) == ignore_rest()
     only_report(fast, Severity.FAILURE)
     busy = fast.cs_deassert(0, 0, -1)
     assert busy.dtype == np.int32
     assert list(busy) == [0, 0, 1]
-    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: cs_deassert raised ValueError: ")
+    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: cs_deassert raised FlashValueError: ")
 
 
 # -- control plane ---------------------------------------------------------
@@ -329,7 +329,7 @@ def test_preload_accepts_a_plain_sequence_and_an_empty_array(fast: FlashBackend)
 def test_preload_rejects_non_byte_values(fast: FlashBackend) -> None:
     assert fast.preload([300], 0) == 1
     message = only_report(fast, Severity.FAILURE)
-    assert message.startswith(f"{NAME}: preload raised ValueError: ")
+    assert message.startswith(f"{NAME}: preload raised FlashValueError: ")
     assert "300" in message
     assert fast.preload([0x00, 0x100], 0) == 1
     assert "element 1" in only_report(fast, Severity.FAILURE)
@@ -351,10 +351,10 @@ def test_preload_at_the_end_of_the_device_does_not_wrap(fast: FlashBackend) -> N
 
 def test_fill_values_outside_a_byte_are_failure_reports(fast: FlashBackend) -> None:
     assert fast.preload_fill(0, 4, 0x100) == 1
-    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: preload_fill raised ValueError: ")
+    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: preload_fill raised FlashValueError: ")
     assert list(fast.read_back(0, 1)) == [0xFF]
     assert fast.check_content_fill(0, 4, 0x1FF) == 1
-    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: check_content_fill raised ValueError: ")
+    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: check_content_fill raised FlashValueError: ")
 
 
 def test_read_back_failure_returns_an_empty_array(fast: FlashBackend) -> None:
@@ -485,14 +485,14 @@ def test_set_timing_and_enable() -> None:
 def test_set_timing_with_an_unknown_name_is_a_failure_report(fast: FlashBackend) -> None:
     assert fast.set_timing("tXX", 0, 1) == 1
     message = only_report(fast, Severity.FAILURE)
-    assert message.startswith(f"{NAME}: set_timing raised KeyError: ")
+    assert message.startswith(f"{NAME}: set_timing raised FlashValueError: ")
     assert "tXX" in message
 
 
 def test_unknown_stat_is_a_failure_report_and_returns_0(fast: FlashBackend) -> None:
     assert fast.get_stat("nope") == 0
     message = only_report(fast, Severity.FAILURE)
-    assert message.startswith(f"{NAME}: get_stat raised KeyError: ")
+    assert message.startswith(f"{NAME}: get_stat raised FlashValueError: ")
 
 
 def test_a_stat_beyond_32_bits_is_a_failure_report_and_returns_0() -> None:
@@ -504,7 +504,7 @@ def test_a_stat_beyond_32_bits_is_a_failure_report_and_returns_0() -> None:
     assert backend.num_reports() == 0
     assert backend.get_stat("bytes_read") == 0
     message = only_report(backend, Severity.FAILURE)
-    assert message.startswith(f"{NAME}: get_stat raised ValueError: ")
+    assert message.startswith(f"{NAME}: get_stat raised FlashValueError: ")
     assert "'bytes_read'" in message
     assert str(2**31) in message
     # A value that fits is returned unchanged
@@ -529,7 +529,7 @@ def test_get_stat_with_a_time_advances_the_device_time() -> None:
 
 def test_get_stat_with_invalid_time_halves_is_a_failure_report(fast: FlashBackend) -> None:
     assert fast.get_stat("wip", 0, 1 << 30) == 0
-    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: get_stat raised ValueError: ")
+    assert only_report(fast, Severity.FAILURE).startswith(f"{NAME}: get_stat raised FlashValueError: ")
 
 
 def test_clear_statistics_keeps_the_content(fast: FlashBackend) -> None:

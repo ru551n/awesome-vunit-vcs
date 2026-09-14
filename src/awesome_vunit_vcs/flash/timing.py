@@ -27,6 +27,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from .config import BUSY_KEYS
+from .errors import FlashValueError
 
 __all__ = ["BUSY_KEYS", "Timing"]
 
@@ -45,14 +46,14 @@ class Timing:
         enabled: Whether busy times apply. When False every busy time is 0.
 
     Raises:
-        ValueError: ``busy_fs`` is missing a name of
+        FlashValueError: ``busy_fs`` is missing a name of
             :data:`~awesome_vunit_vcs.flash.config.BUSY_KEYS`.
     """
 
     def __init__(self, busy_fs: Mapping[str, int], *, enabled: bool = True) -> None:
         missing = [key for key in BUSY_KEYS if key not in busy_fs]
         if missing:
-            raise ValueError(f"the busy time table is missing: {missing}")
+            raise FlashValueError(f"the busy time table is missing: {missing}")
         self._busy = {key: int(busy_fs[key]) for key in BUSY_KEYS}
         self.enabled = bool(enabled)
         self._deadline_fs = 0
@@ -72,13 +73,12 @@ class Timing:
             duration_fs: The busy time in fs.
 
         Raises:
-            KeyError: ``name`` is not a busy-time name.
-            ValueError: ``duration_fs`` is negative.
+            FlashValueError: ``name`` is not a busy-time name or ``duration_fs`` is negative.
         """
         if name not in self._busy:
-            raise KeyError(f"unknown timing name {name!r}; known: {list(BUSY_KEYS)}")
+            raise FlashValueError(f"unknown timing name {name!r}; known: {list(BUSY_KEYS)}")
         if duration_fs < 0:
-            raise ValueError(f"timing {name} must not be negative (got {duration_fs} fs)")
+            raise FlashValueError(f"timing {name} must not be negative (got {duration_fs} fs)")
         self._busy[name] = int(duration_fs)
 
     def set_enable(self, enable: bool) -> None:
@@ -109,10 +109,12 @@ class Timing:
             The busy time in fs, 0 for None or when busy times are disabled.
 
         Raises:
-            KeyError: ``name`` is not a busy-time name and busy times are enabled.
+            FlashValueError: ``name`` is not a busy-time name and busy times are enabled.
         """
         if name is None or not self.enabled:
             return 0
+        if name not in self._busy:
+            raise FlashValueError(f"unknown timing name {name!r}; known: {list(BUSY_KEYS)}")
         return self._busy[name]
 
     # -- the deadline ------------------------------------------------------

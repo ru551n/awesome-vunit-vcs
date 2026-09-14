@@ -28,6 +28,8 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from types import MappingProxyType
 
+from .errors import FlashValueError
+
 #: One kibibyte, in bytes
 KIB = 1024
 #: One mebibyte, in bytes
@@ -137,7 +139,7 @@ class FlashConfig:
             run time.
 
     Raises:
-        ValueError: A value is out of range: a size that is not a power of two
+        FlashValueError: A value is out of range: a size that is not a power of two
             or does not divide the device, an erase size below ``page_bytes``
             or out of order, ``addr_bytes`` other than 3 or 4 or
             contradicting ``addr_modes``, a JEDEC ID wider than 24 bits, an
@@ -166,7 +168,9 @@ class FlashConfig:
         try:
             object.__setattr__(self, "addr_modes", AddrModes(self.addr_modes))
         except ValueError:
-            raise ValueError(f"addr_modes={self.addr_modes} must be one of {[int(m) for m in AddrModes]}") from None
+            raise FlashValueError(
+                f"addr_modes={self.addr_modes} must be one of {[int(m) for m in AddrModes]}"
+            ) from None
         self._validate_geometry()
         self._validate_identity()
         self._validate_busy()
@@ -174,54 +178,56 @@ class FlashConfig:
     def _validate_geometry(self) -> None:
         size, page = self.size_bytes, self.page_bytes
         if not _is_power_of_two(size):
-            raise ValueError(f"size_bytes={size} must be a positive power of two")
+            raise FlashValueError(f"size_bytes={size} must be a positive power of two")
         if not _is_power_of_two(page):
-            raise ValueError(f"page_bytes={page} must be a positive power of two")
+            raise FlashValueError(f"page_bytes={page} must be a positive power of two")
         if size % page:
-            raise ValueError(f"size_bytes={size} is not a multiple of page_bytes={page}")
+            raise FlashValueError(f"size_bytes={size} is not a multiple of page_bytes={page}")
         for name in ("sector_bytes", "block32_bytes", "block_bytes"):
             value = getattr(self, name)
             if name == "block32_bytes" and value == 0:
                 continue
             if not _is_power_of_two(value) or size % value:
-                raise ValueError(f"{name}={value} must be a power of two dividing the device")
+                raise FlashValueError(f"{name}={value} must be a power of two dividing the device")
             if value < page:
-                raise ValueError(f"{name}={value} must be at least page_bytes={page}")
+                raise FlashValueError(f"{name}={value} must be at least page_bytes={page}")
         sector, block32, block = self.sector_bytes, self.block32_bytes, self.block_bytes
         if block32 and not sector < block32 < block:
-            raise ValueError(
+            raise FlashValueError(
                 f"block32_bytes={block32} must be larger than sector_bytes={sector} "
                 f"and smaller than block_bytes={block}"
             )
         if not sector < block:
-            raise ValueError(f"sector_bytes={sector} must be smaller than block_bytes={block}")
+            raise FlashValueError(f"sector_bytes={sector} must be smaller than block_bytes={block}")
         if self.addr_bytes not in (3, 4):
-            raise ValueError(f"addr_bytes={self.addr_bytes} must be 3 or 4")
+            raise FlashValueError(f"addr_bytes={self.addr_bytes} must be 3 or 4")
         if self.addr_modes is AddrModes.THREE_ONLY and self.addr_bytes != 3:
-            raise ValueError(f"addr_modes=THREE_ONLY contradicts addr_bytes={self.addr_bytes}")
+            raise FlashValueError(f"addr_modes=THREE_ONLY contradicts addr_bytes={self.addr_bytes}")
         if self.addr_modes is AddrModes.FOUR_ONLY and self.addr_bytes != 4:
-            raise ValueError(f"addr_modes=FOUR_ONLY contradicts addr_bytes={self.addr_bytes}")
+            raise FlashValueError(f"addr_modes=FOUR_ONLY contradicts addr_bytes={self.addr_bytes}")
 
     def _validate_identity(self) -> None:
         if not 0 <= self.jedec_id <= 0xFFFFFF:
-            raise ValueError(f"jedec_id=0x{self.jedec_id:x} must fit 24 bits")
+            raise FlashValueError(f"jedec_id=0x{self.jedec_id:x} must fit 24 bits")
         if self.electronic_id is not None and not 0 <= self.electronic_id <= 0xFF:
-            raise ValueError(f"electronic_id={self.electronic_id} must be a byte value or None")
+            raise FlashValueError(f"electronic_id={self.electronic_id} must be a byte value or None")
         for name in ("sr1_default", "sr2_default", "sr3_default"):
             value = getattr(self, name)
             if not 0 <= value <= 0xFF:
-                raise ValueError(f"{name}={value} must be a byte value")
+                raise FlashValueError(f"{name}={value} must be a byte value")
 
     def _validate_busy(self) -> None:
         missing = [key for key in BUSY_KEYS if key not in self.busy_fs]
         if missing:
-            raise ValueError(f"busy_fs is missing busy times: {missing}")
+            raise FlashValueError(f"busy_fs is missing busy times: {missing}")
         unknown = sorted(set(self.busy_fs) - set(BUSY_KEYS))
         if unknown:
-            raise ValueError(f"busy_fs has unknown busy times: {unknown}; known: {list(BUSY_KEYS)}")
+            raise FlashValueError(f"busy_fs has unknown busy times: {unknown}; known: {list(BUSY_KEYS)}")
         for key, value in self.busy_fs.items():
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                raise ValueError(f"busy time {key}={value!r} must be a non-negative integer number of femtoseconds")
+                raise FlashValueError(
+                    f"busy time {key}={value!r} must be a non-negative integer number of femtoseconds"
+                )
 
     def jedec_id_bytes(self) -> bytes:
         """

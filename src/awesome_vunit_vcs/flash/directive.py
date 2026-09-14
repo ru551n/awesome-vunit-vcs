@@ -42,6 +42,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import IntEnum
 
+from .errors import FlashValueError
+
 #: Version of the packed layout. Bumped whenever any field width, shift or
 #: order below changes. The VC asserts this against its own constant at
 #: instance-creation time, so a drift fails at time 0 rather than as an
@@ -95,7 +97,7 @@ PACKED_MAX = 2**30 - 1
 def _field(value: int, name: str, width: int) -> int:
     value = int(value)
     if value < 0 or value >= (1 << width):
-        raise ValueError(f"directive field {name}={value} does not fit in {width} bits")
+        raise FlashValueError(f"directive field {name}={value} does not fit in {width} bits")
     return value
 
 
@@ -128,10 +130,10 @@ def pack(
         The packed directive, at most :data:`PACKED_MAX`.
 
     Raises:
-        ValueError: ``lanes`` is not 1, 2 or 4, or a field does not fit its width.
+        FlashValueError: ``lanes`` is not 1, 2 or 4, or a field does not fit its width.
     """
     if lanes not in VALID_LANES:
-        raise ValueError(f"lanes={lanes} must be one of {VALID_LANES}")
+        raise FlashValueError(f"lanes={lanes} must be one of {VALID_LANES}")
     packed = (
         (_field(int(action), "action", ACTION_BITS) << ACTION_SHIFT)
         | (_field(lanes, "lanes", LANES_BITS) << LANES_SHIFT)
@@ -144,7 +146,7 @@ def pack(
     # PACKED_MAX, so this only ever fires if someone widens a field without
     # re-reading why the total is capped at 30 bits.
     if packed > PACKED_MAX:
-        raise ValueError(
+        raise FlashValueError(
             f"packed directive 0x{packed:x} exceeds the contract's 30-bit budget "
             f"(max 0x{PACKED_MAX:x}); VHDL's signed 32-bit integer cannot carry it"
         )
@@ -191,12 +193,12 @@ def unpack(packed: int) -> Directive:
         The fields of the directive.
 
     Raises:
-        ValueError: ``packed`` is negative or above :data:`PACKED_MAX`, or
+        FlashValueError: ``packed`` is negative or above :data:`PACKED_MAX`, or
             holds an action value that is not an :class:`Action`. It is
             never masked away.
     """
     if packed < 0 or packed > PACKED_MAX:
-        raise ValueError(f"packed directive {packed} is outside the contract's [0, 0x{PACKED_MAX:x}] range")
+        raise FlashValueError(f"packed directive {packed} is outside the contract's [0, 0x{PACKED_MAX:x}] range")
     return Directive(
         action=Action((packed >> ACTION_SHIFT) & ((1 << ACTION_BITS) - 1)),
         lanes=(packed >> LANES_SHIFT) & ((1 << LANES_BITS) - 1),

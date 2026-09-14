@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from .commands import erase_opcode_for
 from .config import AddrModes, FlashConfig
+from .errors import FlashValueError
 
 #: The four signature bytes at offset 0
 SFDP_SIGNATURE = b"SFDP"
@@ -55,7 +56,7 @@ UNUSED_DWORD = 0xFFFFFFFF
 
 def _log2_exact(value: int, what: str) -> int:
     if value <= 0 or value & (value - 1):
-        raise ValueError(f"{what}={value} must be a power of two")
+        raise FlashValueError(f"{what}={value} must be a power of two")
     return value.bit_length() - 1
 
 
@@ -67,7 +68,7 @@ def _dword(fields: list[tuple[int, int, int]], default: int = 0) -> int:
     for shift, width, value in fields:
         mask = (1 << width) - 1
         if not 0 <= value <= mask:
-            raise ValueError(f"SFDP field at shift {shift} does not fit {width} bits")
+            raise FlashValueError(f"SFDP field at shift {shift} does not fit {width} bits")
         word = (word & ~(mask << shift)) | (value << shift)
     return word & 0xFFFFFFFF
 

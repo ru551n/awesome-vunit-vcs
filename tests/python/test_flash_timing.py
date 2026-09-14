@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from awesome_vunit_vcs.flash.config import BUSY_KEYS, DEFAULT_BUSY_FS
+from awesome_vunit_vcs.flash.errors import FlashValueError
 from awesome_vunit_vcs.flash.timing import Timing
 
 NS = 10**6
@@ -68,9 +69,9 @@ def test_override_one_op(timing: Timing) -> None:
 
 
 def test_override_rejects_unknown_names_and_negative_times(timing: Timing) -> None:
-    with pytest.raises(KeyError):
+    with pytest.raises(FlashValueError):
         timing.set_busy("tPp", US)
-    with pytest.raises(KeyError):
+    with pytest.raises(FlashValueError):
         timing.set_busy("tERASE", US)
     with pytest.raises(ValueError):
         timing.set_busy("tPP", -US)

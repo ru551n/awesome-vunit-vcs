@@ -46,15 +46,29 @@ apart.
 
 The package exports :class:`~awesome_vunit_vcs.flash.config.AddrModes`,
 :class:`~awesome_vunit_vcs.flash.config.FlashConfig`,
-:class:`~awesome_vunit_vcs.flash.device.ContentMismatch`,
-:class:`~awesome_vunit_vcs.flash.device.FlashDevice` and
-:data:`~awesome_vunit_vcs.flash.directive.LAYOUT_VERSION`.
+:class:`~awesome_vunit_vcs.flash.device.FlashDevice`,
+:data:`~awesome_vunit_vcs.flash.directive.LAYOUT_VERSION` and the
+exceptions of :mod:`~awesome_vunit_vcs.flash.errors`:
+:class:`~awesome_vunit_vcs.flash.errors.FlashError`, its subclass
+:class:`~awesome_vunit_vcs.flash.errors.FlashValueError`, raised for every
+invalid argument or configuration, and its subclass
+:class:`~awesome_vunit_vcs.flash.errors.ContentMismatch`, raised by a
+content check that fails.
 """
 
 from __future__ import annotations
 
 from .config import AddrModes, FlashConfig
-from .device import ContentMismatch, FlashDevice
+from .device import FlashDevice
 from .directive import LAYOUT_VERSION
+from .errors import ContentMismatch, FlashError, FlashValueError
 
-__all__ = ["LAYOUT_VERSION", "AddrModes", "ContentMismatch", "FlashConfig", "FlashDevice"]
+__all__ = [
+    "LAYOUT_VERSION",
+    "AddrModes",
+    "ContentMismatch",
+    "FlashConfig",
+    "FlashDevice",
+    "FlashError",
+    "FlashValueError",
+]

@@ -31,6 +31,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .errors import FlashValueError
+
 #: The continuous-read pattern, in bits 5 and 4 of the mode byte
 MODE_BYTE_CONTINUOUS = 0b10
 #: Position of the continuous-read field in the mode byte
@@ -102,10 +104,10 @@ class ProtocolMode:
             count: The new addressing mode, 3 or 4 bytes.
 
         Raises:
-            ValueError: ``count`` is not 3 or 4.
+            FlashValueError: ``count`` is not 3 or 4.
         """
         if count not in (3, 4):
-            raise ValueError(f"addr_bytes={count} must be 3 or 4")
+            raise FlashValueError(f"addr_bytes={count} must be 3 or 4")
         self.addr_bytes = count
 
     def latch_mode_byte(self, opcode: int, mode_byte: int) -> None:

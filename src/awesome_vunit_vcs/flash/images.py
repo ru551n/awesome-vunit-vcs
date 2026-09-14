@@ -28,6 +28,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from .errors import FlashValueError
+
 #: The format names :func:`format_for` resolves to
 FORMATS = ("hex", "srec", "bin", "json")
 
@@ -63,7 +65,7 @@ class Segment:
         length: The number of fill bytes; ignored for data.
 
     Raises:
-        ValueError: Both or neither of ``data`` and ``fill`` are given.
+        FlashValueError: Both or neither of ``data`` and ``fill`` are given.
     """
 
     addr: int
@@ -73,7 +75,7 @@ class Segment:
 
     def __post_init__(self) -> None:
         if (self.data is None) == (self.fill is None):
-            raise ValueError("a segment is either data or a fill, not both/neither")
+            raise FlashValueError("a segment is either data or a fill, not both/neither")
 
     @property
     def size(self) -> int:
@@ -100,18 +102,18 @@ def format_for(path: str | Path, fmt: str | None = None) -> str:
         A name of :data:`FORMATS`.
 
     Raises:
-        ValueError: ``fmt`` is not a known format, or the extension is not
+        FlashValueError: ``fmt`` is not a known format, or the extension is not
             known when inferring.
     """
     if fmt and fmt not in ("", "auto"):
         name = fmt.lower().lstrip(".")
         name = {"ihex": "hex", "s19": "srec", "s-record": "srec"}.get(name, name)
         if name not in FORMATS:
-            raise ValueError(f"unknown image format {fmt!r}; known: {FORMATS}")
+            raise FlashValueError(f"unknown image format {fmt!r}; known: {FORMATS}")
         return name
     suffix = Path(path).suffix.lower()
     if suffix not in _EXTENSIONS:
-        raise ValueError(f"cannot infer image format from {Path(path).name!r}; pass fmt explicitly")
+        raise FlashValueError(f"cannot infer image format from {Path(path).name!r}; pass fmt explicitly")
     return _EXTENSIONS[suffix]
 
 
@@ -146,7 +148,7 @@ def load(path: str | Path, fmt: str | None = None, base: int = 0) -> list[Segmen
         coalesced; segments are not checked against any device size.
 
     Raises:
-        ValueError: Unknown format, malformed record, bad checksum,
+        FlashValueError: Unknown format, malformed record, bad checksum,
             unsupported record type or malformed JSON region.
         OSError: The file cannot be read.
     """
@@ -191,18 +193,18 @@ def _load_hex(text: str) -> list[Segment]:
         if not line:
             continue
         if not line.startswith(":"):
-            raise ValueError(f"{lineno}: Intel HEX record must start with ':'")
+            raise FlashValueError(f"{lineno}: Intel HEX record must start with ':'")
         try:
             record = bytes.fromhex(line[1:])
         except ValueError as exc:
-            raise ValueError(f"{lineno}: not hexadecimal: {exc}") from exc
+            raise FlashValueError(f"{lineno}: not hexadecimal: {exc}") from exc
         if len(record) < 5:
-            raise ValueError(f"{lineno}: Intel HEX record too short")
+            raise FlashValueError(f"{lineno}: Intel HEX record too short")
         count = record[0]
         if len(record) != count + 5:
-            raise ValueError(f"{lineno}: record says {count} data bytes but carries {len(record) - 5}")
+            raise FlashValueError(f"{lineno}: record says {count} data bytes but carries {len(record) - 5}")
         if sum(record) & 0xFF:
-            raise ValueError(f"{lineno}: Intel HEX checksum mismatch")
+            raise FlashValueError(f"{lineno}: Intel HEX checksum mismatch")
         offset = int.from_bytes(record[1:3], "big")
         rtype = record[3]
         data = record[4:-1]
@@ -217,7 +219,7 @@ def _load_hex(text: str) -> list[Segment]:
         elif rtype in (0x03, 0x05):
             pass  # start address: meaningless for a flash image
         else:
-            raise ValueError(f"{lineno}: unsupported Intel HEX record type {rtype:#04x}")
+            raise FlashValueError(f"{lineno}: unsupported Intel HEX record type {rtype:#04x}")
     return out.result()
 
 
@@ -231,19 +233,19 @@ def _load_srec(text: str) -> list[Segment]:
         if not line:
             continue
         if len(line) < 4 or line[0] not in "Ss":
-            raise ValueError(f"{lineno}: S-record must start with 'S'")
+            raise FlashValueError(f"{lineno}: S-record must start with 'S'")
         kind = line[1]
         try:
             body = bytes.fromhex(line[2:])
         except ValueError as exc:
-            raise ValueError(f"{lineno}: not hexadecimal: {exc}") from exc
+            raise FlashValueError(f"{lineno}: not hexadecimal: {exc}") from exc
         if not body:
-            raise ValueError(f"{lineno}: S-record too short")
+            raise FlashValueError(f"{lineno}: S-record too short")
         count = body[0]
         if len(body) != count + 1:
-            raise ValueError(f"{lineno}: record says {count} bytes but carries {len(body) - 1}")
+            raise FlashValueError(f"{lineno}: record says {count} bytes but carries {len(body) - 1}")
         if (sum(body[:-1]) + body[-1]) & 0xFF != 0xFF:
-            raise ValueError(f"{lineno}: S-record checksum mismatch")
+            raise FlashValueError(f"{lineno}: S-record checksum mismatch")
         if kind in _SREC_ADDR_BYTES:
             n = _SREC_ADDR_BYTES[kind]
             addr = int.from_bytes(body[1 : 1 + n], "big")
@@ -251,7 +253,7 @@ def _load_srec(text: str) -> list[Segment]:
         elif kind in ("0", "5", "6", "7", "8", "9"):
             pass  # header, record count, termination: no payload for us
         else:
-            raise ValueError(f"{lineno}: unsupported S-record type S{kind}")
+            raise FlashValueError(f"{lineno}: unsupported S-record type S{kind}")
     return out.result()
 
 
@@ -267,7 +269,19 @@ def _load_json(path: Path, base: int) -> list[Segment]:
     A bare list of regions is accepted as shorthand. ``fill`` regions stay
     sparse all the way into the array.
     """
-    doc = json.loads(path.read_text())
+    try:
+        doc = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise FlashValueError(f"not a JSON image: {exc}") from exc
+    try:
+        return _json_segments(doc, base)
+    except FlashValueError:
+        raise
+    except (ValueError, TypeError, KeyError) as exc:
+        raise FlashValueError(f"malformed JSON image: {type(exc).__name__}: {exc}") from exc
+
+
+def _json_segments(doc: object, base: int) -> list[Segment]:
     if isinstance(doc, list):
         regions = doc
         origin = base
@@ -275,21 +289,21 @@ def _load_json(path: Path, base: int) -> list[Segment]:
         regions = doc.get("regions", [])
         origin = base + int(doc.get("base", 0))
     else:
-        raise ValueError("JSON image must be an object or a list of regions")
+        raise FlashValueError("JSON image must be an object or a list of regions")
     segments: list[Segment] = []
     for index, region in enumerate(regions):
         if not isinstance(region, dict):
-            raise ValueError(f"region {index} is not an object")
+            raise FlashValueError(f"region {index} is not an object")
         addr = origin + int(region.get("addr", 0))
         if "fill" in region:
             length = int(region["length"])
             if length < 0:
-                raise ValueError(f"region {index}: negative length")
+                raise FlashValueError(f"region {index}: negative length")
             segments.append(Segment(addr=addr, fill=int(region["fill"]) & 0xFF, length=length))
         elif "hex" in region:
             segments.append(Segment(addr=addr, data=bytes.fromhex(region["hex"])))
         elif "data" in region:
             segments.append(Segment(addr=addr, data=bytes(bytearray(region["data"]))))
         else:
-            raise ValueError(f"region {index} needs one of 'hex', 'data' or 'fill'+'length'")
+            raise FlashValueError(f"region {index} needs one of 'hex', 'data' or 'fill'+'length'")
     return segments

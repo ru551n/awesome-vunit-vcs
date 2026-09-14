@@ -41,9 +41,11 @@ femtoseconds, ``t = hi * 2**30 + lo``, see :mod:`awesome_vunit_vcs.common.vunit_
 Addresses and lengths are in bytes.
 
 Errors never escape into the bridge. A content check that fails is a
+:class:`~awesome_vunit_vcs.flash.errors.ContentMismatch`, an
 :attr:`~awesome_vunit_vcs.common.reports.Severity.ERROR` report, which VHDL logs as a check
-failure on the VC checker; any other exception (an invalid configuration,
-a non-byte value, an unknown timing or stat name, a VC protocol bug) is a
+failure on the VC checker; any other exception (a
+:class:`~awesome_vunit_vcs.flash.errors.FlashValueError` for an invalid configuration,
+a non-byte value, an unknown timing or stat name or a VC protocol bug) is a
 :attr:`~awesome_vunit_vcs.common.reports.Severity.FAILURE` report on the VC logger. Every
 report starts with the name of the VC. Calls that return ``num_reports``
 let VHDL fetch the reports only when there are some.
@@ -60,8 +62,9 @@ import numpy.typing as npt
 from ..common.reports import ReportQueue, Severity, encode_reports
 from ..common.vunit_bridge import join_time, split_time
 from .config import AddrModes, FlashConfig
-from .device import ContentMismatch, FlashDevice
+from .device import FlashDevice
 from .directive import LAYOUT_VERSION, ignore_rest
+from .errors import ContentMismatch, FlashValueError
 
 __all__ = ["FlashBackend"]
 
@@ -73,6 +76,23 @@ def _int32(values: Any) -> npt.NDArray[np.int32]:
     return np.array(values, dtype=np.int32).reshape(-1)
 
 
+def _join_time(hi: int, lo: int) -> int:
+    """The time in fs of the halves VHDL sends, checked."""
+    try:
+        return join_time(hi, lo)
+    except ValueError as exc:
+        raise FlashValueError(str(exc)) from exc
+
+
+def _addr_modes(value: int) -> AddrModes:
+    """The addressing modes VHDL sends, checked."""
+    try:
+        return AddrModes(value)
+    except ValueError:
+        known = [int(mode) for mode in AddrModes]
+        raise FlashValueError(f"addr_modes={value} must be one of {known}") from None
+
+
 def _bytes(values: Any) -> bytes:
     """
     An ``integer_array_t`` of byte values from VHDL (a NumPy array, or any
@@ -82,7 +102,7 @@ def _bytes(values: Any) -> bytes:
     bad = np.flatnonzero((array < 0) | (array > 0xFF))
     if bad.size:
         index = int(bad[0])
-        raise ValueError(f"element {index} = {int(array[index])} is not a byte value")
+        raise FlashValueError(f"element {index} = {int(array[index])} is not a byte value")
     return array.astype(np.uint8).tobytes()
 
 
@@ -153,13 +173,13 @@ class FlashBackend:
                 block32_bytes=block32_bytes,
                 block_bytes=block_bytes,
                 addr_bytes=addr_bytes,
-                addr_modes=AddrModes(addr_modes),
+                addr_modes=_addr_modes(addr_modes),
                 jedec_id=jedec_id,
                 electronic_id=None if electronic_id < 0 else electronic_id,
                 sr1_default=sr1_default,
                 sr2_default=sr2_default,
                 sr3_default=sr3_default,
-                busy_fs={key: join_time(hi, lo) for key, (hi, lo) in busy.items()},
+                busy_fs={key: _join_time(hi, lo) for key, (hi, lo) in busy.items()},
                 timing_enabled=bool(timing_enabled),
             )
 
@@ -223,7 +243,7 @@ class FlashBackend:
             The packed directive for the first byte, or the ignore-rest
             directive after a failure report.
         """
-        return self._guard("cs_assert", lambda: self.device.cs_assert(join_time(hi, lo)), ignore_rest())
+        return self._guard("cs_assert", lambda: self.device.cs_assert(_join_time(hi, lo)), ignore_rest())
 
     def xfer(self, byte_in: int, hi: int = -1, lo: int = 0) -> int:
         """
@@ -243,7 +263,7 @@ class FlashBackend:
         """
         return self._guard(
             "xfer",
-            lambda: self.device.xfer(byte_in, None if hi < 0 else join_time(hi, lo)),
+            lambda: self.device.xfer(byte_in, None if hi < 0 else _join_time(hi, lo)),
             ignore_rest(),
         )
 
@@ -260,7 +280,7 @@ class FlashBackend:
             ``[busy_hi, busy_lo, num_reports]``, the halves of the busy time in
             fs being 0 when the command did not make the device busy.
         """
-        busy_fs = self._guard("cs_deassert", lambda: self.device.cs_deassert(trailing_bits, join_time(hi, lo)), 0)
+        busy_fs = self._guard("cs_deassert", lambda: self.device.cs_deassert(trailing_bits, _join_time(hi, lo)), 0)
         return _int32([*split_time(busy_fs), self.num_reports()])
 
     # -- control plane -------------------------------------------------------
@@ -426,7 +446,7 @@ class FlashBackend:
         Returns:
             The number of reports waiting.
         """
-        return self._control("set_timing", lambda: self.device.set_timing(name, join_time(hi, lo)))
+        return self._control("set_timing", lambda: self.device.set_timing(name, _join_time(hi, lo)))
 
     def set_protection(self, addr: int, num_bytes: int, locked: bool) -> int:
         """
@@ -465,10 +485,10 @@ class FlashBackend:
 
         def stat() -> int:
             if hi >= 0:
-                self.device.advance_time(join_time(hi, lo))
+                self.device.advance_time(_join_time(hi, lo))
             value = self.device.get_stat(name)
             if not -(2**31) <= value < 2**31:
-                raise ValueError(f"stat {name!r} = {value} does not fit a signed 32-bit integer")
+                raise FlashValueError(f"stat {name!r} = {value} does not fit a signed 32-bit integer")
             return value
 
         return self._guard("get_stat", stat, 0)

@@ -32,9 +32,11 @@ device behavior rather than modelling convenience:
 Python raises only for things that are *impossible on a wire*: a preload
 past the end of the device, an unknown timing name, a receive directive
 answered with "I was transmitting". Those are testbench or VC bugs, not
-device behavior, and the backend turns them into a failure report on the
-VC logger. A content check that fails raises :class:`ContentMismatch`,
-which the backend reports as a check failure instead.
+device behavior: they raise
+:class:`~awesome_vunit_vcs.flash.errors.FlashValueError`, which the backend
+turns into a failure report on the VC logger. A content check that fails
+raises :class:`~awesome_vunit_vcs.flash.errors.ContentMismatch`, which the
+backend reports as a check failure instead.
 
 Addresses and lengths are in bytes. All times are integer femtoseconds (fs).
 """
@@ -50,6 +52,7 @@ from .array import FlashArray
 from .commands import ERASE_CHIP, Command, Direction, Op, commands_for
 from .config import FlashConfig
 from .directive import FLAG_VOLATILE, Action, ignore_rest, pack
+from .errors import ContentMismatch, FlashValueError
 from .mode import ProtocolMode
 from .protection import Protection
 from .timing import Timing
@@ -69,10 +72,6 @@ SR2_QE = 0x02
 SR2_CMP = 0x40
 #: The current address mode bit of SR3, set in 4-byte addressing
 SR3_ADS = 0x01
-
-
-class ContentMismatch(Exception):
-    """The array does not hold the expected content (raised by the content checks only)."""
 
 
 class Phase(IntEnum):
@@ -318,11 +317,11 @@ class FlashDevice:
             The packed directive for the next byte.
 
         Raises:
-            RuntimeError: CS is not asserted.
-            ValueError: The device expected to receive a byte and ``byte_in`` is negative.
+            FlashValueError: CS is not asserted, or the device expected to
+                receive a byte and ``byte_in`` is negative.
         """
         if not self._cs_active:
-            raise RuntimeError(f"xfer(byte_in={byte_in}) without cs_assert: CS is not asserted")
+            raise FlashValueError(f"xfer(byte_in={byte_in}) without cs_assert: CS is not asserted")
         if now_fs is not None:
             self.now_fs = int(now_fs)
         self.stats["xfer_count"] += 1
@@ -376,7 +375,7 @@ class FlashDevice:
     @staticmethod
     def _require_in(byte_in: int, what: str) -> int:
         if byte_in is None or int(byte_in) < 0:
-            raise ValueError(
+            raise FlashValueError(
                 f"the model asked the VC to receive a {what} byte but was "
                 f"given byte_in={byte_in}; the VC drove the bus instead"
             )
@@ -757,7 +756,7 @@ class FlashDevice:
             The value.
 
         Raises:
-            KeyError: ``name`` is not a known name -- a typo'd stat silently
+            FlashValueError: ``name`` is not a known name -- a typo'd stat silently
                 returning 0 would make a test pass for the wrong reason.
         """
         if name in self.stats:
@@ -780,7 +779,7 @@ class FlashDevice:
             "run_count": lambda: self.array.run_count,
         }
         if name not in derived:
-            raise KeyError(f"unknown stat {name!r}; known: {sorted(set(self.stats) | set(derived))}")
+            raise FlashValueError(f"unknown stat {name!r}; known: {sorted(set(self.stats) | set(derived))}")
         return int(derived[name]())
 
     def clear_statistics(self) -> None:
@@ -800,16 +799,16 @@ class FlashDevice:
         ``num_bytes`` is at least ``min_bytes``; shared by every content and
         protection call so they agree on what fits."""
         if num_bytes < min_bytes:
-            raise ValueError(f"{method}: num_bytes={num_bytes} must be at least {min_bytes}")
+            raise FlashValueError(f"{method}: num_bytes={num_bytes} must be at least {min_bytes}")
         if not 0 <= addr < self.size_bytes or addr + num_bytes > self.size_bytes:
-            raise ValueError(
+            raise FlashValueError(
                 f"{method}: [0x{addr:x}, +{num_bytes}) is not inside the device [0, 0x{self.size_bytes:x})"
             )
 
     @staticmethod
     def _check_byte(method: str, value: int) -> None:
         if not 0 <= value <= 0xFF:
-            raise ValueError(f"{method}: value={value} is not a byte value")
+            raise FlashValueError(f"{method}: value={value} is not a byte value")
 
     #
     # These never model the wire: they are how a testbench seeds content,
@@ -830,7 +829,7 @@ class FlashDevice:
             data: The bytes.
 
         Raises:
-            ValueError: The range is not inside the device.
+            FlashValueError: The range is not inside the device.
         """
         self._check_range("preload", addr, len(data))
         self.array.write_raw(addr, bytes(data))
@@ -847,7 +846,7 @@ class FlashDevice:
             value: The byte value, 0 to 255.
 
         Raises:
-            ValueError: The region is not inside the device, ``num_bytes`` is
+            FlashValueError: The region is not inside the device, ``num_bytes`` is
                 less than 1 or ``value`` is not a byte value.
         """
         self._check_range("preload_fill", addr, num_bytes, min_bytes=1)
@@ -874,7 +873,7 @@ class FlashDevice:
             The number of bytes the image described.
 
         Raises:
-            ValueError: See :func:`~awesome_vunit_vcs.flash.images.load`, or a
+            FlashValueError: See :func:`~awesome_vunit_vcs.flash.images.load`, or a
                 segment is not inside the device.
             OSError: The file cannot be read.
         """
@@ -903,7 +902,7 @@ class FlashDevice:
             The bytes.
 
         Raises:
-            ValueError: The range is not inside the device.
+            FlashValueError: The range is not inside the device.
         """
         self._check_range("read_back", addr, num_bytes)
         return self.array.read(addr, num_bytes)
@@ -921,7 +920,7 @@ class FlashDevice:
         Raises:
             ContentMismatch: A byte differs. The message gives the address and
                 values of the first mismatch and the number of bad bytes.
-            ValueError: The range is not inside the device.
+            FlashValueError: The range is not inside the device.
         """
         self._check_range("check_content", addr, len(expected))
         actual = self.array.read(addr, len(expected))
@@ -950,7 +949,7 @@ class FlashDevice:
         Raises:
             ContentMismatch: A byte differs. The message gives the address and
                 value of the first mismatch.
-            ValueError: The range is not inside the device, ``num_bytes`` is
+            FlashValueError: The range is not inside the device, ``num_bytes`` is
                 less than 1 or ``value`` is not a byte value.
         """
         self._check_range("check_content_fill", addr, num_bytes, min_bytes=1)
@@ -988,7 +987,7 @@ class FlashDevice:
             locked: True to lock, False to unlock.
 
         Raises:
-            ValueError: The region is not inside the device.
+            FlashValueError: The region is not inside the device.
         """
         self._check_range("set_protection", addr, num_bytes)
         self.protection.set_region(addr, num_bytes, bool(locked))
@@ -1002,8 +1001,7 @@ class FlashDevice:
             duration_fs: The busy time in fs.
 
         Raises:
-            KeyError: ``name`` is not a busy-time name.
-            ValueError: ``duration_fs`` is negative.
+            FlashValueError: ``name`` is not a busy-time name or ``duration_fs`` is negative.
         """
         self.timing.set_busy(name, duration_fs)
 

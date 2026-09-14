@@ -17,8 +17,9 @@ import pytest
 from flash_harness import Host, frame
 
 from awesome_vunit_vcs.flash.config import FlashConfig
-from awesome_vunit_vcs.flash.device import ContentMismatch, FlashDevice
+from awesome_vunit_vcs.flash.device import FlashDevice
 from awesome_vunit_vcs.flash.directive import Action, ignore_rest
+from awesome_vunit_vcs.flash.errors import ContentMismatch, FlashError, FlashValueError
 
 KIB = 1024
 MIB = 1024 * 1024
@@ -807,7 +808,7 @@ def test_a_reset_while_cs_is_low_ignores_the_rest_of_that_transaction(fast: Host
 def test_a_reset_with_cs_high_leaves_the_next_transaction_alone(fast: Host) -> None:
     fast.dev.reset_state()
     assert fast.command(0x9F, read=1).out == [0xEF]
-    with pytest.raises(RuntimeError, match="without cs_assert"):
+    with pytest.raises(FlashValueError, match="without cs_assert"):
         fast.dev.xfer(0x9F)
 
 
@@ -846,7 +847,7 @@ def test_stats_count_what_happened(fast: Host) -> None:
 
 
 def test_unknown_stat_name_raises_with_the_known_names(fast: Host) -> None:
-    with pytest.raises(KeyError, match="program_count"):
+    with pytest.raises(FlashValueError, match="program_count"):
         fast.dev.get_stat("programs")
 
 
@@ -950,7 +951,7 @@ def test_busy_remaining_is_reported_in_whole_microseconds(host: Host) -> None:
     host.dev.advance_time(SEC + 700 * US)
     assert host.dev.get_stat("busy_remaining_us") == 0
     assert host.dev.get_stat("wip") == 0
-    with pytest.raises(KeyError):
+    with pytest.raises(FlashValueError):
         host.dev.get_stat("busy_deadline_fs")
 
 
@@ -980,10 +981,10 @@ def test_clear_statistics_keeps_content_and_state(fast: Host) -> None:
 
 
 def test_xfer_without_cs_assert_raises(host: Host) -> None:
-    with pytest.raises(RuntimeError, match="without cs_assert"):
+    with pytest.raises(FlashValueError, match="without cs_assert"):
         host.dev.xfer(0x03)
     host.xact([0x9F], read=1)
-    with pytest.raises(RuntimeError, match="without cs_assert"):
+    with pytest.raises(FlashValueError, match="without cs_assert"):
         host.dev.xfer(0x03)
 
 
@@ -997,3 +998,30 @@ def test_load_image_writes_nothing_when_a_later_segment_is_outside_the_device(tm
     with pytest.raises(ValueError, match="not inside the device"):
         fast.dev.load_image(str(path))
     assert fast.dev.read_back(4096, 4) == b"\xff" * 4
+
+
+# -- exceptions ----------------------------------------------------------------------------------------
+
+
+def test_invalid_arguments_raise_one_flash_exception_type(fast: Host) -> None:
+    calls = [
+        lambda: fast.dev.get_stat("nope"),
+        lambda: fast.dev.set_timing("tXX", 1),
+        lambda: fast.dev.set_timing("tPP", -1),
+        lambda: fast.dev.read_back(fast.dev.size_bytes, 1),
+        lambda: fast.dev.preload_fill(0, 1, 256),
+        lambda: fast.dev.xfer(0x9F),
+        lambda: FlashConfig(size_bytes=3),
+    ]
+    for call in calls:
+        with pytest.raises(FlashValueError) as info:
+            call()
+        assert isinstance(info.value, ValueError)
+        assert isinstance(info.value, FlashError)
+
+
+def test_a_content_mismatch_is_a_flash_error_but_not_a_value_error(fast: Host) -> None:
+    with pytest.raises(ContentMismatch) as info:
+        fast.dev.check_content(0, b"\x00")
+    assert isinstance(info.value, FlashError)
+    assert not isinstance(info.value, ValueError)

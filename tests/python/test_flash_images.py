@@ -18,6 +18,7 @@ import pytest
 from awesome_vunit_vcs.flash import images
 from awesome_vunit_vcs.flash.config import FlashConfig
 from awesome_vunit_vcs.flash.device import FlashDevice
+from awesome_vunit_vcs.flash.errors import FlashValueError
 
 
 def ihex(records: list[tuple[int, int, bytes]]) -> str:
@@ -227,6 +228,18 @@ def test_json_region_without_content_raises(tmp_path: Path, dev: FlashDevice) ->
     path = tmp_path / "a.json"
     path.write_text(json.dumps({"regions": [{"addr": 0}]}))
     with pytest.raises(ValueError, match="needs one of"):
+        dev.load_image(str(path))
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["{not json", '{"regions": [{"addr": "zz", "hex": "00"}]}', '[{"hex": "0g"}]', '[{"fill": 0}]'],
+    ids=["syntax", "address", "hex", "fill_without_length"],
+)
+def test_a_malformed_json_image_raises_flash_value_error(tmp_path: Path, dev: FlashDevice, text: str) -> None:
+    path = tmp_path / "a.json"
+    path.write_text(text)
+    with pytest.raises(FlashValueError):
         dev.load_image(str(path))
 
 

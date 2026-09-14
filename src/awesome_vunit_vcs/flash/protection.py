@@ -42,6 +42,8 @@ from __future__ import annotations
 import bisect
 from operator import itemgetter
 
+from .errors import FlashValueError
+
 _start_of = itemgetter(0)
 
 #: The BP unit in bytes when SEC is 1
@@ -140,12 +142,12 @@ class Protection:
             locked: True to lock, False to unlock.
 
         Raises:
-            ValueError: The region is not inside the device.
+            FlashValueError: The region is not inside the device.
         """
         if num_bytes <= 0:
             return
         if addr < 0 or addr + num_bytes > self.size_bytes:
-            raise ValueError(f"protection region [0x{addr:x}, +{num_bytes}) outside device")
+            raise FlashValueError(f"protection region [0x{addr:x}, +{num_bytes}) outside device")
         end = addr + num_bytes
         locks = self._locks
         i = bisect.bisect_left(locks, addr, key=_start_of)

@@ -62,6 +62,40 @@ package ethernet_vc_pkg is
 
   -- The octets of a vector, leftmost octet first
   function to_octets(value : std_ulogic_vector) return integer_vector;
+  -- The process of a monitor of an interface carrying one symbol per clock
+  -- cycle with valid and error signals (GMII, MII). data, dv and er are
+  -- sampled on the rising edge of clk. A sample is recorded when valid is
+  -- asserted or the sample word changes, so a long idle period costs one
+  -- sample. Sample words (see awesome_vunit_vcs/ethernet/phy/common.py):
+  --
+  --   bit 0-7  data (the low data'length bits)
+  --   bit 8    dv
+  --   bit 9    er
+  --   bit 10   metavalue on data while dv is asserted
+  --   bit 11   metavalue on dv or er
+  --
+  -- Never returns.
+  procedure monitor_symbol_interface(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
+    signal clk : in std_ulogic;
+    signal data : in std_ulogic_vector;
+    signal dv : in std_ulogic;
+    signal er : in std_ulogic
+  );
+
+  -- The process of a source of an interface carrying one symbol per clock
+  -- cycle with valid and error signals (GMII, MII). The sample words the
+  -- backend returns for a frame are driven one per rising edge of clk.
+  -- Never returns.
+  procedure drive_symbol_interface(
+    signal net : inout network_t;
+    source : ethernet_source_t;
+    signal clk : in std_ulogic;
+    signal data : out std_ulogic_vector;
+    signal dv : out std_ulogic;
+    signal er : out std_ulogic
+  );
 end package;
 
 package body ethernet_vc_pkg is
@@ -218,5 +252,142 @@ package body ethernet_vc_pkg is
     assert msg_type = ethernet_send_packet_msg
       report "transmit_expression of a message that is not a frame or packet" severity failure;
     return packet_expression;
+  end;
+  procedure monitor_symbol_interface(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
+    signal clk : in std_ulogic;
+    signal data : in std_ulogic_vector;
+    signal dv : in std_ulogic;
+    signal er : in std_ulogic
+  ) is
+    constant session : python_session_t := new_vc_session(get_id(monitor));
+    constant actor : actor_t := as_sync(monitor);
+    -- wait_until_idle requests waiting for the end of a frame
+    constant idle_requests : queue_t := new_queue;
+
+    subtype sample_word_t is natural range 0 to 2 ** 12 - 1;
+    constant valid_bit : sample_word_t := 2 ** 8;
+    constant error_bit : sample_word_t := 2 ** 9;
+    constant data_metavalue_bit : sample_word_t := 2 ** 10;
+    constant control_metavalue_bit : sample_word_t := 2 ** 11;
+
+    variable batch : sample_batch_t;
+    variable word : sample_word_t;
+    variable previous_word : integer := -1;
+    variable in_frame : boolean := false;
+    variable finished : boolean := false;
+    variable msg : msg_t;
+
+    impure function sample_word return sample_word_t is
+      variable result : sample_word_t := to_integer(to_01(unsigned(data)));
+    begin
+      if to_x01(dv) = '1' then
+        result := result + valid_bit;
+        if is_x(data) then
+          result := result + data_metavalue_bit;
+        end if;
+      end if;
+      if to_x01(er) = '1' then
+        result := result + error_bit;
+      end if;
+      if is_x(dv) or is_x(er) then
+        result := result + control_metavalue_bit;
+      end if;
+      return result;
+    end;
+
+    function is_valid(sample : sample_word_t) return boolean is
+    begin
+      return sample / valid_bit mod 2 = 1;
+    end;
+  begin
+    assert data'length <= 8 report "At most 8 data bits per symbol" severity failure;
+    create_backend(session, ethernet_backend_module, ethernet_monitor_backend_class, backend_arguments(monitor));
+    batch := new_sample_batch(
+      session, get_logger(monitor), get_checker(monitor), monitor.p_batch_length, monitor.p_delta_unit
+    );
+
+    while not finished loop
+      wait on clk, net, runner;
+
+      if rising_edge(clk) then
+        word := sample_word;
+        if is_valid(word) or word /= previous_word or word >= error_bit then
+          record_sample(batch, word);
+        end if;
+
+        if in_frame and not is_valid(word) then
+          end_monitor_frame(net, monitor, batch, idle_requests);
+        end if;
+
+        in_frame := is_valid(word);
+        previous_word := word;
+      end if;
+
+      while has_message(actor) loop
+        receive(net, actor, msg);
+        handle_monitor_message(net, monitor, session, batch, idle_requests, in_frame, msg);
+      end loop;
+
+      -- Final checks when the test ends, within the gates of test_runner_cleanup
+      if is_active(runner_phase) and is_within_gates_of(test_runner_cleanup) then
+        finish_monitor(monitor, session, batch);
+        finished := true;
+      end if;
+    end loop;
+
+    wait;
+  end;
+
+  procedure drive_symbol_interface(
+    signal net : inout network_t;
+    source : ethernet_source_t;
+    signal clk : in std_ulogic;
+    signal data : out std_ulogic_vector;
+    signal dv : out std_ulogic;
+    signal er : out std_ulogic
+  ) is
+    constant session : python_session_t := new_vc_session(get_id(source));
+    constant actor : actor_t := as_sync(source);
+
+    variable msg : msg_t;
+    variable msg_type : msg_type_t;
+    variable symbols : integer_array_t;
+    variable word : natural range 0 to 2 ** 10 - 1;
+    variable valid : boolean := false;
+  begin
+    create_backend(session, ethernet_backend_module, ethernet_source_backend_class, backend_arguments(source));
+
+    loop
+      receive(net, actor, msg);
+      msg_type := message_type(msg);
+
+      handle_sync_message(net, msg_type, msg);
+
+      if msg_type = ethernet_send_frame_msg or msg_type = ethernet_send_packet_msg then
+        symbols := backend_integer_array(session, transmit_expression(msg_type, msg));
+        for idx in 0 to length(symbols) - 1 loop
+          wait until rising_edge(clk);
+          word := get(symbols, idx);
+          data <= std_ulogic_vector(to_unsigned(word mod 2 ** data'length, data'length));
+          valid := word / 2 ** 8 mod 2 = 1;
+          dv <= '1' when valid else '0';
+          er <= '1' when word / 2 ** 9 mod 2 = 1 else '0';
+        end loop;
+        deallocate(symbols);
+
+        -- A frame without IFG is followed by the next frame if there is one
+        if valid and not has_message(actor) then
+          wait until rising_edge(clk);
+          data <= (data'range => '0');
+          dv <= '0';
+          er <= '0';
+          valid := false;
+        end if;
+      else
+        unexpected_msg_type(msg_type, source.p_std_cfg);
+      end if;
+    end loop;
   end;
 end package body;

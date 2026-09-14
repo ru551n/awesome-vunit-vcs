@@ -50,41 +50,8 @@ the frame data as Python octets, or any object Python can convert to octets, suc
 
 * The function is named ``"module:function"`` and imported in the simulator's Python environment; put its
   directory on ``sys.path`` or install it.
-* Its arguments follow the name, see :ref:`passing-arguments`. Leave them out when the function takes none.
+* Its arguments follow the name, see :ref:`passing-arguments` in :doc:`../common/index`. Leave them out when the function takes none.
 * ``frame_options`` applies to the returned frame as for ``push_ethernet_frame``.
-
-.. _passing-arguments:
-
-Passing arguments to Python
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Arguments are VHDL values, combined with ``&``. The function receives them as Python values.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 40 60
-
-   * - Write
-     - When
-   * - ``kwarg("size", 128)``
-     - A named argument: integer, real, boolean, a short name such as ``"udp"``, or an
-       ``integer_vector``
-   * - ``arg(1234)``
-     - A positional argument, before any named ones
-   * - ``kwarg_text("note", msg)``
-     - Any text, such as a message or a file name, that may contain quotes or backslashes
-   * - ``kwarg_time("delay", 10 ns)``
-     - A simulation time; the function gets femtoseconds
-
-.. code-block:: vhdl
-
-   push_ethernet_packet(
-     net, source, "my_packets:udp_to_dut",
-     kwarg("port", 1234) & kwarg("size", 128) & kwarg_text("label", "first ""burst""")
-   );
-
-``kwarg_text`` and ``kwarg_time`` values reach the function as character codes and ``[high, low]``;
-decode them with ``decode_text`` and ``decode_time_fs`` from ``awesome_vunit_vcs.common.vunit_bridge``.
 
 Sequences
 ---------

@@ -25,4 +25,4 @@ Bridge encoding
 ---------------
 
 .. automodule:: awesome_vunit_vcs.common.vunit_bridge
-   :members: join_time, split_time, decode_samples, encode_samples, bytes_from_unsigned
+   :members: decode_text, decode_time_fs, join_time, split_time, decode_samples, encode_samples, bytes_from_unsigned

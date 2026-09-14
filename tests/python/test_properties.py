@@ -122,3 +122,17 @@ def test_pcapng_round_trip(tmp_path_factory: pytest.TempPathFactory, frames: lis
 @given(value=st.integers(0, 10**9), unit=st.sampled_from(sorted(eth.units.TIME_UNITS)))
 def test_time_strings(value: int, unit: str) -> None:
     assert eth.fs(f"{value} {unit}") == value * eth.units.TIME_UNITS[unit]
+
+
+def test_the_gap_before_a_burst_without_an_sfd_is_checked() -> None:
+    # Regression: the checker returned on a missing SFD before checking the gap before the burst
+    frame = eth.Frame.from_payload(b"", dst=bytes(6), src=bytes(6), ethertype=0x0600)
+    # the gap after a frame is part of its options: a 1-octet gap precedes the second burst
+    first = eth.WireOptions(ifg_octets=1)
+    second = eth.WireOptions(fcs="bad", pad=False, preamble_octets=8, sfd=0)
+    sent = [(frame, first), (frame, second)]
+    result = eth.decode(eth.GMII, eth.GMII.encode([f.to_wire(o) for f, o in sent]))
+    assert len(result.frames) == 2
+    received = {violation.check for violation in result.frames[1].violations}
+    assert received == eth.expected_violations(frame, second, interface=eth.GMII, previous=first)
+    assert eth.CheckId.IFG in received and eth.CheckId.SFD in received

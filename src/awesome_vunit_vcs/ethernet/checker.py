@@ -212,6 +212,17 @@ class ProtocolChecker:
                 index,
             )
 
+        # The gap is a property of the line before the burst, so it is checked even when the
+        # burst never becomes a frame
+        if frame.ifg_octets is not None and frame.ifg_octets < config.min_ifg_octets:
+            self._report(
+                CheckId.IFG,
+                f"inter-frame gap before frame {index} is {frame.ifg_octets} octets",
+                [f"minimum={config.min_ifg_octets} octets", f"gap={frame.ifg_fs} fs", *context],
+                time,
+                index,
+            )
+
         if frame.sfd_offset is None:
             offset = frame.preamble_octets
             received = f"0x{phy.octets[offset]:02X}" if offset < len(phy.octets) else "end of frame"
@@ -270,15 +281,6 @@ class ProtocolChecker:
                 CheckId.TERMINATION,
                 f"frame {index} ended with an incomplete octet",
                 context,
-                time,
-                index,
-            )
-
-        if frame.ifg_octets is not None and frame.ifg_octets < config.min_ifg_octets:
-            self._report(
-                CheckId.IFG,
-                f"inter-frame gap before frame {index} is {frame.ifg_octets} octets",
-                [f"minimum={config.min_ifg_octets} octets", f"gap={frame.ifg_fs} fs", *context],
                 time,
                 index,
             )

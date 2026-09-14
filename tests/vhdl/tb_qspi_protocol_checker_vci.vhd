@@ -66,6 +66,15 @@ architecture tb of tb_qspi_protocol_checker_vci is
     id => get_id("tb_qspi_protocol_checker_vci:derived_master")
   );
 
+  -- Checkers constructed before and after a master adopts an anonymous
+  -- checker. The adopted checker must use up no default id.
+  constant before_adoption_checker : qspi_protocol_checker_t := new_qspi_protocol_checker;
+  constant adopting_master : qspi_master_t := new_qspi_master(
+    protocol_checker => new_qspi_protocol_checker,
+    id => get_id("tb_qspi_protocol_checker_vci:adopting_master")
+  );
+  constant after_adoption_checker : qspi_protocol_checker_t := new_qspi_protocol_checker;
+
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown qspi_protocol_checker message");
 begin
   default_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
@@ -228,6 +237,24 @@ begin
         check_equal(count, 0, "qspi_cs_deselect count after the reset");
         reset_log_count(get_logger(default_checker), error);
         reset_log_count(get_logger(custom_checker), error);
+
+      elsif run("test_an_adopted_checker_uses_no_default_id") then
+        check(
+          get_parent(get_id(protocol_checker(adopting_master))) = get_id(adopting_master),
+          "the adopted checker is a child of the master"
+        );
+        -- The default ids are made in this order, one after the other
+        count := integer'value(name(get_id(before_adoption_checker)));
+        check_equal(
+          name(get_id(after_adoption_checker)),
+          to_string(count + 1),
+          "the default id after one a master adopted"
+        );
+        check(get_id(after_adoption_checker) = get_id(after_adoption_checker), "the same id on every use");
+        check(
+          get_actor(after_adoption_checker) = find(get_id(after_adoption_checker), enable_deferred_creation => false),
+          "the actor of the id"
+        );
 
       elsif run("test_parent_derives_the_id_and_keeps_explicit_parts") then
         check(

@@ -860,7 +860,9 @@ class FlashDevice:
 
         Sparse formats stay sparse: bytes the image does not describe keep
         their content. Segments are written in file order, so a later one wins
-        where they overlap.
+        where they overlap. Loading is atomic: every segment is checked
+        against the device before the first one is written, so an image with a
+        segment outside the device writes nothing.
 
         Args:
             path: The image file.
@@ -876,8 +878,11 @@ class FlashDevice:
                 segment is not inside the device.
             OSError: The file cannot be read.
         """
+        segments = images.load(path, fmt, base)
+        for segment in segments:
+            self._check_range("load_image", segment.addr, segment.size)
         total = 0
-        for segment in images.load(path, fmt, base):
+        for segment in segments:
             if segment.data is not None:
                 self.array.write_raw(segment.addr, segment.data)
             else:

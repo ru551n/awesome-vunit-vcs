@@ -833,6 +833,16 @@ begin
         flash_get_stat(net, flash_a, "wip", count);
         check_equal(count, 0, "the reset ended the busy period");
 
+      elsif run("test_timing_disable_ends_the_wait") then
+        flash_set_timing_enable(net, flash_a, true);
+        flash_set_timing(net, flash_a, "tSE", 10 ms);
+        qspi_flash_write_enable(net, master_a);
+        qspi_flash_sector_erase(net, master_a, 16#019000#);
+        start := now;
+        flash_set_timing_enable(net, flash_a, false);
+        flash_wait_until_ready(net, flash_a);
+        check_equal(now, start, "flash_wait_until_ready after timing was switched off");
+
       elsif run("test_wait_for_time_and_until_idle") then
         start := now;
         -- A message to the VC, so it returns at once

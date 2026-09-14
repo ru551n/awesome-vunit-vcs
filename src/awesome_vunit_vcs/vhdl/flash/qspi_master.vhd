@@ -116,8 +116,10 @@ begin
     end;
 
     -- One SCK cycle. sample is the resolved bus immediately before the
-    -- rising edge, which is what the far end presented for this beat. A reset
-    -- ends the cycle with SCK low.
+    -- rising edge, which is what the far end presented for this beat. The
+    -- high half is period - period / 2, so a period of an odd number of
+    -- simulator resolution units is exact. A reset ends the cycle with SCK
+    -- low.
     procedure sck_cycle(variable sample : out qspi_io_t) is
     begin
       sample := qspi_io_value(m2s, s2m);
@@ -127,7 +129,7 @@ begin
       end if;
       sample := qspi_io_value(m2s, s2m);
       m2s.sck <= '1';
-      wait_unless_reset(period / 2);
+      wait_unless_reset(period - period / 2);
       m2s.sck <= '0';
     end;
 

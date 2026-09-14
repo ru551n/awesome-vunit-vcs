@@ -11,6 +11,8 @@ device stops talking) as much as they cover the resulting bytes."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from flash_harness import Host, frame
 
@@ -983,3 +985,15 @@ def test_xfer_without_cs_assert_raises(host: Host) -> None:
     host.xact([0x9F], read=1)
     with pytest.raises(RuntimeError, match="without cs_assert"):
         host.dev.xfer(0x03)
+
+
+# -- images --------------------------------------------------------------------------------------------
+
+
+def test_load_image_writes_nothing_when_a_later_segment_is_outside_the_device(tmp_path: Path, fast: Host) -> None:
+    path = tmp_path / "image.json"
+    # The first segment fits, the second starts at the end of the 16 MiB device
+    path.write_text('[{"addr": 4096, "hex": "deadbeef"}, {"addr": 16777216, "hex": "01"}]')
+    with pytest.raises(ValueError, match="not inside the device"):
+        fast.dev.load_image(str(path))
+    assert fast.dev.read_back(4096, 4) == b"\xff" * 4

@@ -20,8 +20,9 @@
 --     must not be part of pins, which would then be deaf to the bus for the
 --     whole busy time, exactly when a controller polls the status register.
 --     The model derives write-in-progress from a deadline and the time pins
---     passes in, so a status poll never races this process. A reset ends the
---     wait early, as it ends the busy period in the model.
+--     passes in, so a status poll never races this process. A reset, or
+--     timing switched off, ends the wait early, as it ends the busy period in
+--     the model.
 --
 -- A qspi_protocol_checker instance, when the handle has one, checks the pin
 -- timing of the controller on its own checker. Metavalues sampled on the IOs
@@ -76,7 +77,8 @@ architecture a of flash is
   signal busy_finished : natural := 0;
   signal busy_active : boolean := false;
 
-  -- Changed by main when a reset ends the busy period in the model
+  -- Changed by main when a reset or timing switched off ends the busy period
+  -- in the model
   signal busy_cancel : natural := 0;
 begin
   main : process
@@ -200,6 +202,12 @@ begin
       elsif msg_type = flash_set_timing_enable_msg then
         enable := pop(msg);
         log_waiting_reports(backend_integer(session, "set_timing_enable(" & py_bool(enable) & ")"));
+        if not enable then
+          busy_cancel <= busy_cancel + 1;
+          if busy_active then
+            wait until not busy_active;
+          end if;
+        end if;
 
       elsif msg_type = flash_set_timing_msg then
         log_waiting_reports(backend_integer(session, set_timing_expression(msg)));

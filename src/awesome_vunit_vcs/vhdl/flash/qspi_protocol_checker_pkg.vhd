@@ -72,6 +72,9 @@ package qspi_protocol_checker_pkg is
     p_explicit_logger : boolean;
     p_explicit_actor : boolean;
     p_explicit_checker : boolean;
+    -- The id, logger, actor and checker of a checker constructed without an
+    -- id, made the first time they are needed; null_ptr for other handles
+    p_identity : integer_vector_ptr_t;
   end record;
 
   -- No protocol checker. The default of the ``protocol_checker`` parameter
@@ -93,7 +96,8 @@ package qspi_protocol_checker_pkg is
     p_explicit_id => false,
     p_explicit_logger => false,
     p_explicit_actor => false,
-    p_explicit_checker => false
+    p_explicit_checker => false,
+    p_identity => null_ptr
   );
 
   -- A QSPI protocol checker. The limits are the minimum times the master
@@ -114,6 +118,10 @@ package qspi_protocol_checker_pkg is
   -- id and the checker to a checker on the logger. A flash or QSPI master
   -- given the handle moves an id, logger, actor and checker that were not
   -- given explicitly below its own id, as ``<parent id>:protocol_checker``.
+  -- Without an explicit id, the default id and what derives from it are made
+  -- the first time they are needed, by the checker entity or an accessor, so
+  -- a checker passed to a flash or master uses up no default id and leaves no
+  -- actor behind.
   -- ``unexpected_msg_type_policy`` says whether a message of an unknown type
   -- is a failure (``fail``) or ignored (``ignore``).
   impure function new_qspi_protocol_checker(
@@ -250,6 +258,41 @@ package body qspi_protocol_checker_pkg is
     return new_actor(id);
   end;
 
+  -- The handle with its identity. A checker constructed without an id gets
+  -- the default id, and the logger, actor and checker that derive from it,
+  -- the first time this is called, and the same identity every time after.
+  impure function resolved(protocol_checker : qspi_protocol_checker_t) return qspi_protocol_checker_t is
+    constant identity : integer_vector_ptr_t := protocol_checker.p_identity;
+    variable result : qspi_protocol_checker_t := protocol_checker;
+  begin
+    if identity = null_ptr then
+      return result;
+    end if;
+
+    if get(identity, 0) < 0 then
+      result.p_id := enumerate(get_id("qspi_protocol_checker", parent => get_id("awesome_vunit_vcs")));
+      if not result.p_explicit_logger then
+        result.p_logger := get_logger(result.p_id);
+      end if;
+      if not result.p_explicit_actor then
+        result.p_actor := new_vc_actor(result.p_id, qspi_protocol_checker_pkg_checker);
+      end if;
+      if not result.p_explicit_checker then
+        result.p_checker := new_checker(result.p_logger);
+      end if;
+      set(identity, 0, to_integer(result.p_id));
+      set(identity, 1, to_integer(result.p_logger));
+      set(identity, 2, to_integer(result.p_actor));
+      set(identity, 3, to_integer(result.p_checker));
+    end if;
+
+    result.p_id := to_id(get(identity, 0));
+    result.p_logger := to_logger(get(identity, 1));
+    result.p_actor := to_actor(get(identity, 2));
+    result.p_checker := to_checker(get(identity, 3));
+    return result;
+  end;
+
   impure function new_qspi_protocol_checker(
     t_sck_min : delay_length := 7519 ps;
     t_sck_high_min : delay_length := 3 ns;
@@ -284,11 +327,14 @@ package body qspi_protocol_checker_pkg is
       p_explicit_id => id /= null_id,
       p_explicit_logger => logger /= null_logger,
       p_explicit_actor => actor /= null_actor,
-      p_explicit_checker => checker /= null_checker
+      p_explicit_checker => checker /= null_checker,
+      p_identity => null_ptr
     );
 
     if not result.p_explicit_id then
-      result.p_id := enumerate(get_id("qspi_protocol_checker", parent => get_id("awesome_vunit_vcs")));
+      -- Made when first needed, see resolved
+      result.p_identity := new_integer_vector_ptr(4, value => -1);
+      return result;
     end if;
     if not result.p_explicit_logger then
       result.p_logger := get_logger(result.p_id);
@@ -320,36 +366,37 @@ package body qspi_protocol_checker_pkg is
     if not result.p_explicit_actor then
       result.p_actor := new_vc_actor(result.p_id, qspi_protocol_checker_pkg_checker);
     end if;
-    if not (result.p_explicit_checker or result.p_explicit_logger) then
+    if not result.p_explicit_checker then
       result.p_checker := new_checker(result.p_logger);
     end if;
+    result.p_identity := null_ptr;
 
     return result;
   end;
 
   impure function get_id(protocol_checker : qspi_protocol_checker_t) return id_t is
   begin
-    return protocol_checker.p_id;
+    return resolved(protocol_checker).p_id;
   end;
 
   impure function get_logger(protocol_checker : qspi_protocol_checker_t) return logger_t is
   begin
-    return protocol_checker.p_logger;
+    return resolved(protocol_checker).p_logger;
   end;
 
   impure function get_actor(protocol_checker : qspi_protocol_checker_t) return actor_t is
   begin
-    return protocol_checker.p_actor;
+    return resolved(protocol_checker).p_actor;
   end;
 
   impure function get_checker(protocol_checker : qspi_protocol_checker_t) return checker_t is
   begin
-    return protocol_checker.p_checker;
+    return resolved(protocol_checker).p_checker;
   end;
 
   impure function as_sync(protocol_checker : qspi_protocol_checker_t) return sync_handle_t is
   begin
-    return protocol_checker.p_actor;
+    return get_actor(protocol_checker);
   end;
 
   function t_sck_min(protocol_checker : qspi_protocol_checker_t) return delay_length is
@@ -409,7 +456,7 @@ package body qspi_protocol_checker_pkg is
   procedure unexpected_msg_type(msg_type : msg_type_t; protocol_checker : qspi_protocol_checker_t) is
   begin
     if protocol_checker.p_unexpected_msg_type_policy = fail then
-      unexpected_msg_type(msg_type, protocol_checker.p_logger);
+      unexpected_msg_type(msg_type, get_logger(protocol_checker));
     end if;
   end;
 
@@ -423,7 +470,7 @@ package body qspi_protocol_checker_pkg is
   begin
     push(msg, qspi_check_t'pos(check));
     push(msg, enabled);
-    send(net, protocol_checker.p_actor, msg);
+    send(net, get_actor(protocol_checker), msg);
   end;
 
   procedure get_check_count(
@@ -435,7 +482,7 @@ package body qspi_protocol_checker_pkg is
   begin
     reference := new_msg(qspi_get_check_count_msg);
     push(reference, qspi_check_t'pos(check));
-    send(net, protocol_checker.p_actor, reference);
+    send(net, get_actor(protocol_checker), reference);
   end;
 
   procedure await_get_check_count_reply(
@@ -470,7 +517,7 @@ package body qspi_protocol_checker_pkg is
     variable request_msg : msg_t := new_msg(reset_qspi_protocol_checker_msg);
     variable reply_msg : msg_t;
   begin
-    request(net, protocol_checker.p_actor, request_msg, reply_msg);
+    request(net, get_actor(protocol_checker), request_msg, reply_msg);
     delete(reply_msg);
   end;
 end package body;

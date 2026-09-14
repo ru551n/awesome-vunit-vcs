@@ -97,7 +97,9 @@ are passed explicitly. Log messages therefore name the component they come from:
      - ``tb:boot_flash``
    * - A protocol checker without an explicit ``id``, passed to ``new_flash`` or ``new_qspi_master``
      - ``<parent id>:protocol_checker``, for example ``tb:boot_flash:protocol_checker``. The logger,
-       actor and checker that were not passed explicitly are derived again from this id.
+       actor and checker that were not passed explicitly are derived from this id. The checker uses
+       up no default id and leaves no actor behind: a checker constructed without an ``id`` gets its
+       default id the first time it is needed, by its own entity or an accessor such as ``get_id``.
    * - A protocol checker with an explicit ``id``, passed to ``new_flash`` or ``new_qspi_master``
      - Its own id; the handle is used unchanged
 

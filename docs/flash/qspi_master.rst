@@ -279,8 +279,6 @@ Limitations
    * **SPI mode 0 only.** Mode 3 (SCK idling high) is not supported.
    * **Fixed CS framing.** CS setup and hold are half an SCK period; only the deselect time is a
      parameter.
-   * **Half periods.** Each half of an SCK cycle is ``sck_period / 2``, so a period that is an odd
-     number of simulator resolution units is driven one unit short.
    * **Addresses up to 2 GiB.** The command layer takes addresses as a ``natural``.
    * **One device per bus.** CS is a single line.
 

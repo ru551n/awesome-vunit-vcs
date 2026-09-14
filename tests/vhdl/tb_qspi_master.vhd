@@ -736,6 +736,27 @@ begin
           free_arrays;
         end loop;
 
+      elsif run("test_odd_sck_period_is_exact") then
+        -- The halves of 20000001 fs differ by 1 fs, and the cycle is exact
+        period := 20000001 fs;
+        set_sck_period(net, master, period);
+        sck_period_in_use <= period;
+        configure_slave(cmd_bytes => 1, cmd_lanes => 1);
+        cmd := to_byte_array((0 => 16#9F#));
+        qspi_transfer(net => net, qspi_master => master, cmd => cmd, reference => reference, cmd_lanes => 1);
+
+        wait until rising_edge(m2s.sck);
+        timestamp := now;
+        wait until falling_edge(m2s.sck);
+        check_equal(now - timestamp, period - period / 2, "SCK high time of an odd period");
+        wait until rising_edge(m2s.sck);
+        check_equal(now - timestamp, period, "SCK period of an odd number of fs");
+
+        await_qspi_transfer_reply(net, reference);
+        check_received((0 => 16#9F#), "odd SCK period");
+        drain_trace(status);
+        free_arrays;
+
       elsif run("test_flash_command_layer") then
         for period_idx in periods'range loop
           use_sck_period(period_idx);

@@ -758,9 +758,6 @@ Limitations
    * **Limited 4-byte command set**, no program or erase suspend, and fixed dummy cycles per opcode.
    * **Deep power-down** takes no time to enter.
    * **Released I/Os are metavalues** when the flash samples them for data in.
-   * **Waiting for a busy time that was cut short.** ``flash_wait_until_ready`` waits for the whole
-     busy time the component started, even when ``flash_set_timing_enable(net, flash, false)`` ended
-     it in the model.
    * **Statistics are never cleared from VHDL.**
 
    These are also listed, with details, in :ref:`limitations-flash`.

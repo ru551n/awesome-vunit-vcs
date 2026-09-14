@@ -361,6 +361,7 @@ begin
         check_equal(ctrl'length, ctrl_length(source));
         check_equal(data_length(new_xgmii_monitor(lanes => 8)), 64);
         check_equal(ctrl_length(new_xgmii_protocol_checker(lanes => 8)), 8);
+        check_equal(data_length(new_xgmii_source(lanes => 8, link_rate_mbps => 400000)), 64);
         check_equal(lanes(monitor), 4);
       end if;
     end loop;

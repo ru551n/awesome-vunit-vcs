@@ -40,7 +40,7 @@ interfaces = st.sampled_from(
         eth.GMII.with_rate("2.5G"),
         eth.MII,
         eth.MII.with_rate("10M"),
-        *[eth.XGMII(lanes=lanes, rate=rate) for lanes in LIMITS.xgmii_lanes for rate in (10**10, 10**11)],
+        *[eth.XGMII(lanes=lanes, rate=rate) for lanes in LIMITS.xgmii_lanes for rate in (10**10, 10**11, 4 * 10**11)],
     ]
 )
 

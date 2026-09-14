@@ -33,7 +33,7 @@ Alpha: the APIs can still change, and the first release on PyPI is pending.
 | Family | Interface | Status |
 |---|---|---|
 | Ethernet | GMII (1G, 2.5G) | Available |
-| Ethernet | XGMII family: 2.5GMII, 5GMII, XGMII, 25GMII, XLGMII, CGMII | Available |
+| Ethernet | XGMII family: 2.5GMII, 5GMII, XGMII, 25GMII, XLGMII, CGMII, 200GMII, 400GMII | Available |
 | Ethernet | MII (10M, 100M) | Available |
 | Ethernet | RGMII, RMII, AXI-Stream MAC client | Planned |
 | Flash | QSPI NOR flash model | In progress |

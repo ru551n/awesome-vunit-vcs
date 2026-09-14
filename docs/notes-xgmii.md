@@ -15,6 +15,7 @@ count, clocking and link rate only:
 | 2.5GMII / 5GMII | 4 or 8 | false | 2500 / 5000 |
 | 25GMII | 8 | false | 25000 |
 | XLGMII / CGMII | 8 | false | 40000 / 100000 |
+| 200GMII / 400GMII (IEEE 802.3bs) | 8 | false | 200000 / 400000 |
 
 Ports: `clk`, `data(8 * lanes - 1 downto 0)` with lane 0 in the low octet, `ctrl(lanes - 1 downto 0)`
 with lane 0 in the low bit. Handles are the `ethernet_monitor_t`/`ethernet_source_t` of

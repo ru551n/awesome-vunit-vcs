@@ -31,26 +31,29 @@ entity tb_xgmii is
   generic (
     runner_cfg : string;
     lanes : positive := 4;
-    both_edges : boolean := false
+    both_edges : boolean := false;
+    link_rate_mbps : positive := 10000
   );
 end entity;
 
 architecture tb of tb_xgmii is
-  -- A column carries lanes octets of 800 ps each at 10 Gbit/s
-  constant column_period : time := lanes * 800 ps;
+  -- A column carries lanes octets of 8 bits each: 800 ps at 10 Gbit/s, 20 ps at 400 Gbit/s
+  constant column_period : time := lanes * (8 us / link_rate_mbps);
   constant clk_period : time := column_period * (1 + boolean'pos(both_edges));
 
   signal clk : std_ulogic := '0';
   signal data : std_ulogic_vector(8 * lanes - 1 downto 0);
   signal ctrl : std_ulogic_vector(lanes - 1 downto 0);
 
-  constant source : xgmii_source_t := new_xgmii_source(lanes => lanes, both_edges => both_edges);
+  constant source : xgmii_source_t := new_xgmii_source(lanes => lanes, both_edges => both_edges, link_rate_mbps => link_rate_mbps);
   constant monitor : xgmii_monitor_t := new_xgmii_monitor(
-    lanes => lanes, both_edges => both_edges, protocol_checker => default_xgmii_protocol_checker,
+    lanes => lanes, both_edges => both_edges, link_rate_mbps => link_rate_mbps,
+    protocol_checker => default_xgmii_protocol_checker,
     id => get_id("tb_xgmii:monitor")
   );
   constant second_monitor : xgmii_monitor_t := new_xgmii_monitor(
-    lanes => lanes, both_edges => both_edges, protocol_checker => default_xgmii_protocol_checker,
+    lanes => lanes, both_edges => both_edges, link_rate_mbps => link_rate_mbps,
+    protocol_checker => default_xgmii_protocol_checker,
     id => get_id("tb_xgmii:second_monitor")
   );
 

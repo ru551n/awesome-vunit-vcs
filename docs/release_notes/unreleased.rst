@@ -1,6 +1,7 @@
 The first release is being prepared. Nothing has been released yet.
 
-* Ethernet: GMII, MII and XGMII-family sources, monitors and protocol checkers, with frame
+* Ethernet: GMII, MII and XGMII-family sources, monitors and protocol checkers (the XGMII family
+  from 2.5GMII up to 200GMII and 400GMII), with frame
   reconstruction, protocol checks, statistics, PCAPNG capture and packets from Python functions.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
 

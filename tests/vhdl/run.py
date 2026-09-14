@@ -37,12 +37,20 @@ lib.add_source_files(ROOT / "*.vhd")
 lib.add_source_files(ROOT / "generated" / "*.vhd")
 
 # The XGMII family: 4-lane single edge (32-bit SDR), 4-lane both edges
-# (Clause 46 XGMII) and 8 lanes (64-bit variants, XLGMII, CGMII)
+# (Clause 46 XGMII) and 8 lanes (64-bit variants, XLGMII, CGMII), and 8 lanes
+# at 200 and 400 Gbit/s (200GMII, 400GMII)
 tb_xgmii = lib.test_bench("tb_xgmii")
-for lanes, both_edges in ((4, False), (4, True), (8, False)):
+for lanes, both_edges, link_rate_mbps in (
+    (4, False, 10000),
+    (4, True, 10000),
+    (8, False, 10000),
+    (8, False, 200000),
+    (8, False, 400000),
+):
     tb_xgmii.add_config(
-        name=f"{lanes}_lanes_{'both_edges' if both_edges else 'rising_edge'}",
-        generics={"lanes": lanes, "both_edges": both_edges},
+        name=f"{lanes}_lanes_{'both_edges' if both_edges else 'rising_edge'}"
+        + (f"_{link_rate_mbps // 1000}g" if link_rate_mbps != 10000 else ""),
+        generics={"lanes": lanes, "both_edges": both_edges, "link_rate_mbps": link_rate_mbps},
     )
 
 # MII at both of its link rates

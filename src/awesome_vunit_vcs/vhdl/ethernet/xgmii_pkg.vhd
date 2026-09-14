@@ -14,6 +14,11 @@
 --   2.5GMII / 5GMII        4 / 8  false       2500 / 5000
 --   25GMII                 8      false       25000
 --   XLGMII / CGMII         8      false       40000 / 100000
+--   200GMII / 400GMII      8      false       200000 / 400000
+--
+-- 200GMII and 400GMII use the control characters, Start, Terminate and
+-- ordered sets of CGMII (IEEE 802.3bs 119.2.3.3 to 119.2.3.8, which refer to
+-- Table 82-1 and 82.2.3.6 to 82.2.3.9).
 --
 -- Control characters (Start, Terminate, Error, Sequence ordered sets) are
 -- decoded and checked in the Python backend.

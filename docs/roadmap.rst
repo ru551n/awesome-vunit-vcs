@@ -22,7 +22,7 @@ Ethernet interfaces
      - 125 MHz (312.5 MHz at 2.5G), rising edge
      - Done
    * - XGMII family
-     - 2.5G, 5G, 10G, 25G, 40G, 100G
+     - 2.5G, 5G, 10G, 25G, 40G, 100G, 200G, 400G
      - 4 lanes: 32-bit data and 4 control bits; 8 lanes: 64-bit data and 8 control bits
      - Rising edge, or both edges for 4-lane XGMII
      - Done
@@ -49,7 +49,8 @@ Ethernet interfaces
      - Planned
 
 The XGMII family is one component with lane count (4 or 8), clocking and link rate settings, so
-2.5GMII and 5GMII (IEEE 802.3bz), XGMII, 25GMII, XLGMII and CGMII need no components of their own.
+2.5GMII and 5GMII (IEEE 802.3bz), XGMII, 25GMII, XLGMII, CGMII, and 200GMII and 400GMII
+(IEEE 802.3bs) need no components of their own.
 The GMII component likewise takes a link rate, which covers the overclocked 2.5G GMII some FPGA MACs
 use.
 

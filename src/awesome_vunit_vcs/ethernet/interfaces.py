@@ -249,8 +249,9 @@ def XGMII(
     An interface of the XGMII family.
 
     Args:
-        lanes: 4 (XGMII, 2.5GMII, 5GMII) or 8 (the 64-bit variants, 25GMII, XLGMII, CGMII).
-        rate: The link rate, for example ``"10G"`` or ``"100G"``.
+        lanes: 4 (XGMII, 2.5GMII, 5GMII) or 8 (the 64-bit variants, 25GMII, XLGMII, CGMII,
+            200GMII, 400GMII).
+        rate: The link rate, for example ``"10G"``, ``"100G"`` or ``"400G"``.
         allow_lane4_start: Accept frames that start on lane 4 of an 8-lane interface.
         deficit_idle: Sources round gaps to whole columns like a deficit idle count.
 

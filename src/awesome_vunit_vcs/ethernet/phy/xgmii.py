@@ -3,7 +3,9 @@ XGMII and its wider relatives: one octet and one control bit per lane.
 
 The same framing covers XGMII (IEEE 802.3 Clause 46, 4 lanes), the 64-bit
 variant most 10G/25G MAC cores expose (8 lanes), 2.5GMII/5GMII, 25GMII,
-XLGMII and CGMII. They differ in lane count and link rate only.
+XLGMII, CGMII, 200GMII and 400GMII. They differ in lane count and link rate
+only: IEEE 802.3bs 119.2.3.3 to 119.2.3.8 define the 200GMII/400GMII control
+characters, Start, Terminate and ordered sets as those of CGMII (Table 82-1).
 
 The VHDL frontend records one sample word per lane per column (a column is
 the lanes transferred at one clock edge), lane 0 first, all at the time of

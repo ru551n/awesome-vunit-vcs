@@ -96,7 +96,8 @@ class Limits:
     gmii_rates_bps: tuple[int, ...] = (1_000_000_000, 2_500_000_000)
     #: The rates of MII
     mii_rates_bps: tuple[int, ...] = (10_000_000, 100_000_000)
-    #: The rates of the XGMII family, from 2.5GMII and 5GMII over XGMII and 25GMII to XLGMII and CGMII
+    #: The rates of the XGMII family, from 2.5GMII and 5GMII over XGMII and 25GMII to XLGMII, CGMII,
+    #: 200GMII and 400GMII
     xgmii_rates_bps: tuple[int, ...] = (
         2_500_000_000,
         5_000_000_000,
@@ -104,6 +105,8 @@ class Limits:
         25_000_000_000,
         40_000_000_000,
         100_000_000_000,
+        200_000_000_000,
+        400_000_000_000,
     )
 
     def __post_init__(self) -> None:

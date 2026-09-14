@@ -245,3 +245,17 @@ def test_the_package_never_imports_hypothesis() -> None:
         "assert 'hypothesis' not in sys.modules, sorted(m for m in sys.modules if 'hypothesis' in m)\n"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+@pytest.mark.parametrize(("rate", "octet_period_fs"), [("200G", 40_000), ("400G", 20_000)])
+def test_200gmii_and_400gmii_timestamps_are_exact(rate: str, octet_period_fs: int) -> None:
+    interface = eth.XGMII(lanes=8, rate=rate)
+    frames = [eth.Frame.from_payload(bytes(range(46))), eth.Frame.from_payload(bytes(100))]
+    samples = interface.encode([frame.to_wire() for frame in frames])
+    column_period_fs = 8 * octet_period_fs
+    assert set((samples.times[8::8] - samples.times[:-8:8]).tolist()) == {column_period_fs}
+    result = eth.decode(interface, samples)
+    assert [frame.data for frame in result.frames] == [frame.data for frame in frames]
+    assert not result.violations
+    start_fs = result.frames[1].timestamp_fs
+    assert start_fs is not None and start_fs % octet_period_fs == 0

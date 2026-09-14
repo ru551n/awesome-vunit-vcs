@@ -160,3 +160,27 @@ def test_source_backend_symbols_carry_the_options() -> None:
     assert symbols[3] & 0x200
     assert symbols[5] & 0xFF == 0xD5
     assert not symbols[-1] & 0x100
+
+
+def test_monitor_backend_scoreboard_accepts_transmitter_padding() -> None:
+    backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
+    short = ethernet_payload(20)
+    backend.expect_payload(list(short))
+    line = GmiiLine(time_fs=0)
+    line.idle(1)
+    line.frame(reference_frame(short))
+    line.idle(1)
+    assert push_line(backend, line) == 0
+    assert backend.expected_count() == 0
+
+
+def test_monitor_backend_scoreboard_rejects_nonzero_padding() -> None:
+    backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
+    short = ethernet_payload(20)
+    backend.expect_payload(list(short))
+    line = GmiiLine(time_fs=0)
+    line.idle(1)
+    line.frame(reference_frame(short + b"\x01"))
+    line.idle(1)
+    assert push_line(backend, line) == 1
+    assert "first difference at offset 20" in backend.take_reports()

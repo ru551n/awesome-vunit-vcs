@@ -22,7 +22,7 @@ import numpy.typing as npt
 from ..common.reports import ReportQueue, Severity, encode_reports
 from ..common.vunit_bridge import bytes_from_unsigned, decode_samples, join_time
 from .checker import CheckId, Violation
-from .frame import EthernetConfig, EthernetFrame
+from .frame import FCS_OCTETS, EthernetConfig, EthernetFrame
 from .metrics import EthernetStatistics
 from .monitor import EthernetMonitor
 from .pcap import CaptureOptions
@@ -125,12 +125,18 @@ class MonitorBackend:
             )
         self.reports.add(Severity.DEBUG, text)
 
+    def _padded(self, data: bytes) -> bytes:
+        """data padded with zeros to the minimum frame size, the way a transmitter pads it"""
+        config = self.monitor.config
+        minimum = config.min_frame_octets - (FCS_OCTETS if config.has_fcs else 0)
+        return data + bytes(max(0, minimum - len(data)))
+
     def _compare_with_expected(self, frame: EthernetFrame) -> None:
         if not self._expected:
             return
         expected = self._expected.popleft()
         received = frame.payload
-        if received == expected:
+        if received in (expected, self._padded(expected)):
             return
         mismatch = next(
             (offset for offset, (a, b) in enumerate(zip(expected, received, strict=False)) if a != b),

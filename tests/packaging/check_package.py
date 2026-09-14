@@ -40,7 +40,7 @@ REPO = Path(__file__).resolve().parents[2]
 PACKAGE_DIR = REPO / "src" / "awesome_vunit_vcs"
 
 #: VUnit PR #1220 (python_pkg on a native bridge), head of ru551n/vunit master
-DEFAULT_VUNIT = "vunit_hdl @ git+https://github.com/ru551n/vunit.git@6f34c380a160b0adae9a742c5044b1773aebf03a"
+DEFAULT_VUNIT = "git+https://github.com/ru551n/vunit.git@6f34c380a160b0adae9a742c5044b1773aebf03a"
 
 PROBE = """
 import importlib.util, json, sys

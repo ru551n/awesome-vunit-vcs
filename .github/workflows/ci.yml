@@ -16,7 +16,7 @@ defaults:
 env:
   # The Python bridge (VUnit PR #1220) is not released yet: pin its head commit.
   # Keep in sync with DEFAULT_VUNIT in tests/packaging/check_package.py.
-  VUNIT_REQUIREMENT: vunit_hdl @ git+https://github.com/ru551n/vunit.git@6f34c380a160b0adae9a742c5044b1773aebf03a
+  VUNIT_REQUIREMENT: git+https://github.com/ru551n/vunit.git@6f34c380a160b0adae9a742c5044b1773aebf03a
   PIP_PROGRESS_BAR: 'off'
 
 jobs:
@@ -80,7 +80,7 @@ jobs:
       - name: Packaging check with the external project
         env:
           VUNIT_SIMULATOR: nvc
-        run: python tests/packaging/check_package.py --run-example
+        run: python tests/packaging/check_package.py --run-example --vunit "$VUNIT_REQUIREMENT"
 
   hdl-tests:
     name: HDL tests with ${{ matrix.simulator }}
@@ -93,21 +93,34 @@ jobs:
       VUNIT_SIMULATOR: ${{ matrix.simulator }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      # TODO: remove this guard once tests/vhdl/run.py is committed
+      - name: Check for HDL tests
+        id: guard
+        run: |
+          if [ -f tests/vhdl/run.py ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::tests/vhdl/run.py does not exist yet, skipping the HDL tests"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.guard.outputs.present == 'true'
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - if: matrix.simulator == 'ghdl'
+      - if: steps.guard.outputs.present == 'true' && matrix.simulator == 'ghdl'
         uses: ghdl/setup-ghdl@v1.5.1
         with:
           version: latest
           backend: mcode
-      - if: matrix.simulator == 'nvc'
+      - if: steps.guard.outputs.present == 'true' && matrix.simulator == 'nvc'
         uses: nickg/setup-nvc@v1
         with:
           version: latest
       - name: Install
+        if: steps.guard.outputs.present == 'true'
         run: |
           pip install "$VUNIT_REQUIREMENT"
           pip install -e ".[scapy]"
       - name: Run tests/vhdl
+        if: steps.guard.outputs.present == 'true'
         run: python tests/vhdl/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out"

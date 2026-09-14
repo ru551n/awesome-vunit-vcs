@@ -78,7 +78,7 @@ Start here
 Components
 ----------
 
-.. grid:: 1 1 3 3
+.. grid:: 1 1 2 2
    :gutter: 2
 
    .. grid-item-card:: Ethernet
@@ -92,6 +92,12 @@ Components
       :link-type: doc
 
       Let Hypothesis find the smallest input that breaks your design.
+
+   .. grid-item-card:: Flash / QSPI
+      :link: flash/index
+      :link-type: doc
+
+      A QSPI NOR flash model, a QSPI master and a QSPI protocol checker.
 
    .. grid-item-card:: Common
       :link: common/index

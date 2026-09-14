@@ -98,9 +98,9 @@ begin
         wait_until_idle(net, as_sync(input_monitor));
         wait_until_idle(net, as_sync(output_monitor));
 
-        get_check_count(net, get_protocol_checker(input_monitor), eth_fcs, count);
+        get_check_count(net, input_monitor, eth_fcs, count);
         check_equal(count, 1);
-        get_check_count(net, get_protocol_checker(output_monitor), eth_fcs, count);
+        get_check_count(net, output_monitor, eth_fcs, count);
         check_equal(count, 1);
         check_equal(get_log_count(get_logger(get_protocol_checker(output_monitor)), error), 1);
         reset_log_count(get_logger(get_protocol_checker(input_monitor)), error);

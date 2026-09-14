@@ -25,6 +25,7 @@ context python_bridge.python_context;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
+use awesome_vunit_vcs.vcs_python_pkg.all;
 
 entity tb_gmii_vci is
   generic (
@@ -82,6 +83,7 @@ begin
     variable length : natural;
     variable fcs_ok : boolean;
     variable count : natural;
+    variable session : python_session_t;
     variable statistics : ethernet_statistics_t;
     variable start : time;
     variable custom_logger : logger_t;
@@ -201,6 +203,34 @@ begin
         check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_source))));
         exec("vc.tb_marker = 'first'", new_session(get_id(protocol_checker)));
         check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_protocol_checker))));
+
+      elsif run("test_monitor_forwards_check_calls_to_its_protocol_checker") then
+        set_check_enabled(net, monitor, eth_fcs, false);
+        get_check_count(net, monitor, eth_fcs, count);
+        check_equal(count, 0);
+        set_check_enabled(net, monitor, eth_fcs);
+
+      elsif run("test_check_calls_on_a_monitor_without_protocol_checker_fail") then
+        mock(get_logger(default_monitor), failure);
+        set_check_enabled(net, default_monitor, eth_fcs, false);
+        check_only_log(
+          get_logger(default_monitor),
+          "set_check_enabled needs a protocol checker, but the monitor has none. Create the monitor with " &
+          "protocol_checker => new_gmii_protocol_checker or default_gmii_protocol_checker",
+          failure
+        );
+        unmock(get_logger(default_monitor));
+
+      elsif run("test_two_sessions_for_one_id_fail") then
+        session := new_vc_session(get_id("tb_gmii_vci:duplicate"));
+        mock(get_logger(get_id("tb_gmii_vci:duplicate")), failure);
+        session := new_vc_session(get_id("tb_gmii_vci:duplicate"));
+        check_only_log(
+          get_logger(get_id("tb_gmii_vci:duplicate")),
+          "Two verification components have the id tb_gmii_vci:duplicate and would share one Python backend",
+          failure
+        );
+        unmock(get_logger(get_id("tb_gmii_vci:duplicate")));
 
       elsif run("test_unexpected_message_is_a_check_failure") then
         check_unexpected_message(get_actor(source), get_logger(source), expect_failure => true);

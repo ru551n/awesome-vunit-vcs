@@ -351,6 +351,28 @@ package gmii_pkg is
     variable count : out natural
   );
 
+  -- The same procedures for a monitor, forwarded to the protocol checker it
+  -- instantiates (:vhdl:`gmii_pkg.get_protocol_checker`). A monitor without a
+  -- protocol checker is a failure on the logger of the monitor.
+  procedure set_check_enabled(
+    signal net : inout network_t;
+    monitor : gmii_monitor_t;
+    check : ethernet_check_t;
+    enabled : boolean := true
+  );
+  procedure get_check_count(
+    signal net : inout network_t;
+    monitor : gmii_monitor_t;
+    check : ethernet_check_t;
+    variable reference : inout ethernet_reference_t
+  );
+  procedure get_check_count(
+    signal net : inout network_t;
+    monitor : gmii_monitor_t;
+    check : ethernet_check_t;
+    variable count : out natural
+  );
+
   -- Recover a VC, see :vhdl:`ethernet_pkg.reset`
   procedure reset(
     signal net : inout network_t;
@@ -852,6 +874,56 @@ package body gmii_pkg is
   ) is
   begin
     get_check_count(net, as_ethernet_protocol_checker(protocol_checker), check, count);
+  end;
+
+  -- Fails on the logger of the monitor when it has no protocol checker to forward to
+  impure function has_protocol_checker(monitor : gmii_monitor_t; procedure_name : string) return boolean is
+  begin
+    if get_protocol_checker(monitor) = null_gmii_protocol_checker then
+      failure(
+        get_logger(monitor),
+        procedure_name & " needs a protocol checker, but the monitor has none. Create the monitor with " &
+        "protocol_checker => new_gmii_protocol_checker or default_gmii_protocol_checker"
+      );
+      return false;
+    end if;
+    return true;
+  end;
+
+  procedure set_check_enabled(
+    signal net : inout network_t;
+    monitor : gmii_monitor_t;
+    check : ethernet_check_t;
+    enabled : boolean := true
+  ) is
+  begin
+    if has_protocol_checker(monitor, "set_check_enabled") then
+      set_check_enabled(net, get_protocol_checker(monitor), check, enabled);
+    end if;
+  end;
+
+  procedure get_check_count(
+    signal net : inout network_t;
+    monitor : gmii_monitor_t;
+    check : ethernet_check_t;
+    variable reference : inout ethernet_reference_t
+  ) is
+  begin
+    if has_protocol_checker(monitor, "get_check_count") then
+      get_check_count(net, get_protocol_checker(monitor), check, reference);
+    end if;
+  end;
+
+  procedure get_check_count(
+    signal net : inout network_t;
+    monitor : gmii_monitor_t;
+    check : ethernet_check_t;
+    variable count : out natural
+  ) is
+  begin
+    if has_protocol_checker(monitor, "get_check_count") then
+      get_check_count(net, get_protocol_checker(monitor), check, count);
+    end if;
   end;
 
   procedure reset(

@@ -46,7 +46,7 @@ Breaking changes to the VHDL API
      - A monitor does not; pass ``protocol_checker => default_<interface>_protocol_checker`` or
        instantiate ``<interface>_protocol_checker``. Violations are logged by the protocol checker.
    * - ``set_check_enabled``, ``get_check_count`` on a monitor
-     - On its protocol checker: ``get_protocol_checker(monitor)``.
+     - Still on the monitor, forwarded to its protocol checker; a monitor without one is a failure.
    * - ``send_ethernet_frame(net, source, data, fcs => fcs_bad)``
      - ``push_ethernet_frame(net, source, data, frame_options(fcs => fcs_bad))``
    * - ``send_ethernet_packet(net, source, "Ether()/IP()")``, a Scapy expression string

@@ -149,7 +149,7 @@ violation happens, let errors through on that logger, count them and reset the l
    wait_until_idle(net, as_sync(source));
    wait_until_idle(net, as_sync(monitor));
 
-   get_check_count(net, get_protocol_checker(monitor), eth_fcs, count);
+   get_check_count(net, monitor, eth_fcs, count);
    check_equal(count, 1);
    reset_log_count(get_logger(get_protocol_checker(monitor)), error);
 
@@ -160,6 +160,8 @@ Turning a check off
 
 .. code-block:: vhdl
 
-   set_check_enabled(net, get_protocol_checker(monitor), eth_ifg, false);
+   set_check_enabled(net, monitor, eth_ifg, false);
 
-``get_check_count`` counts the violations a check found while enabled.
+``get_check_count`` counts the violations a check found while enabled. On a monitor both procedures
+forward to its protocol checker, and a monitor without one is a failure; they also take the protocol
+checker handle itself, ``get_protocol_checker(monitor)`` or one you instantiated.

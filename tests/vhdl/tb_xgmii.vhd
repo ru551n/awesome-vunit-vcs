@@ -154,7 +154,7 @@ begin
     begin
       wait_until_idle;
       for idx in monitors'range loop
-        get_check_count(net, get_protocol_checker(monitors(idx)), check, violations);
+        get_check_count(net, monitors(idx), check, violations);
         check_equal(
           violations, expected, "Violations of " & ethernet_check_t'image(check) & " on monitor " & to_string(idx)
         );
@@ -264,16 +264,16 @@ begin
 
       elsif run("test_monitors_are_independent") then
         -- The same line, but only the first monitor checks the FCS
-        set_check_enabled(net, get_protocol_checker(second_monitor), eth_fcs, false);
+        set_check_enabled(net, second_monitor, eth_fcs, false);
         push_ethernet_frame(net, source, frame_data(80), frame_options(fcs => fcs_bad));
         wait_until_idle;
 
-        get_check_count(net, get_protocol_checker(monitor), eth_fcs, count);
+        get_check_count(net, monitor, eth_fcs, count);
         check_equal(count, 1);
         check_equal(get_log_count(get_logger(get_protocol_checker(monitor)), error), 1);
         reset_log_count(get_logger(get_protocol_checker(monitor)), error);
 
-        get_check_count(net, get_protocol_checker(second_monitor), eth_fcs, count);
+        get_check_count(net, second_monitor, eth_fcs, count);
         check_equal(count, 0);
         check_equal(get_log_count(get_logger(get_protocol_checker(second_monitor)), error), 0);
         check(get_id(monitor) /= get_id(second_monitor));
@@ -291,7 +291,7 @@ begin
         for idx in monitors'range loop
           total := 0;
           for check_id in eth_preamble to eth_link_fault loop
-            get_check_count(net, get_protocol_checker(monitors(idx)), check_id, count);
+            get_check_count(net, monitors(idx), check_id, count);
             expected_count := eval_integer(
               "vc.expected_violation_count('" & ethernet_check_t'image(check_id) & "')",
               new_session(get_id(monitors(idx)))

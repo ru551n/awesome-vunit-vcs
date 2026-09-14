@@ -63,7 +63,7 @@ begin
         wait_until_idle(net, as_sync(source));
         wait_until_idle(net, as_sync(monitor));
 
-        get_check_count(net, get_protocol_checker(monitor), eth_fcs, count);
+        get_check_count(net, monitor, eth_fcs, count);
         check_equal(count, 1);
         check_equal(get_log_count(get_logger(get_protocol_checker(monitor)), error), 1);
         reset_log_count(get_logger(get_protocol_checker(monitor)), error);

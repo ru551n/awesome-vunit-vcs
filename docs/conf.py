@@ -98,6 +98,7 @@ nitpick_ignore_regex = [
     (r"py:class", r"PhyFrame|PerformanceMonitor|EthernetFrame|EthernetConfig|ErrorHandler"),
     (r"py:class", r"The observation window in fs|Effective bit rate"),
     (r"py:meth", r"on_frame"),
+    (r"py:data", r"common\.WORD_ALIGNMENT"),
     (r"py:attr", r"(ProtocolChecker\.)?violations"),
 ]
 

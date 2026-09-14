@@ -11,3 +11,6 @@ dist/
 *.pcapng
 docs/_build/
 docs/_generated/
+# VHDL packages generated from Python dataclasses by the run scripts
+tests/vhdl/generated/
+examples/*/generated/

@@ -22,6 +22,7 @@ from __future__ import annotations
 import ast
 import builtins
 import dataclasses
+import enum
 import hashlib
 import json
 import os
@@ -250,8 +251,10 @@ class PropertyRunner:
         return value
 
     def string(self, path: str = "") -> str:
-        """A string at ``path``."""
+        """A string at ``path``; for an :class:`enum.Enum` member, its name in lower case."""
         value = self._lookup(path)
+        if isinstance(value, enum.Enum):
+            return value.name.lower()
         if not isinstance(value, str):
             raise PropertyError(f"{path!r} is {value!r}, not a string")
         return value

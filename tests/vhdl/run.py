@@ -9,11 +9,21 @@ The packages are added the way a user adds them, so the tests also prove that
 the installed VHDL library and Python backend modules are found without paths.
 """
 
+import sys
 from pathlib import Path
 
 from vunit import VUnit
 
+from awesome_vunit_vcs.gen_vhdl import write_vhdl
+
 ROOT = Path(__file__).parent
+
+# The records of tb_records, generated from the dataclasses at build time; the
+# package is rewritten only when it changes, so it is not recompiled needlessly
+sys.path.insert(0, str(ROOT / "python"))
+from record_types import Link  # noqa: E402
+
+write_vhdl([Link], "record_types_pkg", ROOT / "generated" / "record_types_pkg.vhd")
 
 vu = VUnit.from_argv()
 vu.add_vhdl_builtins()
@@ -24,6 +34,7 @@ vu.add_package("awesome-vunit-vcs")
 
 lib = vu.add_library("lib")
 lib.add_source_files(ROOT / "*.vhd")
+lib.add_source_files(ROOT / "generated" / "*.vhd")
 
 # The XGMII family: 4-lane single edge (32-bit SDR), 4-lane both edges
 # (Clause 46 XGMII) and 8 lanes (64-bit variants, XLGMII, CGMII)

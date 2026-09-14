@@ -105,7 +105,6 @@ def test_every_entity_is_in_the_status_matrix() -> None:
     assert not missing
 
 
-@pytest.mark.xfail(reason="The README becomes a short landing page in docs WP3", strict=False)
 def test_readme_has_no_code_beyond_the_install_line() -> None:
     readme = (REPO / "README.md").read_text(encoding="utf-8")
     blocks = re.findall(r"```[^\n]*\n(.*?)```", readme, re.DOTALL)

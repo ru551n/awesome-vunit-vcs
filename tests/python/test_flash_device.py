@@ -733,3 +733,11 @@ def test_busy_deadline_is_reported_in_femtoseconds(host: Host) -> None:
     assert host.dev.get_stat("busy_deadline_fs") == SEC + 700 * US
     with pytest.raises(KeyError):
         host.dev.get_stat("busy_deadline_ps")
+
+
+def test_xfer_without_cs_assert_raises(host: Host) -> None:
+    with pytest.raises(RuntimeError, match="without cs_assert"):
+        host.dev.xfer(0x03)
+    host.xact([0x9F], read=1)
+    with pytest.raises(RuntimeError, match="without cs_assert"):
+        host.dev.xfer(0x03)

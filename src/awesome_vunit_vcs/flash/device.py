@@ -217,6 +217,8 @@ class FlashDevice:
     def xfer(self, byte_in: int, now_fs: int | None = None) -> int:
         """One byte moved on the wire. `byte_in` is -1 when the VC was
         clocking a byte *out*."""
+        if not self._cs_active:
+            raise RuntimeError(f"xfer(byte_in={byte_in}) without cs_assert: CS is not asserted")
         if now_fs is not None:
             self.now_fs = int(now_fs)
         self.stats["xfer_count"] += 1

@@ -33,6 +33,8 @@ class CheckId(str, enum.Enum):
     CONTROL = "ETH_CONTROL"
     #: A local or remote fault signaled by the PHY
     LINK_FAULT = "ETH_LINK_FAULT"
+    #: A received frame differs from the expected one, or an expected frame never arrived
+    SCOREBOARD = "ETH_SCOREBOARD"
 
     @classmethod
     def parse(cls, check: CheckId | str) -> CheckId:
@@ -101,6 +103,21 @@ class ProtocolChecker:
     @property
     def total(self) -> int:
         return sum(self._counts.values())
+
+    def report(
+        self,
+        check: CheckId | str,
+        header: str,
+        details: Iterable[str] = (),
+        timestamp_fs: int = 0,
+        index: int | None = None,
+    ) -> None:
+        """
+        Report a violation found by a component other than the checker, for
+        example a scoreboard. It is counted, enabled and disabled like the
+        violations the checker finds itself.
+        """
+        self._report(CheckId.parse(check), header, details, timestamp_fs, index)
 
     def _report(
         self, check: CheckId, header: str, details: Iterable[str], timestamp_fs: int, index: int | None

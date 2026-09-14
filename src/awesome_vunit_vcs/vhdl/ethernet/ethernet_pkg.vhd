@@ -44,7 +44,8 @@ package ethernet_pkg is
     eth_metavalue,
     eth_frame_state,
     eth_control,
-    eth_link_fault
+    eth_link_fault,
+    eth_scoreboard
   );
 
   -- What a source appends to the frame data

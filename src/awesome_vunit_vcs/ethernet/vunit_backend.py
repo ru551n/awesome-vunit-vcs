@@ -143,17 +143,17 @@ class MonitorBackend:
             (offset for offset, (a, b) in enumerate(zip(expected, received, strict=False)) if a != b),
             min(len(expected), len(received)),
         )
-        self.reports.add(
-            Severity.ERROR,
-            "\n".join(
-                [
-                    f"ETH_SCOREBOARD: frame {frame.index} is not the expected frame",
-                    f"expected length={len(expected)} bytes",
-                    f"received length={len(received)} bytes",
-                    f"first difference at offset {mismatch}",
-                    f"SFD time={frame.timestamp_sfd_fs} fs",
-                ]
-            ),
+        self.monitor.checker.report(
+            CheckId.SCOREBOARD,
+            f"frame {frame.index} is not the expected frame",
+            [
+                f"expected length={len(expected)} bytes",
+                f"received length={len(received)} bytes",
+                f"first difference at offset {mismatch}",
+                f"SFD time={frame.timestamp_sfd_fs} fs",
+            ],
+            frame.timestamp_start_fs,
+            frame.index,
         )
 
     # Called by VHDL
@@ -258,9 +258,10 @@ class MonitorBackend:
         """
         self.monitor.finish(self._last_time_fs)
         if self._expected:
-            self.reports.add(
-                Severity.ERROR,
-                f"ETH_SCOREBOARD: {len(self._expected)} expected frame(s) were not received",
+            self.monitor.checker.report(
+                CheckId.SCOREBOARD,
+                f"{len(self._expected)} expected frame(s) were not received",
+                timestamp_fs=self._last_time_fs,
             )
             self._expected.clear()
         self.monitor.stop_captures()

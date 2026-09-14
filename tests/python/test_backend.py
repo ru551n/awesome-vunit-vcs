@@ -184,3 +184,19 @@ def test_monitor_backend_scoreboard_rejects_nonzero_padding() -> None:
     line.idle(1)
     assert push_line(backend, line) == 1
     assert "first difference at offset 20" in backend.take_reports()
+
+
+def test_monitor_backend_scoreboard_is_a_check() -> None:
+    backend = MonitorBackend("tb:gmii_monitor_0", "gmii")
+    backend.expect_payload(list(ethernet_payload(60, seed=1)))
+    backend.expect_payload(list(ethernet_payload(60, seed=2)))
+    line = GmiiLine(time_fs=0)
+    line.idle(1)
+    line.frame(reference_frame(ethernet_payload(60, seed=3)))
+    assert push_line(backend, line) == 1
+    assert backend.check_count("ETH_SCOREBOARD") == 1
+    backend.take_reports()
+
+    backend.set_check_enabled("eth_scoreboard", False)
+    assert backend.finish() == 0
+    assert backend.check_count("ETH_SCOREBOARD") == 1

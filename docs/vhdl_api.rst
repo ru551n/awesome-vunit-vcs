@@ -197,9 +197,9 @@ enabled by default.
      - An invalid control character (interfaces that signal with control characters, such as XGMII).
    * - ``eth_link_fault``
      - A local or remote fault ordered set (XGMII family).
-
-Expected frames that differ from the received ones, or are not received before the simulation
-ends, are reported as ``ETH_SCOREBOARD`` check failures.
+   * - ``eth_scoreboard``
+     - A frame that differs from the one ``expect_ethernet_frame`` expected, or expected frames not
+       received before the simulation ends.
 
 Monitor procedures
 ------------------

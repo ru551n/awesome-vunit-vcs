@@ -110,6 +110,18 @@ class EthernetMonitor:
         if phy is not None:
             self.checker.on_unfinished_frame(self._decoder.decode(phy))
 
+    def reset(self, clear_statistics: bool = False) -> None:
+        """
+        Forget a frame in progress, for example after the DUT or the traffic was
+        reset. Frame counts and checker counts are kept.
+
+        Args:
+            clear_statistics: Also start the statistics from zero.
+        """
+        self._assembler = FrameAssembler()
+        if clear_statistics:
+            self.statistics.reset()
+
     @property
     def in_frame(self) -> bool:
         """Whether a frame is being received."""

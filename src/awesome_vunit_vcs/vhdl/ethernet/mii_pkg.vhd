@@ -351,6 +351,21 @@ package mii_pkg is
     variable count : out natural
   );
 
+  -- Recover a VC, see :vhdl:`ethernet_pkg.reset`
+  procedure reset(
+    signal net : inout network_t;
+    source : mii_source_t
+  );
+  procedure reset(
+    signal net : inout network_t;
+    monitor : mii_monitor_t;
+    clear_statistics : boolean := false
+  );
+  procedure reset(
+    signal net : inout network_t;
+    protocol_checker : mii_protocol_checker_t
+  );
+
   -- Private: the VC an entity implements
   impure function to_ethernet_vc(source : mii_source_t) return ethernet_vc_t;
   impure function to_ethernet_vc(monitor : mii_monitor_t) return ethernet_vc_t;
@@ -845,6 +860,31 @@ package body mii_pkg is
   ) is
   begin
     get_check_count(net, as_ethernet_protocol_checker(protocol_checker), check, count);
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    source : mii_source_t
+  ) is
+  begin
+    reset(net, as_ethernet_source(source));
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    monitor : mii_monitor_t;
+    clear_statistics : boolean := false
+  ) is
+  begin
+    reset(net, as_ethernet_monitor(monitor), clear_statistics);
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    protocol_checker : mii_protocol_checker_t
+  ) is
+  begin
+    reset(net, as_ethernet_protocol_checker(protocol_checker));
   end;
 
   impure function to_ethernet_vc(source : mii_source_t) return ethernet_vc_t is

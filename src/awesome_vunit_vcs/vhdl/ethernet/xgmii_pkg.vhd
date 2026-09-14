@@ -390,6 +390,21 @@ package xgmii_pkg is
     variable count : out natural
   );
 
+  -- Recover a VC, see :vhdl:`ethernet_pkg.reset`
+  procedure reset(
+    signal net : inout network_t;
+    source : xgmii_source_t
+  );
+  procedure reset(
+    signal net : inout network_t;
+    monitor : xgmii_monitor_t;
+    clear_statistics : boolean := false
+  );
+  procedure reset(
+    signal net : inout network_t;
+    protocol_checker : xgmii_protocol_checker_t
+  );
+
   -- Non-blocking: transmit columns exactly as given: data is one octet per
   -- lane and control one bit per lane, lane 0 of the first column leftmost.
   -- For traffic the frame procedures cannot describe, such as a Start on the
@@ -967,6 +982,31 @@ package body xgmii_pkg is
   ) is
   begin
     get_check_count(net, as_ethernet_protocol_checker(protocol_checker), check, count);
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    source : xgmii_source_t
+  ) is
+  begin
+    reset(net, as_ethernet_source(source));
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    monitor : xgmii_monitor_t;
+    clear_statistics : boolean := false
+  ) is
+  begin
+    reset(net, as_ethernet_monitor(monitor), clear_statistics);
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    protocol_checker : xgmii_protocol_checker_t
+  ) is
+  begin
+    reset(net, as_ethernet_protocol_checker(protocol_checker));
   end;
 
   procedure push_xgmii_columns(

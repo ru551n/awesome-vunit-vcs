@@ -139,6 +139,8 @@ class MonitorBackend:
         self.reports = ReportQueue()
         self.log_frames = log_frames
         phy_options = {**(phy_options or {}), **({"link_rate_bps": link_rate_bps} if link_rate_bps else {})}
+        self._interface = interface
+        self._phy_options = phy_options
         config = EthernetConfig(
             min_preamble_octets=min_preamble_octets,
             max_preamble_octets=max_preamble_octets,
@@ -416,6 +418,20 @@ class MonitorBackend:
         """Close every capture."""
         self.monitor.stop_captures()
 
+    def reset(self, clear_statistics: bool = False) -> int:
+        """
+        Forget a frame in progress, the decoder state, the collected frames and the
+        expected frames, for example after the DUT was reset. Statistics and check
+        counts are kept unless ``clear_statistics``. Returns the number of waiting reports.
+        """
+        self.monitor.reset(clear_statistics)
+        self.monitor.phy = create_phy(self._interface, **self._phy_options)
+        self._expected.clear()
+        self._queued_count = 0
+        self._compared_count = 0
+        self._collected.clear()
+        return len(self.reports)
+
     def finish(self) -> int:
         """
         End of monitoring: report a frame still in progress and expected frames
@@ -475,6 +491,10 @@ class ProtocolCheckerBackend:
     def finish(self) -> int:
         """See :meth:`MonitorBackend.finish`."""
         return self._backend.finish()
+
+    def reset(self) -> int:
+        """Forget a frame in progress and the decoder state, keeping the check counts."""
+        return self._backend.reset()
 
 
 class SourceBackend:

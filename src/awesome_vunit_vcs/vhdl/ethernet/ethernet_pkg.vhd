@@ -222,6 +222,17 @@ package ethernet_pkg is
     seed : string := ""
   );
 
+  -- Blocking: recover a source, for example between the examples of a property
+  -- based test. Drops the frames and requests pushed before the call, aborts a
+  -- frame in progress at a symbol boundary (GMII and MII deassert valid, XGMII
+  -- transmits an Error column, then Idle) and forgets octets pushed with
+  -- push_stream without last. Dropped wait_until_idle requests are answered.
+  -- Returns also when the clock of the interface has stopped.
+  procedure reset(
+    signal net : inout network_t;
+    source : ethernet_source_t
+  );
+
   ---------------------------------------------------------------------------
   -- Monitor
   --
@@ -384,6 +395,17 @@ package ethernet_pkg is
     monitor : ethernet_monitor_t
   );
 
+  -- Blocking: recover a monitor. Forgets a frame in progress and ignores the
+  -- rest of it on the line, the frames kept for pops, and the expected frames
+  -- of the scoreboard. Pending pops are cancelled and must not be awaited;
+  -- pending blocking checks return. Statistics are kept unless
+  -- clear_statistics.
+  procedure reset(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
+    clear_statistics : boolean := false
+  );
+
   ---------------------------------------------------------------------------
   -- Protocol checker
   --
@@ -425,6 +447,13 @@ package ethernet_pkg is
     variable count : out natural
   );
 
+  -- Blocking: recover a protocol checker. Forgets a frame in progress and
+  -- ignores the rest of it on the line; the check counts are kept.
+  procedure reset(
+    signal net : inout network_t;
+    protocol_checker : ethernet_protocol_checker_t
+  );
+
   -- Message types of the Ethernet VCIs. A request with a reply has a
   -- ``*_reply_msg`` type for the reply. A monitor publishes
   -- ``ethernet_frame_msg``.
@@ -447,6 +476,14 @@ package ethernet_pkg is
   constant get_ethernet_check_count_msg : msg_type_t := new_msg_type("get ethernet check count");
   constant get_ethernet_check_count_reply_msg : msg_type_t := new_msg_type("get ethernet check count reply");
   constant ethernet_frame_msg : msg_type_t := new_msg_type("ethernet frame");
+  constant reset_ethernet_source_msg : msg_type_t := new_msg_type("reset ethernet source");
+  constant reset_ethernet_source_reply_msg : msg_type_t := new_msg_type("reset ethernet source reply");
+  constant reset_ethernet_monitor_msg : msg_type_t := new_msg_type("reset ethernet monitor");
+  constant reset_ethernet_monitor_reply_msg : msg_type_t := new_msg_type("reset ethernet monitor reply");
+  constant reset_ethernet_protocol_checker_msg : msg_type_t := new_msg_type("reset ethernet protocol checker");
+  constant reset_ethernet_protocol_checker_reply_msg : msg_type_t := new_msg_type(
+    "reset ethernet protocol checker reply"
+  );
 
   ---------------------------------------------------------------------------
   -- Private
@@ -1136,5 +1173,41 @@ package body ethernet_pkg is
   begin
     get_check_count(net, protocol_checker, check, reference);
     await_get_check_count_reply(net, reference, count);
+  end;
+
+  procedure request_without_reply_data(signal net : inout network_t; actor : actor_t; variable msg : inout msg_t) is
+    variable reply_msg : msg_t;
+  begin
+    request(net, actor, msg, reply_msg);
+    delete(reply_msg);
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    source : ethernet_source_t
+  ) is
+    variable msg : msg_t := new_msg(reset_ethernet_source_msg);
+  begin
+    request_without_reply_data(net, source.p_actor, msg);
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
+    clear_statistics : boolean := false
+  ) is
+    variable msg : msg_t := new_msg(reset_ethernet_monitor_msg);
+  begin
+    push(msg, clear_statistics);
+    request_without_reply_data(net, monitor.p_actor, msg);
+  end;
+
+  procedure reset(
+    signal net : inout network_t;
+    protocol_checker : ethernet_protocol_checker_t
+  ) is
+    variable msg : msg_t := new_msg(reset_ethernet_protocol_checker_msg);
+  begin
+    request_without_reply_data(net, protocol_checker.p_actor, msg);
   end;
 end package body;

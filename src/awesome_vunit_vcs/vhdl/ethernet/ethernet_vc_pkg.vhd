@@ -256,6 +256,8 @@ package body ethernet_vc_pkg is
     collecting : boolean;
     -- Messages are not handled before this time (wait_for_time)
     resume_time : time;
+    -- The rest of a frame in progress at a reset is not recorded
+    discard_frame : boolean;
   end record;
 
   procedure init_monitor(vc : ethernet_vc_t; variable state : inout monitor_state_t) is
@@ -279,6 +281,7 @@ package body ethernet_vc_pkg is
     state.stream_index := 0;
     state.collecting := false;
     state.resume_time := 0 fs;
+    state.discard_frame := false;
   end;
 
   impure function pops_pending(state : monitor_state_t) return boolean is
@@ -480,6 +483,63 @@ package body ethernet_vc_pkg is
     end if;
   end;
 
+  -- Recover a monitor or protocol checker (reset_ethernet_monitor_msg,
+  -- reset_ethernet_protocol_checker_msg)
+  procedure reset_monitor(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    variable state : inout monitor_state_t;
+    clear_statistics : boolean
+  ) is
+    variable msg : msg_t;
+  begin
+    flush_samples(state.batch);
+    if vc.p_kind = monitor_vc then
+      if backend_integer(state.session, "reset(" & py_bool(clear_statistics) & ")") > 0 then
+        log_reports(state.session, vc.p_logger, vc.p_checker);
+      end if;
+    elsif backend_integer(state.session, "reset()") > 0 then
+      log_reports(state.session, vc.p_logger, vc.p_checker);
+    end if;
+
+    while not is_empty(state.frames) loop
+      msg := pop(state.frames);
+      delete(msg);
+    end loop;
+    if state.stream_length > 0 then
+      deallocate(state.stream_octets);
+      state.stream_length := 0;
+    end if;
+
+    -- Pending pops are cancelled
+    if state.has_pop_request then
+      delete(state.pop_request);
+      state.has_pop_request := false;
+    end if;
+    while not is_empty(state.pop_requests) loop
+      msg := pop(state.pop_requests);
+      delete(msg);
+    end loop;
+
+    -- Blocking checks of expected frames the reset forgot return
+    if state.has_check_request then
+      msg := new_msg(check_ethernet_frame_reply_msg);
+      reply(net, state.check_request, msg);
+      state.has_check_request := false;
+    end if;
+    while not is_empty(state.check_requests) loop
+      state.check_request := pop(state.check_requests);
+      state.check_number := pop(state.check_numbers);
+      msg := new_msg(check_ethernet_frame_reply_msg);
+      reply(net, state.check_request, msg);
+    end loop;
+    state.expected_frames := 0;
+
+    state.discard_frame := true;
+    update_collecting(vc, state);
+    serve_idle_requests(net, state, in_frame => false);
+  end;
+
   procedure handle_monitor_message(
     signal net : inout network_t;
     vc : ethernet_vc_t;
@@ -583,6 +643,16 @@ package body ethernet_vc_pkg is
     elsif is_monitor and msg_type = stop_ethernet_capture_msg then
       backend_exec(state.session, "stop_captures()");
 
+    elsif is_monitor and msg_type = reset_ethernet_monitor_msg then
+      reset_monitor(net, vc, state, clear_statistics => pop(request_msg));
+      reply_msg := new_msg(reset_ethernet_monitor_reply_msg);
+      reply(net, request_msg, reply_msg);
+
+    elsif is_protocol_checker and msg_type = reset_ethernet_protocol_checker_msg then
+      reset_monitor(net, vc, state, clear_statistics => false);
+      reply_msg := new_msg(reset_ethernet_protocol_checker_reply_msg);
+      reply(net, request_msg, reply_msg);
+
     elsif is_protocol_checker and msg_type = set_ethernet_check_enabled_msg then
       check := ethernet_check_t'val(integer'(pop(request_msg)));
       enabled := pop(request_msg);
@@ -679,7 +749,12 @@ package body ethernet_vc_pkg is
 
       if rising_edge(clk) then
         word := sample_word;
-        if is_valid(word) or word /= previous_word or word >= error_bit then
+        if state.discard_frame and not is_valid(word) then
+          state.discard_frame := false;
+        end if;
+        if state.discard_frame then
+          null;
+        elsif is_valid(word) or word /= previous_word or word >= error_bit then
           record_sample(state.batch, word);
         end if;
 
@@ -759,7 +834,12 @@ package body ethernet_vc_pkg is
 
       if rising_edge(clk) or (vc.p_cfg.p_both_edges and falling_edge(clk)) then
         column := sample_column;
-        if column /= idle_column or column /= previous_column then
+        if state.discard_frame and column = idle_column then
+          state.discard_frame := false;
+        end if;
+        if state.discard_frame then
+          null;
+        elsif column /= idle_column or column /= previous_column then
           for lane in column'range loop
             record_sample(state.batch, column(lane));
           end loop;
@@ -799,6 +879,11 @@ package body ethernet_vc_pkg is
     -- The backend sequence a push_ethernet_sequence transmits
     sequence_active : boolean;
     sequence_id : natural;
+    -- Messages received while transmitting, handled after the transmission
+    pending : queue_t;
+    -- A reset request received while transmitting
+    has_reset : boolean;
+    reset_request : msg_t;
   end record;
 
   procedure init_source(vc : ethernet_vc_t; variable state : inout source_state_t) is
@@ -809,6 +894,73 @@ package body ethernet_vc_pkg is
     state.stream_length := 0;
     state.sequence_active := false;
     state.sequence_id := 0;
+    state.pending := new_queue;
+    state.has_reset := false;
+  end;
+
+  -- The next message of a source: those received while transmitting first
+  procedure next_source_message(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    variable state : inout source_state_t;
+    variable msg : inout msg_t
+  ) is
+  begin
+    if is_empty(state.pending) then
+      receive(net, vc.p_actor, msg);
+    else
+      msg := pop(state.pending);
+    end if;
+  end;
+
+  procedure answer_reset(signal net : inout network_t; variable state : inout source_state_t) is
+    variable reply_msg : msg_t := new_msg(reset_ethernet_source_reply_msg);
+  begin
+    reply(net, state.reset_request, reply_msg);
+    state.has_reset := false;
+  end;
+
+  -- Forget what a reset drops: the messages received before it, answering
+  -- wait_until_idle, octets pushed without last and a sequence in progress
+  procedure drop_for_reset(signal net : inout network_t; variable state : inout source_state_t) is
+    variable msg, reply_msg : msg_t;
+  begin
+    while not is_empty(state.pending) loop
+      msg := pop(state.pending);
+      if message_type(msg) = wait_until_idle_msg then
+        reply_msg := new_msg(wait_until_idle_reply_msg);
+        reply(net, msg, reply_msg);
+      else
+        delete(msg);
+      end if;
+    end loop;
+    flush(state.stream_octets);
+    state.stream_length := 0;
+    state.sequence_active := false;
+  end;
+
+  -- Receive the messages that arrived while transmitting. A reset is kept in
+  -- reset_request, the others wait in pending.
+  procedure receive_during_transmit(
+    signal net : inout network_t;
+    vc : ethernet_vc_t;
+    variable state : inout source_state_t
+  ) is
+    variable msg : msg_t;
+  begin
+    while has_message(vc.p_actor) loop
+      receive(net, vc.p_actor, msg);
+      if message_type(msg) = reset_ethernet_source_msg then
+        drop_for_reset(net, state);
+        if state.has_reset then
+          answer_reset(net, state);
+        end if;
+        state.reset_request := msg;
+        state.has_reset := true;
+      else
+        push(state.pending, msg);
+      end if;
+    end loop;
   end;
 
   -- Handle the messages every source handles. expression is set to the
@@ -926,15 +1078,53 @@ package body ethernet_vc_pkg is
     variable symbols : integer_array_t;
     variable word : natural range 0 to 2 ** 10 - 1;
     variable valid : boolean := false;
+
+    -- Wait for the next rising edge, or for a reset, which may arrive while
+    -- the clock is stopped
+    procedure wait_for_edge is
+    begin
+      loop
+        receive_during_transmit(net, vc, state);
+        exit when state.has_reset;
+        wait on clk, net until rising_edge(clk) or has_message(vc.p_actor);
+        if rising_edge(clk) then
+          receive_during_transmit(net, vc, state);
+          exit;
+        end if;
+      end loop;
+    end;
+
+    procedure drive_idle is
+    begin
+      data <= (data'range => '0');
+      dv <= '0';
+      er <= '0';
+      valid := false;
+    end;
+
+    -- Deassert valid at once, which ends a frame in progress at a symbol boundary
+    procedure abort_for_reset is
+    begin
+      drive_idle;
+      deallocate(expression);
+      answer_reset(net, state);
+    end;
   begin
     init_source(vc, state);
 
     loop
-      receive(net, vc.p_actor, msg);
+      next_source_message(net, vc, state, msg);
       msg_type := message_type(msg);
 
-      handle_source_message(net, vc, state, msg_type, msg, expression);
-      handle_sync_message(net, msg_type, msg);
+      if msg_type = reset_ethernet_source_msg then
+        handle_message(msg_type);
+        drop_for_reset(net, state);
+        state.reset_request := msg;
+        abort_for_reset;
+      else
+        handle_source_message(net, vc, state, msg_type, msg, expression);
+        handle_sync_message(net, msg_type, msg);
+      end if;
 
       -- A frame, or the batches of a sequence until it is exhausted
       while expression /= null loop
@@ -943,7 +1133,8 @@ package body ethernet_vc_pkg is
           deallocate(expression);
         end if;
         for idx in 0 to length(symbols) - 1 loop
-          wait until rising_edge(clk);
+          wait_for_edge;
+          exit when state.has_reset;
           word := get(symbols, idx);
           data <= std_ulogic_vector(to_unsigned(word mod 2 ** data'length, data'length));
           valid := word / 2 ** 8 mod 2 = 1;
@@ -951,16 +1142,20 @@ package body ethernet_vc_pkg is
           er <= '1' when word / 2 ** 9 mod 2 = 1 else '0';
         end loop;
         deallocate(symbols);
+        if state.has_reset then
+          abort_for_reset;
+        end if;
       end loop;
       state.sequence_active := false;
 
       -- A frame without IFG is followed by the next frame if there is one
-      if valid and not has_message(vc.p_actor) then
-        wait until rising_edge(clk);
-        data <= (data'range => '0');
-        dv <= '0';
-        er <= '0';
-        valid := false;
+      if valid and is_empty(state.pending) and not has_message(vc.p_actor) then
+        wait_for_edge;
+        if state.has_reset then
+          abort_for_reset;
+        else
+          drive_idle;
+        end if;
       end if;
 
       unexpected_msg_type(msg_type, vc);
@@ -976,6 +1171,7 @@ package body ethernet_vc_pkg is
   ) is
     constant lanes : positive := ctrl'length;
     constant idle_character : std_ulogic_vector(7 downto 0) := x"07";
+    constant error_character : std_ulogic_vector(7 downto 0) := x"FE";
 
     variable state : source_state_t;
     variable msg : msg_t;
@@ -984,20 +1180,50 @@ package body ethernet_vc_pkg is
     variable idle : boolean := true;
     variable transmitted : boolean;
 
+    -- Wait for the next column edge, or for a reset, which may arrive while
+    -- the clock is stopped
     procedure wait_for_edge is
     begin
-      wait until rising_edge(clk) or (vc.p_cfg.p_both_edges and falling_edge(clk));
+      loop
+        receive_during_transmit(net, vc, state);
+        exit when state.has_reset;
+        wait on clk, net until rising_edge(clk) or (vc.p_cfg.p_both_edges and falling_edge(clk)) or
+          has_message(vc.p_actor);
+        if rising_edge(clk) or (vc.p_cfg.p_both_edges and falling_edge(clk)) then
+          receive_during_transmit(net, vc, state);
+          exit;
+        end if;
+      end loop;
     end;
 
-    procedure drive_idle is
+    procedure drive_column(character : std_ulogic_vector(7 downto 0)) is
       variable column_data : std_ulogic_vector(8 * lanes - 1 downto 0);
     begin
       for lane in 0 to lanes - 1 loop
-        column_data(8 * lane + 7 downto 8 * lane) := idle_character;
+        column_data(8 * lane + 7 downto 8 * lane) := character;
       end loop;
       data <= column_data;
       ctrl <= (ctrl'range => '1');
+    end;
+
+    procedure drive_idle is
+    begin
+      drive_column(idle_character);
       idle := true;
+    end;
+
+    -- An Error column at once ends a frame in progress, Idle follows
+    procedure abort_for_reset is
+    begin
+      drive_column(error_character);
+      idle := false;
+      deallocate(expression);
+      answer_reset(net, state);
+      wait_for_edge;
+      if state.has_reset then
+        answer_reset(net, state);
+      end if;
+      drive_idle;
     end;
 
     procedure drive(symbols : integer_array_t) is
@@ -1007,6 +1233,7 @@ package body ethernet_vc_pkg is
     begin
       for column in 0 to length(symbols) / lanes - 1 loop
         wait_for_edge;
+        exit when state.has_reset;
         idle := true;
         for lane in 0 to lanes - 1 loop
           word := get(symbols, column * lanes + lane);
@@ -1020,11 +1247,17 @@ package body ethernet_vc_pkg is
         ctrl <= column_ctrl;
       end loop;
 
+      if state.has_reset then
+        abort_for_reset;
       -- Columns that do not end in Idle are followed by the next transmit
       -- request, or by Idle when there is none
-      if not idle and not has_message(vc.p_actor) then
+      elsif not idle and is_empty(state.pending) and not has_message(vc.p_actor) then
         wait_for_edge;
-        drive_idle;
+        if state.has_reset then
+          abort_for_reset;
+        else
+          drive_idle;
+        end if;
       end if;
     end;
 
@@ -1065,33 +1298,48 @@ package body ethernet_vc_pkg is
     drive_idle;
 
     loop
-      receive(net, vc.p_actor, msg);
+      next_source_message(net, vc, state, msg);
       msg_type := message_type(msg);
 
-      -- Any other request, such as wait_until_idle, finds the line Idle, and
-      -- monitors have sampled the last transmitted column when it is handled
-      if not idle and not is_transmit_msg_type(msg_type) then
-        wait_for_edge;
-        drive_idle;
-      end if;
-
-      if msg_type = push_xgmii_columns_msg then
+      if msg_type = reset_ethernet_source_msg then
         handle_message(msg_type);
-        transmit(columns_expression(msg), transmitted);
-      elsif msg_type = push_xgmii_link_fault_msg then
-        handle_message(msg_type);
-        transmit(link_fault_expression(msg), transmitted);
+        drop_for_reset(net, state);
+        state.reset_request := msg;
+        if idle then
+          answer_reset(net, state);
+        else
+          abort_for_reset;
+        end if;
       else
-        handle_source_message(net, vc, state, msg_type, msg, expression);
-        handle_sync_message(net, msg_type, msg);
-        -- A frame, or the batches of a sequence until it is exhausted
-        while expression /= null loop
-          transmit(expression.all, transmitted);
-          if not transmitted or not state.sequence_active then
-            deallocate(expression);
+        -- Any other request, such as wait_until_idle, finds the line Idle, and
+        -- monitors have sampled the last transmitted column when it is handled
+        if not idle and not is_transmit_msg_type(msg_type) then
+          wait_for_edge;
+          if state.has_reset then
+            abort_for_reset;
+          else
+            drive_idle;
           end if;
-        end loop;
-        state.sequence_active := false;
+        end if;
+
+        if msg_type = push_xgmii_columns_msg then
+          handle_message(msg_type);
+          transmit(columns_expression(msg), transmitted);
+        elsif msg_type = push_xgmii_link_fault_msg then
+          handle_message(msg_type);
+          transmit(link_fault_expression(msg), transmitted);
+        else
+          handle_source_message(net, vc, state, msg_type, msg, expression);
+          handle_sync_message(net, msg_type, msg);
+          -- A frame, or the batches of a sequence until it is exhausted
+          while expression /= null loop
+            transmit(expression.all, transmitted);
+            if not transmitted or not state.sequence_active then
+              deallocate(expression);
+            end if;
+          end loop;
+          state.sequence_active := false;
+        end if;
       end if;
 
       unexpected_msg_type(msg_type, vc);

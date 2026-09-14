@@ -62,8 +62,6 @@ source_suffix = {
 exclude_patterns = [
     "_build",
     "_generated",
-    # Working material for the architecture pages, not pages of their own
-    "notes-*.md",
     "requirements.txt",
     # Release notes are included by release_notes/index.rst
     "release_notes/[!i]*.rst",

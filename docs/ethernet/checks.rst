@@ -1,0 +1,165 @@
+Checks
+======
+
+A protocol checker runs the protocol checks, all enabled by default; a monitor runs the scoreboard.
+A violation is an error on the checker of the VC that found it, with a message starting with the
+check ID in upper case:
+
+.. code-block:: text
+
+   ETH_FCS: bad FCS on frame 27
+   expected=0x2144DF1C
+   received=0x3144DF1C
+
+Getting the checks
+------------------
+
+.. code-block:: vhdl
+
+   -- A monitor with the default protocol checks
+   constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+
+   -- A monitor with a protocol checker of your own limits
+   constant monitor : gmii_monitor_t := new_gmii_monitor(
+     protocol_checker => new_gmii_protocol_checker(max_frame_octets => 9018)
+   );
+
+A protocol checker entity can also be instantiated on its own, without a monitor.
+
+Check reference
+---------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 45 20 15
+
+   * - Check
+     - Violation
+     - Configured by
+     - Interfaces
+   * - ``eth_preamble``
+     - Preamble length outside the limits, or a malformed preamble octet
+     - ``min_preamble_octets``, ``max_preamble_octets``
+     - all
+   * - ``eth_sfd``
+     - No SFD after the preamble
+     -
+     - all
+   * - ``eth_fcs``
+     - The FCS does not match the frame
+     - ``has_fcs``
+     - all
+   * - ``eth_runt``
+     - A frame shorter than the minimum
+     - ``min_frame_octets``
+     - all
+   * - ``eth_giant``
+     - A frame longer than the maximum
+     - ``max_frame_octets`` (0 disables)
+     - all
+   * - ``eth_phy_error``
+     - The error signal or Error character during a frame
+     -
+     - all
+   * - ``eth_carrier``
+     - The error signal or Error character outside a frame
+     -
+     - all
+   * - ``eth_ifg``
+     - A gap between frames shorter than the minimum
+     - ``min_ifg_octets``
+     - all
+   * - ``eth_termination``
+     - A frame ended with an incomplete octet (MII) or without Terminate (XGMII)
+     -
+     - MII, XGMII
+   * - ``eth_metavalue``
+     - A metavalue on the data during a frame, or on the valid or error signal
+     -
+     - all
+   * - ``eth_frame_state``
+     - A frame in progress when monitoring started, or still in progress when it ended
+     -
+     - all
+   * - ``eth_control``
+     - An invalid or misplaced control character
+     - ``allow_lane4_start``
+     - XGMII
+   * - ``eth_link_fault``
+     - A local or remote fault ordered set
+     -
+     - XGMII
+   * - ``eth_scoreboard``
+     - A received frame differs from the expected one, or expected frames never arrived (monitor)
+     -
+     - all
+   * - ``eth_user``
+     - An error reported by Python code in the session of a VC with ``vc.error``
+     -
+     - all
+
+Testing that a design handles errors
+------------------------------------
+
+``frame_options`` makes the source send traffic the standard forbids:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 30 25
+
+   * - Options
+     - Sends
+     - Triggers
+   * - ``frame_options(fcs => fcs_bad)``
+     - An inverted FCS
+     - ``eth_fcs``
+   * - ``frame_options(fcs => fcs_none)``
+     - No FCS and no padding
+     - ``eth_fcs``, possibly ``eth_runt``
+   * - ``frame_options(pad => false)``
+     - A short frame without padding
+     - ``eth_runt``
+   * - ``frame_options(preamble_octets => 5)``
+     - A short preamble
+     - ``eth_preamble``
+   * - ``frame_options(sfd => x"D4")``
+     - A wrong SFD
+     - ``eth_sfd``
+   * - ``frame_options(error_offsets => (0 => 20))``
+     - The error signal on octet 20 after the SFD
+     - ``eth_phy_error``
+   * - ``frame_options(ifg_octets => 8)``
+     - An 8-octet gap after the frame
+     - ``eth_ifg`` on the next frame
+
+Error offsets count from the first octet after the SFD; negative offsets reach into the SFD and the
+preamble. XGMII transmits the Error character instead of the error signal.
+
+Counting instead of failing
+---------------------------
+
+By default the first error stops the simulation, like any VUnit check failure. To assert that a
+violation happens, let errors through on that logger, count them and reset the log count:
+
+.. code-block:: vhdl
+
+   disable_stop(get_logger(get_protocol_checker(monitor)), error);
+
+   push_ethernet_frame(net, source, frame, frame_options(fcs => fcs_bad));
+   wait_until_idle(net, as_sync(source));
+   wait_until_idle(net, as_sync(monitor));
+
+   get_check_count(net, get_protocol_checker(monitor), eth_fcs, count);
+   check_equal(count, 1);
+   reset_log_count(get_logger(get_protocol_checker(monitor)), error);
+
+An error left uncounted still fails the test at ``test_runner_cleanup``.
+
+Turning a check off
+-------------------
+
+.. code-block:: vhdl
+
+   set_check_enabled(net, get_protocol_checker(monitor), eth_ifg, false);
+
+``get_check_count`` counts the violations a check found while enabled.

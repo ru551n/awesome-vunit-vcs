@@ -24,6 +24,7 @@ import numpy.typing as npt
 
 from ..common.reports import ReportQueue, Severity, encode_reports
 from ..common.vunit_bridge import bytes_from_unsigned, decode_samples, join_time
+from .api import Frame
 from .checker import CheckId, Violation
 from .frame import FCS_OCTETS, EthernetConfig, EthernetFrame
 from .metrics import EthernetStatistics
@@ -308,8 +309,54 @@ class MonitorBackend:
         self._collected.clear()
         return np.array(values, dtype=np.int32)
 
+    def on_frame(self, subscriber: Callable[[Frame], None]) -> Callable[[Frame], None]:
+        """
+        Call ``subscriber`` with every frame received from now on; usable as a decorator.
+
+        The subscriber gets a :class:`~.api.Frame`. An exception it raises is
+        logged as a failure on the logger of the monitor; report a finding with
+        :meth:`error` instead.
+        """
+
+        def deliver(frame: EthernetFrame) -> None:
+            subscriber(Frame.from_received(frame))
+
+        deliver.__qualname__ = getattr(subscriber, "__qualname__", repr(subscriber))
+        self.monitor.frames.subscribe(deliver)
+        return subscriber
+
+    @property
+    def frames(self) -> list[Frame]:
+        """The most recent frames the monitor keeps (``keep_frames``), oldest first."""
+        return [Frame.from_received(frame) for frame in self.monitor.history]
+
+    def error(self, check: str, message: str) -> None:
+        """
+        Report a violation a Python subscriber found, as a counted check error.
+
+        It is logged as an error on the checker of the monitor, counted by the
+        check and dropped while the check is disabled, like the checks the
+        monitor runs itself. A VHDL monitor runs the scoreboard check and leaves
+        the protocol checks to its protocol checker, so a subscriber in the
+        session of a VHDL monitor reports on ``"ETH_SCOREBOARD"``.
+
+        Args:
+            check: The check name, such as ``"ETH_SCOREBOARD"``.
+            message: A summary line, optionally followed by detail lines.
+
+        Raises:
+            EthernetValueError: An unknown check.
+        """
+        header, _, details = message.partition("\n")
+        self.monitor.checker.report(check, header, details.splitlines(), self._last_time_fs)
+
+    @property
     def statistics(self) -> EthernetStatistics:
-        """A snapshot of the statistics."""
+        """
+        A snapshot of the statistics.
+
+        Calling the snapshot returns it as well, so ``vc.statistics()`` keeps working.
+        """
         return self.monitor.statistics.snapshot()
 
     def statistics_values(self) -> list[int]:

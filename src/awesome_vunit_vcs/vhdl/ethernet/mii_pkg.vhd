@@ -21,6 +21,9 @@ use vunit_lib.vc_pkg.all;
 
 use work.ethernet_pkg.all;
 
+library python_bridge;
+use python_bridge.python_pkg.all;
+
 package mii_pkg is
 
   -- A MII source, for the mii_source entity. It drives one direction of a MII
@@ -245,14 +248,14 @@ package mii_pkg is
     signal net : inout network_t;
     source : mii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
   );
   procedure push_ethernet_sequence(
     signal net : inout network_t;
     source : mii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   );
@@ -289,7 +292,7 @@ package mii_pkg is
     signal net : inout network_t;
     monitor : mii_monitor_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   );
@@ -718,7 +721,7 @@ package body mii_pkg is
     signal net : inout network_t;
     source : mii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
   ) is
   begin
@@ -729,7 +732,7 @@ package body mii_pkg is
     signal net : inout network_t;
     source : mii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   ) is
@@ -782,7 +785,7 @@ package body mii_pkg is
     signal net : inout network_t;
     monitor : mii_monitor_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   ) is

@@ -17,10 +17,11 @@ from awesome_vunit_vcs.ethernet.vunit_backend import MonitorBackend, ProtocolChe
 RANDOM_TRAFFIC = "awesome_vunit_vcs.ethernet.traffic:random_traffic"
 # Without bad_sfd: after a short gap the checker does not report the gap before
 # octets without an SFD, which expected_violations predicts
-MALFORMED = (
-    "count=40, malformations=('bad_fcs', 'short_preamble', 'long_preamble', 'runt', 'giant', "
-    "'phy_error', 'short_ifg'), malformed_fraction=0.5"
-)
+MALFORMED = {
+    "count": 40,
+    "malformations": "bad_fcs,short_preamble,long_preamble,runt,giant,phy_error,short_ifg",
+    "malformed_fraction": 0.5,
+}
 BAD_SFD_TRAFFIC = "test_backend_sequences:bad_sfd_traffic"
 
 
@@ -35,10 +36,12 @@ GMII_PERIOD_FS = 8_000_000
 
 
 def transmit(
-    source: SourceBackend, arguments: str, seed: str, function: str = RANDOM_TRAFFIC
+    source: SourceBackend, arguments: dict[str, object], seed: str, function: str = RANDOM_TRAFFIC
 ) -> np.typing.NDArray[np.int32]:
     """The sample words a VHDL source drives for a sequence, after 12 idle clock cycles."""
-    sequence_id = source.start_sequence(function, arguments, 0, seed)
+    # As VHDL does: the function's arguments in a call of their own, then the sequence
+    source.set_arguments(**arguments)
+    sequence_id = source.start_sequence(function, 0, seed)
     batches = []
     while (batch := source.sequence_symbols(sequence_id, 16)).size:
         batches.append(batch)
@@ -47,7 +50,7 @@ def transmit(
 
 def push(backend: MonitorBackend | ProtocolCheckerBackend, words: np.typing.NDArray[np.int32]) -> None:
     times = np.arange(words.size, dtype=np.int64) * GMII_PERIOD_FS
-    backend.push(encode_samples(words, times, 0), 0, 0)
+    backend.push(encode_samples(words, times, 0), 0)
 
 
 def test_malformed_sequence_matches_the_oracle() -> None:
@@ -57,7 +60,7 @@ def test_malformed_sequence_matches_the_oracle() -> None:
     push(protocol_checker, words)
 
     monitor = MonitorBackend("tb:gmii_monitor", "gmii", checks=False)
-    monitor.check_sequence(RANDOM_TRAFFIC, MALFORMED, 0, "7")
+    monitor.check_sequence(RANDOM_TRAFFIC, 0, "7", kwargs=MALFORMED)
     push(monitor, words)
 
     found = {check: protocol_checker.check_count(check.value) for check in CheckId}
@@ -79,12 +82,12 @@ def test_same_seed_gives_the_same_wire_traffic() -> None:
 
 def test_unpredictable_sequence_is_a_failure_report() -> None:
     monitor = MonitorBackend("tb:gmii_monitor", "gmii", checks=False)
-    monitor.check_sequence("awesome_vunit_vcs.ethernet.traffic:no_such_function", "", 0, "")
+    monitor.check_sequence("awesome_vunit_vcs.ethernet.traffic:no_such_function")
     assert "could not check the sequence" in monitor.take_reports()
 
 
 def test_octets_without_sfd_are_not_compared_with_expected_frames() -> None:
-    words = transmit(SourceBackend("tb:gmii_source", "gmii"), "", "", BAD_SFD_TRAFFIC)
+    words = transmit(SourceBackend("tb:gmii_source", "gmii"), {}, "", BAD_SFD_TRAFFIC)
 
     protocol_checker = ProtocolCheckerBackend("tb:gmii_monitor:protocol_checker", "gmii")
     push(protocol_checker, words)

@@ -79,9 +79,12 @@ begin
 
     -- Seeded random traffic with malformations, see awesome_vunit_vcs.ethernet.traffic.
     constant traffic_function : string := "awesome_vunit_vcs.ethernet.traffic:random_traffic";
-    constant traffic_arguments : string :=
-      "count=60, malformations=('bad_fcs', 'short_preamble', 'long_preamble', 'bad_sfd', 'runt', 'giant', " &
-      "'phy_error', 'short_ifg'), malformed_fraction=0.3, interface='xgmii'";
+    impure function traffic_arguments return arg_t is
+    begin
+      return
+        kwarg("count", 60) & kwarg("malformations", "bad_fcs,short_preamble,long_preamble,bad_sfd,runt,giant,phy_error,short_ifg") &
+        kwarg("malformed_fraction", 0.3) & kwarg("interface", "xgmii");
+    end;
     variable statistics : ethernet_statistics_t;
 
     -- Frame data from the destination address up to the FCS: addresses, the
@@ -292,9 +295,9 @@ begin
           total := 0;
           for check_id in eth_preamble to eth_link_fault loop
             get_check_count(net, monitors(idx), check_id, count);
-            expected_count := eval_integer(
-              "vc.expected_violation_count('" & ethernet_check_t'image(check_id) & "')",
-              new_session(get_id(monitors(idx)))
+            expected_count := call_integer_w_arg(
+              "vc.expected_violation_count", arg(ethernet_check_t'image(check_id)),
+              session => new_session(get_id(monitors(idx)))
             );
             check_equal(
               count, expected_count,

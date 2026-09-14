@@ -69,45 +69,32 @@ def test_resolve() -> None:
             traffic.resolve(spec)
 
 
-def test_parse_arguments() -> None:
-    assert traffic.parse_arguments("") == {}
-    parsed = traffic.parse_arguments("port=1234, name='a', sizes=(64, 1518), data=b'\\x00', flag=True, n=None")
-    assert parsed == {"port": 1234, "name": "a", "sizes": (64, 1518), "data": b"\x00", "flag": True, "n": None}
-    assert traffic.parse_arguments("values=[-1, 2.5], table={'a': 1}") == {"values": [-1, 2.5], "table": {"a": 1}}
+def test_arguments_reach_the_function_as_values() -> None:
+    # Positional and keyword arguments are Python values, never text to parse
+    assert traffic.call_packet_function(f"{SELF}:frame_function", 10).frame == frame_function(10)
+    item = traffic.call_packet_function(f"{SELF}:pair_function", ifg=3)
+    assert item.options.ifg_octets == 3
+    # Text stays text: nothing is evaluated
+    with pytest.raises(TrafficError, match="Cannot call"):
+        traffic.call_packet_function(f"{SELF}:frame_function", "__import__('os').system('true')", extra=1)
 
 
-@pytest.mark.parametrize(
-    "text",
-    [
-        "a=__import__('os').system('true')",
-        "a=open('/etc/passwd')",
-        "a=1), __import__('os'), _(b=2",
-        "a=1); import os; _(b=2",
-        "**{'a': 1}",
-        "1234",
-        "a=lambda: 1",
-        "a=[x for x in range(3)]",
-        "a=b",
-        "a=1 if True else 2",
-        "a=",
-        "a=(1",
-    ],
-)
-def test_parse_arguments_evaluates_nothing(text: str) -> None:
-    with pytest.raises(TrafficError):
-        traffic.parse_arguments(text)
+def test_random_traffic_accepts_malformation_names_separated_by_commas() -> None:
+    named = traffic.random_traffic(30, seed=3, malformations="bad_fcs, runt", malformed_fraction=1.0)
+    listed = traffic.random_traffic(30, seed=3, malformations=("bad_fcs", "runt"), malformed_fraction=1.0)
+    assert named == listed
 
 
 def test_call_packet_function_accepts_frames_bytes_packets_and_pairs() -> None:
-    assert traffic.call_packet_function(f"{SELF}:frame_function", "size=10").frame == frame_function(10)
+    assert traffic.call_packet_function(f"{SELF}:frame_function", size=10).frame == frame_function(10)
     assert traffic.call_packet_function(f"{SELF}:bytes_function").frame.data == bytes(20)
     assert traffic.call_packet_function(f"{SELF}:packet_function").frame.payload == b"packet"
-    item = traffic.call_packet_function(f"{SELF}:pair_function", "ifg=3")
+    item = traffic.call_packet_function(f"{SELF}:pair_function", ifg=3)
     assert item.options.ifg_octets == 3 and item.to_wire().ifg_octets == 3
     with pytest.raises(TrafficError, match="returned int"):
         traffic.call_packet_function(f"{SELF}:not_a_frame")
     with pytest.raises(TrafficError, match="Cannot call"):
-        traffic.call_packet_function(f"{SELF}:frame_function", "length=10")
+        traffic.call_packet_function(f"{SELF}:frame_function", length=10)
 
 
 def test_seeds_are_reproducible_and_need_an_rng_parameter() -> None:
@@ -116,14 +103,14 @@ def test_seeds_are_reproducible_and_need_an_rng_parameter() -> None:
     assert first != traffic.call_packet_function(f"{SELF}:seeded_function", seed="8f3a51c0de2b4d18")
     assert bytes(first) == first.frame.data and bytes(first.frame) == first.frame.data
     with pytest.raises(TrafficError, match="seed"):
-        traffic.call_packet_function(f"{SELF}:frame_function", "size=1", seed=1)
+        traffic.call_packet_function(f"{SELF}:frame_function", size=1, seed=1)
     with pytest.raises(TrafficError):
         traffic.rng_from(1.5)  # type: ignore[arg-type]
 
 
 def test_sequence_and_batches() -> None:
-    items = list(traffic.sequence(f"{SELF}:generator_function", "count=7", seed=42))
-    assert items == list(traffic.sequence(f"{SELF}:generator_function", "count=7", seed=42))
+    items = list(traffic.sequence(f"{SELF}:generator_function", count=7, seed=42))
+    assert items == list(traffic.sequence(f"{SELF}:generator_function", count=7, seed=42))
     assert [len(batch) for batch in traffic.batches(items, 3)] == [3, 3, 1]
     with pytest.raises(TrafficError):
         list(traffic.batches(items, 0))

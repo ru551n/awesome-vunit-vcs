@@ -11,7 +11,7 @@ from awesome_vunit_vcs.ethernet.vunit_backend import STATISTICS_FIELDS, MonitorB
 
 def push_line(backend: MonitorBackend, line: GmiiLine) -> int:
     base = line.times[0]
-    return backend.push(encode_samples(line.words, line.times, base), *split_time(base))
+    return backend.push(encode_samples(line.words, line.times, base), split_time(base))
 
 
 def test_monitor_backend_reports_violations_as_errors() -> None:
@@ -44,7 +44,7 @@ def test_disabled_check_and_unknown_check() -> None:
 
 def test_bad_batch_becomes_a_failure_report_not_an_exception() -> None:
     backend = MonitorBackend("m", "gmii")
-    assert backend.push(np.array([1, 2, 3], dtype=np.int32), 0, 0) == 1
+    assert backend.push(np.array([1, 2, 3], dtype=np.int32), 0) == 1
     report = decode_reports(backend.take_reports())[0]
     assert report.severity is Severity.FAILURE
     assert "could not process samples" in report.message
@@ -147,7 +147,7 @@ def test_monitor_backend_accepts_a_delta_unit() -> None:
     line.frame(reference_frame(ethernet_mac_octets(60)))
     line.idle(1)
     samples = encode_samples(line.words, line.times, 0, delta_unit_fs=1000)
-    assert backend.push(samples, 0, 0, 1000) == 0
+    assert backend.push(samples, [0, 0], [0, 1000]) == 0
     assert backend.good_frame_count() == 1
 
 

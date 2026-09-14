@@ -29,11 +29,11 @@ library python_bridge;
 context python_bridge.python_context;
 
 use work.ethernet_pkg.all;
-use work.vcs_python_pkg.all;
+use work.vc_python_pkg.all;
 use work.xgmii_pkg.all;
 
 package ethernet_vc_pkg is
-  -- The Python session of a VC, see :vhdl:`vcs_python_pkg.new_vc_session`
+  -- The Python session of a VC, see :vhdl:`vc_python_pkg.new_vc_session`
   impure function new_vc_session(vc : ethernet_vc_t) return python_session_t;
 
   -- Handle a message type no handler took, following the unexpected message
@@ -138,41 +138,32 @@ package body ethernet_vc_pkg is
     return result;
   end;
 
-  function link_rate_bps(link_rate_mbps : positive) return string is
-  begin
-    return integer'image(link_rate_mbps) & "_000_000";
-  end;
-
   -- The options of the Python PHY decoder or encoder that the interface has
-  impure function phy_options(vc : ethernet_vc_t) return string is
+  impure function phy_options(vc : ethernet_vc_t) return arg_t is
     constant cfg : ethernet_cfg_t := vc.p_cfg;
   begin
     if cfg.p_interface /= xgmii then
-      return "";
+      return null_arg;
     elsif vc.p_kind = source_vc then
-      return
-        ", phy_options={'lanes': " & integer'image(cfg.p_lanes) &
-        ", 'deficit_idle': " & py_bool(cfg.p_deficit_idle) & "}";
+      return kwarg("lanes", cfg.p_lanes) & kwarg("deficit_idle", cfg.p_deficit_idle);
     end if;
-    return
-      ", phy_options={'lanes': " & integer'image(cfg.p_lanes) &
-      ", 'allow_lane4_start': " & py_bool(cfg.p_allow_lane4_start) & "}";
+    return kwarg("lanes", cfg.p_lanes) & kwarg("allow_lane4_start", cfg.p_allow_lane4_start);
   end;
 
   -- A limit of 0 disables it
-  function max_limit(value : natural) return string is
+  function max_limit(value : natural) return natural is
   begin
     if value = 0 then
-      return integer'image(integer'high);
+      return integer'high;
     end if;
-    return integer'image(value);
+    return value;
   end;
 
   procedure create_backend(vc : ethernet_vc_t; session : python_session_t) is
     constant cfg : ethernet_cfg_t := vc.p_cfg;
-    constant common : string :=
-      py_str(full_name(vc.p_id)) & ", " & py_str(ethernet_interface_t'image(cfg.p_interface)) &
-      ", link_rate_bps=" & link_rate_bps(cfg.p_link_rate_mbps) & phy_options(vc);
+    constant common : arg_t :=
+      arg(full_name(vc.p_id)) & arg(ethernet_interface_t'image(cfg.p_interface)) &
+      kwarg("link_rate_mbps", cfg.p_link_rate_mbps) & phy_options(vc);
   begin
     case vc.p_kind is
       when source_vc =>
@@ -181,21 +172,21 @@ package body ethernet_vc_pkg is
         create_backend(
           session, backend_module, "MonitorBackend",
           common &
-          ", checks=False" &
-          ", min_frame_octets=" & integer'image(cfg.p_min_frame_octets) &
-          ", has_fcs=" & py_bool(cfg.p_has_fcs) &
-          ", log_frames=" & py_bool(cfg.p_log_frames)
+          kwarg("checks", false) &
+          kwarg("min_frame_octets", cfg.p_min_frame_octets) &
+          kwarg("has_fcs", cfg.p_has_fcs) &
+          kwarg("log_frames", cfg.p_log_frames)
         );
       when protocol_checker_vc =>
         create_backend(
           session, backend_module, "ProtocolCheckerBackend",
           common &
-          ", min_preamble_octets=" & integer'image(cfg.p_min_preamble_octets) &
-          ", max_preamble_octets=" & max_limit(cfg.p_max_preamble_octets) &
-          ", min_frame_octets=" & integer'image(cfg.p_min_frame_octets) &
-          ", max_frame_octets=" & max_limit(cfg.p_max_frame_octets) &
-          ", min_ifg_octets=" & integer'image(cfg.p_min_ifg_octets) &
-          ", has_fcs=" & py_bool(cfg.p_has_fcs)
+          kwarg("min_preamble_octets", cfg.p_min_preamble_octets) &
+          kwarg("max_preamble_octets", max_limit(cfg.p_max_preamble_octets)) &
+          kwarg("min_frame_octets", cfg.p_min_frame_octets) &
+          kwarg("max_frame_octets", max_limit(cfg.p_max_frame_octets)) &
+          kwarg("min_ifg_octets", cfg.p_min_ifg_octets) &
+          kwarg("has_fcs", cfg.p_has_fcs)
         );
     end case;
   end;
@@ -289,7 +280,7 @@ package body ethernet_vc_pkg is
     end if;
     collecting := pops_pending(state) or has_subscribers(vc.p_actor);
     if collecting /= state.collecting then
-      backend_exec(state.session, "collect_frames = " & py_bool(collecting));
+      backend_call(state.session, "set_collect_frames", arg(collecting));
       state.collecting := collecting;
     end if;
   end;
@@ -315,7 +306,7 @@ package body ethernet_vc_pkg is
     if not state.collecting then
       return;
     end if;
-    values := backend_integer_array(state.session, "take_frames()");
+    values := backend_call_integer_array(state.session, "take_frames");
     if length(values) > 0 then
       subscribed := has_subscribers(vc.p_actor);
     end if;
@@ -407,7 +398,7 @@ package body ethernet_vc_pkg is
     if not checks_pending(state) then
       return;
     end if;
-    compared := backend_integer(state.session, "compared_count()");
+    compared := backend_call_integer(state.session, "compared_count");
     loop
       if not state.has_check_request then
         exit when is_empty(state.check_requests);
@@ -481,10 +472,10 @@ package body ethernet_vc_pkg is
   begin
     flush_samples(state.batch);
     if vc.p_kind = monitor_vc then
-      if backend_integer(state.session, "reset(" & py_bool(clear_statistics) & ")") > 0 then
+      if backend_call_integer(state.session, "reset", arg(clear_statistics)) > 0 then
         log_reports(state.session, vc.p_logger, vc.p_checker);
       end if;
-    elsif backend_integer(state.session, "reset()") > 0 then
+    elsif backend_call_integer(state.session, "reset") > 0 then
       log_reports(state.session, vc.p_logger, vc.p_checker);
     end if;
 
@@ -547,24 +538,21 @@ package body ethernet_vc_pkg is
       constant include_fcs : boolean := pop(request_msg);
       constant include_errored : boolean := pop(request_msg);
     begin
-      backend_exec(
-        state.session,
-        "start_capture(" & py_str(file_name) &
-        ", include_fcs=" & py_bool(include_fcs) &
-        ", include_errored=" & py_bool(include_errored) & ")"
+      backend_call(
+        state.session, "start_capture",
+        arg_text(file_name) & kwarg("include_fcs", include_fcs) & kwarg("include_errored", include_errored)
       );
     end;
 
     procedure check_sequence is
       constant function_name : string := pop_string(request_msg);
-      constant arguments : string := pop_string(request_msg);
+      constant arguments : arg_t := pop_arg(request_msg);
       constant count : natural := pop(request_msg);
       constant seed : string := pop_string(request_msg);
     begin
-      state.expected_frames := backend_integer(
-        state.session,
-        "check_sequence(" & py_str(function_name) & ", " & py_str(arguments) & ", " &
-        integer'image(count) & ", " & py_str(seed) & ")"
+      backend_call(state.session, "set_arguments", arguments);
+      state.expected_frames := backend_call_integer(
+        state.session, "check_sequence", arg(function_name) & kwarg("count", count) & kwarg_text("seed", seed)
       );
     end;
 
@@ -573,8 +561,8 @@ package body ethernet_vc_pkg is
       constant text : string := pop_string(request_msg);
       constant blocking : boolean := pop(request_msg);
     begin
-      state.expected_frames := backend_integer(
-        state.session, "check_mac_octets(" & py_int_list(to_octets(expected)) & ", " & py_str(text) & ")"
+      state.expected_frames := backend_call_integer(
+        state.session, "check_mac_octets", arg(to_octets(expected)) & arg_text(text)
       );
       if blocking then
         push(state.check_requests, request_msg);
@@ -606,7 +594,7 @@ package body ethernet_vc_pkg is
       check_sequence;
 
     elsif is_monitor and msg_type = get_ethernet_statistics_msg then
-      values := backend_integer_array(state.session, "statistics_values()");
+      values := backend_call_integer_array(state.session, "statistics_values");
       reply_msg := new_msg(get_ethernet_statistics_reply_msg);
       for idx in 0 to length(values) - 1 loop
         push(reply_msg, get(values, idx));
@@ -616,18 +604,18 @@ package body ethernet_vc_pkg is
 
     elsif is_monitor and msg_type = get_ethernet_frame_count_msg then
       reply_msg := new_msg(get_ethernet_frame_count_reply_msg);
-      push(reply_msg, backend_integer(state.session, "frame_count()"));
+      push(reply_msg, backend_call_integer(state.session, "frame_count"));
       reply(net, request_msg, reply_msg);
 
     elsif is_monitor and msg_type = log_ethernet_statistics_msg then
       level := log_level_t'val(integer'(pop(request_msg)));
-      log(vc.p_logger, backend_string(state.session, "statistics_summary()"), level);
+      log(vc.p_logger, backend_call_string(state.session, "statistics_summary"), level);
 
     elsif is_monitor and msg_type = start_ethernet_capture_msg then
       start_capture;
 
     elsif is_monitor and msg_type = stop_ethernet_capture_msg then
-      backend_exec(state.session, "stop_captures()");
+      backend_call(state.session, "stop_captures");
 
     elsif is_monitor and msg_type = reset_ethernet_monitor_msg then
       reset_monitor(net, vc, state, clear_statistics => pop(request_msg));
@@ -642,15 +630,12 @@ package body ethernet_vc_pkg is
     elsif is_protocol_checker and msg_type = set_ethernet_check_enabled_msg then
       check := ethernet_check_t'val(integer'(pop(request_msg)));
       enabled := pop(request_msg);
-      backend_exec(
-        state.session,
-        "set_check_enabled(" & py_str(ethernet_check_t'image(check)) & ", " & py_bool(enabled) & ")"
-      );
+      backend_call(state.session, "set_check_enabled", arg(ethernet_check_t'image(check)) & arg(enabled));
 
     elsif is_protocol_checker and msg_type = get_ethernet_check_count_msg then
       check := ethernet_check_t'val(integer'(pop(request_msg)));
       reply_msg := new_msg(get_ethernet_check_count_reply_msg);
-      push(reply_msg, backend_integer(state.session, "check_count(" & py_str(ethernet_check_t'image(check)) & ")"));
+      push(reply_msg, backend_call_integer(state.session, "check_count", arg(ethernet_check_t'image(check))));
       reply(net, request_msg, reply_msg);
 
     else
@@ -675,7 +660,7 @@ package body ethernet_vc_pkg is
   procedure finish_monitor(vc : ethernet_vc_t; variable state : inout monitor_state_t) is
   begin
     flush_samples(state.batch);
-    if backend_integer(state.session, "finish()") > 0 then
+    if backend_call_integer(state.session, "finish") > 0 then
       log_reports(state.session, vc.p_logger, vc.p_checker);
     end if;
   end;
@@ -949,49 +934,80 @@ package body ethernet_vc_pkg is
     end loop;
   end;
 
-  -- Handle the messages every source handles. expression is set to the
-  -- backend expression returning the sample words to transmit, if any.
+  -- A call of the backend returning the sample words to transmit, kept until
+  -- the source transmits them. A method of null means there is none.
+  type symbols_call_t is record
+    method : line;
+    arg_name : line;
+    arg_value : line;
+  end record;
+
+  procedure clear(variable call : inout symbols_call_t) is
+  begin
+    deallocate(call.method);
+    deallocate(call.arg_name);
+    deallocate(call.arg_value);
+  end;
+
+  procedure set(variable call : inout symbols_call_t; method : string; args : arg_t := null_arg) is
+  begin
+    clear(call);
+    call.method := new string'(method);
+    call.arg_name := new string'(args.name);
+    call.arg_value := new string'(args.value);
+  end;
+
+  procedure get_symbols(
+    session : python_session_t; variable call : in symbols_call_t; variable symbols : out integer_array_t
+  ) is
+  begin
+    symbols := backend_call_integer_array(
+      session, call.method.all, arg_t'(name => call.arg_name.all, value => call.arg_value.all)
+    );
+  end;
+
+  -- Handle the messages every source handles. symbols_call is set to the
+  -- backend call returning the sample words to transmit, if any.
   procedure handle_source_message(
     signal net : inout network_t;
     vc : ethernet_vc_t;
     variable state : inout source_state_t;
     variable msg_type : inout msg_type_t;
     variable msg : inout msg_t;
-    variable expression : inout line
+    variable symbols_call : inout symbols_call_t
   ) is
-    impure function stream_expression return string is
+    impure function stream_octets return integer_vector is
       variable octets : integer_vector(0 to state.stream_length - 1);
     begin
       for idx in octets'range loop
         octets(idx) := pop(state.stream_octets);
       end loop;
       state.stream_length := 0;
-      return "symbols(" & py_int_list(octets) & ")";
+      return octets;
     end;
 
     procedure push_packet is
       constant function_name : string := pop_string(msg);
-      constant arguments : string := pop_string(msg);
+      constant arguments : arg_t := pop_arg(msg);
     begin
-      expression := new string'(
-        "function_symbols(" & py_str(function_name) & ", " & py_str(arguments) & ", " &
-        pop_transmit_options(msg) & ")"
-      );
+      -- The arguments of the user's function are given separately, so they
+      -- never collide with the transmission options
+      backend_call(state.session, "set_arguments", arguments);
+      set(symbols_call, "function_symbols", arg(function_name) & pop_transmit_options(msg));
     end;
 
     procedure push_sequence is
       constant function_name : string := pop_string(msg);
-      constant arguments : string := pop_string(msg);
+      constant arguments : arg_t := pop_arg(msg);
       constant count : natural := pop(msg);
       constant seed : string := pop_string(msg);
     begin
-      state.sequence_id := backend_integer(
-        state.session,
-        "start_sequence(" & py_str(function_name) & ", " & py_str(arguments) & ", " &
-        integer'image(count) & ", " & py_str(seed) & ")"
+      backend_call(state.session, "set_arguments", arguments);
+      state.sequence_id := backend_call_integer(
+        state.session, "start_sequence", arg(function_name) & kwarg("count", count) & kwarg_text("seed", seed)
       );
       state.sequence_active := true;
-      expression := new string'("sequence_symbols(" & integer'image(state.sequence_id) & ")");
+      set(symbols_call, "sequence_symbols", arg(state.sequence_id));
     end;
 
     procedure push_stream_octet is
@@ -1008,17 +1024,15 @@ package body ethernet_vc_pkg is
         state.stream_length := state.stream_length + 1;
       end if;
       if last and state.stream_length > 0 then
-        expression := new string'(stream_expression);
+        set(symbols_call, "symbols", arg(stream_octets));
       end if;
     end;
   begin
-    deallocate(expression);
+    clear(symbols_call);
 
     if msg_type = push_ethernet_frame_msg then
       handle_message(msg_type);
-      expression := new string'(
-        "symbols(" & py_int_list(to_octets(pop_std_ulogic_vector(msg))) & ", " & pop_transmit_options(msg) & ")"
-      );
+      set(symbols_call, "symbols", arg(to_octets(pop_std_ulogic_vector(msg))) & pop_transmit_options(msg));
 
     elsif msg_type = push_ethernet_packet_msg then
       handle_message(msg_type);
@@ -1060,7 +1074,7 @@ package body ethernet_vc_pkg is
     variable state : source_state_t;
     variable msg : msg_t;
     variable msg_type : msg_type_t;
-    variable expression : line;
+    variable symbols_call : symbols_call_t;
     variable symbols : integer_array_t;
     variable word : natural range 0 to 2 ** 10 - 1;
     variable valid : boolean := false;
@@ -1092,7 +1106,7 @@ package body ethernet_vc_pkg is
     procedure abort_for_reset is
     begin
       drive_idle;
-      deallocate(expression);
+      clear(symbols_call);
       answer_reset(net, state);
     end;
   begin
@@ -1108,15 +1122,15 @@ package body ethernet_vc_pkg is
         state.reset_request := msg;
         abort_for_reset;
       else
-        handle_source_message(net, vc, state, msg_type, msg, expression);
+        handle_source_message(net, vc, state, msg_type, msg, symbols_call);
         handle_sync_message(net, msg_type, msg);
       end if;
 
       -- A frame, or the batches of a sequence until it is exhausted
-      while expression /= null loop
-        symbols := backend_integer_array(state.session, expression.all);
+      while symbols_call.method /= null loop
+        get_symbols(state.session, symbols_call, symbols);
         if length(symbols) = 0 or not state.sequence_active then
-          deallocate(expression);
+          clear(symbols_call);
         end if;
         for idx in 0 to length(symbols) - 1 loop
           wait_for_edge;
@@ -1162,7 +1176,7 @@ package body ethernet_vc_pkg is
     variable state : source_state_t;
     variable msg : msg_t;
     variable msg_type : msg_type_t;
-    variable expression : line;
+    variable symbols_call : symbols_call_t;
     variable idle : boolean := true;
     variable transmitted : boolean;
 
@@ -1203,7 +1217,7 @@ package body ethernet_vc_pkg is
     begin
       drive_column(error_character);
       idle := false;
-      deallocate(expression);
+      clear(symbols_call);
       answer_reset(net, state);
       wait_for_edge;
       if state.has_reset then
@@ -1247,17 +1261,17 @@ package body ethernet_vc_pkg is
       end if;
     end;
 
-    -- Transmit what vc.<backend_expression> returns; transmitted is false when that is nothing
-    procedure transmit(backend_expression : string; variable transmitted : out boolean) is
+    -- Transmit what the backend call returns; transmitted is false when that is nothing
+    procedure transmit(variable call : in symbols_call_t; variable transmitted : out boolean) is
       variable symbols : integer_array_t;
     begin
-      symbols := backend_integer_array(state.session, backend_expression);
+      get_symbols(state.session, call, symbols);
       transmitted := length(symbols) > 0;
       drive(symbols);
       deallocate(symbols);
     end;
 
-    impure function columns_expression(request_msg : msg_t) return string is
+    procedure set_columns_call(variable call : inout symbols_call_t; request_msg : msg_t) is
       constant column_data : std_ulogic_vector := pop_std_ulogic_vector(request_msg);
       constant column_control : std_ulogic_vector := pop_std_ulogic_vector(request_msg);
       alias control_bits : std_ulogic_vector(0 to column_control'length - 1) is column_control;
@@ -1266,17 +1280,15 @@ package body ethernet_vc_pkg is
       for idx in control_bits'range loop
         control_values(idx) := 1 when to_x01(control_bits(idx)) = '1' else 0;
       end loop;
-      return "column_symbols(" & py_int_list(to_octets(column_data)) & ", " & py_int_list(control_values) & ")";
+      set(call, "column_symbols", arg(to_octets(column_data)) & arg(control_values));
     end;
 
-    impure function link_fault_expression(request_msg : msg_t) return string is
+    procedure set_link_fault_call(variable call : inout symbols_call_t; request_msg : msg_t) is
       -- The ordered set value of local fault is 1, of remote fault 2
       constant fault : xgmii_link_fault_t := xgmii_link_fault_t'val(integer'(pop(request_msg)));
       constant columns : positive := pop(request_msg);
     begin
-      return
-        "ordered_set_symbols(" & integer'image(xgmii_link_fault_t'pos(fault) + 1) &
-        ", " & integer'image(columns) & ")";
+      set(call, "ordered_set_symbols", arg(xgmii_link_fault_t'pos(fault) + 1) & arg(columns));
     end;
   begin
     assert data'length = 8 * lanes report "XGMII data must have 8 bits per lane" severity failure;
@@ -1310,18 +1322,22 @@ package body ethernet_vc_pkg is
 
         if msg_type = push_xgmii_columns_msg then
           handle_message(msg_type);
-          transmit(columns_expression(msg), transmitted);
+          set_columns_call(symbols_call, msg);
+          transmit(symbols_call, transmitted);
+          clear(symbols_call);
         elsif msg_type = push_xgmii_link_fault_msg then
           handle_message(msg_type);
-          transmit(link_fault_expression(msg), transmitted);
+          set_link_fault_call(symbols_call, msg);
+          transmit(symbols_call, transmitted);
+          clear(symbols_call);
         else
-          handle_source_message(net, vc, state, msg_type, msg, expression);
+          handle_source_message(net, vc, state, msg_type, msg, symbols_call);
           handle_sync_message(net, msg_type, msg);
           -- A frame, or the batches of a sequence until it is exhausted
-          while expression /= null loop
-            transmit(expression.all, transmitted);
+          while symbols_call.method /= null loop
+            transmit(symbols_call, transmitted);
             if not transmitted or not state.sequence_active then
-              deallocate(expression);
+              clear(symbols_call);
             end if;
           end loop;
           state.sequence_active := false;

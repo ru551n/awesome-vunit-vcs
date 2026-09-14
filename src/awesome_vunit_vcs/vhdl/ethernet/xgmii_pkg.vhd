@@ -36,6 +36,9 @@ use vunit_lib.vc_pkg.all;
 
 use work.ethernet_pkg.all;
 
+library python_bridge;
+use python_bridge.python_pkg.all;
+
 package xgmii_pkg is
   -- The link faults a Sequence ordered set signals
   type xgmii_link_fault_t is (local_fault, remote_fault);
@@ -289,14 +292,14 @@ package xgmii_pkg is
     signal net : inout network_t;
     source : xgmii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
   );
   procedure push_ethernet_sequence(
     signal net : inout network_t;
     source : xgmii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   );
@@ -333,7 +336,7 @@ package xgmii_pkg is
     signal net : inout network_t;
     monitor : xgmii_monitor_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   );
@@ -845,7 +848,7 @@ package body xgmii_pkg is
     signal net : inout network_t;
     source : xgmii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
   ) is
   begin
@@ -856,7 +859,7 @@ package body xgmii_pkg is
     signal net : inout network_t;
     source : xgmii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   ) is
@@ -909,7 +912,7 @@ package body xgmii_pkg is
     signal net : inout network_t;
     monitor : xgmii_monitor_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   ) is

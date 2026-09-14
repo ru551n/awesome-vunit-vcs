@@ -37,7 +37,7 @@ use vunit_lib.vc_pkg.enumerate;
 library python_bridge;
 context python_bridge.python_context;
 
-use work.vcs_python_pkg.all;
+use work.vc_python_pkg.all;
 
 package property_pkg is
   -- A property under test. Create it with :vhdl:`property_pkg.new_property`.
@@ -52,8 +52,8 @@ package property_pkg is
   -- Create a property.
   --
   -- ``strategy`` is ``"package.module:function"``, a Python function returning a
-  -- Hypothesis strategy; ``arguments`` are keyword arguments for it as Python
-  -- literals, for example ``"max_length=64"``. ``search_path`` is added to the
+  -- Hypothesis strategy; ``arguments`` are its arguments, built with the
+  -- bridge's typed ``arg`` and ``kwarg``, for example ``kwarg("max_length", 64)``. ``search_path`` is added to the
   -- Python module search path so the module can be imported.
   --
   -- ``max_examples`` is the number of examples Hypothesis generates, not
@@ -66,7 +66,7 @@ package property_pkg is
   -- the logger of the id and a null ``checker`` a checker on that logger.
   impure function new_property(
     strategy : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     max_examples : positive := 100;
     seed : string := "";
     output_path : string := "";
@@ -165,7 +165,7 @@ end package;
 package body property_pkg is
   impure function new_property(
     strategy : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     max_examples : positive := 100;
     seed : string := "";
     output_path : string := "";
@@ -194,9 +194,12 @@ package body property_pkg is
     result.p_session := new_vc_session(result.p_id);
     create_backend(
       result.p_session, "awesome_vunit_vcs.common.property", "PropertyRunner",
-      py_str(strategy) & ", " & py_str(arguments) & ", max_examples=" & integer'image(max_examples) &
-      ", seed=" & py_str(seed) & ", output_path=" & py_str(output_path) &
-      ", search_path=" & py_str(search_path) & ", name=" & py_str(full_name(result.p_id)));
+      arg(strategy) & kwarg("max_examples", max_examples) & kwarg_text("seed", seed) &
+      kwarg_text("output_path", output_path) & kwarg_text("search_path", search_path) &
+      kwarg("name", full_name(result.p_id)) & kwarg("start", false)
+    );
+    -- The strategy's own arguments are given separately, so they never collide with the runner's
+    backend_call(result.p_session, "start", arguments);
     return result;
   end;
 
@@ -217,26 +220,26 @@ package body property_pkg is
 
   impure function next_example(prop : property_t) return boolean is
   begin
-    return backend_boolean(prop.p_session, "next()");
+    return backend_call_boolean(prop.p_session, "next");
   end;
 
   impure function get_integer(prop : property_t; path : string := "") return integer is
   begin
-    return backend_integer(prop.p_session, "integer(" & py_str(path) & ")");
+    return backend_call_integer(prop.p_session, "integer", arg(path));
   end;
 
   impure function get_boolean(prop : property_t; path : string := "") return boolean is
   begin
-    return backend_boolean(prop.p_session, "boolean(" & py_str(path) & ")");
+    return backend_call_boolean(prop.p_session, "boolean", arg(path));
   end;
 
   impure function get_string(prop : property_t; path : string := "") return string is
   begin
-    return backend_string(prop.p_session, "string(" & py_str(path) & ")");
+    return backend_call_string(prop.p_session, "string", arg(path));
   end;
 
   impure function get_integer_vector(prop : property_t; path : string := "") return integer_vector is
-    variable items : integer_array_t := backend_integer_array(prop.p_session, "vector(" & py_str(path) & ")");
+    variable items : integer_array_t := backend_call_integer_array(prop.p_session, "vector", arg(path));
     variable result : integer_vector(0 to length(items) - 1);
   begin
     for idx in result'range loop
@@ -247,8 +250,7 @@ package body property_pkg is
   end;
 
   impure function get_unsigned(prop : property_t; path : string; length : positive) return std_ulogic_vector is
-    constant bits : string := backend_string(
-      prop.p_session, "unsigned(" & py_str(path) & ", " & integer'image(length) & ")");
+    constant bits : string := backend_call_string(prop.p_session, "unsigned", arg(path) & arg(length));
     alias bits_normalized : string(1 to bits'length) is bits;
     variable result : std_ulogic_vector(length - 1 downto 0);
   begin
@@ -264,12 +266,12 @@ package body property_pkg is
 
   impure function get_length(prop : property_t; path : string := "") return natural is
   begin
-    return backend_integer(prop.p_session, "length(" & py_str(path) & ")");
+    return backend_call_integer(prop.p_session, "length", arg(path));
   end;
 
   impure function has_field(prop : property_t; path : string) return boolean is
   begin
-    return backend_boolean(prop.p_session, "has(" & py_str(path) & ")");
+    return backend_call_boolean(prop.p_session, "has", arg(path));
   end;
 
   impure function get_rule(prop : property_t) return string is
@@ -279,7 +281,7 @@ package body property_pkg is
 
   procedure report_step(prop : property_t; value : integer := 0) is
   begin
-    backend_exec(prop.p_session, "report(True, value=" & integer'image(value) & ")");
+    backend_call(prop.p_session, "report", arg(true) & kwarg("value", value));
   end;
 
   function example_budget(base : delay_length; per_item : delay_length; items : natural) return delay_length is
@@ -295,34 +297,34 @@ package body property_pkg is
     msg : string := ""
   ) is
   begin
-    backend_exec(
-      prop.p_session,
-      "report(" & py_bool(passed) & ", timed_out=" & py_bool(timed_out) & ", recovered=" & py_bool(recovered) &
-      ", message=" & py_str(msg) & ")");
+    backend_call(
+      prop.p_session, "report",
+      arg(passed) & kwarg("timed_out", timed_out) & kwarg("recovered", recovered) & kwarg_text("message", msg)
+    );
   end;
 
   procedure report_score(prop : property_t; name : string; value : real) is
   begin
-    backend_exec(prop.p_session, "score(" & py_str(name) & ", " & real'image(value) & ")");
+    backend_call(prop.p_session, "score", arg(name) & arg(value));
   end;
 
   impure function get_outcome(prop : property_t) return string is
   begin
-    return backend_string(prop.p_session, "outcome");
+    return backend_call_string(prop.p_session, "get_outcome");
   end;
 
   impure function get_example_count(prop : property_t) return natural is
   begin
-    return backend_integer(prop.p_session, "count");
+    return backend_call_integer(prop.p_session, "get_count");
   end;
 
   impure function get_counterexample(prop : property_t) return string is
   begin
-    return backend_string(prop.p_session, "counterexample()");
+    return backend_call_string(prop.p_session, "counterexample");
   end;
 
   procedure check_property(prop : property_t; msg : string := "") is
-    constant summary : string := backend_string(prop.p_session, "summary()");
+    constant summary : string := backend_call_string(prop.p_session, "summary");
   begin
     if msg = "" then
       check(prop.p_checker, get_outcome(prop) = "passed", summary);

@@ -123,7 +123,7 @@ cost, and moves bulk content (preloading and checking memory contents) through b
 One VHDL file talks to the bridge
 ---------------------------------
 
-**Decision:** only ``vhdl/common/vcs_python_pkg.vhd`` names the subprograms of vunit-python-bridge.
+**Decision:** only ``vhdl/common/vc_python_pkg.vhd`` names the subprograms of vunit-python-bridge.
 
 The bridge is the VUnit package ``vunit-python-bridge``, compiled into the library ``python_bridge``
 and used with ``library python_bridge; context python_bridge.python_context;``. Its setup function
@@ -137,8 +137,8 @@ first call. The subprograms this package relies on are:
 * ``call(name, arg(integer_array_t), arg(integer)..., session => s)`` returning ``integer``, and
   ``call_string``.
 
-Components call ``new_vc_session``, ``create_backend``, ``backend_exec``, ``backend_integer``,
-``backend_string``, ``backend_integer_array``, ``log_reports`` and the sample batch subprograms
+Components call ``new_vc_session``, ``create_backend``, ``backend_call`` and its typed variants
+(``backend_call_integer``, ``backend_call_string``, ...), ``log_reports`` and the sample batch subprograms
 instead. The bridge is still under development, so a change in its API is absorbed in one file.
 
 Unresolved port types

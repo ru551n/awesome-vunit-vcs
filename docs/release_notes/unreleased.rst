@@ -50,8 +50,8 @@ Breaking changes to the VHDL API
    * - ``send_ethernet_frame(net, source, data, fcs => fcs_bad)``
      - ``push_ethernet_frame(net, source, data, frame_options(fcs => fcs_bad))``
    * - ``send_ethernet_packet(net, source, "Ether()/IP()")``, a Scapy expression string
-     - Removed; ``push_ethernet_packet(net, source, "module:function", "key=value")`` calls a Python
-       function.
+     - Removed; ``push_ethernet_packet(net, source, "module:function", kwarg("key", value))`` calls a
+       Python function.
    * - ``expect_ethernet_frame(net, monitor, data)``
      - ``check_ethernet_frame(net, monitor, data, blocking => false)``
    * - ``send_xgmii_columns``, ``send_xgmii_link_fault``
@@ -59,6 +59,15 @@ Breaking changes to the VHDL API
    * - ``ethernet_send_frame_msg`` and the other message types, one ``ethernet_reply_msg``
      - Verb first, such as ``push_ethernet_frame_msg``, and a ``*_reply_msg`` per request with a
        reply.
+   * - ``arguments => "port=1234, size=128"`` on ``push_ethernet_packet``, ``push_ethernet_sequence``,
+       ``check_ethernet_sequence`` and ``new_property``
+     - Typed arguments: ``kwarg("port", 1234) & kwarg("size", 128)``, with ``kwarg_text`` for free text
+       and ``kwarg_time`` for times.
+   * - ``vcs_python_pkg`` with ``py_str``, ``py_bool``, ``py_int_list``, ``backend_exec`` and
+       ``backend_integer``/``_boolean``/``_string``/``_integer_array``
+     - ``vc_python_pkg`` with ``backend_call`` and ``backend_call_integer``/``_boolean``/``_string``/
+       ``_integer_array``, ``arg_text``/``kwarg_text``, ``arg_time``/``kwarg_time`` and
+       ``push_arg``/``pop_arg``; ``create_backend`` takes typed arguments.
 
 Property-based testing
 ----------------------
@@ -95,8 +104,8 @@ Python API
 * Malformed traffic is data: ``WireOptions`` and ``Malformation``, with ``expected_violations`` as
   the oracle of the checker and ``Limits`` as the parameter space, so property-based tests build
   their Hypothesis strategies in a few lines. The package does not depend on Hypothesis.
-* ``awesome_vunit_vcs.ethernet.traffic`` calls packet functions by name with literal keyword
-  arguments, which are parsed and never evaluated, and generates seeded traffic.
+* ``awesome_vunit_vcs.ethernet.traffic`` calls packet functions by name with Python arguments and
+  generates seeded traffic.
 * In a simulation, a monitor backend offers ``vc.on_frame``, ``vc.frames``, ``vc.statistics`` and
   ``vc.error``, a counted check error.
 * Every invalid argument raises ``EthernetValueError``, a ``ValueError``.
@@ -113,3 +122,11 @@ Breaking changes
   ``awesome_vunit_vcs.ethernet`` still works in this release, with a ``DeprecationWarning``.
   ``EthernetConfig`` and ``EthernetStatistics`` are now named ``MonitorConfig`` and ``Statistics``.
 * ``MonitorBackend.statistics`` is a property; calling it still works.
+* ``traffic.parse_arguments`` is removed; ``call_packet_function`` and ``sequence`` take the
+  function's arguments as Python arguments. ``random_traffic`` also accepts malformation names
+  separated by commas.
+* ``MonitorBackend.push`` and ``ProtocolCheckerBackend.push`` take ``(samples, base_time,
+  delta_unit)``; ``check_sequence``, ``start_sequence`` and ``function_symbols`` take the function's
+  arguments from ``args``/``kwargs`` or ``set_arguments``; ``packet_symbols`` (a Scapy expression) is
+  removed.
+* ``PropertyRunner`` takes the strategy's arguments as a mapping, or later through ``start``.

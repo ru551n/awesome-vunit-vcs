@@ -46,13 +46,45 @@ the frame data as Python octets, or any object Python can convert to octets, suc
 
 .. code-block:: vhdl
 
-   push_ethernet_packet(net, source, "packets:udp_packet", "dport=1234");
+   push_ethernet_packet(net, source, "packets:udp_packet", kwarg("dport", 1234));
 
 * The function is named ``"module:function"`` and imported in the simulator's Python environment; put its
   directory on ``sys.path`` or install it.
-* The arguments are Python keyword arguments as a string. They are parsed as literals and never evaluated,
-  so ``"dport=1234, size=128"`` works and code does not.
+* Its arguments follow the name, see :ref:`passing-arguments`. Leave them out when the function takes none.
 * ``frame_options`` applies to the returned frame as for ``push_ethernet_frame``.
+
+.. _passing-arguments:
+
+Passing arguments to Python
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Arguments are VHDL values, combined with ``&``. The function receives them as Python values.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Write
+     - When
+   * - ``kwarg("size", 128)``
+     - A named argument: integer, real, boolean, a short name such as ``"udp"``, or an
+       ``integer_vector``
+   * - ``arg(1234)``
+     - A positional argument, before any named ones
+   * - ``kwarg_text("note", msg)``
+     - Any text, such as a message or a file name, that may contain quotes or backslashes
+   * - ``kwarg_time("delay", 10 ns)``
+     - A simulation time; the function gets femtoseconds
+
+.. code-block:: vhdl
+
+   push_ethernet_packet(
+     net, source, "my_packets:udp_to_dut",
+     kwarg("port", 1234) & kwarg("size", 128) & kwarg_text("label", "first ""burst""")
+   );
+
+``kwarg_text`` and ``kwarg_time`` values reach the function as character codes and ``[high, low]``;
+decode them with ``decode_text`` and ``decode_time_fs`` from ``awesome_vunit_vcs.common.vunit_bridge``.
 
 Sequences
 ---------
@@ -74,8 +106,8 @@ them in batches, so there is no bridge call per frame.
 
 .. code-block:: vhdl
 
-   check_ethernet_sequence(net, monitor, "my_packets:my_traffic", "count=100", seed => get_string_seed(runner_cfg));
-   push_ethernet_sequence(net, source, "my_packets:my_traffic", "count=100", seed => get_string_seed(runner_cfg));
+   check_ethernet_sequence(net, monitor, "my_packets:my_traffic", kwarg("count", 100), seed => get_string_seed(runner_cfg));
+   push_ethernet_sequence(net, source, "my_packets:my_traffic", kwarg("count", 100), seed => get_string_seed(runner_cfg));
 
 * A function with a ``seed`` parameter gets the ``seed`` of the call. The same function, arguments and seed
   give the same frames, so the source and the monitor agree, and a failing seed reproduces the test.
@@ -92,7 +124,7 @@ whose expected violations the monitor accounts for:
 
    push_ethernet_sequence(
      net, source, "awesome_vunit_vcs.ethernet.traffic:random_traffic",
-     "count=100, malformations=('bad_fcs', 'runt'), malformed_fraction=0.1",
+     kwarg("count", 100) & kwarg("malformations", "bad_fcs,runt") & kwarg("malformed_fraction", 0.1),
      seed => get_string_seed(runner_cfg)
    );
 

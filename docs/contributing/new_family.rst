@@ -19,7 +19,7 @@ Repository layout
     │   ├── phy/                      one decoder and encoder per interface
     │   └── vunit_backend.py          the objects the VHDL components create
     ├── vhdl/
-    │   ├── common/vcs_python_pkg.vhd     the only VHDL file that uses the bridge
+    │   ├── common/vc_python_pkg.vhd      the only VHDL file that uses the bridge
     │   └── ethernet/
     │       ├── ethernet_pkg.vhd          handles, procedures, message types
     │       ├── ethernet_vc_pkg.vhd       what every monitor and source entity shares
@@ -52,10 +52,10 @@ For a new family ``<family>``:
 
 #. **VHDL** in ``src/awesome_vunit_vcs/vhdl/<family>/``. ``vunit_pkg.toml`` includes
    ``vhdl/**/*.vhd``, so new files are compiled into the ``awesome_vunit_vcs`` library without
-   changing it. Reuse ``vcs_python_pkg``: ``new_vc_session``, ``create_backend``,
-   ``backend_exec`` and ``backend_*``, ``log_reports``, and for passive components
+   changing it. Reuse ``vc_python_pkg``: ``new_vc_session``, ``create_backend``,
+   ``backend_call`` and ``backend_call_*``, ``log_reports``, and for passive components
    ``new_sample_batch``, ``record_sample`` and ``flush_samples``. Never call the bridge from a family
-   package directly; ``vcs_python_pkg`` is where bridge API changes are absorbed.
+   package directly; ``vc_python_pkg`` is where bridge API changes are absorbed.
 
 #. **Batching.** Do not make one bridge call per clock cycle.
 

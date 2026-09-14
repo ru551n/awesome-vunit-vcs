@@ -31,8 +31,10 @@ context vunit_lib.vunit_context;
 context vunit_lib.com_context;
 use vunit_lib.vc_pkg.all;
 
-use work.vcs_python_pkg.py_bool;
-use work.vcs_python_pkg.py_str;
+library python_bridge;
+use python_bridge.python_pkg.all;
+
+use work.vc_python_pkg.all;
 
 package ethernet_pkg is
   -- The checks of the Ethernet VCs, named like the check IDs of the Python
@@ -195,15 +197,16 @@ package ethernet_pkg is
   );
 
   -- Non-blocking: transmit the frame a Python function returns: ``function``
-  -- is ``"package.module:function"``, ``arguments`` its keyword arguments, for
-  -- example ``"port=1234, size=128"``. The function returns the octets from
-  -- the destination address up to, not including, the FCS, or anything
-  -- ``bytes()`` accepts, such as a Scapy packet.
+  -- is ``"package.module:function"``, ``arguments`` its arguments, built with
+  -- the bridge's typed ``arg`` and ``kwarg``, for example
+  -- ``kwarg("port", 1234) & kwarg("size", 128)``. The function returns the
+  -- octets from the destination address up to, not including, the FCS, or
+  -- anything ``bytes()`` accepts, such as a Scapy packet.
   procedure push_ethernet_packet(
     signal net : inout network_t;
     source : ethernet_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
   );
 
@@ -217,7 +220,7 @@ package ethernet_pkg is
     signal net : inout network_t;
     source : ethernet_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   );
@@ -320,7 +323,7 @@ package ethernet_pkg is
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   );
@@ -608,9 +611,9 @@ package ethernet_pkg is
     p_cfg : ethernet_cfg_t;
   end record;
 
-  -- Private: the frame transmission options of a push message, as Python
-  -- keyword arguments
-  impure function pop_transmit_options(msg : msg_t) return string;
+  -- Private: the frame transmission options of a push message, as keyword
+  -- arguments of the Python backend
+  impure function pop_transmit_options(msg : msg_t) return arg_t;
 end package;
 
 package body ethernet_pkg is
@@ -789,29 +792,27 @@ package body ethernet_pkg is
     end loop;
   end;
 
-  impure function pop_transmit_options(msg : msg_t) return string is
+  impure function pop_transmit_options(msg : msg_t) return arg_t is
     constant fcs : ethernet_fcs_mode_t := ethernet_fcs_mode_t'val(integer'(pop(msg)));
     constant pad : boolean := pop(msg);
     constant preamble_octets : natural := pop(msg);
     constant sfd : std_ulogic_vector(7 downto 0) := pop(msg);
     constant ifg_octets : natural := pop(msg);
     constant num_error_offsets : natural := pop(msg);
-    variable error_offsets : line;
+    variable error_offsets : integer_vector(0 to num_error_offsets - 1);
     constant fcs_image : string := ethernet_fcs_mode_t'image(fcs);
   begin
-    write(error_offsets, string'("("));
-    for idx in 1 to num_error_offsets loop
-      write(error_offsets, integer'image(integer'(pop(msg))) & ",");
+    for idx in error_offsets'range loop
+      error_offsets(idx) := pop(msg);
     end loop;
-    write(error_offsets, string'(")"));
 
     return
-      "fcs=" & py_str(fcs_image(fcs_image'left + 4 to fcs_image'right)) &
-      ", pad=" & py_bool(pad) &
-      ", preamble_octets=" & integer'image(preamble_octets) &
-      ", sfd=" & integer'image(to_integer(unsigned(sfd))) &
-      ", ifg_octets=" & integer'image(ifg_octets) &
-      ", error_offsets=" & error_offsets.all;
+      kwarg("fcs", fcs_image(fcs_image'left + 4 to fcs_image'right)) &
+      kwarg("pad", pad) &
+      kwarg("preamble_octets", preamble_octets) &
+      kwarg("sfd", to_integer(unsigned(sfd))) &
+      kwarg("ifg_octets", ifg_octets) &
+      kwarg("error_offsets", error_offsets);
   end;
 
   procedure push_ethernet_frame(
@@ -851,13 +852,13 @@ package body ethernet_pkg is
     signal net : inout network_t;
     source : ethernet_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
   ) is
     variable msg : msg_t := new_msg(push_ethernet_packet_msg);
   begin
     push(msg, function_name);
-    push(msg, arguments);
+    push_arg(msg, arguments);
     push_transmit_options(msg, options);
     send(net, source.p_actor, msg);
   end;
@@ -866,14 +867,14 @@ package body ethernet_pkg is
     signal net : inout network_t;
     source : ethernet_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   ) is
     variable msg : msg_t := new_msg(push_ethernet_sequence_msg);
   begin
     push(msg, function_name);
-    push(msg, arguments);
+    push_arg(msg, arguments);
     push(msg, count);
     push(msg, seed);
     send(net, source.p_actor, msg);
@@ -883,14 +884,14 @@ package body ethernet_pkg is
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   ) is
     variable msg : msg_t := new_msg(check_ethernet_sequence_msg);
   begin
     push(msg, function_name);
-    push(msg, arguments);
+    push_arg(msg, arguments);
     push(msg, count);
     push(msg, seed);
     send(net, monitor.p_actor, msg);

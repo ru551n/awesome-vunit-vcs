@@ -58,9 +58,12 @@ begin
 
     -- Seeded random traffic with malformations, see awesome_vunit_vcs.ethernet.traffic.
     constant traffic_function : string := "awesome_vunit_vcs.ethernet.traffic:random_traffic";
-    constant traffic_arguments : string :=
-      "count=60, malformations=('bad_fcs', 'short_preamble', 'long_preamble', 'bad_sfd', 'runt', 'giant', " &
-      "'phy_error', 'short_ifg'), malformed_fraction=0.3, interface='gmii'";
+    impure function traffic_arguments return arg_t is
+    begin
+      return
+        kwarg("count", 60) & kwarg("malformations", "bad_fcs,short_preamble,long_preamble,bad_sfd,runt,giant,phy_error,short_ifg") &
+        kwarg("malformed_fraction", 0.3) & kwarg("interface", "gmii");
+    end;
     variable statistics : ethernet_statistics_t;
 
     -- Frame data from the destination address up to the FCS: addresses, the
@@ -115,7 +118,8 @@ begin
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
     -- The Python functions of the traffic tests
-    exec("import sys" & LF & "sys.path.insert(0, " & "'" & tb_path(runner_cfg) & "python')");
+    exec("import sys");
+    call("sys.path.insert", arg(0), arg(tb_path(runner_cfg) & "python"));
 
     -- Errors are expected in some tests; they are counted by check_violations
     -- and any error left uncounted still fails the test at cleanup
@@ -245,17 +249,14 @@ begin
         wait_until_idle;
 
         -- Read the capture back with Scapy, an independent PCAPNG reader
-        exec(
-          "from scapy.utils import rdpcap" & LF &
-          "packets = rdpcap(" & "'" & output_path(runner_cfg) & "gmii.pcapng')",
-          new_session("tb_gmii:pcap_reader")
-        );
+        exec("from scapy.utils import rdpcap", new_session("tb_gmii:pcap_reader"));
+        exec("packets = " & to_call_str("rdpcap", arg(output_path(runner_cfg) & "gmii.pcapng")), new_session("tb_gmii:pcap_reader"));
         check_equal(eval_integer("len(packets)", new_session("tb_gmii:pcap_reader")), 3);
         -- 61 octets of frame data and the FCS
         check_equal(eval_integer("len(packets[0])", new_session("tb_gmii:pcap_reader")), 65);
 
       elsif run("test_scapy_packet_decode") then
-        push_ethernet_packet(net, source, "tb_traffic:udp_packet", "dport=1234");
+        push_ethernet_packet(net, source, "tb_traffic:udp_packet", kwarg("dport", 1234));
         check_violations(eth_fcs, 0);
         -- The backend of a monitor is the object vc in the session with the
         -- identity of the monitor
@@ -277,12 +278,12 @@ begin
         -- source and the monitors
         for idx in monitors'range loop
           check_ethernet_sequence(
-            net, monitors(idx), "tb_traffic:random_frames", "max_size=600", count => 50,
+            net, monitors(idx), "tb_traffic:random_frames", kwarg("max_size", 600), count => 50,
             seed => get_string_seed(runner_cfg)
           );
         end loop;
         push_ethernet_sequence(
-          net, source, "tb_traffic:random_frames", "max_size=600", count => 50, seed => get_string_seed(runner_cfg)
+          net, source, "tb_traffic:random_frames", kwarg("max_size", 600), count => 50, seed => get_string_seed(runner_cfg)
         );
         wait_until_idle;
         get_statistics(net, monitor, statistics);
@@ -304,9 +305,9 @@ begin
           total := 0;
           for check_id in eth_preamble to eth_link_fault loop
             get_check_count(net, monitors(idx), check_id, count);
-            expected_count := eval_integer(
-              "vc.expected_violation_count('" & ethernet_check_t'image(check_id) & "')",
-              new_session(get_id(monitors(idx)))
+            expected_count := call_integer_w_arg(
+              "vc.expected_violation_count", arg(ethernet_check_t'image(check_id)),
+              session => new_session(get_id(monitors(idx)))
             );
             check_equal(
               count, expected_count,

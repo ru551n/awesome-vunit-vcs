@@ -1,9 +1,21 @@
 """
 Encoding of bulk observations exchanged with VHDL over the VUnit Python bridge.
 
-This module and ``vhdl/common/vcs_python_pkg.vhd`` are the only places that
-depend on the conventions of the bridge (VUnit PR #1220). If the bridge API
+This module and ``vhdl/common/vc_python_pkg.vhd`` are the only places that
+depend on the conventions of the bridge (vunit-python-bridge). If the bridge API
 changes, these two files change and the component families do not.
+
+Values from VHDL
+----------------
+VHDL calls backends with the bridge's typed arguments. Two kinds of value need
+an encoding of their own, decoded here:
+
+* A time, passed with ``arg_time`` or ``kwarg_time``, arrives as the two
+  halves ``hi`` and ``lo``, since VHDL integers are 32 bits in several
+  simulators. Decode it with :func:`decode_time_fs`.
+* Free text such as a message or a file name, passed with ``arg_text`` or
+  ``kwarg_text``, arrives as its character codes, so quotes, backslashes and
+  line breaks survive. Decode it with :func:`decode_text`.
 
 Sample batches
 --------------
@@ -21,12 +33,12 @@ Several words may share one time: a PHY whose sample does not fit one word
 (XGMII: 4 or 8 lanes of octet + control bit) records one word per lane, the
 lanes after the first with a delta of 0.
 
-The base time is given as two integers since VHDL integers are 32 bits in
-several simulators: ``base = hi * 2**30 + lo``.
+The base time and the delta unit are times, see :func:`decode_time_fs`.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -49,6 +61,45 @@ def split_time(time_fs: int) -> tuple[int, int]:
     if time_fs < 0:
         raise ValueError(f"Negative time {time_fs} fs")
     return time_fs >> TIME_SPLIT_BITS, time_fs & ((1 << TIME_SPLIT_BITS) - 1)
+
+
+def decode_time_fs(value: int | Sequence[int]) -> int:
+    """
+    A time from VHDL (``arg_time``) in femtoseconds.
+
+    Args:
+        value: ``[hi, lo]`` as VHDL sends it, ``hi * 2**30 + lo`` fs, or a plain
+            number of femtoseconds for Python callers.
+
+    Raises:
+        ValueError: The value is not a time.
+    """
+    if isinstance(value, int):
+        if value < 0:
+            raise ValueError(f"Negative time {value} fs")
+        return value
+    halves = list(value)
+    if len(halves) != 2:
+        raise ValueError(f"A time from VHDL is [hi, lo], got {halves!r}")
+    return join_time(int(halves[0]), int(halves[1]))
+
+
+def decode_text(value: str | Sequence[int]) -> str:
+    """
+    Text from VHDL (``arg_text``): the character codes of a VHDL string.
+
+    Args:
+        value: The codes as VHDL sends them, or a ``str`` for Python callers.
+
+    Raises:
+        ValueError: A code is not a VHDL character.
+    """
+    if isinstance(value, str):
+        return value
+    codes = [int(code) for code in value]
+    if any(not 0 <= code <= 255 for code in codes):
+        raise ValueError(f"Text from VHDL has character codes outside 0 to 255: {codes!r}")
+    return "".join(chr(code) for code in codes)
 
 
 def decode_samples(samples: Any, base_fs: int, delta_unit_fs: int = 1) -> tuple[Int64Array, Int64Array]:

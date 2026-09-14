@@ -20,6 +20,9 @@ use vunit_lib.vc_pkg.all;
 
 use work.ethernet_pkg.all;
 
+library python_bridge;
+use python_bridge.python_pkg.all;
+
 package gmii_pkg is
 
   -- A GMII source, for the gmii_source entity. It drives one direction of a GMII
@@ -245,14 +248,14 @@ package gmii_pkg is
     signal net : inout network_t;
     source : gmii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
   );
   procedure push_ethernet_sequence(
     signal net : inout network_t;
     source : gmii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   );
@@ -289,7 +292,7 @@ package gmii_pkg is
     signal net : inout network_t;
     monitor : gmii_monitor_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   );
@@ -710,7 +713,7 @@ package body gmii_pkg is
     signal net : inout network_t;
     source : gmii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
   ) is
   begin
@@ -721,7 +724,7 @@ package body gmii_pkg is
     signal net : inout network_t;
     source : gmii_source_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   ) is
@@ -774,7 +777,7 @@ package body gmii_pkg is
     signal net : inout network_t;
     monitor : gmii_monitor_t;
     function_name : string;
-    arguments : string := "";
+    arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
   ) is

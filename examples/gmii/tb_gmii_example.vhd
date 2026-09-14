@@ -131,8 +131,9 @@ begin
           "__import__('importlib.util').util.find_spec('scapy') is not None", new_session("tb_gmii_example:scapy")
         ) then
           -- python/packets.py builds the packet; the directory is on the Python path
-          exec("import sys" & LF & "sys.path.insert(0, '" & tb_path(runner_cfg) & "python')");
-          push_ethernet_packet(net, source, "packets:udp_packet", "dport=1234");
+          exec("import sys");
+          call("sys.path.insert", arg(0), arg(tb_path(runner_cfg) & "python"));
+          push_ethernet_packet(net, source, "packets:udp_packet", kwarg("dport", 1234));
           wait_until_idle(net, as_sync(source));
           wait_until_idle(net, as_sync(input_monitor));
           wait_until_idle(net, as_sync(output_monitor));

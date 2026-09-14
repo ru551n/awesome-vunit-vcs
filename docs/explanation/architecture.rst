@@ -74,7 +74,7 @@ Every Ethernet VC is built from the same layers:
        ``wait_until_idle`` replies and the final checks at ``test_runner_cleanup``. It also samples
        and drives interfaces with one symbol per clock cycle (``monitor_symbol_interface`` and
        ``drive_symbol_interface``), which GMII and MII share.
-   * - ``vcs_python_pkg``
+   * - ``vc_python_pkg``
      - The only VHDL file that calls the Python bridge: sessions, backend creation, sample batches
        and report logging.
    * - ``ethernet.vunit_backend``
@@ -115,7 +115,7 @@ Sample batches
 
 A monitor sends what it sampled as one ``integer_array_t`` of 32-bit signed integers,
 ``[word_0, delta_0, word_1, delta_1, ...]``, with the call
-``vc.push(samples, base_hi, base_lo, delta_unit_fs)``. The bridge hands the array to Python as a
+``vc.push(samples, base_time, delta_unit)``. The bridge hands the array to Python as a
 NumPy array.
 
 * **word** is the sample word of the interface. For GMII: bits 0-7 data, bit 8 dv, bit 9 er, bit 10

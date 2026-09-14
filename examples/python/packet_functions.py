@@ -5,8 +5,8 @@
 """
 Packet functions and seeded traffic: what a VHDL source sends, decided in Python.
 
-A testbench names a function ("my_packets:udp_to_dut") and passes literal
-keyword arguments as a string; nothing is evaluated. Functions that take a
+A testbench names a function ("my_packets:udp_to_dut") and passes its
+arguments with the bridge's typed kwarg; they arrive as Python values. Functions that take a
 seed get the seed of the call, so the same seed, such as VUnit's
 get_seed(runner_cfg), gives the same traffic.
 Here the functions live in this file, so their module is __main__.
@@ -30,13 +30,13 @@ def mixed(count: int, seed: str) -> Iterator[tuple[eth.Frame, eth.WireOptions]]:
         yield traffic.random_frame(rng, max_payload_octets=200), eth.WireOptions(ifg_octets=rng.randint(12, 40))
 
 
-item = traffic.call_packet_function("__main__:udp_to_dut", "port=1234, size=64")
+item = traffic.call_packet_function("__main__:udp_to_dut", port=1234, size=64)
 assert item.frame.payload[:2] == (1234).to_bytes(2, "big")
 
 # The same seed gives the same traffic; VUnit's string seed works as it is
 seed = "8f3a51c0de2b4d17"
-assert [i.frame for i in traffic.sequence("__main__:mixed", "count=5", seed=seed)] == [
-    i.frame for i in traffic.sequence("__main__:mixed", "count=5", seed=seed)
+assert [i.frame for i in traffic.sequence("__main__:mixed", count=5, seed=seed)] == [
+    i.frame for i in traffic.sequence("__main__:mixed", count=5, seed=seed)
 ]
 
 # Built-in random traffic with malformations, checked against the oracle

@@ -241,11 +241,11 @@ Traffic from Python functions
 
 Python decides *what* a source sends and VHDL *when*. Simple frames come straight from VHDL
 (``push_ethernet_frame``); richer ones come from a Python function the testbench names, with its
-keyword arguments as a string. The arguments are parsed as Python literals and never evaluated.
+arguments as VHDL values (see :ref:`passing-arguments`).
 
 .. code-block:: vhdl
 
-   push_ethernet_packet(net, source, "my_packets:udp_to_dut", "port=1234, size=128");
+   push_ethernet_packet(net, source, "my_packets:udp_to_dut", kwarg("port", 1234) & kwarg("size", 128));
 
 A packet function returns a :class:`~awesome_vunit_vcs.ethernet.api.Frame`, the frame octets
 without FCS, or a Scapy packet. A generator function yields many, for
@@ -268,9 +268,9 @@ digits). Pass it to a sequence, and the source hands it to the function as its `
 
 .. code-block:: vhdl
 
-   push_ethernet_sequence(net, source, "my_traffic:mixed", "count=1000",
+   push_ethernet_sequence(net, source, "my_traffic:mixed", kwarg("count", 1000),
                           seed => get_string_seed(runner_cfg, "tx"));
-   check_ethernet_sequence(net, monitor, "my_traffic:mixed", "count=1000",
+   check_ethernet_sequence(net, monitor, "my_traffic:mixed", kwarg("count", 1000),
                            seed => get_string_seed(runner_cfg, "tx"));
 
 .. code-block:: python
@@ -307,7 +307,7 @@ The VHDL side of the bridge
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Verification components in this repository talk to their backends only through
-``awesome_vunit_vcs.vcs_python_pkg``, which isolates the bridge API. It is meant for writing new
+``awesome_vunit_vcs.vc_python_pkg``, which isolates the bridge API. It is meant for writing new
 components (see :doc:`contributing/index`); testbenches use the component procedures and, where
 needed, the bridge directly as shown above. The batch encoding on the Python side is
 :mod:`awesome_vunit_vcs.common.vunit_bridge`, and the report queue the backends log through is

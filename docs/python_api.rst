@@ -57,7 +57,7 @@ Traffic
 ~~~~~~~
 
 .. automodule:: awesome_vunit_vcs.ethernet.traffic
-   :members: TrafficItem, Packet, Seed, TrafficError, rng_from, resolve, parse_arguments, to_frame, to_item,
+   :members: TrafficItem, Packet, Seed, TrafficError, rng_from, resolve, to_frame, to_item,
              call_packet_function, sequence, batches, random_mac_address, random_frame, random_wire_options,
              random_traffic, interface_named
 

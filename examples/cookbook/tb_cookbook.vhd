@@ -91,7 +91,7 @@ begin
 
       elsif run("test_send_a_packet_from_python") then
         -- docs-start: packet
-        push_ethernet_packet(net, source, "cookbook_traffic:udp_to_dut", "port=1234, size=64");
+        push_ethernet_packet(net, source, "cookbook_traffic:udp_to_dut", kwarg("port", 1234) & kwarg("size", 64));
         wait_until_idle;
         get_statistics(net, monitor, statistics);
         check_equal(statistics.good_frames, 1);

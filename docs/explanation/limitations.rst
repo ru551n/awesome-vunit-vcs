@@ -19,8 +19,8 @@ All Ethernet components
      Call ``wait_until_idle(net, as_sync(monitor))`` before ``test_runner_cleanup``.
 
 * **Packet functions are testbench code.** ``push_ethernet_packet`` and the sequence procedures
-  import and call a Python function by name in the session of the VC. Their arguments are parsed as
-  literals and never evaluated, but the function runs with testbench trust.
+  import and call a Python function by name in the session of the VC. Their arguments are VHDL
+  values, but the function runs with testbench trust.
 * **Pops cancelled by a reset.** ``reset(net, monitor)`` cancels pending pops; a non-blocking pop
   pending at a reset must not be awaited.
 * **The link rate must match the clock.** Utilization, and for XGMII the octet period used to time

@@ -14,7 +14,7 @@ import itertools
 import os
 import traceback
 from collections import Counter, deque
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import replace
 from typing import Any
 
@@ -22,7 +22,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ..common.reports import ReportQueue, Severity, encode_reports
-from ..common.vunit_bridge import bytes_from_unsigned, decode_samples, join_time
+from ..common.vunit_bridge import bytes_from_unsigned, decode_samples, decode_text, decode_time_fs
 from . import traffic
 from .api import Frame, WireOptions, decode, expected_violations
 from .checker import CheckId, Violation
@@ -62,6 +62,15 @@ def _exception_summary(exc: BaseException) -> str:
     return f"{type(exc).__name__}: {exc}{where}"
 
 
+def _phy_options(phy_options: dict[str, Any] | None, link_rate_bps: int, **options: Any) -> dict[str, Any]:
+    """The options of a PHY: those given, the link rate unless 0, and the other options unless None."""
+    result = dict(phy_options or {})
+    if link_rate_bps:
+        result["link_rate_bps"] = link_rate_bps
+    result.update({key: value for key, value in options.items() if value is not None})
+    return result
+
+
 def _interface(name: str, phy_options: dict[str, Any]) -> Interface:
     """The :class:`~.interfaces.Interface` of a backend, from its interface name and PHY options."""
     fields = ("link_rate_bps", "lanes", "allow_lane4_start", "deficit_idle")
@@ -77,8 +86,8 @@ class MonitorBackend:
     """
     The Python object behind a VHDL monitor, ``vc`` in the session of the monitor.
 
-    The VHDL monitor creates it with the options of ``new_ethernet_monitor``
-    and calls its methods; a testbench can call them too. Violations and
+    The VHDL monitor creates it with the options of its constructor and calls
+    its methods with typed arguments; a testbench can call them too. Violations and
     subscriber exceptions are queued as reports that the VHDL monitor logs, so
     no method raises into VHDL.
 
@@ -86,9 +95,14 @@ class MonitorBackend:
         name: The name of the monitor, used in messages.
         interface: The PHY interface name, see :func:`~.phy.create_phy`.
         link_rate_bps: The link rate, 0 for the default of the interface.
+        link_rate_mbps: The link rate in Mbit/s as VHDL gives it, used when
+            ``link_rate_bps`` is 0.
         keep_frames: How many recent frames the monitor keeps.
         log_frames: Log every frame at debug level.
         phy_options: Further options of the PHY decoder, such as XGMII lanes.
+        lanes: The lanes of an XGMII interface, added to ``phy_options``.
+        allow_lane4_start: Accept Start on lane 4 of an 8-lane XGMII interface,
+            added to ``phy_options``.
         checks: Run the protocol checks. A VHDL monitor runs without them, its
             protocol checker (:class:`ProtocolCheckerBackend`) runs them; the
             scoreboard check stays enabled either way.
@@ -112,15 +126,20 @@ class MonitorBackend:
         min_ifg_octets: int = 12,
         has_fcs: bool = True,
         link_rate_bps: int = 0,
+        link_rate_mbps: int = 0,
         keep_frames: int = 256,
         log_frames: bool = False,
         phy_options: dict[str, Any] | None = None,
+        lanes: int | None = None,
+        allow_lane4_start: bool | None = None,
         checks: bool = True,
     ) -> None:
         self.name = name
         self.reports = ReportQueue()
         self.log_frames = log_frames
-        phy_options = {**(phy_options or {}), **({"link_rate_bps": link_rate_bps} if link_rate_bps else {})}
+        phy_options = _phy_options(
+            phy_options, link_rate_bps or link_rate_mbps * 1_000_000, lanes=lanes, allow_lane4_start=allow_lane4_start
+        )
         self._interface = interface
         self._phy_options = phy_options
         config = EthernetConfig(
@@ -147,9 +166,10 @@ class MonitorBackend:
         self.monitor.frames.subscribe(self._collect)
         if not checks:
             self.monitor.checker.disable(*(check for check in CheckId if check is not CheckId.SCOREBOARD))
-        #: Collect received frames for :meth:`take_frames`; VHDL sets it while
-        #: the monitor has subscribers or pending pops
+        #: Collect received frames for :meth:`take_frames`; VHDL sets it with
+        #: :meth:`set_collect_frames` while the monitor has subscribers or pending pops
         self.collect_frames = False
+        self._arguments: tuple[tuple[Any, ...], dict[str, Any]] = ((), {})
         self._collected: list[EthernetFrame] = []
         self._expected: deque[tuple[bytes, str]] = deque()
         self._queued_count = 0
@@ -211,10 +231,17 @@ class MonitorBackend:
         )
 
     # Called by VHDL
-    def push(self, samples: Any, base_hi: int, base_lo: int, delta_unit_fs: int = 1) -> int:
-        """Process a sample batch. Returns the number of reports waiting to be fetched."""
+    def push(self, samples: Any, base_time: int | Sequence[int], delta_unit: int | Sequence[int] = 1) -> int:
+        """
+        Process a sample batch. Returns the number of reports waiting to be fetched.
+
+        Args:
+            samples: The ``[word, delta]`` pairs, see :mod:`~awesome_vunit_vcs.common.vunit_bridge`.
+            base_time: The time of the first sample, see :func:`~.vunit_bridge.decode_time_fs`.
+            delta_unit: The unit of the deltas, likewise.
+        """
         try:
-            words, times = decode_samples(samples, join_time(base_hi, base_lo), delta_unit_fs)
+            words, times = decode_samples(samples, decode_time_fs(base_time), decode_time_fs(delta_unit))
             if times.size:
                 self._last_time_fs = int(times[-1])
             self.monitor.feed(words, times)
@@ -249,7 +276,28 @@ class MonitorBackend:
         """Queue the frame (destination address up to the FCS) the next received frame must equal."""
         self.check_mac_octets(data)
 
-    def check_mac_octets(self, data: Sequence[int], message: str = "") -> int:
+    def set_collect_frames(self, enabled: bool) -> None:
+        """Collect received frames for :meth:`take_frames` or not."""
+        self.collect_frames = enabled
+
+    def set_arguments(self, *args: Any, **kwargs: Any) -> None:
+        """
+        The arguments of the function the next :meth:`check_sequence`,
+        :meth:`SourceBackend.function_symbols` or :meth:`SourceBackend.start_sequence`
+        calls. VHDL gives them in a call of their own, so they never collide
+        with the arguments of the backend method.
+        """
+        self._arguments = (args, kwargs)
+
+    def _take_arguments(
+        self, args: Sequence[Any] | None, kwargs: Mapping[str, Any] | None
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        pending, self._arguments = self._arguments, ((), {})
+        if args is None and kwargs is None:
+            return pending
+        return tuple(args or ()), dict(kwargs or {})
+
+    def check_mac_octets(self, data: Sequence[int], message: str | Sequence[int] = "") -> int:
         """
         Like :meth:`expect_mac_octets`, with a message prefixing a difference.
 
@@ -257,11 +305,19 @@ class MonitorBackend:
             The number of frames expected so far, this one included, which
             :meth:`compared_count` reaches when this frame is compared.
         """
-        self._expected.append((bytes(data), message))
+        self._expected.append((bytes(data), decode_text(message)))
         self._queued_count += 1
         return self._queued_count
 
-    def check_sequence(self, function: str, arguments: str = "", count: int = 0, seed: str = "") -> int:
+    def check_sequence(
+        self,
+        function: str,
+        count: int = 0,
+        seed: str | Sequence[int] = "",
+        *,
+        args: Sequence[Any] | None = None,
+        kwargs: Mapping[str, Any] | None = None,
+    ) -> int:
         """
         Expect the traffic a generator yields, see :func:`~.traffic.sequence`: ``count`` items, or all when 0.
 
@@ -271,10 +327,16 @@ class MonitorBackend:
         protocol checker must report for the items, by
         :func:`~.api.expected_violations`, are added to
         :meth:`expected_violation_count`. Returns like :meth:`check_mac_octets`.
+
+        The function gets ``args`` and ``kwargs``, or else the arguments given
+        to :meth:`set_arguments`.
         """
+        call_args, call_kwargs = self._take_arguments(args, kwargs)
+        seed = decode_text(seed)
         try:
             previous: WireOptions | None = None
-            for item in itertools.islice(traffic.sequence(function, arguments, seed=seed or None), count or None):
+            items = traffic.sequence(function, *call_args, seed=seed or None, **call_kwargs)
+            for item in itertools.islice(items, count or None):
                 self._expect_item(item, previous)
                 previous = item.options
         except Exception as exc:
@@ -414,12 +476,13 @@ class MonitorBackend:
 
     def start_capture(
         self,
-        path: str,
+        path: str | Sequence[int],
         include_fcs: bool = True,
         include_errored: bool = True,
         timestamp_resolution_exponent: int = 9,
     ) -> None:
         """Write the frames received from now on to a PCAPNG file, creating its directory."""
+        path = decode_text(path)
         options = CaptureOptions(
             include_fcs=include_fcs,
             include_errored=include_errored,
@@ -488,9 +551,9 @@ class ProtocolCheckerBackend:
         """The :class:`~.monitor.EthernetMonitor` running the checks."""
         return self._backend.monitor
 
-    def push(self, samples: Any, base_hi: int, base_lo: int, delta_unit_fs: int = 1) -> int:
+    def push(self, samples: Any, base_time: int | Sequence[int], delta_unit: int | Sequence[int] = 1) -> int:
         """See :meth:`MonitorBackend.push`."""
-        return self._backend.push(samples, base_hi, base_lo, delta_unit_fs)
+        return self._backend.push(samples, base_time, delta_unit)
 
     def take_reports(self) -> str:
         """See :meth:`MonitorBackend.take_reports`."""
@@ -521,19 +584,46 @@ class SourceBackend:
         name: The name of the source, used in messages.
         interface: The PHY interface name, see :func:`~.phy.create_phy`.
         link_rate_bps: The link rate, 0 for the default of the interface.
+        link_rate_mbps: The link rate in Mbit/s as VHDL gives it, used when
+            ``link_rate_bps`` is 0.
         phy_options: Further options of the PHY encoder, such as XGMII lanes.
+        lanes: The lanes of an XGMII interface, added to ``phy_options``.
+        deficit_idle: Use the deficit idle count of XGMII, added to ``phy_options``.
 
     Attributes:
         source: The :class:`~.source.EthernetSource`.
     """
 
     def __init__(
-        self, name: str, interface: str, *, link_rate_bps: int = 0, phy_options: dict[str, Any] | None = None
+        self,
+        name: str,
+        interface: str,
+        *,
+        link_rate_bps: int = 0,
+        link_rate_mbps: int = 0,
+        phy_options: dict[str, Any] | None = None,
+        lanes: int | None = None,
+        deficit_idle: bool | None = None,
     ) -> None:
         self.name = name
-        phy_options = {**(phy_options or {}), **({"link_rate_bps": link_rate_bps} if link_rate_bps else {})}
+        phy_options = _phy_options(
+            phy_options, link_rate_bps or link_rate_mbps * 1_000_000, lanes=lanes, deficit_idle=deficit_idle
+        )
         self.source = EthernetSource(create_phy(interface, **phy_options), name=name)
         self._sequences: dict[int, Iterator[traffic.TrafficItem]] = {}
+        self._arguments: tuple[tuple[Any, ...], dict[str, Any]] = ((), {})
+
+    def set_arguments(self, *args: Any, **kwargs: Any) -> None:
+        """See :meth:`MonitorBackend.set_arguments`."""
+        self._arguments = (args, kwargs)
+
+    def _take_arguments(
+        self, args: Sequence[Any] | None, kwargs: Mapping[str, Any] | None
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        pending, self._arguments = self._arguments, ((), {})
+        if args is None and kwargs is None:
+            return pending
+        return tuple(args or ()), dict(kwargs or {})
 
     def _xgmii(self) -> XgmiiPhy:
         phy = self.source.phy
@@ -573,21 +663,18 @@ class SourceBackend:
         frame_id = self.queue_bytes(bytes(data), error_offsets=tuple(error_offsets), **options)
         return self.take_symbols(frame_id)  # type: ignore[no-any-return]
 
-    def packet_symbols(self, expression: str, error_offsets: Sequence[int] = (), **options: Any) -> Any:
-        """Like :meth:`symbols` for a Scapy expression such as ``"Ether()/IP()/UDP()"``."""
-        # The expression is testbench code, as trusted as the VHDL that passes
-        # it; evaluating it is the point, like python_pkg's own exec and eval
-        namespace: dict[str, Any] = {}
-        exec("from scapy.all import *", namespace)
-        packet = eval(expression, namespace)
-        return self.symbols(bytes(packet), error_offsets, **options)
-
     def item_symbols(self, item: traffic.TrafficItem) -> npt.NDArray[np.int32]:
         """The sample words VHDL drives for a traffic item, with its wire options applied."""
         return self.take_symbols(self.source.queue(item.to_wire()))  # type: ignore[no-any-return]
 
     def function_symbols(
-        self, function: str, arguments: str = "", error_offsets: Sequence[int] = (), **options: Any
+        self,
+        function: str,
+        error_offsets: Sequence[int] = (),
+        *,
+        args: Sequence[Any] | None = None,
+        kwargs: Mapping[str, Any] | None = None,
+        **options: Any,
     ) -> npt.NDArray[np.int32]:
         """
         The sample words of the frame a packet function returns, see :func:`~.traffic.call_packet_function`.
@@ -595,19 +682,33 @@ class SourceBackend:
         A function that returns wire options with its frame (a
         :class:`~.traffic.TrafficItem` or a ``(packet, WireOptions)`` pair) is
         transmitted with them; any other result with the options VHDL gives.
+        The function gets ``args`` and ``kwargs``, or else the arguments given
+        to :meth:`set_arguments`.
         """
-        item = traffic.call_packet_function(function, arguments)
+        call_args, call_kwargs = self._take_arguments(args, kwargs)
+        item = traffic.call_packet_function(function, *call_args, **call_kwargs)
         if item.options != WireOptions():
             return self.item_symbols(item)
         return self.symbols(item.frame.data, error_offsets, **options)
 
-    def start_sequence(self, function: str, arguments: str = "", count: int = 0, seed: str = "") -> int:
+    def start_sequence(
+        self,
+        function: str,
+        count: int = 0,
+        seed: str | Sequence[int] = "",
+        *,
+        args: Sequence[Any] | None = None,
+        kwargs: Mapping[str, Any] | None = None,
+    ) -> int:
         """
         Start transmitting the traffic a generator yields, see :func:`~.traffic.sequence`:
         ``count`` items, or all when 0, each with its own wire options. Returns the id
-        :meth:`sequence_symbols` takes.
+        :meth:`sequence_symbols` takes. The function gets ``args`` and ``kwargs``,
+        or else the arguments given to :meth:`set_arguments`.
         """
-        items = traffic.sequence(function, arguments, seed=seed or None)
+        call_args, call_kwargs = self._take_arguments(args, kwargs)
+        seed = decode_text(seed)
+        items = traffic.sequence(function, *call_args, seed=seed or None, **call_kwargs)
         sequence_id = len(self._sequences)
         self._sequences[sequence_id] = itertools.islice(items, count or None)
         return sequence_id

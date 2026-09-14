@@ -82,9 +82,12 @@ begin
     -- Seeded random traffic with malformations, see awesome_vunit_vcs.ethernet.traffic.
     -- Without bad_sfd: MII realigns nibbles on the SFD, which expected_violations does not predict
     constant traffic_function : string := "awesome_vunit_vcs.ethernet.traffic:random_traffic";
-    constant traffic_arguments : string :=
-      "count=60, malformations=('bad_fcs', 'short_preamble', 'long_preamble', 'runt', 'giant', " &
-      "'phy_error', 'short_ifg'), malformed_fraction=0.3, interface='mii'";
+    impure function traffic_arguments return arg_t is
+    begin
+      return
+        kwarg("count", 60) & kwarg("malformations", "bad_fcs,short_preamble,long_preamble,runt,giant,phy_error,short_ifg") &
+        kwarg("malformed_fraction", 0.3) & kwarg("interface", "mii");
+    end;
     variable statistics : ethernet_statistics_t;
     variable nibbles : integer_vector(0 to 43);
 
@@ -310,9 +313,9 @@ begin
           total := 0;
           for check_id in eth_preamble to eth_link_fault loop
             get_check_count(net, monitors(idx), check_id, count);
-            expected_count := eval_integer(
-              "vc.expected_violation_count('" & ethernet_check_t'image(check_id) & "')",
-              new_session(get_id(monitors(idx)))
+            expected_count := call_integer_w_arg(
+              "vc.expected_violation_count", arg(ethernet_check_t'image(check_id)),
+              session => new_session(get_id(monitors(idx)))
             );
             check_equal(
               count, expected_count,

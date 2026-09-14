@@ -2,10 +2,10 @@
 Traffic from Python: packet functions called by name, and seeded generators.
 
 Python decides *what* a source sends, VHDL *when*. A testbench names a Python
-function (``"my_packets:udp_to_dut"``) and passes its keyword arguments as a
-string (``"port=1234, size=128"``); the source backend calls it through
-:func:`call_packet_function` or :func:`sequence`. The arguments are parsed as
-Python literals, never evaluated.
+function (``"my_packets:udp_to_dut"``) and passes its arguments with the
+bridge's typed ``arg`` and ``kwarg`` (``kwarg("port", 1234) & kwarg("size", 128)``);
+the source backend calls it through :func:`call_packet_function` or :func:`sequence`
+with those arguments as Python values.
 
 A function that takes a ``seed`` parameter receives the seed of the call
 (VUnit's ``get_seed(runner_cfg)`` string from a testbench); :func:`rng_from`
@@ -28,7 +28,6 @@ ends: Hypothesis strategies in tests, :mod:`random` in simulations.
 
 from __future__ import annotations
 
-import ast
 import importlib
 import inspect
 import random
@@ -116,38 +115,6 @@ def resolve(spec: str) -> Callable[..., object]:
     return target
 
 
-def parse_arguments(text: str) -> dict[str, object]:
-    """
-    Keyword arguments from a string such as ``"port=1234, name='a', sizes=(64, 1518)"``.
-
-    Only Python literals are accepted (numbers, strings, bytes, booleans,
-    None, tuples, lists, dicts and sets of them); nothing is evaluated.
-
-    Raises:
-        TrafficError: The string is not a list of keyword arguments with literal values.
-    """
-    if not text.strip():
-        return {}
-    try:
-        tree = ast.parse(f"_({text})", mode="eval")
-    except SyntaxError as exc:
-        raise TrafficError(f"{text!r} is not a list of keyword arguments: {exc.msg}") from None
-    call = tree.body
-    if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name) or call.func.id != "_":
-        raise TrafficError(f"{text!r} is not a list of keyword arguments")
-    if call.args:
-        raise TrafficError(f"{text!r} has positional arguments; name every argument, as in 'size=128'")
-    arguments: dict[str, object] = {}
-    for keyword in call.keywords:
-        if keyword.arg is None:
-            raise TrafficError(f"{text!r} unpacks a mapping; name every argument")
-        try:
-            arguments[keyword.arg] = ast.literal_eval(keyword.value)
-        except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-            raise TrafficError(f"The value of {keyword.arg!r} in {text!r} is not a Python literal") from None
-    return arguments
-
-
 def to_frame(packet: object) -> Frame:
     """
     The frame of a packet function result.
@@ -182,9 +149,8 @@ def to_item(value: object) -> TrafficItem:
     return TrafficItem(to_frame(value))
 
 
-def _call(spec: str, arguments: str, seed: Seed | None) -> object:
+def _call(spec: str, args: tuple[object, ...], kwargs: dict[str, object], seed: Seed | None) -> object:
     function = resolve(spec)
-    kwargs = parse_arguments(arguments)
     if seed is not None:
         try:
             accepts_seed = "seed" in inspect.signature(function).parameters
@@ -192,49 +158,51 @@ def _call(spec: str, arguments: str, seed: Seed | None) -> object:
             accepts_seed = False
         if not accepts_seed:
             raise TrafficError(f"{spec!r} takes no seed parameter, so it cannot use a seed")
-        kwargs["seed"] = seed
+        kwargs = {**kwargs, "seed": seed}
     try:
-        inspect.signature(function).bind(**kwargs)
+        inspect.signature(function).bind(*args, **kwargs)
     except TypeError as exc:
-        raise TrafficError(f"Cannot call {spec!r} with {arguments!r}: {exc}") from exc
+        raise TrafficError(f"Cannot call {spec!r} with {args!r} and {kwargs!r}: {exc}") from exc
     except ValueError:
         pass  # a callable without an inspectable signature is called as it is
-    return function(**kwargs)
+    return function(*args, **kwargs)
 
 
-def call_packet_function(spec: str, arguments: str = "", *, seed: Seed | None = None) -> TrafficItem:
+def call_packet_function(spec: str, *args: object, seed: Seed | None = None, **kwargs: object) -> TrafficItem:
     """
     Call a packet function by name and return the frame it built.
 
     Args:
         spec: The function, see :func:`resolve`.
-        arguments: Its keyword arguments, see :func:`parse_arguments`.
+        args: Its positional arguments.
         seed: Passed to the function as its ``seed`` argument, which it turns
             into a generator with :func:`rng_from`; the function must take a
             ``seed`` parameter.
+        kwargs: Its keyword arguments.
 
     Returns:
         The frame and its wire options; the frame octets are ``item.frame.data`` plus the FCS.
 
     Raises:
-        TrafficError: See :func:`resolve`, :func:`parse_arguments` and :func:`to_item`.
+        TrafficError: See :func:`resolve` and :func:`to_item`, or the arguments do not fit the function.
     """
-    return to_item(_call(spec, arguments, seed))
+    return to_item(_call(spec, args, kwargs, seed))
 
 
-def sequence(spec: str, arguments: str = "", *, seed: Seed | None = None) -> Iterator[TrafficItem]:
+def sequence(spec: str, *args: object, seed: Seed | None = None, **kwargs: object) -> Iterator[TrafficItem]:
     """
     Call a generator function by name and iterate over the traffic it yields.
 
     Args:
         spec: A function returning an iterable of packets, ``(packet, WireOptions)`` pairs or items.
-        arguments: Its keyword arguments, see :func:`parse_arguments`.
+        args: Its positional arguments.
         seed: Passed as ``seed``, see :func:`call_packet_function`.
+        kwargs: Its keyword arguments.
 
     Raises:
         TrafficError: The function does not return an iterable, or yields something that is not a frame.
     """
-    result = _call(spec, arguments, seed)
+    result = _call(spec, args, kwargs, seed)
     if not isinstance(result, Iterable):
         raise TrafficError(f"{spec!r} returned {type(result).__name__}, not an iterable of frames")
     return (to_item(value) for value in result)
@@ -343,7 +311,7 @@ def random_traffic(
     *,
     seed: Seed,
     interface: Interface | str = GMII,
-    malformations: Iterable[Malformation | str] = (),
+    malformations: Iterable[Malformation | str] | str = (),
     malformed_fraction: float = 0.0,
     limits: Limits = LIMITS,
 ) -> list[TrafficItem]:
@@ -356,14 +324,14 @@ def random_traffic(
     :func:`~.api.expected_violations` computes what a monitor must report.
 
     From VHDL: ``"awesome_vunit_vcs.ethernet.traffic:random_traffic"`` with
-    arguments such as ``"count=100, malformations=('bad_fcs', 'runt'), malformed_fraction=0.1"``
-    and the seed of the test.
+    arguments such as ``kwarg("count", 100) & kwarg("malformations", "bad_fcs,runt") &
+    kwarg("malformed_fraction", 0.1)`` and the seed of the test.
 
     Args:
         count: The number of frames.
         seed: A seed or a generator, see :func:`rng_from`.
         interface: The interface, or its name, the malformations must be predictable on.
-        malformations: The malformations to draw from.
+        malformations: The malformations to draw from, or their names separated by commas.
         malformed_fraction: The probability of a malformed frame, 0 to 1.
         limits: The bounds of the traffic.
 
@@ -375,6 +343,8 @@ def random_traffic(
     if not 0.0 <= malformed_fraction <= 1.0:
         raise TrafficError(f"malformed_fraction must be 0..1, got {malformed_fraction}")
     generator = rng_from(seed)
+    if isinstance(malformations, str):
+        malformations = [name.strip() for name in malformations.split(",") if name.strip()]
     if isinstance(interface, str):
         interface = interface_named(interface)
     kinds = sorted({Malformation(kind) for kind in malformations} & supported_malformations(interface))

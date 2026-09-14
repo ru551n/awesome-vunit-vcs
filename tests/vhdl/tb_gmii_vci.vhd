@@ -25,7 +25,7 @@ context python_bridge.python_context;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
-use awesome_vunit_vcs.vcs_python_pkg.all;
+use awesome_vunit_vcs.vc_python_pkg.all;
 
 entity tb_gmii_vci is
   generic (

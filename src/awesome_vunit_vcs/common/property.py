@@ -35,11 +35,13 @@ import queue
 import re
 import sys
 import threading
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
+
+from .vunit_bridge import decode_text
 
 __all__ = [
     "PROFILE_VARIABLE",
@@ -139,8 +141,8 @@ class PropertyRunner:
     Args:
         strategy: ``"package.module:function"`` naming a function that returns a
             Hypothesis strategy. Each drawn value is one example.
-        arguments: Keyword arguments for the function as Python literals, for
-            example ``"max_length=64"``.
+        arguments: Keyword arguments for the function, for example
+            ``{"max_length": 64}``.
         max_examples: The number of examples Hypothesis generates, not counting
             the ones it runs while shrinking.
         seed: The seed of the example generation, for example VUnit's
@@ -158,6 +160,9 @@ class PropertyRunner:
         phases: Comma-separated Hypothesis phases to run, for example
             ``"explicit,generate"`` to skip shrinking. Empty runs all phases.
         timeout_s: Wall-clock seconds to wait for Hypothesis to produce an example.
+        start: Start the property at once with ``arguments``. VHDL passes False
+            and calls :meth:`start` with the strategy's arguments, so they never
+            collide with the arguments of the runner.
 
     Raises:
         PropertyError: Hypothesis is not installed, or the strategy, arguments or
@@ -167,16 +172,48 @@ class PropertyRunner:
     def __init__(
         self,
         strategy: str,
-        arguments: str = "",
+        arguments: Mapping[str, Any] | None = None,
         *,
         max_examples: int = 100,
-        seed: str = "",
-        output_path: str = "",
-        search_path: str = "",
+        seed: str | Sequence[int] = "",
+        output_path: str | Sequence[int] = "",
+        search_path: str | Sequence[int] = "",
         name: str = "property",
         phases: str = "",
         timeout_s: float = DEFAULT_TIMEOUT_S,
+        start: bool = True,
     ) -> None:
+        self._strategy = strategy
+        self._max_examples = max_examples
+        self._seed = decode_text(seed)
+        self._output_path = decode_text(output_path)
+        self._search_path = decode_text(search_path)
+        self._name = name
+        self._phases = phases
+        self._timeout_s = timeout_s
+        self._started = False
+        self.count = 0
+        """The number of examples VHDL has been given."""
+        self.outcome = "running"
+        """``running``, then ``passed``, ``failed``, ``flaky``, ``aborted`` or ``error``."""
+        self.detail = ""
+        """What Hypothesis reported when the property ended."""
+        if start:
+            self.start(**(arguments or {}))
+
+    def start(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Load the strategy function with its arguments and start generating examples.
+
+        Raises:
+            PropertyError: Hypothesis is not installed, the property was already
+                started, or the strategy, arguments or phases are invalid.
+        """
+        if self._started:
+            raise PropertyError("The property is already started")
+        self._started = True
+        strategy, max_examples, seed, name = self._strategy, self._max_examples, self._seed, self._name
+        output_path, search_path, phases = self._output_path, self._search_path, self._phases
         try:
             import hypothesis
         except ImportError:
@@ -186,13 +223,11 @@ class PropertyRunner:
 
         if search_path and search_path not in sys.path:
             sys.path.insert(0, search_path)
-        target, pins = _load_property(strategy, arguments)
+        target, pins = _load_property(strategy, args, kwargs)
         self._stateful = isinstance(target, type)
 
         self._examples: queue.Queue[tuple[str, Any]] = queue.Queue()
         self._verdicts: queue.Queue[tuple[str, str, float]] = queue.Queue()
-        self._timeout_s = timeout_s
-        self._seed = seed
         self._journal, self._failures_file = _files(output_path, name)
         if self._stateful:
             self._failures_file = ""  # Hypothesis cannot replay a step sequence as an example
@@ -201,12 +236,6 @@ class PropertyRunner:
         self._has_current = False
         self._cache: dict[str, Any] = {}
         self._failures: list[tuple[str, str, str]] = []
-        self.count = 0
-        """The number of examples VHDL has been given."""
-        self.outcome = "running"
-        """``running``, then ``passed``, ``failed``, ``flaky``, ``aborted`` or ``error``."""
-        self.detail = ""
-        """What Hypothesis reported when the property ended."""
 
         settings = hypothesis.settings(
             max_examples=max_examples * _profile_scale(),
@@ -286,7 +315,12 @@ class PropertyRunner:
         return True
 
     def report(
-        self, passed: bool, timed_out: bool = False, recovered: bool = True, message: str = "", value: int = 0
+        self,
+        passed: bool,
+        timed_out: bool = False,
+        recovered: bool = True,
+        message: str | Sequence[int] = "",
+        value: int = 0,
     ) -> None:
         """
         The verdict on the current example.
@@ -299,6 +333,7 @@ class PropertyRunner:
             message: What went wrong, shown with the counterexample.
             value: What the step of a stateful property returns to its rule.
         """
+        message = decode_text(message)
         if not self._has_current:
             raise PropertyError("report_example was called without a current example")
         self._has_current = False
@@ -408,6 +443,14 @@ class PropertyRunner:
         if value >= 1 << length:
             raise PropertyError(f"{path!r} is {value}, which does not fit in {length} bits")
         return format(value, f"0{length}b")
+
+    def get_outcome(self) -> str:
+        """The :attr:`outcome`, for VHDL."""
+        return self.outcome
+
+    def get_count(self) -> int:
+        """The :attr:`count`, for VHDL."""
+        return self.count
 
     def counterexample(self) -> str:
         """The minimal failing example, or an empty string when there is none."""
@@ -556,15 +599,18 @@ def _vhdl_integer(value: Any, path: str) -> int:
     return value
 
 
-def _load_property(spec: str, arguments: str) -> tuple[Any, tuple[Any, ...]]:
+def _load_property(spec: str, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> tuple[Any, tuple[Any, ...]]:
     """The strategy or state machine class the function ``spec`` returns, and its pinned examples."""
-    from ..ethernet.traffic import TrafficError, parse_arguments, resolve
+    from ..ethernet.traffic import TrafficError, resolve
 
     try:
         function = resolve(spec)
-        target = function(**parse_arguments(arguments))
     except TrafficError as exc:
         raise PropertyError(str(exc)) from None
+    try:
+        target = function(*args, **kwargs)
+    except TypeError as exc:
+        raise PropertyError(f"Cannot call {spec!r} with the given arguments: {exc}") from None
     from hypothesis.stateful import RuleBasedStateMachine
     from hypothesis.strategies import SearchStrategy
 

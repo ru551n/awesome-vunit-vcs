@@ -21,6 +21,9 @@ context ethernet_context is
   use vunit_lib.integer_array_pkg.all;
   use vunit_lib.vc_pkg.all;
 
+  library python_bridge;
+  context python_bridge.python_context;
+
   library awesome_vunit_vcs;
   use awesome_vunit_vcs.ethernet_pkg.all;
   use awesome_vunit_vcs.gmii_pkg.all;

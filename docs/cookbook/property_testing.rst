@@ -34,7 +34,8 @@ anything from it.
 Step 1: the testbench setup (VHDL)
 ----------------------------------
 
-A property testbench uses the property package:
+A property testbench needs one context clause, ``property_context``. In a testbench that already uses
+``ethernet_context`` or ``flash_context``, leave it out: those include it.
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
    :caption: examples/property/tb_property_examples.vhd
@@ -42,19 +43,15 @@ A property testbench uses the property package:
    :start-after: -- docs-start: libraries
    :end-before: -- docs-end: libraries
 
-The example testbench also defines a few helpers in its main process. ``new_example`` creates a
-property from a strategy name, with VUnit's seed so a run can be repeated. ``apply`` and ``pulse`` drive
-the designs under test, an arithmetic unit (ALU) and a register bank:
+The designs under test are an arithmetic unit (ALU), with inputs ``a`` and ``b`` and output ``y``, and a
+register bank. ``apply`` is a small helper in the testbench that puts two operands on the ALU:
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
    :caption: examples/property/tb_property_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: helpers
-   :end-before: -- docs-end: helpers
+   :start-after: -- docs-start: apply-helper
+   :end-before: -- docs-end: apply-helper
    :dedent:
-
-``search_path`` tells the simulator where your strategies live: the ``python`` directory next to the
-testbench.
 
 Step 2: write the first property
 --------------------------------
@@ -84,6 +81,10 @@ The strategy for our first property is just a byte:
    :start-after: -- docs-start: scalar
    :end-before: -- docs-end: scalar
    :dedent:
+
+``new_property`` names the strategy as ``"module:function"``. ``search_path`` tells the simulator where
+your strategies live, the ``python`` directory next to the testbench. ``get_seed(runner_cfg)`` makes a run
+repeatable, and ``output_path(runner_cfg)`` keeps a journal and the smallest failure in the test's output.
 
 The loop is the whole pattern:
 
@@ -136,6 +137,16 @@ has that pattern and everything else about seeds, saved failures, pins and profi
 
 Step 3: read structured examples
 --------------------------------
+
+From here on, the example testbench creates properties with a helper, ``new_example``, that makes the
+same ``new_property`` call for a strategy name:
+
+.. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: new-example-helper
+   :end-before: -- docs-end: new-example-helper
+   :dedent:
 
 Real test data has structure: a list of values and an optional offset, for example. **In Python**, a
 strategy can return dictionaries and lists. ``optional`` adds a key to some examples only:
@@ -265,7 +276,14 @@ Each rule calls ``step`` to have the testbench perform the operation and return 
 compares that with the model.
 
 **In VHDL**, perform whatever step you are given. ``get_rule`` names the operation, and ``report_step``
-returns the result to the model:
+returns the result to the model. ``pulse`` is a helper that holds a signal high for one clock cycle:
+
+.. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: pulse-helper
+   :end-before: -- docs-end: pulse-helper
+   :dedent:
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
    :caption: examples/property/tb_property_examples.vhd

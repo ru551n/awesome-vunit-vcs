@@ -5,13 +5,8 @@
 -- Properties: every frame a source sends, the monitor receives unchanged, on GMII
 -- and on an AXI-Stream MAC client bus with backpressure drawn by Hypothesis.
 
-library vunit_lib;
-context vunit_lib.vunit_context;
-context vunit_lib.com_context;
-
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
-use awesome_vunit_vcs.property_pkg.all;
 
 entity tb_property_ethernet is
   generic (runner_cfg : string);

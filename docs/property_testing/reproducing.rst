@@ -12,8 +12,7 @@ Pin known failures and set budgets
   distinct examples than that, such as one byte. Pull request CI runs the quick profile and a nightly
   workflow the long one.
 * **Saved failures in CI.** CI keeps ``property_failures/`` in the Actions cache between runs, so a
-  failure one run found is tried first by the next. Locally, rerun with the same ``--output-path``
-  and the saved failure is replayed first; the seed VUnit printed repeats the other examples.
+  failure one run found is tried first by the next.
 
 Replay a failure
 ----------------
@@ -40,8 +39,12 @@ Replay a failure
   The last example without a verdict is the one that crashed or hung. ``get_seed(runner_cfg)`` derives
   the ``seed`` field from the seed VUnit printed, so the two look different: rerun with VUnit's printed
   seed, ``--seed <printed seed>``, not with the journal's.
-* **Replay.** The smallest failing example is saved in ``<output-path>/test_output/property_failures/``
-  and replayed first on the next run with the same ``--output-path``.
+* **Replay.** The smallest failing example is saved as
+  ``<output-path>/test_output/property_failures/<test name>.<property name>.txt``, one line with the
+  example as Python writes it, such as ``200`` or ``[64, 0, 0]``. The next run with the same
+  ``--output-path`` tries it first. If it still fails, the property ends right there, after that one
+  example, so you see at once whether a fix works. To repeat the whole search instead, rerun with the
+  seed VUnit printed and a new ``--output-path``.
 * **Timeouts.** Hypothesis's deadline is disabled; the simulation-time budget of the testbench is the
   only timeout that matters.
 
@@ -63,6 +66,17 @@ and ``get_counterexample`` instead:
 
 Without ``check_property`` and without these checks, a failing property doesn't fail the test.
 
+A strategy with a bug is different: the property can't run, so it ends with the outcome ``error`` and
+logs one ``failure`` on its logger, whose first line names your strategy function and the line in your
+code. To expect that, give ``new_property`` a logger, allow failures on it and count them:
+
+.. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: expect-strategy-error
+   :end-before: -- docs-end: expect-strategy-error
+   :dedent:
+
 Good to know
 ------------
 
@@ -72,6 +86,8 @@ Good to know
   vector in one call, and a generated record getter makes one call per scalar field.
 * Saved failures and pins are for strategies. A stateful property replays its failing sequence
   through its seed, not through a saved file.
+* For a stateful property, ``get_example_count`` counts steps, the ``"start"`` steps included, so it is
+  much larger than ``max_examples``.
 * A path reaches fields by name only for dicts with string keys, dataclasses and named tuples.
 
 Related recipes

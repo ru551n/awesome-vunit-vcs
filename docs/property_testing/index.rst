@@ -56,8 +56,11 @@ property when the loop ends.
    :dedent: 8
 
 ``new_property`` names the strategy as ``"module:function"`` and ``search_path`` makes the module
-importable; the example's ``new_example`` passes ``get_seed(runner_cfg)`` so the examples follow
-VUnit's seed and ``output_path(runner_cfg)`` to journal and replay them (see below).
+importable. ``seed => get_seed(runner_cfg)`` makes the examples follow VUnit's seed, and
+``output_path => output_path(runner_cfg)`` journals and replays them (see :doc:`reproducing`).
+
+The testbench needs one context clause, ``context awesome_vunit_vcs.property_context;``. The Ethernet
+and flash contexts include it, so a testbench with those needs nothing more.
 
 Read composite examples
 -----------------------

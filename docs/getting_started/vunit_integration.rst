@@ -47,13 +47,9 @@ Use the components in a testbench
    context awesome_vunit_vcs.ethernet_context;
 
 This one context clause gives you the Ethernet components and everything from VUnit a testbench
-needs. If your testbench also calls Python directly, add the bridge context:
-
-.. code-block:: vhdl
-   :caption: Only when calling Python directly
-
-   library python_bridge;
-   context python_bridge.python_context;
+needs, including the Python bridge and property-based testing, so a testbench that calls Python or runs
+properties needs nothing more. A flash testbench uses ``flash_context`` and a testbench with only
+properties ``property_context`` in the same way.
 
 Make your own Python code importable
 ------------------------------------

@@ -6,14 +6,8 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library vunit_lib;
-context vunit_lib.vunit_context;
-
 library osvvm;
 use osvvm.RandomPkg.RandomPType;
-
-library python_bridge;
-context python_bridge.python_context;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;

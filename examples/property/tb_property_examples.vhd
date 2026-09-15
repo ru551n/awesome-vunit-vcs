@@ -10,11 +10,8 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library vunit_lib;
-context vunit_lib.vunit_context;
-
 library awesome_vunit_vcs;
-use awesome_vunit_vcs.property_pkg.all;
+context awesome_vunit_vcs.property_context;
 
 use work.example_records_pkg.all;
 -- docs-end: libraries
@@ -38,13 +35,16 @@ begin
     variable passed : boolean;
     variable offset : natural;
 
-    -- docs-start: helpers
+    -- docs-start: new-example-helper
+    -- A property from a strategy in python/strategies.py, following VUnit's seed
     impure function new_example(strategy : string) return property_t is
     begin
       return new_property("strategies:" & strategy, seed => get_seed(runner_cfg),
         output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
     end;
+    -- docs-end: new-example-helper
 
+    -- docs-start: apply-helper
     -- Put operands on the ALU and let it settle
     procedure apply(a_value, b_value : natural; subtract_value : std_ulogic := '0') is
     begin
@@ -53,7 +53,9 @@ begin
       subtract <= subtract_value;
       wait for 1 ns;
     end;
+    -- docs-end: apply-helper
 
+    -- docs-start: pulse-helper
     -- Hold a signal high for one clock cycle
     procedure pulse(signal value : out std_ulogic) is
     begin
@@ -61,7 +63,7 @@ begin
       wait until rising_edge(clk);
       value <= '0';
     end;
-    -- docs-end: helpers
+    -- docs-end: pulse-helper
 
     -- docs-start: item-helper
     -- The path of list element idx, "(2)", or of a field of it, "(2).name"
@@ -79,7 +81,8 @@ begin
       if run("test_scalar") then
         -- docs-start: scalar
         -- Every octet minus itself is 0
-        prop := new_example("scalar");
+        prop := new_property("strategies:scalar", seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
         while next_example(prop) loop
           apply(get_integer(prop), get_integer(prop), subtract_value => '1');
           report_example(prop, passed => to_integer(unsigned(y)) = 0);
@@ -225,9 +228,24 @@ begin
           report_example(prop, passed => passed);
         end loop;
         -- docs-end: swarm
+
+      elsif run("test_expect_a_strategy_error") then
+        -- docs-start: expect-strategy-error
+        -- The strategy function "broken" raises. That is one failure on the logger given to
+        -- new_property, and the property ends with the outcome "error".
+        disable_stop(get_logger("tb_property_examples:broken"), failure);
+        prop := new_property("strategies:broken", search_path => tb_path(runner_cfg) & "python",
+          logger => get_logger("tb_property_examples:broken"));
+        while next_example(prop) loop
+          report_example(prop, passed => true);
+        end loop;
+        check_equal(get_outcome(prop), "error");
+        check_equal(get_log_count(get_logger("tb_property_examples:broken"), failure), 1);
+        reset_log_count(get_logger("tb_property_examples:broken"), failure);
+        -- docs-end: expect-strategy-error
       end if;
 
-      if running_test_case /= "test_stateful" then
+      if running_test_case /= "test_stateful" and running_test_case /= "test_expect_a_strategy_error" then
         check_property(prop);
       end if;
     end loop;

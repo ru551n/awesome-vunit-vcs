@@ -304,3 +304,20 @@ def test_every_example_is_in_the_cookbook() -> None:
     examples = sorted(path.name for path in (REPO / "examples").iterdir() if path.is_dir())
     missing = [name for name in examples if f"examples/{name}" not in index]
     assert not missing, "Add these examples to the table in docs/cookbook/index.rst"
+
+
+_FAMILY_CONTEXT = re.compile(r"context\s+awesome_vunit_vcs\.(ethernet|flash|property)_context\b")
+_INCLUDED_CONTEXT = re.compile(
+    r"context\s+(vunit_lib\.vunit_context|vunit_lib\.com_context|python_bridge\.python_context)\b"
+)
+
+
+def test_family_contexts_are_used_alone() -> None:
+    """A family context includes VUnit's and the bridge's contexts, so examples and docs don't repeat them."""
+    offenders = []
+    sources = [*REPO.glob("examples/**/*.vhd"), *DOCS.rglob("*.rst")]
+    for path in sources:
+        text = path.read_text(encoding="utf-8")
+        if _FAMILY_CONTEXT.search(text) and _INCLUDED_CONTEXT.search(text):
+            offenders.append(str(path.relative_to(REPO)))
+    assert not offenders, f"these repeat contexts a family context already includes: {offenders}"

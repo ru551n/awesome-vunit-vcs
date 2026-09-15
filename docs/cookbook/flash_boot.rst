@@ -68,6 +68,18 @@ Then the flash and the design under test are instantiated on that bus:
    :end-before: -- docs-end: boot-instances
    :dedent:
 
+The design under test is a small boot loader. When its reset is released, it reads a 4-byte length
+header from address 0 with fast read (``0x0B``), most significant byte first, and then the whole image
+into its RAM. It drives its QSPI pins with a ``qspi_master``, so your own boot design can take its place
+on the same ``m2s`` and ``s2m`` signals:
+
+.. dropdown:: The design under test, boot_reader.vhd
+
+   .. literalinclude:: ../../examples/flash/src/boot_reader.vhd
+      :caption: examples/flash/src/boot_reader.vhd
+      :language: vhdl
+      :start-after: http://mozilla.org/MPL/2.0/.
+
 The process declares the variables the later steps use:
 
 .. literalinclude:: ../../examples/flash/tb_flash_examples.vhd

@@ -87,3 +87,12 @@ def byte_stream():
 
 
 # docs-end: pin
+
+
+# docs-start: broken
+def broken():
+    # A strategy function with a bug, for the example that expects the error
+    return 1 / 0
+
+
+# docs-end: broken

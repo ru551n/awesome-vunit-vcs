@@ -35,6 +35,10 @@ VHDL API
 * ``ethernet_context`` is the only context clause a testbench needs, including ``arg_text``,
   ``kwarg_text``, ``arg_time`` and ``kwarg_time`` for arguments to Python.
 * ``eth_user`` counts errors Python code reports with ``vc.error``.
+* A property that cannot run, because its strategy function or strategy raises or its arguments are
+  invalid, logs one failure on the property's logger (honouring ``logger =>``), first line
+  ``module:function raised Type: message (file:line)``. ``get_outcome`` is ``error``,
+  ``next_example`` returns false and ``check_property`` doesn't report it again.
 
 Breaking changes to the VHDL API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

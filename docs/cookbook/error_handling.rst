@@ -67,16 +67,28 @@ mismatch. Compared with step 1, only the logger changes:
 
 .. list-table::
    :header-rows: 1
-   :widths: 45 55
+   :widths: 40 40 20
 
    * - Error
      - Logger for ``disable_stop`` and ``reset_log_count``
+     - Level
    * - A protocol check, such as ``eth_fcs``, ``eth_ifg`` or ``eth_runt``
      - ``get_logger(get_protocol_checker(monitor))``
+     - ``error``
    * - ``eth_scoreboard`` or ``eth_user``: a mismatch, or an error reported from Python
      - ``get_logger(monitor)``
+     - ``error``
+   * - An exception raised in your packet function or sequence generator
+     - ``get_logger(source)``
+     - ``failure``
+   * - An exception raised in a property's strategy
+     - The ``logger`` you gave ``new_property``
+     - ``failure``
 
-``get_check_count(net, monitor, check, count)`` counts both kinds.
+``get_check_count(net, monitor, check, count)`` counts the first two kinds. An exception in your Python
+code is a bug in the test, so it is a ``failure``: pass ``failure`` to ``disable_stop``,
+``get_log_count`` and ``reset_log_count``. The first line of the failure names your function and the
+line in your code. :ref:`expect-a-failure` shows the property case.
 
 Step 3: choose what to break
 ----------------------------

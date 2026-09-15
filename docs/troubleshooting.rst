@@ -71,11 +71,12 @@ Running simulations
      - Your packet function or sequence generator raised an exception. The first line names your function
        and the line in your code; the lines under it are the traceback in your code. For example
        ``my_packets:broken raised KeyError: 7 (python/my_packets.py:15)``.
-   * - ``Property ended with an error after 0 examples: <module>:<function> raised <Type>: ...
-       while generating 'example' from ...``
-     - Your strategy raised while Hypothesis drew an example, so no example reached the design. The line
-       after ``while generating`` shows where in your code. Call the strategy in pytest, for example
-       ``strategy().example()``, to debug it with a full traceback.
+   * - ``<module>:<function> raised <Type>: <message> (<file>:<line>)``, as a failure on a property's
+       logger
+     - Your strategy function raised, or the strategy raised while Hypothesis drew an example (then a
+       line ``while generating 'example' from ...`` follows). The property ends with the outcome
+       ``error`` and ``next_example`` returns false. The lines under the first one are the traceback in
+       your code. To debug further, call the strategy in pytest, for example ``strategy().example()``.
    * - Wrong IFG or utilization
      - ``link_rate_mbps`` does not match the clock of the interface.
    * - A flash reads ``0xFF`` everywhere

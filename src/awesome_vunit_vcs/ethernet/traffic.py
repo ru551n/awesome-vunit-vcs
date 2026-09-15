@@ -185,11 +185,38 @@ def describe_exception(spec: str, exc: BaseException) -> str:
     that ran it.
     """
     frames = traceback.extract_tb(exc.__traceback__)
-    package = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    user_frames = [frame for frame in frames if not os.path.abspath(frame.filename).startswith(package)]
+    ignored = _ignored_directories()
+    user_frames = [frame for frame in frames if not os.path.abspath(frame.filename).startswith(ignored)]
     where = user_frames[-1] if user_frames else (frames[-1] if frames else None)
     location = f" ({where.filename}:{where.lineno})" if where is not None else ""
     return f"{spec} raised {type(exc).__name__}: {exc}{location}"
+
+
+def user_traceback(exc: BaseException) -> str:
+    """
+    The lines of the traceback of ``exc`` that are in the user's code, formatted like Python does.
+
+    Frames inside this package and inside Hypothesis are left out, so a report
+    shows only where the user's function failed. Follows ``__cause__`` to the
+    user's original exception.
+    """
+    while exc.__cause__ is not None:
+        exc = exc.__cause__
+    frames = traceback.extract_tb(exc.__traceback__)
+    ignored = _ignored_directories()
+    user_frames = [frame for frame in frames if not os.path.abspath(frame.filename).startswith(ignored)]
+    return "".join(traceback.format_list(user_frames)).rstrip()
+
+
+def _ignored_directories() -> tuple[str, ...]:
+    directories = [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
+    try:
+        import hypothesis
+
+        directories.append(os.path.dirname(os.path.abspath(hypothesis.__file__)))
+    except ImportError:
+        pass
+    return tuple(directories)
 
 
 def call_packet_function(spec: str, *args: object, seed: Seed | None = None, **kwargs: object) -> TrafficItem:

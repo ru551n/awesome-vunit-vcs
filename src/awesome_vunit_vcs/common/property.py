@@ -291,7 +291,7 @@ class PropertyRunner:
             except _EXAMPLE_FAILURES as exc:
                 self._finish("failed", _describe(exc))
             except BaseException as exc:
-                self._finish("error", _describe(exc))
+                self._finish("error", _error_detail(strategy, exc))
             else:
                 self._finish("passed", "")
 
@@ -346,6 +346,9 @@ class PropertyRunner:
             kind = "timeout"
         else:
             kind = "failed"
+        if self._journal:
+            verdict = {"passed": "passed", "failed": "failed", "timeout": "timed out", "abort": "did not recover"}[kind]
+            self._append_journal({"index": self.count, "verdict": verdict, "message": message})
         self._verdicts.put((kind, message, float(value)))
 
     def score(self, label: str, value: float) -> None:
@@ -521,7 +524,9 @@ class PropertyRunner:
     def _write_journal(self, example: Any) -> None:
         if not self._journal:
             return
-        entry = {"index": self.count, "seed": self._seed, "example": repr(example)}
+        self._append_journal({"index": self.count + 1, "seed": self._seed, "example": repr(example)})
+
+    def _append_journal(self, entry: dict[str, Any]) -> None:
         with open(self._journal, "a", encoding="utf-8") as stream:
             stream.write(json.dumps(entry) + "\n")
             stream.flush()
@@ -670,6 +675,24 @@ def _files(output_path: str, name: str) -> tuple[str, str]:
 
 def _shortlex(examples: list[str]) -> str:
     return min(examples, key=lambda text: (len(text), text))
+
+
+def _error_detail(spec: str, exc: BaseException) -> str:
+    """
+    What went wrong when a property could not run, the cause first.
+
+    An exception from the user's strategy names the strategy function and the
+    innermost line of the user's code, like errors of packet functions do.
+    """
+    if isinstance(exc, PropertyError):
+        return _describe(exc)
+    from ..ethernet.traffic import describe_exception, user_traceback
+
+    lines = [describe_exception(spec, exc), *getattr(exc, "__notes__", [])]
+    details = user_traceback(exc)
+    if details:
+        lines.append(details)
+    return "\n".join(lines)
 
 
 def _describe(exc: BaseException) -> str:

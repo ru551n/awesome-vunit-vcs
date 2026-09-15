@@ -643,8 +643,19 @@ class SourceBackend:
             crs_dv_toggle_octets=crs_dv_toggle_octets,
         )
         self.source = EthernetSource(create_phy(interface, **phy_options), name=name)
+        self.reports = ReportQueue()
         self._sequences: dict[int, Iterator[traffic.TrafficItem]] = {}
         self._arguments: tuple[tuple[Any, ...], dict[str, Any]] = ((), {})
+
+    def take_reports(self) -> str:
+        """The waiting reports, encoded for VHDL."""
+        return encode_reports(self.reports.take())
+
+    def _report_user_error(self, exc: traffic.TrafficError) -> None:
+        # The one-line summary first, so the log shows the cause without scrolling,
+        # then the lines of the traceback that are in the user's code
+        details = traffic.user_traceback(exc)
+        self.reports.add(Severity.FAILURE, f"{exc}\n{details}" if details else str(exc))
 
     def set_arguments(self, *args: Any, **kwargs: Any) -> None:
         """See :meth:`MonitorBackend.set_arguments`."""
@@ -719,7 +730,11 @@ class SourceBackend:
         to :meth:`set_arguments`.
         """
         call_args, call_kwargs = self._take_arguments(args, kwargs)
-        item = traffic.call_packet_function(function, *call_args, **call_kwargs)
+        try:
+            item = traffic.call_packet_function(function, *call_args, **call_kwargs)
+        except traffic.TrafficError as exc:
+            self._report_user_error(exc)
+            return np.zeros(0, dtype=np.int32)
         if item.options != WireOptions():
             return self.item_symbols(item)
         return self.symbols(item.frame.data, error_offsets, **options)
@@ -741,14 +756,26 @@ class SourceBackend:
         """
         call_args, call_kwargs = self._take_arguments(args, kwargs)
         seed = decode_text(seed)
-        items = traffic.sequence(function, *call_args, seed=seed or None, **call_kwargs)
-        sequence_id = len(self._sequences)
+        sequence_id = max(self._sequences, default=-1) + 1
+        try:
+            items = traffic.sequence(function, *call_args, seed=seed or None, **call_kwargs)
+        except traffic.TrafficError as exc:
+            # sequence_symbols then returns nothing for this id, and VHDL logs the report
+            self._report_user_error(exc)
+            return sequence_id
         self._sequences[sequence_id] = itertools.islice(items, count or None)
         return sequence_id
 
     def sequence_symbols(self, sequence_id: int, frames: int = 64) -> npt.NDArray[np.int32]:
         """The sample words of the next ``frames`` items of a sequence, empty when it is exhausted."""
-        batch = [self.item_symbols(item) for item in itertools.islice(self._sequences[sequence_id], frames)]
+        items = self._sequences.get(sequence_id)
+        if items is None:
+            return np.zeros(0, dtype=np.int32)
+        try:
+            batch = [self.item_symbols(item) for item in itertools.islice(items, frames)]
+        except traffic.TrafficError as exc:
+            self._report_user_error(exc)
+            batch = []
         if not batch:
             del self._sequences[sequence_id]
             return np.zeros(0, dtype=np.int32)

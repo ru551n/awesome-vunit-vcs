@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from awesome_vunit_vcs.common.reports import Severity, decode_reports
 from awesome_vunit_vcs.common.vunit_bridge import encode_samples
 from awesome_vunit_vcs.ethernet.api import Frame, WireOptions
 from awesome_vunit_vcs.ethernet.checker import CheckId
@@ -29,6 +30,16 @@ def bad_sfd_traffic() -> list[TrafficItem]:
     """A frame, the same frame with a wrong SFD, and the frame again, with normal gaps."""
     frame = Frame.from_bytes(bytes.fromhex("02000000000102000000000288B5") + bytes(range(46)), has_fcs=False)
     return [TrafficItem(frame), TrafficItem(frame, WireOptions(sfd=0x65)), TrafficItem(frame)]
+
+
+def broken_packet(port: int) -> Frame:
+    """A packet function with a bug: a KeyError for any port but 1."""
+    return Frame.from_payload({1: bytes(46)}[port])
+
+
+def broken_traffic() -> list[TrafficItem]:
+    """A sequence function with a bug."""
+    raise ValueError("no traffic today")
 
 
 #: A GMII octet lasts 8 ns
@@ -100,3 +111,26 @@ def test_octets_without_sfd_are_not_compared_with_expected_frames() -> None:
     assert monitor.compared_count() == 2
     assert monitor.expected_count() == 0
     assert monitor.check_count("ETH_SCOREBOARD") == 0
+
+
+def test_an_exception_in_a_packet_function_is_reported_with_the_cause_first() -> None:
+    source = SourceBackend("tb:source", "gmii")
+    source.set_arguments(port=7)
+    assert len(source.function_symbols("test_backend_sequences:broken_packet")) == 0
+    [report] = decode_reports(source.take_reports())
+    assert report.severity is Severity.FAILURE
+    summary, *details = report.message.splitlines()
+    assert summary.startswith("test_backend_sequences:broken_packet raised KeyError: 7 (")
+    assert summary.endswith(f"test_backend_sequences.py:{broken_packet.__code__.co_firstlineno + 2})")
+    assert any("{1: bytes(46)}[port]" in line for line in details)
+    assert all("awesome_vunit_vcs" not in line for line in details)
+
+
+def test_an_exception_in_a_sequence_function_is_reported_and_ends_the_sequence() -> None:
+    source = SourceBackend("tb:source", "gmii")
+    sequence_id = source.start_sequence("test_backend_sequences:broken_traffic", 0, "")
+    [report] = decode_reports(source.take_reports())
+    assert report.message.startswith("test_backend_sequences:broken_traffic raised ValueError: no traffic today")
+    # VHDL then asks for symbols, gets none and logs nothing more
+    assert len(source.sequence_symbols(sequence_id)) == 0
+    assert source.take_reports() == ""

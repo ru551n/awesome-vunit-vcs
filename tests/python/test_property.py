@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import textwrap
@@ -52,6 +53,14 @@ STRATEGIES = textwrap.dedent(
 
     def broken_strategy():
         raise RuntimeError("the strategy is broken")
+
+
+    def _crash(value):
+        return value // 0
+
+
+    def crashes_while_drawing():
+        return st.integers(0, 3).map(_crash)
     """
 )
 
@@ -167,7 +176,29 @@ def test_saved_failure_is_replayed_first(strategies: str, tmp_path: Path) -> Non
         if run == 1:
             assert seen[0] == "[64, 0, 0]"
     journal = output_path / "property_journal_prop.jsonl"
-    assert journal.read_text().splitlines()[-1].count("[64, 0, 0]") == 1
+    entries = [json.loads(line) for line in journal.read_text().splitlines()]
+    examples_run = [entry for entry in entries if "example" in entry]
+    assert examples_run[-1]["example"] == "[64, 0, 0]"
+
+
+def test_journal_records_each_example_and_its_verdict(strategies: str, tmp_path: Path) -> None:
+    output_path = tmp_path / "test_output" / "lib.tb.test_x"
+    runner = PropertyRunner(
+        "property_strategies_for_tests:payloads",
+        max_examples=300,
+        seed="journal",
+        output_path=str(output_path),
+        search_path=strategies,
+        name="prop",
+    )
+    drive(runner, planted_bug)
+    entries = [json.loads(line) for line in (output_path / "property_journal_prop.jsonl").read_text().splitlines()]
+    examples_run = [entry for entry in entries if "example" in entry]
+    verdicts = [entry for entry in entries if "verdict" in entry]
+    assert examples_run and len(verdicts) == len(examples_run)
+    assert [entry["index"] for entry in examples_run] == [entry["index"] for entry in verdicts]
+    assert {entry["verdict"] for entry in verdicts} == {"passed", "failed"}
+    assert all(entry["seed"] == "journal" for entry in examples_run)
 
 
 def test_composite_paths(strategies: str) -> None:
@@ -246,6 +277,16 @@ def test_an_exception_in_a_strategy_function_names_the_function(strategies: str)
         "property_strategies_for_tests:broken_strategy raised RuntimeError: the strategy is broken"
     )
     assert "property_strategies_for_tests.py:" in message
+
+
+def test_an_exception_while_drawing_names_the_strategy_and_the_line(strategies: str) -> None:
+    runner = PropertyRunner("property_strategies_for_tests:crashes_while_drawing", search_path=strategies)
+    assert drive(runner, lambda r: {"passed": True}) == []
+    assert runner.outcome == "error"
+    first_line = runner.detail.splitlines()[0]
+    assert first_line.startswith("property_strategies_for_tests:crashes_while_drawing raised ZeroDivisionError")
+    assert "property_strategies_for_tests.py:" in first_line
+    assert "return value // 0" in runner.detail
 
 
 def test_package_never_imports_hypothesis() -> None:

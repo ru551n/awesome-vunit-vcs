@@ -1070,13 +1070,23 @@ package body ethernet_vc_pkg is
     call.arg_value := new string'(args.value);
   end;
 
+  -- An empty result is the end of a sequence, or a failure in the user's Python
+  -- function that the backend reports; its reports are logged on the VC.
   procedure get_symbols(
-    session : python_session_t; variable call : in symbols_call_t; variable symbols : out integer_array_t
+    session : python_session_t;
+    vc : ethernet_vc_t;
+    variable call : in symbols_call_t;
+    variable symbols : out integer_array_t
   ) is
+    variable result : integer_array_t;
   begin
-    symbols := backend_call_integer_array(
+    result := backend_call_integer_array(
       session, call.method.all, arg_t'(name => call.arg_name.all, value => call.arg_value.all)
     );
+    if length(result) = 0 then
+      log_reports(session, vc.p_logger, vc.p_checker);
+    end if;
+    symbols := result;
   end;
 
   -- Handle the messages every source handles. symbols_call is set to the
@@ -1243,7 +1253,7 @@ package body ethernet_vc_pkg is
 
       -- A frame, or the batches of a sequence until it is exhausted
       while symbols_call.method /= null loop
-        get_symbols(state.session, symbols_call, symbols);
+        get_symbols(state.session, vc, symbols_call, symbols);
         if length(symbols) = 0 or not state.sequence_active then
           clear(symbols_call);
         end if;
@@ -1453,7 +1463,7 @@ package body ethernet_vc_pkg is
     procedure transmit(variable call : in symbols_call_t; variable transmitted : out boolean) is
       variable symbols : integer_array_t;
     begin
-      get_symbols(state.session, call, symbols);
+      get_symbols(state.session, vc, call, symbols);
       transmitted := length(symbols) > 0;
       drive(symbols);
       deallocate(symbols);
@@ -1768,7 +1778,7 @@ package body ethernet_vc_pkg is
 
       -- A frame, or the batches of a sequence until it is exhausted
       while symbols_call.method /= null loop
-        get_symbols(state.session, symbols_call, symbols);
+        get_symbols(state.session, vc, symbols_call, symbols);
         if length(symbols) = 0 or not state.sequence_active then
           clear(symbols_call);
         end if;

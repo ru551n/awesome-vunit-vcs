@@ -325,9 +325,8 @@ def test_family_contexts_are_used_alone() -> None:
 
 def test_included_code_never_shows_docs_markers(tmp_path: Path) -> None:
     """A region that contains a smaller region's markers is rendered without them."""
-    import importlib.util
-
-    from sphinx.directives.code import LiteralIncludeReader
+    code = pytest.importorskip("sphinx.directives.code", reason="the docs build dependencies are not installed")
+    LiteralIncludeReader = code.LiteralIncludeReader
 
     spec = importlib.util.spec_from_file_location("docs_conf", REPO / "docs" / "conf.py")
     assert spec is not None and spec.loader is not None

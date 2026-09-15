@@ -1,6 +1,8 @@
 VHDL API
 ========
 
+The same declarations are available as JSON in `api/vhdl.json <../api/vhdl.json>`__.
+
 .. contents:: Packages on this page
    :local:
    :depth: 1

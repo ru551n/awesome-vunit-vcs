@@ -26,6 +26,8 @@ ROOT = DOCS.parent
 sys_path.insert(0, str(ROOT / "src"))
 sys_path.insert(0, str(ROOT / "tools"))
 
+import api_index  # noqa: E402
+import llms_docs  # noqa: E402
 import vhdl_docs  # noqa: E402
 
 from awesome_vunit_vcs import __version__  # noqa: E402
@@ -53,6 +55,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinxext.opengraph",
     "myst_parser",
+    # Registers the markdown builder that tools/llms_docs.py uses for llms.txt
+    "sphinx_markdown_builder",
 ]
 
 source_suffix = {
@@ -118,6 +122,8 @@ html_title = "awesome-vunit-vcs"
 html_logo = "_static/logo.svg"
 html_favicon = "_static/favicon.svg"
 html_static_path = ["_static"]
+# api/*.json from tools/api_index.py, written when the build starts, served at the root of the version
+html_extra_path = ["_generated/extra"]
 
 html_theme_options = {
     "logo_only": True,
@@ -203,8 +209,31 @@ def _install_marker_filter() -> None:
     LiteralIncludeReader._drops_docs_markers = True  # type: ignore[attr-defined]
 
 
+# -- Files for AI agents --------------------------------------------------------
+
+
+def _generate_api_index(_app: Any, _config: Any) -> None:
+    """Write api/*.json before Sphinx checks that html_extra_path exists."""
+    if not environ.get(llms_docs.NESTED_BUILD):
+        api_index.generate(DOCS / "_generated" / "extra", base_url=html_baseurl)
+
+
+def _markdown_translator(app: Any) -> None:
+    if app.builder.name == "markdown":
+        llms_docs.install_translator(app)
+
+
+def _write_llms_files(app: Any, exception: Exception | None) -> None:
+    """Write llms.txt, llms-full.txt and a Markdown file per page next to the HTML."""
+    if exception is None and app.builder.format == "html" and not environ.get(llms_docs.NESTED_BUILD):
+        llms_docs.build(DOCS, Path(app.outdir), base_url=html_baseurl)
+
+
 def setup(app: Any) -> None:
     _install_marker_filter()
+    app.connect("config-inited", _generate_api_index)
+    app.connect("builder-inited", _markdown_translator)
+    app.connect("build-finished", _write_llms_files)
     # A generic object type for VHDL declarations: ".. vhdl::" targets, the
     # :vhdl: role and index entries, since Sphinx has no VHDL domain
     app.add_object_type("vhdl", "vhdl", indextemplate="pair: %s; VHDL")

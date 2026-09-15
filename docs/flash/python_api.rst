@@ -1,6 +1,8 @@
 Python API
 ==========
 
+The same API is available as JSON in `api/python.json <../api/python.json>`__.
+
 The public Python API of the flash family, grouped by topic. :doc:`python` shows how the pieces fit
 together.
 

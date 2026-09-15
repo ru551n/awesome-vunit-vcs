@@ -40,7 +40,7 @@ dependencies = [
 
 [project.optional-dependencies]
 scapy = ["scapy>=2.5"]
-test = ["pytest>=8", "hypothesis>=6.100"]
+test = ["pytest>=8", "hypothesis>=6.100", "jsonschema>=4.18"]
 # Independent reference implementation used only by the test suite
 reference = ["cocotbext-eth>=0.1.28"]
 dev = [

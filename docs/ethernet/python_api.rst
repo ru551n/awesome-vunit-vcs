@@ -1,6 +1,8 @@
 Python API
 ==========
 
+The same API is available as JSON in `api/python.json <../api/python.json>`__.
+
 The public Python API, grouped by topic. :doc:`python` and :doc:`python_simulation` show how to use it.
 
 Everything a test normally needs is importable from one module::

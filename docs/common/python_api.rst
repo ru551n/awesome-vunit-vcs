@@ -1,6 +1,8 @@
 Python API
 ==========
 
+The same API is available as JSON in `api/python.json <../api/python.json>`__.
+
 The Python API every family shares. :doc:`index` shows how to use it.
 
 Errors

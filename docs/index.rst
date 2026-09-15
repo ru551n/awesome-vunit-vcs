@@ -113,6 +113,15 @@ Components
 
       Calling your own Python code from VHDL, and the shared API.
 
+For AI agents
+-------------
+
+Agents and other tools can read the documentation as plain Markdown:
+`llms.txt <llms.txt>`__ lists every page and `llms-full.txt <llms-full.txt>`__ holds all of them. Every
+page also has a Markdown version: replace ``.html`` with ``.md``. `api/vhdl.json <api/vhdl.json>`__,
+`api/python.json <api/python.json>`__ and `api/examples.json <api/examples.json>`__ list every
+declaration, signature and cookbook example.
+
 .. toctree::
    :maxdepth: 2
    :caption: Getting started

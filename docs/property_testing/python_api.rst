@@ -1,6 +1,8 @@
 Python API
 ==========
 
+The same API is available as JSON in `api/python.json <../api/python.json>`__.
+
 :doc:`index` and :doc:`records` show how to use these modules.
 
 Property runner

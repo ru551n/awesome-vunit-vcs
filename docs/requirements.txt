@@ -5,5 +5,7 @@ sphinx-design>=0.6
 sphinx-sitemap>=2.6
 sphinxext-opengraph>=0.9
 myst-parser>=3.0
+# Markdown versions of the pages for llms.txt and llms-full.txt (tools/llms_docs.py)
+sphinx-markdown-builder>=0.6.11
 # Imported by the documented modules
 numpy>=1.24

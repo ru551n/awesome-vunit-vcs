@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/ru551n/awesome-vunit-vcs/actions/workflows/ci.yml/badge.svg)](https://github.com/ru551n/awesome-vunit-vcs/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/awesome-vunit-vcs/badge/?version=latest)](https://awesome-vunit-vcs.readthedocs.io/en/latest/)
-[![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
-[![Python 3.10–3.14](https://img.shields.io/badge/python-3.10%E2%80%933.14-blue)](pyproject.toml)
+[![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](https://github.com/ru551n/awesome-vunit-vcs/blob/main/LICENSE)
+[![Python 3.10–3.14](https://img.shields.io/badge/python-3.10%E2%80%933.14-blue)](https://github.com/ru551n/awesome-vunit-vcs/blob/main/pyproject.toml)
 [![Simulators: GHDL | NVC](https://img.shields.io/badge/simulators-GHDL%20%7C%20NVC-informational)](https://awesome-vunit-vcs.readthedocs.io/en/latest/)
-[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](#status)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](https://github.com/ru551n/awesome-vunit-vcs#status)
 
 **Verification components for [VUnit](https://vunit.github.io/) that feel like VUnit's own:
 Ethernet, QSPI flash, and property-based testing with Hypothesis inside the simulation.**
@@ -45,7 +45,7 @@ Every component is tested with GHDL and NVC in CI.
 
 ### Property-based testing, by example
 
-[`examples/property`](examples/property) has a small, runnable example for each common technique, many
+[`examples/property`](https://github.com/ru551n/awesome-vunit-vcs/tree/main/examples/property) has a small, runnable example for each common technique, many
 with a planted bug you can switch on to watch Hypothesis find and shrink it:
 
 - scalar, composite and stateful properties, and resource lifecycles with Hypothesis Bundles
@@ -81,7 +81,7 @@ covers optional extras and installing from a clone.
    with `VUNIT_SIMULATOR=nvc python examples/quickstart/run.py --output-path ../vunit_out`.
 2. **[Cookbook](https://awesome-vunit-vcs.readthedocs.io/en/latest/cookbook/index.html):**
    step-by-step recipes, from a first test to error injection, flash boot and property-based testing.
-3. **[`examples/`](examples):** complete, tested projects that the documentation is built from.
+3. **[`examples/`](https://github.com/ru551n/awesome-vunit-vcs/tree/main/examples):** complete, tested projects that the documentation is built from.
 
 Add the components to a VUnit run script with `vu.add_package("vunit-python-bridge", allow_setup=True)`
 and `vu.add_package("awesome-vunit-vcs")`, as the quick start shows.
@@ -98,13 +98,13 @@ Alpha: the APIs can still change before the first release. The
   documentation.
 - `api/vhdl.json`, `api/python.json` and `api/examples.json` on Read the Docs give exact signatures and
   map each cookbook task to its example.
-- [AGENTS.md](AGENTS.md) is for agents working on this repository.
+- [AGENTS.md](https://github.com/ru551n/awesome-vunit-vcs/blob/main/AGENTS.md) is for agents working on this repository.
 
 ## Contributing
 
-Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md), and [ARCHITECTURE.md](ARCHITECTURE.md)
+Contributions are welcome: see [CONTRIBUTING.md](https://github.com/ru551n/awesome-vunit-vcs/blob/main/CONTRIBUTING.md), and [ARCHITECTURE.md](https://github.com/ru551n/awesome-vunit-vcs/blob/main/ARCHITECTURE.md)
 for the design.
 
 ## License
 
-[Mozilla Public License 2.0](LICENSE)
+[Mozilla Public License 2.0](https://github.com/ru551n/awesome-vunit-vcs/blob/main/LICENSE)

@@ -58,26 +58,70 @@ Connect the pins
    * - ``m2s.sck``
      - in
      - ``std_ulogic``
-     - ``CLK``
+     - ``CLK``, SPI mode 0
    * - ``m2s.cs_n``
      - in
      - ``std_ulogic``
      - ``/CS``
    * - ``m2s.io.value``, ``m2s.io.enable``
      - in
-     - ``std_ulogic_vector(3 downto 0)`` each
+     - ``m2s.io`` is a :vhdl:`qspi_pkg.qspi_drive_t`: ``std_ulogic_vector(3 downto 0)`` each
      - ``IO0`` to ``IO3`` driven by the controller
    * - ``s2m.io.value``, ``s2m.io.enable``
      - out
-     - ``std_ulogic_vector(3 downto 0)`` each
+     - ``s2m.io`` is a :vhdl:`qspi_pkg.qspi_drive_t`: ``std_ulogic_vector(3 downto 0)`` each
      - ``IO0`` to ``IO3`` driven by the flash
 
+* ``value`` holds the level of each lane and ``enable`` whether that end drives it. Lane 0 is ``IO0``.
+* The bus is SPI mode 0: SCK is low when idle, the flash samples the controller's lanes on the rising
+  edge of SCK and changes its own after the falling edge.
+* No power-up delay is modelled. Load or preload the content, wait until the flash is idle with
+  ``wait_until_idle(net, as_sync(flash))``, then release your design's reset.
 * ``s2m`` has the initial value ``qspi_s2m_init``, no lane driven.
 * A single-lane phase uses ``IO0`` from the controller (MOSI) and ``IO1`` from the flash (MISO).
 * Dual and quad phases use ``IO1`` to ``IO0`` and ``IO3`` to ``IO0`` in both directions, with the most
   significant bit of a beat on the highest lane.
 * The flash releases its lanes ``t_shqz`` after CS rises and during dummy cycles.
 * The :term:`handle` is the only generic: ``flash : flash_t``.
+
+.. _flash-pin-level-design:
+
+Write your own pin-level design
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A design that drives the flash pins itself works the same way. This small reader sends READ (0x03) and
+address 0 on ``IO0``, one bit per SCK period, and takes the bytes that come back on ``IO1``:
+
+.. literalinclude:: ../../examples/flash/src/spi_boot_reader.vhd
+   :caption: examples/flash/src/spi_boot_reader.vhd
+   :language: vhdl
+   :start-after: -- docs-start: spi-boot-reader
+   :end-before: -- docs-end: spi-boot-reader
+
+The testbench gives it a flash with a protocol checker, so any pin timing it gets wrong is reported:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: rtl-handles
+   :end-before: -- docs-end: rtl-handles
+   :dedent:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: rtl-instances
+   :end-before: -- docs-end: rtl-instances
+   :dedent:
+
+The test preloads the bytes, waits until the flash is idle and releases the reset:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: rtl-boot-test
+   :end-before: -- docs-end: rtl-boot-test
+   :dedent:
 
 Create the flash
 ~~~~~~~~~~~~~~~~

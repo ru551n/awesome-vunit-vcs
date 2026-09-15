@@ -10,7 +10,8 @@ comes last, under *Going further*.
 Everything in this article is VHDL, in one testbench. The flash image is a data file, and no Python code
 of your own is needed. The design under test here is a small boot loader; to connect your own design,
 wire its QSPI pins to the flash's ``qspi_m2s_t`` and ``qspi_s2m_t`` records as
-:doc:`../flash/qspi_flash` shows under *Connect the pins*. The example project is ``examples/flash``:
+:doc:`../flash/qspi_flash` shows under *Connect the pins*, and see
+:ref:`flash-pin-level-design` for a design that drives the pins itself. The example project is ``examples/flash``:
 
 .. list-table::
    :header-rows: 1
@@ -25,6 +26,9 @@ wire its QSPI pins to the flash's ``qspi_m2s_t`` and ``qspi_s2m_t`` records as
    * - ``examples/flash/src/boot_reader.vhd``
      - VHDL
      - The design under test: a boot loader that copies the image into its RAM.
+   * - ``examples/flash/src/spi_boot_reader.vhd``
+     - VHDL
+     - A pin-level design that reads the flash with its own SPI logic.
    * - ``examples/flash/flash_boot_image.hex``
      - Intel HEX
      - The image the flash is loaded with.

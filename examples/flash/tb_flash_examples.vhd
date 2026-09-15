@@ -4,8 +4,9 @@
 --
 -- The flash examples of the cookbook. Three buses, each with a QSPI master in
 -- front of a flash: the design under test boots from boot_flash, the
--- testbench's own master talks to data_flash, and hasty_master keeps CS high
--- too briefly for the protocol checker of checked_flash.
+-- testbench's own master talks to data_flash, hasty_master keeps CS high
+-- too briefly for the protocol checker of checked_flash, and spi_boot_reader
+-- drives the pins of rtl_flash itself.
 
 -- docs-start: context
 library awesome_vunit_vcs;
@@ -51,6 +52,16 @@ architecture tb of tb_flash_examples is
   signal keep_wel_m2s : qspi_m2s_t := qspi_m2s_init;
   signal keep_wel_s2m : qspi_s2m_t := qspi_s2m_init;
   -- docs-end: keep-wel-handles
+
+  -- docs-start: rtl-handles
+  -- A flash for the pin-level design, which needs a clock of its own
+  constant rtl_flash : flash_t := new_flash(protocol_checker => new_qspi_protocol_checker);
+  signal clk : std_ulogic := '0';
+  signal rtl_rst_n, rtl_done : std_ulogic := '0';
+  signal rtl_m2s : qspi_m2s_t := qspi_m2s_init;
+  signal rtl_s2m : qspi_s2m_t := qspi_s2m_init;
+  signal rtl_data : std_ulogic_vector(0 to 8 * 4 - 1);
+  -- docs-end: rtl-handles
 begin
   main : process
     -- docs-start: variables
@@ -232,6 +243,15 @@ begin
         flash_check_content(net, data_flash, 16#004000#, x"A55A");
         wait_until_idle(net, as_sync(data_flash));
         -- docs-end: transfer
+
+      elsif run("test_boot_with_a_pin_level_design") then
+        -- docs-start: rtl-boot-test
+        flash_preload(net, rtl_flash, 0, x"DEADBEEF");
+        wait_until_idle(net, as_sync(rtl_flash));
+        rtl_rst_n <= '1';
+        wait until rtl_done = '1';
+        check_equal(rtl_data, std_ulogic_vector'(x"DEADBEEF"), "the bytes the design read");
+        -- docs-end: rtl-boot-test
       end if;
     end loop;
     test_runner_cleanup(runner);
@@ -276,4 +296,15 @@ begin
     generic map (flash => keep_wel_flash)
     port map (m2s => keep_wel_m2s, s2m => keep_wel_s2m);
   -- docs-end: keep-wel-instances
+
+  -- docs-start: rtl-instances
+  clk <= not clk after 5 ns;
+
+  rtl_flash_inst : entity awesome_vunit_vcs.flash
+    generic map (flash => rtl_flash)
+    port map (m2s => rtl_m2s, s2m => rtl_s2m);
+
+  spi_boot_reader_inst : entity work.spi_boot_reader
+    port map (clk => clk, rst_n => rtl_rst_n, m2s => rtl_m2s, s2m => rtl_s2m, data => rtl_data, done => rtl_done);
+  -- docs-end: rtl-instances
 end architecture;

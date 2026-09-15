@@ -32,8 +32,8 @@ In the session of a monitor, your code can use:
 * ``@vc.on_frame``, to call a function with every
   :class:`~awesome_vunit_vcs.ethernet.api.Frame` the monitor receives from then on;
 * ``vc.frames``, the most recent frames, and ``vc.statistics``;
-* ``vc.error(check, message)``, to report a counted check error. A subscriber in a monitor reports on
-  ``"ETH_SCOREBOARD"`` or ``"ETH_USER"``, the checks the monitor runs itself.
+* ``vc.error(check, message)``, to report a counted check error. A subscriber reports on ``"ETH_USER"``,
+  the check that counts only errors reported from Python.
 
 .. _python-monitors-in-simulation:
 
@@ -69,9 +69,10 @@ A subscriber reports problems in one of two ways:
 
    * - In the subscriber
      - Result in VUnit
-   * - ``vc.error("ETH_SCOREBOARD", message)``
-     - An error on the monitor's checker. ``get_check_count`` counts it, and ``set_check_enabled`` can
-       turn it off, so negative tests can count it.
+   * - ``vc.error("ETH_USER", message)``
+     - An error on the monitor's checker. ``get_check_count(net, monitor, eth_user, count)`` counts
+       it, and ``set_check_enabled(net, monitor, eth_user, false)`` turns off only the errors your
+       Python code reports. The scoreboard, ``ETH_SCOREBOARD``, is a separate check.
    * - An exception
      - A failure that stops the test. Use it for bugs in the subscriber itself.
 

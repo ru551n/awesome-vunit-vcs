@@ -45,7 +45,7 @@ Write arguments as VHDL values and combine them with ``&``. Your function receiv
    * - ``kwarg_text("note", msg)``
      - Any text, such as a message or a file name, that may contain quotes or backslashes
    * - ``kwarg_time("delay", 10 ns)``
-     - A simulation time; the function gets femtoseconds
+     - A simulation time; decode it with ``decode_time_fs()`` to get femtoseconds
 
 .. code-block:: vhdl
    :caption: Arguments for a packet function

@@ -26,7 +26,7 @@ frame_sizes: list[int] = []
 def record_frame_size(frame: Frame) -> None:
     frame_sizes.append(len(frame.data))
     if len(frame.data) > 1514:
-        vc.error("ETH_SCOREBOARD", f"frame {frame.index} is longer than this test sends")
+        vc.error("ETH_USER", f"frame {frame.index} is longer than this test sends")
 
 
 # docs-end: example

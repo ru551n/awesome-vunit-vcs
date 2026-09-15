@@ -114,7 +114,7 @@ begin
         -- docs-start: packet
         push_ethernet_packet(
           net, source, "cookbook_traffic:udp_to_dut",
-          kwarg("port", 1234) & kwarg("size", 64) & kwarg_text("label", "first frame")
+          kwarg("port", 1234) & kwarg("size", 64) & kwarg_text("label", "first frame") & kwarg_time("sent_at", now)
         );
         wait_until_idle;
         get_statistics(net, monitor, statistics);
@@ -192,7 +192,7 @@ begin
         push_ethernet_frame(net, source, frame);
         push_ethernet_frame(net, source, frame & (0 to 8 * 100 - 1 => '0'));
         wait_until_idle;
-        get_check_count(net, monitor, eth_scoreboard, count);
+        get_check_count(net, monitor, eth_user, count);
         check_equal(count, 1, "the subscriber reported the long frame");
         reset_log_count(get_logger(monitor), error);
         -- docs-end: python-subscriber-errors

@@ -14,7 +14,7 @@ vc: MonitorBackend = globals()["vc"]
 @vc.on_frame
 def check_frame_size(frame: Frame) -> None:
     if len(frame.data) > 100:
-        vc.error("ETH_SCOREBOARD", f"frame {frame.index} has {len(frame.data)} octets, more than 100")
+        vc.error("ETH_USER", f"frame {frame.index} has {len(frame.data)} octets, more than 100")
 
 
 # docs-end: subscriber

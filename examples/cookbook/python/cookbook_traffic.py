@@ -8,13 +8,14 @@
 from collections.abc import Iterator
 
 from awesome_vunit_vcs import ethernet as eth
-from awesome_vunit_vcs.common.vunit_bridge import decode_text
+from awesome_vunit_vcs.common.vunit_bridge import decode_text, decode_time_fs
 from awesome_vunit_vcs.ethernet import traffic
 
 
-def udp_to_dut(port: int, size: int, label: str | list[int] = "") -> eth.Frame:
-    """An IPv4 frame whose payload is the port number, ``size`` zero octets and the label."""
-    payload = port.to_bytes(2, "big") + bytes(size) + decode_text(label).encode()
+def udp_to_dut(port: int, size: int, label: str | list[int] = "", sent_at: int | list[int] = 0) -> eth.Frame:
+    """An IPv4 frame: the port number, ``size`` zero octets, the label and the send time in ps."""
+    sent_at_ps = decode_time_fs(sent_at) // 1000
+    payload = port.to_bytes(2, "big") + bytes(size) + decode_text(label).encode() + sent_at_ps.to_bytes(8, "big")
     return eth.Frame.from_payload(payload, ethertype=0x0800)
 
 

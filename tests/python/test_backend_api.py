@@ -70,4 +70,4 @@ def test_the_simulation_subscriber_example() -> None:
     assert namespace["frame_sizes"] == [60, 200, 1596]
     reports = decode_reports(backend.take_reports())
     assert [report.severity for report in reports] == [Severity.ERROR]
-    assert backend.check_count("ETH_SCOREBOARD") == 1
+    assert backend.check_count("ETH_USER") == 1

@@ -2,7 +2,7 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this file,
 -- You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Occupancy targeting on a depth-4 FIFO: scoring the highest occupancy of each
+-- Occupancy targeting on a depth-8 FIFO: scoring the highest occupancy of each
 -- example steers Hypothesis towards a full FIFO, where a push and a pop at once
 -- loses a word when inject_bug is set. The strategy is python/fifo_strategies.py.
 
@@ -20,14 +20,14 @@ end entity;
 architecture tb of tb_property_fifo is
   signal clk, rst, push, pop, full, empty : std_ulogic := '0';
   signal data_in, data_out : std_ulogic_vector(7 downto 0) := (others => '0');
-  signal count : std_ulogic_vector(2 downto 0);
+  signal count : std_ulogic_vector(3 downto 0);
 begin
   clk <= not clk after 5 ns;
 
   main : process
     variable prop : property_t;
     -- The reference model: the words in the FIFO, oldest first
-    variable model : integer_vector(0 to 3);
+    variable model : integer_vector(0 to 7);
     variable fill, max_fill : natural;
     variable push_now, pop_now, passed : boolean;
   begin
@@ -59,10 +59,10 @@ begin
             wait for 1 ns;
             -- A pop needs a word, a push needs room, which a pop in the same cycle makes
             if pop_now and fill > 0 then
-              model(0 to 2) := model(1 to 3);
+              model(0 to 6) := model(1 to 7);
               fill := fill - 1;
             end if;
-            if push_now and fill < 4 then
+            if push_now and fill < 8 then
               model(fill) := idx;
               fill := fill + 1;
             end if;
@@ -79,7 +79,7 @@ begin
     test_runner_cleanup(runner);
   end process;
 
-  dut_inst : entity work.fifo4
+  dut_inst : entity work.fifo8
     generic map (inject_bug => inject_bug)
     port map (
       clk => clk, rst => rst, push => push, pop => pop, data_in => data_in, data_out => data_out,

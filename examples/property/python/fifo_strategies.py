@@ -9,8 +9,8 @@ from hypothesis import strategies as st
 
 # docs-start: operations
 def fifo_operations() -> st.SearchStrategy[list[str]]:
-    """Up to 24 clock cycles, each a push, a pop or both at once"""
-    return st.lists(st.sampled_from(["push", "pop", "push_pop"]), max_size=24)
+    """Up to 32 clock cycles, each a push, a pop or both at once"""
+    return st.lists(st.sampled_from(["push", "pop", "push_pop"]), max_size=32)
 
 
 # docs-end: operations

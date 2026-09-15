@@ -70,6 +70,10 @@ def pair():
     return strategy_for(Pair)
 
 
+def payload_length():
+    return st.integers(46, 100)
+
+
 def frame_data():
     return st.binary(min_size=60, max_size=128)
 

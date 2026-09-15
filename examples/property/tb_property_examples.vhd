@@ -87,6 +87,7 @@ begin
           apply(get_integer(prop), get_integer(prop), subtract_value => '1');
           report_example(prop, passed => to_integer(unsigned(y)) = 0);
         end loop;
+        check_property(prop);
         -- docs-end: scalar
 
       elsif run("test_composite") then

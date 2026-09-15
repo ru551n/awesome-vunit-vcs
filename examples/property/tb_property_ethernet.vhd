@@ -38,11 +38,27 @@ begin
     -- Room for the longest frame the strategy draws
     variable received : std_ulogic_vector(0 to 8 * 128 - 1);
     variable length : natural;
+    -- Destination, source and EtherType: the 14 octets before the payload
+    constant header : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5";
     -- docs-end: frame-variables
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
-      if run("test_gmii_frames") then
+      if run("test_gmii_payload_lengths") then
+        -- docs-start: payload-lengths
+        prop := new_property("strategies:payload_length", seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
+        while next_example(prop) loop
+          -- A frame of the header and a payload of the drawn length
+          push_ethernet_frame(net, source, header & std_ulogic_vector'(1 to 8 * get_integer(prop) => '1'));
+          -- The received frame data and its length in octets
+          pop_ethernet_frame(net, monitor, received, length);
+          report_example(prop, passed => length = header'length / 8 + get_integer(prop));
+        end loop;
+        check_property(prop);
+        -- docs-end: payload-lengths
+
+      elsif run("test_gmii_frames") then
         -- docs-start: ethernet
         prop := new_property("strategies:frame_data", seed => get_seed(runner_cfg),
           output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");

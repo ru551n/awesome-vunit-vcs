@@ -118,7 +118,7 @@ Property-based testing
   property and a lockup. The package does not depend on Hypothesis.
 * More examples in ``examples/property``: differential and round-trip testing with hardware-aware bit
   patterns, a handle-table resource lifecycle with a Bundle, an interleaved-event arbiter race, a
-  recursive grammar-based expression evaluator, fault injection and invalid-input mutation, a
+  recursive grammar-based expression evaluator, occupancy targeting on a FIFO, fault injection and invalid-input mutation, a
   clock-domain-crossing synchronizer, and a paired-fork check that TVALID does not wait for TREADY. Turn
   their planted bugs on with ``AWESOME_VUNIT_VCS_EXAMPLE_BUGS=1``.
 * Stateful properties: a strategy function may return a ``RuleBasedStateMachine`` subclass whose

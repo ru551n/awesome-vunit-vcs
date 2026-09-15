@@ -69,8 +69,8 @@ Coverage matrix
      - ``tb_property_examples`` (``test_score``)
      - :ref:`Steer the search with scores <property-scores>`
    * - Occupancy targeting (FIFO)
-     - tb_property_fifo (coming)
-     - —
+     - ``tb_property_fifo`` (``test_occupancy_targeting``)
+     - :ref:`Occupancy targeting <property-occupancy>`
    * - Swarm testing
      - ``tb_property_examples`` (``test_swarm``)
      - :ref:`Test random feature subsets <property-swarm>`
@@ -470,6 +470,52 @@ Python (strategy module):
    :start-after: # docs-start: interesting_unsigned
    :end-before: # docs-end: interesting_unsigned
 
+.. _property-occupancy:
+
+Occupancy targeting
+-------------------
+
+Use when a bug hides in a deep internal state, such as a full FIFO or a nearly exhausted pool, that
+random stimulus seldom reaches, and the testbench can measure how close an example got.
+
+**What Hypothesis generates.** Up to 32 clock cycles, each a ``push``, a ``pop`` or a ``push_pop``.
+
+**The property.** Every pop returns the oldest word, and ``count`` matches a reference model kept in the
+testbench. The testbench scores each example with the highest occupancy it reached, and Hypothesis
+favours operation lists that fill the FIFO further.
+
+**Why not plain random stimulus.** Filling a depth-8 FIFO needs many more pushes than pops in a row;
+random lists rarely get there. With the score removed, the planted bug was found in 2 of 8 runs; with
+it, in 8 of 8.
+
+**What it shrinks.** The number of cycles and the operation of each one.
+
+**Bugs it finds.** Corner cases at a full or empty boundary: a lost word, a wrong count or a stuck flag.
+
+VHDL (testbench):
+
+.. literalinclude:: ../../examples/property/tb_property_fifo.vhd
+   :caption: examples/property/tb_property_fifo.vhd
+   :language: vhdl
+   :start-after: -- docs-start: fifo
+   :end-before: -- docs-end: fifo
+   :dedent: 8
+
+Python (strategy module):
+
+.. literalinclude:: ../../examples/property/python/fifo_strategies.py
+   :caption: examples/property/python/fifo_strategies.py
+   :language: python
+   :start-after: # docs-start: operations
+   :end-before: # docs-end: operations
+
+``inject_bug`` makes ``fifo8`` drop the pushed word on a push and pop at once while full. The
+counterexample it shrinks to:
+
+.. code-block:: text
+
+   ['push', 'push', 'push', 'push', 'push', 'push', 'push', 'push', 'push_pop']
+
 .. _property-invalid-mutation:
 
 Invalid-input mutation
@@ -533,8 +579,6 @@ fork, both copies have TVALID low; copy A then sees TREADY held low for that one
 it high, and both are low again after. If the two copies' TVALID histories ever diverge after that, the
 divergence can only be caused by that one TREADY cycle, so TVALID depended on TREADY. This is a check of
 one behaviour on this example source, not a proof of AXI4-Stream compliance.
-
-**When to use.** As above.
 
 **What Hypothesis generates.** How many idle cycles precede the load, which case the fork falls in
 (``before_load`` or ``pending_window``), the fork cycle itself, and how many cycles to watch afterwards.

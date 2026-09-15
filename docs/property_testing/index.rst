@@ -30,7 +30,7 @@ test cases of ``tb_property_examples.vhd``, which shares an ALU and a register b
      - Stateful properties, Ethernet frames, lockups, scores, metamorphic, timing and swarm testing
    * - :doc:`techniques`
      - A coverage matrix of testing techniques, and examples for the ones not shown elsewhere: differential
-       and round-trip testing, resource lifecycles, event interleaving, recursive grammars, fault
+       and round-trip testing, resource lifecycles, event interleaving, recursive grammars, occupancy targeting, fault
        injection, invalid-input mutation, CDC and AXI4-Stream TREADY sensitivity
    * - :doc:`records`
      - Sharing records between Python and VHDL, generated from dataclasses

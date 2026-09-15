@@ -1,6 +1,10 @@
 VHDL API
 ========
 
+.. contents:: Packages on this page
+   :local:
+   :depth: 1
+
 The reference of every VHDL package, context and entity of the flash family, generated from the doc
 comments of the sources when the documentation is built, so it always matches the code. The pages of
 the components explain how the pieces fit together; this part is for looking things up.

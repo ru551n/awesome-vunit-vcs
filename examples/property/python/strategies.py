@@ -12,9 +12,8 @@ from hypothesis.stateful import RuleBasedStateMachine, rule
 from awesome_vunit_vcs.common.property import pin, step
 from awesome_vunit_vcs.records import strategy_for
 
-# docs-end: imports
-
 BYTE = st.integers(0, 255)
+# docs-end: imports
 
 
 def scalar():

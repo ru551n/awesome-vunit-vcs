@@ -184,7 +184,9 @@ Step 7: check the statistics (VHDL)
 -----------------------------------
 
 At the end of a test we often want totals: how many frames, how many were good, how many octets. The
-monitor keeps count and can write a summary to the log:
+monitor keeps count and can write a summary to the log. ``get_statistics`` fills an
+:vhdl:`ethernet_pkg.ethernet_statistics_t` record, whose fields, such as ``good_frames`` and
+``bad_frames``, :doc:`../ethernet/statistics` lists:
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
    :caption: examples/cookbook/tb_cookbook.vhd

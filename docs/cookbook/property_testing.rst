@@ -104,6 +104,36 @@ failing one. Run it like any other VUnit test:
 
 Keep examples independent. If your design has state, reset it at the start of each example.
 
+When a property fails
+~~~~~~~~~~~~~~~~~~~~~
+
+Say the design is wrong for values of 200 and up. Hypothesis finds a failing value, shrinks it to the
+smallest one that still fails, and ``check_property`` reports that one as an error:
+
+.. code-block:: console
+   :caption: Terminal
+
+   $ VUNIT_SIMULATOR=nvc python run.py -v
+   Seed for lib.tb_fail.all: 33341be35c1f9e05
+   0 fs - awesome_vunit_vcs:property:1 - ERROR - Property failed after 20 examples. Minimal counterexample (wrong behavior): 200
+   fail (P=0 S=0 F=1 T=1) lib.tb_fail.all (0.4 s)
+
+The value after ``Minimal counterexample`` is what your design got wrong. To debug it:
+
+#. **Rerun with the same seed.** ``python run.py --seed 33341be35c1f9e05`` runs the same examples again.
+#. **Look at the saved failure.** The smallest failing example is saved under
+   ``<output-path>/test_output/property_failures/`` and tried first on the next run with the same
+   ``--output-path``, so a fix is checked against it straight away.
+#. **Look at the journal.** Every example is written to ``property_journal_<name>.jsonl`` in the test's
+   output directory before it runs, so you know the input even when the simulation crashes or hits
+   the watchdog.
+#. **Keep it as a regression test.** Once fixed, ``@pin(200)`` on the strategy function tries the value
+   first on every run.
+
+To assert that a property *fails*, for example to prove a checker catches a planted bug, read the
+result with ``get_outcome`` instead of calling ``check_property``. :doc:`../property_testing/reproducing`
+has that pattern and everything else about seeds, saved failures, pins and profiles.
+
 Step 3: read structured examples
 --------------------------------
 
@@ -244,7 +274,9 @@ returns the result to the model:
    :end-before: -- docs-end: stateful
    :dedent:
 
-Every sequence begins with the ``"start"`` rule, where the testbench resets the design. The register
+Every sequence begins with the ``"start"`` rule, where the testbench resets the design. Call
+``report_step`` after every step, ``"start"`` included, or the model waits forever; for a rule that
+returns nothing, such as ``"start"`` or a write, report 0, and the model ignores the value. The register
 bank in this example has a planted bug: it loses writes to address 5. Hypothesis finds it and shrinks
 the failure to two steps, ``write(address=5, data=1); read(address=5)``. Because the example expects
 that failure, it checks the counterexample instead of calling ``check_property``; see

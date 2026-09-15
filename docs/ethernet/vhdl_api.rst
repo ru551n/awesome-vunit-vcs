@@ -1,6 +1,10 @@
 VHDL API
 ========
 
+.. contents:: Packages on this page
+   :local:
+   :depth: 1
+
 Every VHDL package, context and entity of the Ethernet family. The pages of this section show how to
 use them; come here to look up a parameter or a procedure.
 

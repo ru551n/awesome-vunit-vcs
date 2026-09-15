@@ -12,6 +12,17 @@ shrink it.
    python examples/property/run.py --output-path out/property
    AWESOME_VUNIT_VCS_EXAMPLE_BUGS=1 python examples/property/run.py --output-path out/property
 
+Each of those benches has an ``inject_bug`` generic, false by default. The run script sets it on the
+benches of ``lib``, the library it added the testbenches to (Python):
+
+.. literalinclude:: ../../examples/property/run.py
+   :caption: examples/property/run.py
+   :language: python
+   :start-after: # docs-start: inject-bug
+   :end-before: # docs-end: inject-bug
+
+Do the same in your own run script to keep a known bug switchable in a testbench.
+
 .. include:: ../_includes/vunit_names.inc
 
 The snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`,
@@ -321,7 +332,16 @@ timing counterexamples shrink to a failing alignment, not necessarily the smalle
 
 **Bugs it finds.** CDC control-logic bugs: lost or merged events crossing a clock domain.
 
-VHDL (testbench):
+VHDL (testbench), one clock generator per domain, with the period and phase each example draws:
+
+.. literalinclude:: ../../examples/property/tb_property_cdc.vhd
+   :caption: examples/property/tb_property_cdc.vhd
+   :language: vhdl
+   :start-after: -- docs-start: cdc-clocks
+   :end-before: -- docs-end: cdc-clocks
+   :dedent: 2
+
+VHDL (testbench), the property loop with the reset sequence:
 
 .. literalinclude:: ../../examples/property/tb_property_cdc.vhd
    :caption: examples/property/tb_property_cdc.vhd
@@ -465,8 +485,9 @@ earlier branches, so the simplest patterns — few or one bit set — come first
 **Bugs it finds.** Boundary and single-bit bugs: an MSB dropped, a carry mishandled, a mask off by one
 bit.
 
-``bit_patterns.py`` is part of the example, not of the package: copy it into the ``python/`` directory
-of your own testbench and import it from your strategy module, as ``bits_strategies.py`` does.
+``bit_patterns.py`` is part of the example, not of the package: copy the whole file into the ``python/``
+directory of your own testbench, since ``interesting_unsigned`` uses the other strategies in it, and import
+it from your strategy module, as ``bits_strategies.py`` does.
 
 Python (strategy module):
 
@@ -585,8 +606,8 @@ any source, sink or pipeline stage that claims a streaming handshake.
 
 A black-box AXI4-Stream interface cannot tell "no data" from "data waiting illegally for TREADY" just by
 watching TVALID and TREADY on one run. ``test_tready_fork`` runs two identical copies of the same
-source, ``axis_word_source``, side by side with the same clock, reset, load and data. At one cycle, the
-fork, both copies have TVALID low; copy A then sees TREADY held low for that one cycle while copy B sees
+source, ``axis_word_source``, side by side with the same clock, reset, load and data. At the fork cycle
+both copies have TVALID low; copy A then sees TREADY held low for that one cycle while copy B sees
 it high, and both are low again after. If the two copies' TVALID histories ever diverge after that, the
 divergence can only be caused by that one TREADY cycle, so TVALID depended on TREADY. This is a check of
 one behaviour on this example source, not a proof of AXI4-Stream compliance.

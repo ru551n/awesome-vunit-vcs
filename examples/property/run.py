@@ -43,6 +43,7 @@ lib.add_source_files(ROOT / "src" / "*.vhd")
 lib.add_source_files(ROOT / "generated" / "*.vhd")
 lib.add_source_files(ROOT / "*.vhd")
 
+# docs-start: inject-bug
 # Some examples have a deliberate bug behind an inject_bug generic, off by default. Set
 # AWESOME_VUNIT_VCS_EXAMPLE_BUGS=1 to turn it on and watch Hypothesis find and shrink it.
 BUG_BENCHES = [
@@ -59,6 +60,7 @@ if os.environ.get("AWESOME_VUNIT_VCS_EXAMPLE_BUGS") == "1":
     for test_bench in lib.get_test_benches():
         if test_bench.name in BUG_BENCHES:
             test_bench.set_generic("inject_bug", True)
+# docs-end: inject-bug
 
 if __name__ == "__main__":
     vu.main()

@@ -31,16 +31,19 @@ begin
   clk <= not clk after 4 ns;
 
   main : process
+    -- docs-start: frame-variables
     variable prop : property_t;
+    -- Room for the longest frame the strategy draws
     variable received : std_ulogic_vector(0 to 8 * 128 - 1);
     variable length : natural;
+    -- docs-end: frame-variables
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
       if run("test_gmii_frames") then
         -- docs-start: ethernet
         prop := new_property("strategies:frame_data", seed => get_seed(runner_cfg),
-          search_path => tb_path(runner_cfg) & "python");
+          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
         while next_example(prop) loop
           push_ethernet_frame(net, source, get_unsigned(prop, "", 8 * get_length(prop)));
           pop_ethernet_frame(net, monitor, received, length);

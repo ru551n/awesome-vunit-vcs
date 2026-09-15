@@ -116,15 +116,21 @@ smallest one that still fails, and ``check_property`` reports that one as an err
 
    $ VUNIT_SIMULATOR=nvc python run.py -v
    Seed for lib.tb_fail.all: 33341be35c1f9e05
-   0 fs - awesome_vunit_vcs:property:1 - ERROR - Property failed after 20 examples. Minimal counterexample (wrong behavior): 200
+   0 fs - tb_fail:sum - ERROR - Property failed after 20 examples. Minimal counterexample (wrong behavior): 200. Saved failure: <output-path>/test_output/property_failures/lib.tb_fail.all_<hash>.tb_fail_sum.txt. Journal: <output-path>/test_output/lib.tb_fail.all_<hash>/property_journal_tb_fail_sum.jsonl
    fail (P=0 S=0 F=1 T=1) lib.tb_fail.all (0.4 s)
+
+The message names the files it mentions below. This property was created with
+``id => get_id("tb_fail:sum")``, which gives it a readable name in the log and in those file names;
+without an ``id`` they use ``awesome_vunit_vcs:property:<n>``.
 
 The value after ``Minimal counterexample`` is what your design got wrong. To debug it:
 
 #. **Rerun with the same seed.** ``python run.py --seed 33341be35c1f9e05`` runs the same examples again.
-#. **Look at the saved failure.** The smallest failing example is saved under
-   ``<output-path>/test_output/property_failures/`` and tried first on the next run with the same
-   ``--output-path``, so a fix is checked against it straight away.
+#. **Look at the saved failure.** The smallest failing example is saved in
+   ``<output-path>/test_output/property_failures/<test>.<property name>.txt``, one example per line as
+   Python writes it (``200`` here). The next run with the same ``--output-path`` tries it first and
+   stops at that example if it still fails, so a fix is checked against it straight away. To repeat the
+   whole search instead, rerun with the seed and a fresh ``--output-path``.
 #. **Look at the journal.** Every example is written to ``property_journal_<name>.jsonl`` in the test's
    output directory before it runs, so you know the input even when the simulation crashes or hits
    the watchdog.
@@ -189,7 +195,17 @@ Properties and the Ethernet components fit together. **In Python**, generate fra
    :pyobject: frame_data
 
 **In VHDL**, each example goes through a :term:`source` and comes back from a :term:`monitor`, and the
-property is that it comes back unchanged:
+property is that it comes back unchanged. The process declares the property and room for the frame it
+receives:
+
+.. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
+   :caption: examples/property/tb_property_ethernet.vhd
+   :language: vhdl
+   :start-after: -- docs-start: frame-variables
+   :end-before: -- docs-end: frame-variables
+   :dedent:
+
+The test sends each drawn frame and pops it at the other end:
 
 .. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
    :caption: examples/property/tb_property_ethernet.vhd

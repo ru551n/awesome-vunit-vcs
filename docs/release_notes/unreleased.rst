@@ -94,6 +94,10 @@ Property-based testing
 * An exception in a strategy function, a packet function or a sequence generator is logged with the
   function and the line in your code first, followed by the traceback lines in your code.
 * The property journal records the verdict of each example after its ``example`` line.
+* A property's failure message names its saved-failure file and its journal.
+* ``max_examples`` of ``new_property`` defaults to 0, the profile's budget: 100 examples, or 1000 with
+  the ``long`` profile. An explicit ``max_examples`` is now used as given in every profile instead of
+  being multiplied by ten in ``long``.
 * ``property_pkg`` runs a Hypothesis property inside one simulation: ``new_property`` names a
   Python function returning a strategy, ``next_example`` and ``report_example`` loop over the
   examples, and ``check_property`` reports the minimal counterexample Hypothesis shrank to.

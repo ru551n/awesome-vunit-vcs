@@ -90,6 +90,8 @@ The handles go to the entities, which we instantiate next to the design under te
    :end-before: -- docs-end: instances
    :dedent:
 
+.. _first-test-structure:
+
 Step 4: the test structure (VHDL)
 ---------------------------------
 

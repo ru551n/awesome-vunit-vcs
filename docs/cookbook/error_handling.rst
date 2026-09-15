@@ -8,7 +8,9 @@ We start with a single bad FCS and build up from there.
 
 We continue with the GMII testbench from :doc:`first_test`: a :term:`source`, a register stage and a
 :term:`monitor` with the default :term:`protocol checker`. Everything in this article is VHDL, in the
-testbench file ``examples/cookbook/tb_cookbook.vhd``. No Python code is needed.
+testbench file ``examples/cookbook/tb_cookbook.vhd``. No Python code is needed. The snippets call
+``wait_until_idle;``, the small helper from :ref:`step 4 of the first test <first-test-structure>` that
+waits for the source and the monitor.
 
 Step 1: send a frame with a bad FCS
 -----------------------------------

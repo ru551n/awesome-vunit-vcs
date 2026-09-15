@@ -8,7 +8,9 @@ checking what was written and whether the pin timing is right. Sending our own c
 comes last, under *Going further*.
 
 Everything in this article is VHDL, in one testbench. The flash image is a data file, and no Python code
-of your own is needed. The example project is ``examples/flash``:
+of your own is needed. The design under test here is a small boot loader; to connect your own design,
+wire its QSPI pins to the flash's ``qspi_m2s_t`` and ``qspi_s2m_t`` records as
+:doc:`../flash/qspi_flash` shows under *Connect the pins*. The example project is ``examples/flash``:
 
 .. list-table::
    :header-rows: 1
@@ -104,7 +106,11 @@ The first test loads the image, releases the design's reset and waits for the bo
 Let's follow it:
 
 #. ``flash_load_image`` puts the image into the flash before the design leaves reset. It reads Intel HEX,
-   S-record, raw binary and JSON files, and picks the format from the file extension.
+   S-record, raw binary and JSON files, and picks the format from the file extension. For a few bytes,
+   ``flash_preload(net, flash, address, x"...")`` writes them directly.
+#. Loading, like every flash procedure that doesn't return a value, is a message to the flash.
+   ``wait_until_idle(net, as_sync(boot_flash))`` waits until it is done, so the design never reads a
+   flash that is still being loaded.
 #. The design reads a length header and then the image, and raises ``boot_done``.
 #. ``flash_check_content`` compares the flash content with what the design copied into its RAM.
 
@@ -201,6 +207,15 @@ A negative test sends two commands and counts the violation:
 Violations are reported by the protocol checker, named ``<flash id>:protocol_checker``; count them on its
 logger. ``get_check_count`` and ``set_check_enabled`` take the flash and pass on to its protocol checker,
 so you don't need to look it up. Without a protocol checker, a flash doesn't check timing at all.
+
+When a rule doesn't apply to your design, switch it off for a part of the test and on again afterwards:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: switch-rule
+   :end-before: -- docs-end: switch-rule
+   :dedent:
 
 Step 6: reset between scenarios (VHDL)
 --------------------------------------

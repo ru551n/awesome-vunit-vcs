@@ -65,6 +65,8 @@ begin
       if run("test_boot_from_an_image") then
         -- docs-start: boot-test
         flash_load_image(net, boot_flash, tb_path(runner_cfg) & "flash_boot_image.hex");
+        -- Loading is a message to the flash; wait until it is done before the design reads
+        wait_until_idle(net, as_sync(boot_flash));
         rst_n <= '1';
         wait until boot_done = '1';
         -- What the design copied into its RAM is the image

@@ -120,7 +120,9 @@ the preamble, SFD and FCS in every case.
 ``label`` and ``sent_at`` show the two arguments that need decoding. **In the testbench**,
 ``kwarg_text`` sends text that may contain any character and ``kwarg_time`` a simulation time; **in the
 Python module**, ``decode_text`` turns the text back into a ``str`` and ``decode_time_fs`` the time into
-an integer number of femtoseconds. Both come with ``ethernet_context``, like ``arg`` and ``kwarg``. :ref:`passing-arguments` lists every kind of
+an integer number of femtoseconds. Their type hints also allow a ``str`` or an ``int`` so you can call
+the same function from a Python test; from VHDL they always get a list of integers. Both VHDL functions
+come with ``ethernet_context``, like ``arg`` and ``kwarg``. :ref:`passing-arguments` lists every kind of
 argument.
 
 Step 4: unit test the Python part

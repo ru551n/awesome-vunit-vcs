@@ -7,10 +7,12 @@ Pin known failures and set budgets
 * **Pins.** Decorate a strategy function with ``@pin(example, ...)`` from
   ``awesome_vunit_vcs.common.property`` to try those examples first on every run, like
   ``hypothesis.example``. Pin a counterexample once it is found, and it stays a regression test.
-* **Profiles.** ``AWESOME_VUNIT_VCS_PROPERTY_PROFILE=quick``, the default, runs ``max_examples``
-  examples; ``long`` runs up to ten times as many. Hypothesis stops earlier when a strategy has fewer
-  distinct examples than that, such as one byte. Pull request CI runs the quick profile and a nightly
-  workflow the long one.
+  Pinned examples run in addition to ``max_examples``: 100 examples and one pin run 101.
+* **Profiles.** A property without ``max_examples`` runs 100 examples with
+  ``AWESOME_VUNIT_VCS_PROPERTY_PROFILE=quick``, the default, and 1000 with ``long``. A property that
+  sets ``max_examples`` runs that many in every profile, so set it only where a property needs a fixed
+  budget. Hypothesis stops earlier when a strategy has fewer distinct examples, such as one byte. Pull
+  request CI runs the quick profile and a nightly workflow the long one.
 * **Saved failures in CI.** CI keeps ``property_failures/`` in the Actions cache between runs, so a
   failure one run found is tried first by the next.
 
@@ -86,8 +88,9 @@ Good to know
   vector in one call, and a generated record getter makes one call per scalar field.
 * Saved failures and pins are for strategies. A stateful property replays its failing sequence
   through its seed, not through a saved file.
-* For a stateful property, ``get_example_count`` counts steps, the ``"start"`` steps included, so it is
-  much larger than ``max_examples``.
+* For a stateful property, ``max_examples`` is the number of step sequences, and each sequence runs up
+  to 50 steps. ``get_example_count`` counts steps, the ``"start"`` steps included, so ``max_examples
+  => 20`` gives roughly 1000.
 * A path reaches fields by name only for dicts with string keys, dataclasses and named tuples.
 
 Related recipes

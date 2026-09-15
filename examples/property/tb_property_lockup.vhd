@@ -32,13 +32,13 @@ begin
     test_runner_setup(runner, runner_cfg);
     -- docs-start: lockup
     prop := new_property("strategies:byte_stream", seed => get_seed(runner_cfg),
-      search_path => tb_path(runner_cfg) & "python");
+      output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
     while next_example(prop) loop
       timed_out := false;
       for idx in 0 to get_length(prop) - 1 loop
         data <= std_ulogic_vector(to_unsigned(get_integer(prop, "(" & integer'image(idx) & ")"), 8));
         valid <= '1';
-        wait until rising_edge(clk) and ready = '1' for 20 ns;
+        wait until rising_edge(clk) and ready = '1' for example_budget(10 ns, 10 ns, 1);
         valid <= '0';
         timed_out := ready /= '1';
         exit when timed_out;

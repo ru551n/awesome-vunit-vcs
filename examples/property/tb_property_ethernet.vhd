@@ -74,7 +74,7 @@ begin
       elsif run("test_axis_backpressure") then
         -- docs-start: axis-backpressure
         prop := new_property("strategies:backpressure", seed => get_seed(runner_cfg),
-          search_path => tb_path(runner_cfg) & "python");
+          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
         while next_example(prop) loop
           set_ready_pattern(net, axis_sink, get_integer(prop, "ready_high_percent"), get_integer(prop, "seed"));
           push_ethernet_frame(net, axis_source, get_unsigned(prop, "frame", 8 * get_length(prop, "frame")));

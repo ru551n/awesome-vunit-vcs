@@ -235,8 +235,8 @@ begin
         -- The strategy function "broken" raises. That is one failure on the logger given to
         -- new_property, and the property ends with the outcome "error".
         disable_stop(get_logger("tb_property_examples:broken"), failure);
-        prop := new_property("strategies:broken", search_path => tb_path(runner_cfg) & "python",
-          logger => get_logger("tb_property_examples:broken"));
+        prop := new_property("strategies:broken", output_path => output_path(runner_cfg),
+          search_path => tb_path(runner_cfg) & "python", logger => get_logger("tb_property_examples:broken"));
         while next_example(prop) loop
           report_example(prop, passed => true);
         end loop;

@@ -107,6 +107,34 @@ def test_passing_property_passes(strategies: str) -> None:
     assert runner.summary().startswith("Property passed after")
 
 
+def test_hypothesis_storage_goes_to_the_output_path(strategies: str, tmp_path: Path) -> None:
+    # A fresh process: Hypothesis writes its constants cache only once per process.
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    out = tmp_path / "out"
+    script = textwrap.dedent(
+        f"""
+        from hypothesis import configuration
+        from awesome_vunit_vcs.common.property import PropertyRunner
+
+        before = getattr(configuration, "__hypothesis_home_directory")
+        runner = PropertyRunner(
+            "property_strategies_for_tests:composite",
+            max_examples=20,
+            search_path={strategies!r},
+            output_path={str(out)!r},
+        )
+        while runner.next():
+            runner.report(passed=True)
+        assert runner.outcome == "passed", runner.outcome
+        assert getattr(configuration, "__hypothesis_home_directory") == before
+        """
+    )
+    subprocess.run([sys.executable, "-c", script], cwd=cwd, check=True)
+    assert not (cwd / ".hypothesis").exists()
+    assert (out / ".hypothesis").is_dir()
+
+
 def test_failure_shrinks_to_minimal_counterexample(strategies: str) -> None:
     runner = PropertyRunner(
         "property_strategies_for_tests:payloads", max_examples=300, seed="s", search_path=strategies

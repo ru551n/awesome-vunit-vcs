@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import contextlib
 import dataclasses
 import enum
 import hashlib
@@ -321,7 +322,8 @@ class PropertyRunner:
 
             _driver.runner = self
             try:
-                test()
+                with _hypothesis_storage(output_path):
+                    test()
             except PropertyAborted:
                 self._finish("aborted", "")
             except Flaky as exc:
@@ -708,6 +710,32 @@ def _phases(hypothesis: Any, phases: str) -> Any:
     except KeyError as exc:
         names = ", ".join(phase.name for phase in hypothesis.Phase)
         raise PropertyError(f"Unknown Hypothesis phase {exc.args[0]!r}; the phases are {names}") from None
+
+
+_HOME_ATTRIBUTE = "__hypothesis_home_directory"
+
+
+@contextlib.contextmanager
+def _hypothesis_storage(output_path: str) -> Any:
+    """
+    Keep Hypothesis's storage (its constants cache and temporary files) in the test output path.
+
+    Hypothesis stores those in ``.hypothesis`` in the current working directory unless
+    ``hypothesis.configuration.set_hypothesis_home_dir`` names another directory
+    (hypothesis/configuration.py, ``storage_directory``). The previous directory is restored
+    afterwards, so Hypothesis runs outside the property keep their own storage.
+    """
+    if not output_path:
+        yield
+        return
+    from hypothesis import configuration
+
+    previous = getattr(configuration, _HOME_ATTRIBUTE, None)
+    configuration.set_hypothesis_home_dir(os.path.join(os.path.normpath(output_path), ".hypothesis"))
+    try:
+        yield
+    finally:
+        configuration.set_hypothesis_home_dir(previous)
 
 
 def _files(output_path: str, name: str) -> tuple[str, str]:

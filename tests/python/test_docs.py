@@ -12,7 +12,7 @@ import importlib.util
 import re
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -321,3 +321,36 @@ def test_family_contexts_are_used_alone() -> None:
         if _FAMILY_CONTEXT.search(text) and _INCLUDED_CONTEXT.search(text):
             offenders.append(str(path.relative_to(REPO)))
     assert not offenders, f"these repeat contexts a family context already includes: {offenders}"
+
+
+def test_included_code_never_shows_docs_markers(tmp_path: Path) -> None:
+    """A region that contains a smaller region's markers is rendered without them."""
+    import importlib.util
+
+    from sphinx.directives.code import LiteralIncludeReader
+
+    spec = importlib.util.spec_from_file_location("docs_conf", REPO / "docs" / "conf.py")
+    assert spec is not None and spec.loader is not None
+    conf = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(conf)
+    conf._install_marker_filter()
+    config = SimpleNamespace(source_encoding="utf-8")
+
+    source = tmp_path / "tb.vhd"
+    source.write_text(
+        "-- docs-start: outer\na <= b;\n-- docs-start: inner\nc <= d;\n  # docs-end: inner\n-- docs-end: outer\n"
+    )
+    options = {"start-after": "-- docs-start: outer", "end-before": "-- docs-end: outer"}
+    text, _ = LiteralIncludeReader(str(source), options, config).read()  # type: ignore[arg-type]
+    assert text == "a <= b;\nc <= d;\n"
+
+    leaks = []
+    for page, path, include_options in _literalincludes():
+        reader_options: dict[str, object] = dict(include_options)
+        if "dedent" in reader_options:
+            reader_options["dedent"] = int(include_options["dedent"]) if include_options["dedent"] else None
+        reader = LiteralIncludeReader(str(path), reader_options, config)  # type: ignore[arg-type]
+        included, _ = reader.read()
+        if re.search(r"docs-(start|end):", included):
+            leaks.append(f"{page.relative_to(REPO)}: {path.name}")
+    assert not leaks, f"Includes that show docs markers: {leaks}"

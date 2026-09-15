@@ -10,6 +10,7 @@ Build with: sphinx-build -W --keep-going -b html docs docs/_build
 
 from __future__ import annotations
 
+import re
 from os import environ
 from pathlib import Path
 from sys import path as sys_path
@@ -90,7 +91,7 @@ nitpick_ignore_regex = [
     # autodoc renders the aliases quoted where a module uses them as forward references
     (r"py:class", r"'awesome_vunit_vcs\.ethernet\.phy\.common\.Int(32|64)Array'"),
     # napoleon reads the first line of this constant's comment as its type
-    (r"py:class", r"The environment variable selecting the example budget"),
+    (r"py:class", r"The environment variable selecting the (default )?example budget"),
     # a decorator Hypothesis does not list in its inventory
     (r"py:func", r"hypothesis\.example"),
 ]
@@ -176,7 +177,34 @@ def _generate_vhdl_reference(_app: Any) -> None:
     )
 
 
+DOCS_MARKER = re.compile(r"^\s*(--|#)\s*docs-(start|end):")
+
+
+def drop_docs_markers(lines: list[str]) -> list[str]:
+    """Remove the docs-start and docs-end marker lines that fall inside an included region."""
+    return [line for line in lines if not DOCS_MARKER.match(line)]
+
+
+def _install_marker_filter() -> None:
+    # A literalinclude region can contain the markers of a smaller region, for
+    # example when a page includes a whole function that another page shows in
+    # parts. Readers should never see those comments, so they are dropped right
+    # after the start, end and pyobject selection.
+    from sphinx.directives.code import LiteralIncludeReader
+
+    if getattr(LiteralIncludeReader, "_drops_docs_markers", False):
+        return
+    dedent_filter = LiteralIncludeReader.dedent_filter
+
+    def dedent_without_markers(self: Any, lines: list[str], location: Any = None) -> list[str]:
+        return dedent_filter(self, drop_docs_markers(lines), location=location)
+
+    LiteralIncludeReader.dedent_filter = dedent_without_markers  # type: ignore[method-assign]
+    LiteralIncludeReader._drops_docs_markers = True  # type: ignore[attr-defined]
+
+
 def setup(app: Any) -> None:
+    _install_marker_filter()
     # A generic object type for VHDL declarations: ".. vhdl::" targets, the
     # :vhdl: role and index entries, since Sphinx has no VHDL domain
     app.add_object_type("vhdl", "vhdl", indextemplate="pair: %s; VHDL")

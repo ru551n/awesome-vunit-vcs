@@ -131,8 +131,9 @@ The value after ``Minimal counterexample`` is what your design got wrong. To deb
 
 #. **Rerun with the same seed.** ``python run.py --seed 33341be35c1f9e05`` runs the same examples again.
 #. **Look at the saved failure.** The smallest failing example is saved in
-   ``<output-path>/test_output/property_failures/<test>.<property name>.txt``, one example per line as
-   Python writes it (``200`` here). The next run with the same ``--output-path`` tries it first and
+   ``<output-path>/test_output/property_failures/``, in the file the message names:
+   ``lib.tb_fail.all_<hash>.tb_fail_sum.txt`` here, the test's output directory name and the property
+   id with ``:`` written as ``_``. It holds the example as Python writes it (``200`` here). The next run with the same ``--output-path`` tries it first and
    stops at that example if it still fails, so a fix is checked against it straight away. To repeat the
    whole search instead, rerun with the seed and a fresh ``--output-path``.
 #. **Look at the journal.** Every example is written to ``property_journal_<name>.jsonl`` in the test's
@@ -195,16 +196,15 @@ Paths can go deeper, such as ``"frames(2).payload"``.
 Step 4: send generated frames through the Ethernet components
 -------------------------------------------------------------
 
-Properties and the Ethernet components fit together. **In Python**, generate frame data:
+Properties and the Ethernet components fit together. Start with the smallest mixed property: Python
+draws only a payload length, and VHDL builds the frame. **In Python**:
 
 .. literalinclude:: ../../examples/property/python/strategies.py
    :caption: examples/property/python/strategies.py
    :language: python
-   :pyobject: frame_data
+   :pyobject: payload_length
 
-**In VHDL**, each example goes through a :term:`source` and comes back from a :term:`monitor`, and the
-property is that it comes back unchanged. One context clause is enough, because ``ethernet_context``
-includes the property package:
+**In VHDL**, one context clause is enough, because ``ethernet_context`` includes the property package:
 
 .. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
    :caption: examples/property/tb_property_ethernet.vhd
@@ -213,8 +213,8 @@ includes the property package:
    :end-before: -- docs-end: context
 
 The GMII source and monitor are created and instantiated as in
-:ref:`Your first Ethernet test, step 3 <first-test-handles>`. The process declares the property and room for the frame it
-receives:
+:ref:`Your first Ethernet test, step 3 <first-test-handles>`. The process declares the property, room
+for the frame it receives, and a 14-octet header:
 
 .. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
    :caption: examples/property/tb_property_ethernet.vhd
@@ -223,7 +223,28 @@ receives:
    :end-before: -- docs-end: frame-variables
    :dedent:
 
-The test sends each drawn frame and pops it at the other end:
+For each drawn length, the test sends the header and a payload of that length, pops the frame at the
+other end, and checks its length:
+
+.. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
+   :caption: examples/property/tb_property_ethernet.vhd
+   :language: vhdl
+   :start-after: -- docs-start: payload-lengths
+   :end-before: -- docs-end: payload-lengths
+   :dedent:
+
+``pop_ethernet_frame`` waits for the next frame and returns its :term:`frame data` and length in octets;
+the form with ``fcs_ok`` also tells whether the FCS was right (see :vhdl:`ethernet_pkg.pop_ethernet_frame`).
+
+Next, let Hypothesis draw the whole frame. **In Python**, generate frame data:
+
+.. literalinclude:: ../../examples/property/python/strategies.py
+   :caption: examples/property/python/strategies.py
+   :language: python
+   :pyobject: frame_data
+
+**In VHDL**, each example goes through a :term:`source` and comes back from a :term:`monitor`, and the
+property is that it comes back unchanged. The test sends each drawn frame and pops it at the other end:
 
 .. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
    :caption: examples/property/tb_property_ethernet.vhd

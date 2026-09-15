@@ -69,6 +69,13 @@ Create the components
 
 Every parameter has a default. Pass ``protocol_checker`` to a monitor to get the protocol checks.
 
+Some names in the examples on these pages come from VUnit, not from this package: ``net``,
+``as_sync`` and ``wait_until_idle`` from the `com library <https://vunit.github.io/com/user_guide.html>`_;
+``get_id``, ``disable_stop``, ``get_log_count`` and ``reset_log_count`` from the
+`logging library <https://vunit.github.io/logging/user_guide.html>`_; and ``integer_array_t`` from the
+`data types <https://vunit.github.io/data_types/user_guide.html>`_. ``ethernet_context`` makes them
+all visible.
+
 Send frames
 ~~~~~~~~~~~
 

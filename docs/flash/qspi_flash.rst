@@ -76,7 +76,11 @@ Connect the pins
 * The bus is SPI mode 0: SCK is low when idle, the flash samples the controller's lanes on the rising
   edge of SCK and changes its own after the falling edge.
 * No power-up delay is modelled. Load or preload the content, wait until the flash is idle with
-  ``wait_until_idle(net, as_sync(flash))``, then release your design's reset.
+  ``wait_until_idle(net, as_sync(flash))``, then release your design's reset. ``net``, ``as_sync`` and
+  ``wait_until_idle`` are VUnit's (`com library <https://vunit.github.io/com/user_guide.html>`_), as are
+  ``get_id``, ``disable_stop`` and ``get_log_count`` (`logging library
+  <https://vunit.github.io/logging/user_guide.html>`_) and ``integer_array_t`` (`data types
+  <https://vunit.github.io/data_types/user_guide.html>`_); ``flash_context`` makes them visible.
 * ``s2m`` has the initial value ``qspi_s2m_init``, no lane driven.
 * A single-lane phase uses ``IO0`` from the controller (MOSI) and ``IO1`` from the flash (MISO).
 * Dual and quad phases use ``IO1`` to ``IO0`` and ``IO3`` to ``IO0`` in both directions, with the most

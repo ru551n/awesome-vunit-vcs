@@ -82,10 +82,12 @@ repository root. VUnit picks the simulator from ``VUNIT_SIMULATOR``:
 .. code-block:: console
    :caption: Terminal
 
-   $ VUNIT_SIMULATOR=nvc python examples/cookbook/run.py
+   $ VUNIT_SIMULATOR=nvc python examples/cookbook/run.py --output-path ../vunit_out
 
 Add a test name pattern such as ``"*capture*"`` to run one test, ``-v`` to see its log, or ``--gui`` to
-open a waveform viewer.
+open a waveform viewer. Without ``--output-path``, VUnit writes its output to ``vunit_out`` in the
+directory you run from; pass a directory outside the checkout to keep it clean. The property example
+also regenerates ``examples/property/generated/`` each run; that directory is ignored by git.
 
 The examples
 ------------

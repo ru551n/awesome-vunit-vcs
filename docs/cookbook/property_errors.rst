@@ -111,7 +111,9 @@ data. **In Python**, draw the sink's ``tready`` pattern together with the frame:
    :dedent:
 
 A failure shrinks to the shortest frame and the simplest pattern that break the design.
-:doc:`beyond_gmii` shows how the AXI-Stream components are created.
+``axis_source``, ``axis_sink`` and ``axis_monitor`` are the AXI-Stream source, sink and monitor handles:
+:doc:`beyond_gmii` shows how they are created, and :doc:`../ethernet/axis_mac` describes the components
+and ``set_ready_pattern``.
 
 Step 6: keep a bug from coming back
 -----------------------------------

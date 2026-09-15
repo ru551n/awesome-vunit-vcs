@@ -36,13 +36,16 @@ Replay a failure
          testbench gave ``new_property``
      * - Its verdict, after ``report_example``
        - ``index``, the same number; ``verdict``: ``passed``, ``failed``, ``timed out`` or
-         ``did not recover``; ``message``, the message the testbench reported
+         ``did not recover``; ``message``, the message the testbench passed to ``report_example``, empty
+         when it passed none
 
   The last example without a verdict is the one that crashed or hung. ``get_seed(runner_cfg)`` derives
   the ``seed`` field from the seed VUnit printed, so the two look different: rerun with VUnit's printed
   seed, ``--seed <printed seed>``, not with the journal's.
-* **Replay.** The smallest failing example is saved as
-  ``<output-path>/test_output/property_failures/<test name>.<property name>.txt``, one line with the
+* **Replay.** The smallest failing example is saved in ``<output-path>/test_output/property_failures/``.
+  The file name is the test's output directory name (the test name and a hash), a dot, and the property
+  name with ``:`` written as ``_``, for example ``lib.tb_fail.all_<hash>.tb_fail_sum.txt`` for the id
+  ``tb_fail:sum``. The failure message prints the exact path. The file holds one line with the
   example as Python writes it, such as ``200`` or ``[64, 0, 0]``. The next run with the same
   ``--output-path`` tries it first. If it still fails, the property ends right there, after that one
   example, so you see at once whether a fix works. To repeat the whole search instead, rerun with the

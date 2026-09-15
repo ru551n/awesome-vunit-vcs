@@ -52,6 +52,9 @@ Replay a failure
   seed VUnit printed and a new ``--output-path``.
 * **Timeouts.** Hypothesis's deadline is disabled; the simulation-time budget of the testbench is the
   only timeout that matters.
+* **Hypothesis's own files.** With ``output_path``, Hypothesis keeps its working files in
+  ``.hypothesis`` inside the test output path too, so running a test leaves nothing in the directory
+  you run from.
 
 .. _expect-a-failure:
 

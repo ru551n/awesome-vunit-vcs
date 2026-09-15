@@ -2,17 +2,21 @@ Records from Python dataclasses
 ===============================
 
 Instead of reading field by field, describe the data once as frozen dataclasses. Bounds are markers
-in ``typing.Annotated``: ``Range(min, max)`` for integers, ``Length(max=..., min=...)`` for strings,
-binary values and lists, and ``Choices(...)`` for a fixed set of integers or strings.
-``strategy_for`` turns the dataclasses into a Hypothesis strategy and ``validate`` checks a value
-against the bounds.
+in ``typing.Annotated``: :class:`Range(min, max) <awesome_vunit_vcs.records.Range>` for integers,
+:class:`Length(max=..., min=...) <awesome_vunit_vcs.records.Length>` for strings, binary values and
+lists, and :class:`Choices(...) <awesome_vunit_vcs.records.Choices>` for a fixed set of integers or
+strings. :func:`~awesome_vunit_vcs.records.strategy_for` turns the dataclasses into a Hypothesis
+strategy and :func:`~awesome_vunit_vcs.records.validate` checks a value against the bounds.
+
+.. include:: ../_includes/vunit_names.inc
 
 .. literalinclude:: ../../examples/property/python/example_records.py
    :caption: examples/property/python/example_records.py
    :language: python
    :pyobject: Pair
 
-The run script generates a VHDL package from the dataclasses, rewriting it only when it changes:
+The run script generates a VHDL package from the dataclasses with
+:func:`~awesome_vunit_vcs.gen_vhdl.write_vhdl`, rewriting it only when it changes:
 
 .. literalinclude:: ../../examples/property/run.py
    :caption: examples/property/run.py

@@ -6,18 +6,21 @@ Test a sequence of operations
 
 The snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`, :ref:`item <property-helper-item>`, :ref:`new_example <property-helper-new-example>` and :ref:`pulse <property-helper-pulse>`.
 
+.. include:: ../_includes/vunit_names.inc
+
 A design with state is tested with sequences of steps. Return a
-``hypothesis.stateful.RuleBasedStateMachine`` subclass instead of a strategy: its rules keep a
-reference model in Python and run each step in VHDL with ``step(rule, **fields)``, which returns the
-value VHDL reports. Hypothesis shrinks a failure to the shortest failing sequence of steps.
+:class:`hypothesis.stateful.RuleBasedStateMachine` subclass instead of a strategy: its rules keep a
+reference model in Python and run each step in VHDL with
+:func:`step(rule, **fields) <awesome_vunit_vcs.common.property.step>`, which returns the value VHDL
+reports. Hypothesis shrinks a failure to the shortest failing sequence of steps.
 
 .. literalinclude:: ../../examples/property/python/strategies.py
    :caption: examples/property/python/strategies.py
    :language: python
    :pyobject: Registers
 
-The testbench dispatches on ``get_rule(prop)``, reads the arguments of the rule by name and answers
-with ``report_step(prop, value)``. Every sequence starts with the rule ``"start"``, where the
+The testbench dispatches on :vhdl:`get_rule(prop) <property_pkg.get_rule>`, reads the arguments of
+the rule by name and answers with :vhdl:`report_step(prop, value) <property_pkg.report_step>`. Every sequence starts with the rule ``"start"``, where the
 design is reset. The register bank of the example loses writes to address 5, and the property finds
 that:
 
@@ -28,7 +31,8 @@ that:
    :end-before: -- docs-end: stateful
    :dedent: 8
 
-``get_counterexample`` then gives ``write(address=5, data=1); read(address=5)``.
+:vhdl:`get_counterexample <property_pkg.get_counterexample>` then gives
+``write(address=5, data=1); read(address=5)``.
 
 Test Ethernet frames
 --------------------
@@ -57,8 +61,10 @@ Handle a design that locks up
 
 An example can make a design lock up. Wait for the design with a simulation-time budget and report a
 missed deadline with ``timed_out``: Hypothesis treats a lockup and wrong behavior as different
-failures, so shrinking a lockup does not slip into another bug. ``example_budget(base, per_item,
-items)`` scales a budget with the example. Reset the design after a lockup and report whether it
+failures, so shrinking a lockup does not slip into another bug.
+:vhdl:`example_budget(base, per_item, items) <property_pkg.example_budget>` gives a budget of
+``base + per_item * items``, so it grows with the example; the testbench below waits
+``example_budget(10 ns, 10 ns, 1)`` for each octet. Reset the design after a lockup and report whether it
 works again as ``recovered``; a design that does not recover ends the property as aborted, with the
 smallest failing example found so far.
 
@@ -74,14 +80,15 @@ smallest failing example found so far.
    :dedent: 4
 
 Examples must be independent. Reset the design, and every verification component that keeps state
-(``reset`` of the Ethernet VCs), before each example. A property whose example fails once and passes
+(``reset`` of the Ethernet VCs, shown in :doc:`../cookbook/error_handling`), before each example. A property whose example fails once and passes
 when repeated is reported as flaky, which usually means state leaked between examples.
 
 Steer the search with scores
 ----------------------------
 
-``report_score(prop, name, value)`` reports a score of the current example before its verdict, for
-example the fill level a FIFO reached. It is forwarded to ``hypothesis.target``, which steers
+:vhdl:`report_score(prop, name, value) <property_pkg.report_score>` reports a score of the current
+example before its verdict, for example the fill level a FIFO reached. It is forwarded to
+:func:`hypothesis.target`, which steers
 generation towards higher scores, so rare corner cases are reached sooner. Report each name at most
 once per example.
 

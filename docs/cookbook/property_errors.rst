@@ -13,6 +13,8 @@ and test loops in ``examples/property/tb_property_examples.vhd`` (VHDL), using t
 ``b`` and its result ``y`` are declared in step 1 of that article, and the ``pair`` strategy draws the
 two operands.
 
+.. include:: ../_includes/vunit_names.inc
+
 Step 1: compare two runs instead of expected values
 ---------------------------------------------------
 
@@ -42,7 +44,7 @@ that grows towards the interesting case:
    :end-before: -- docs-end: score
    :dedent:
 
-``report_score`` doesn't decide whether an example passes. It tells Hypothesis that larger sums are more
+:vhdl:`report_score <property_pkg.report_score>` doesn't decide whether an example passes. It tells Hypothesis that larger sums are more
 interesting, so more examples go there. Scores suit anything with an extreme: a full FIFO, the longest
 latency, the most retries.
 
@@ -101,7 +103,8 @@ data. **In Python**, draw the sink's ``tready`` pattern together with the frame:
    :language: python
    :pyobject: backpressure
 
-**In VHDL**, apply the pattern to the sink with ``set_ready_pattern`` before sending each frame:
+**In VHDL**, apply the pattern to the sink with
+:vhdl:`set_ready_pattern <axis_mac_pkg.set_ready_pattern>` before sending each frame:
 
 .. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
    :caption: examples/property/tb_property_ethernet.vhd
@@ -119,7 +122,8 @@ Step 6: keep a bug from coming back
 -----------------------------------
 
 Once a property has found a bug and we have fixed it, that exact example should run every time from
-now on. **In Python**, pin it to the strategy:
+now on. **In Python**, pin it to the strategy with
+:func:`~awesome_vunit_vcs.common.property.pin`:
 
 .. literalinclude:: ../../examples/property/python/strategies.py
    :caption: examples/property/python/strategies.py
@@ -153,8 +157,8 @@ Three things make this work:
 
 #. Every wait has a timeout (``for 20 ns``), so a stuck design can't stall the test.
 #. The design is reset after every example, so the next one starts clean.
-#. ``report_example`` says that the example timed out, and whether the reset brought the design back
-   (``recovered``).
+#. :vhdl:`report_example <property_pkg.report_example>` says that the example timed out, and whether
+   the reset brought the design back (``recovered``).
 
 A lockup shrinks like any other failure: here to the two bytes ``[255, 0]``, which is also the pinned
 example of step 6. The strategy, ``byte_stream``, is the one shown there. If your testbench uses

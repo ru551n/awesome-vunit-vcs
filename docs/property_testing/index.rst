@@ -3,7 +3,7 @@ Property-based testing
 
 A property is a statement that must hold for every input. Instead of writing the inputs, you
 describe them with a `Hypothesis <https://hypothesis.readthedocs.io>`_ strategy, a plain Python
-function, and ``property_pkg`` runs the design with the examples Hypothesis draws, all inside one
+function, and :doc:`property_pkg <vhdl_api>` runs the design with the examples Hypothesis draws, all inside one
 simulation. When an example fails, Hypothesis shrinks it to a minimal counterexample by running more
 examples through the same loop.
 
@@ -62,6 +62,8 @@ importable. ``seed => get_seed(runner_cfg)`` makes the examples follow VUnit's s
 The testbench needs one context clause, ``context awesome_vunit_vcs.property_context;``. The Ethernet
 and flash contexts include it, so a testbench with those needs nothing more.
 
+.. include:: ../_includes/vunit_names.inc
+
 Read composite examples
 -----------------------
 
@@ -74,19 +76,19 @@ indexes in parentheses, as in ``"frames(2).payload"``. The empty path is the who
 
    * - Getter
      - Returns
-   * - ``get_integer(prop, path)``
+   * - :vhdl:`get_integer(prop, path) <property_pkg.get_integer>`
      - an integer
-   * - ``get_boolean(prop, path)``
+   * - :vhdl:`get_boolean(prop, path) <property_pkg.get_boolean>`
      - a boolean
-   * - ``get_string(prop, path)``
+   * - :vhdl:`get_string(prop, path) <property_pkg.get_string>`
      - a string, or the lower-case name of an ``Enum`` member
-   * - ``get_integer_vector(prop, path)``
+   * - :vhdl:`get_integer_vector(prop, path) <property_pkg.get_integer_vector>`
      - the items of a list, tuple or binary value, in one bridge call
-   * - ``get_unsigned(prop, path, length)``
+   * - :vhdl:`get_unsigned(prop, path, length) <property_pkg.get_unsigned>`
      - an unsigned integer, or a binary value read big-endian, as ``length`` bits
-   * - ``get_length(prop, path)``
+   * - :vhdl:`get_length(prop, path) <property_pkg.get_length>`
      - the number of items of a list, tuple or binary value
-   * - ``has_field(prop, path)``
+   * - :vhdl:`has_field(prop, path) <property_pkg.has_field>`
      - whether an optional field exists and is not None
 
 A wrong path fails with a message that names the fields that exist, for example

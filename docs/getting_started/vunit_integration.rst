@@ -55,8 +55,21 @@ Make your own Python code importable
 ------------------------------------
 
 The simulation runs Python in the environment that started VUnit, including an active virtual
-environment. Your own Python modules, such as packet functions, must be importable from there:
-install them, or put their directory on ``PYTHONPATH``.
+environment. How your own Python code is found depends on what it is:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Your code
+     - What it needs
+   * - A property strategy module
+     - Nothing more: pass its directory as ``search_path`` to ``new_property``.
+   * - Packet functions and sequence generators (``"module:function"``)
+     - The module must be importable: install it, or put its directory on ``PYTHONPATH`` in
+       ``run.py`` before VUnit starts the simulations.
+   * - A subscriber file loaded with ``exec_file``
+     - Nothing: it is loaded by its path. Modules it imports must be importable, as above.
 
 Write output files to the test output path
 ------------------------------------------

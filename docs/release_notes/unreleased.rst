@@ -89,6 +89,8 @@ Breaking changes to the VHDL API
 Property-based testing
 ----------------------
 
+* A property given ``output_path`` keeps Hypothesis's own files (``.hypothesis``) in the test output
+  path, so running tests leaves nothing in the directory you run from.
 * ``property_context`` is the one context clause of a property testbench, and ``ethernet_context`` and
   ``flash_context`` include ``property_pkg`` and the typed Python arguments too.
 * An exception in a strategy function, a packet function or a sequence generator is logged with the

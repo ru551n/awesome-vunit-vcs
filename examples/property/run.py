@@ -50,6 +50,7 @@ BUG_BENCHES = [
     "tb_property_bits",
     "tb_property_cdc",
     "tb_property_corruption",
+    "tb_property_fifo",
     "tb_property_interleaving",
     "tb_property_recursive",
     "tb_property_resources",

@@ -2,12 +2,9 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this file,
 -- You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Targeted (feedback-directed) property search on a depth-4 FIFO's occupancy.
--- Hypothesis draws a bounded sequence of push/pop operations; report_score
--- steers the search towards full, wraparound and simultaneous push+pop near
--- full, which a plain random search rarely reaches on its own. A VHDL-side
--- reference model checks no loss, no duplication, correct order and legal
--- occupancy against the DUT, which plants a bug behind inject_bug.
+-- Occupancy targeting on a depth-4 FIFO: scoring the highest occupancy of each
+-- example steers Hypothesis towards a full FIFO, where a push and a pop at once
+-- loses a word when inject_bug is set. The strategy is python/fifo_strategies.py.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -29,82 +26,51 @@ begin
 
   main : process
     variable prop : property_t;
-
-    -- A software reference FIFO with the DUT's correct (unbugged) semantics,
-    -- used to check the DUT and to compute the metrics that steer the search.
-    type mem_t is array (0 to 3) of natural;
-    variable mem : mem_t := (others => 0);
-    variable wr, rd, fill, max_fill, wraps, boundary : natural := 0;
-    variable ok, reached_full : boolean := true;
-
-    -- The path of field "name" of list element idx, "(2).push"
-    impure function item(idx : natural; name : string) return string is
-    begin
-      return "(" & integer'image(idx) & ")." & name;
-    end;
-
-    -- Drive one operation, advance the reference model and check the DUT
-    procedure step(push_v, pop_v : boolean; data_v : natural) is
-      variable was_full, was_empty, was_near_full, popped : boolean;
-      variable head, expect, wr0, rd0 : natural;
-    begin
-      was_full := fill = 4;
-      was_empty := fill = 0;
-      was_near_full := fill >= 3;
-      head := to_integer(unsigned(data_out));
-      wr0 := wr;
-      rd0 := rd;
-      push <= '1' when push_v else '0';
-      pop <= '1' when pop_v else '0';
-      data_in <= std_ulogic_vector(to_unsigned(data_v, 8));
-      wait until rising_edge(clk);
-      wait for 1 ns;
-      popped := false;
-      if push_v and pop_v and was_empty then
-        mem(wr) := data_v; wr := (wr + 1) mod 4; fill := fill + 1;
-      elsif push_v and pop_v then
-        popped := true; expect := mem(rd);
-        mem(wr) := data_v; wr := (wr + 1) mod 4; rd := (rd + 1) mod 4;
-      elsif push_v and not was_full then
-        mem(wr) := data_v; wr := (wr + 1) mod 4; fill := fill + 1;
-      elsif pop_v and not was_empty then
-        popped := true; expect := mem(rd);
-        rd := (rd + 1) mod 4; fill := fill - 1;
-      end if;
-      if push_v and pop_v and was_near_full then
-        boundary := boundary + 1;
-      end if;
-      if (wr0 = 3 and wr = 0) or (rd0 = 3 and rd = 0) then
-        wraps := wraps + 1;
-      end if;
-      if fill > max_fill then max_fill := fill; end if;
-      if fill = 4 then reached_full := true; end if;
-      ok := ok and (not popped or head = expect);
-      ok := ok and to_integer(unsigned(count)) = fill;
-      ok := ok and (full = '1') = (fill = 4) and (empty = '1') = (fill = 0);
-    end;
+    -- The reference model: the words in the FIFO, oldest first
+    variable model : integer_vector(0 to 3);
+    variable fill, max_fill : natural;
+    variable push_now, pop_now, passed : boolean;
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
       if run("test_occupancy_targeting") then
         -- docs-start: fifo
-        prop := new_property("fifo_strategies:operations", seed => get_seed(runner_cfg),
+        -- Every pop returns the oldest word and count matches the model. The score
+        -- rewards examples that fill the FIFO, so full-FIFO corner cases come up often.
+        prop := new_property("fifo_strategies:fifo_operations", seed => get_seed(runner_cfg),
           output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
         while next_example(prop) loop
           rst <= '1';
           wait until rising_edge(clk);
           rst <= '0';
-          wait for 1 ns;
-          wr := 0; rd := 0; fill := 0; max_fill := 0; wraps := 0; boundary := 0;
-          ok := true; reached_full := false;
+          fill := 0;
+          max_fill := 0;
+          passed := true;
           for idx in 0 to get_length(prop) - 1 loop
-            step(push_v => get_boolean(prop, item(idx, "push")), pop_v => get_boolean(prop, item(idx, "pop")),
-              data_v => get_integer(prop, item(idx, "data")));
+            push_now := get_string(prop, "(" & integer'image(idx) & ")") /= "pop";
+            pop_now := get_string(prop, "(" & integer'image(idx) & ")") /= "push";
+            push <= '1' when push_now else '0';
+            pop <= '1' when pop_now else '0';
+            data_in <= std_ulogic_vector(to_unsigned(idx, 8));
+            if pop_now and fill > 0 then
+              passed := passed and to_integer(unsigned(data_out)) = model(0);
+            end if;
+            wait until rising_edge(clk);
+            wait for 1 ns;
+            -- A pop needs a word, a push needs room, which a pop in the same cycle makes
+            if pop_now and fill > 0 then
+              model(0 to 2) := model(1 to 3);
+              fill := fill - 1;
+            end if;
+            if push_now and fill < 4 then
+              model(fill) := idx;
+              fill := fill + 1;
+            end if;
+            passed := passed and to_integer(unsigned(count)) = fill;
+            max_fill := maximum(max_fill, fill);
           end loop;
-          -- Steer Hypothesis towards deep occupancy and boundary operations
-          report_score(prop, "max_occupancy", real(max_fill));
-          report_score(prop, "boundary_events", real(boundary * 3 + wraps * 2 + boolean'pos(reached_full)));
-          report_example(prop, passed => ok);
+          report_score(prop, "occupancy", real(max_fill));
+          report_example(prop, passed => passed);
         end loop;
         check_property(prop);
         -- docs-end: fifo

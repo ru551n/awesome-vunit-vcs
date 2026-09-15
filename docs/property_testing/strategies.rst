@@ -116,6 +116,11 @@ example before its verdict, for example the fill level a FIFO reached. It is for
 generation towards higher scores, so rare corner cases are reached sooner. Report each name at most
 once per example.
 
+A good score is a number that grows as an example gets closer to the state you worry about: the peak
+fill level of a FIFO, the largest value a counter reached, how close a sum came to overflowing, or the
+number of retries a handshake needed. Score what the testbench measures, not what the strategy drew;
+the operands themselves are already easy to draw.
+
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
    :caption: examples/property/tb_property_examples.vhd
    :language: vhdl

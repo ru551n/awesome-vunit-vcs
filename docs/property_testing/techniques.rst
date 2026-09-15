@@ -240,12 +240,13 @@ Python (strategy module):
    :end-before: # docs-end: expressions
 
 ``inject_bug`` swaps ``rpn_evaluator``'s subtract operand order, computing ``b - a`` instead of
-``a - b``. The counterexample it shrinks to:
+``a - b``. The counterexample it shrinks to, the tree ``subtract(const(0), const(1))``:
 
 .. code-block:: text
 
-   subtract(const(0), const(1))
-   -- expected 255
+   {'tree': {'op': 'subtract', 'left': {'op': 'const', 'value': 0}, 'right': {'op': 'const', 'value': 1}},
+    'program': [{'op': 'const', 'value': 0}, {'op': 'const', 'value': 1}, {'op': 'subtract', 'value': 0}],
+    'expected': 255}
 
 .. _property-fault-injection:
 
@@ -362,7 +363,8 @@ implementation and a reference model — and no independent oracle is worth writ
 would need a specification; feeding the same input to two independently written implementations turns
 "do these agree" into the property, with no expected value to compute.
 
-**What it shrinks.** The 16-bit pattern, toward fewer set bits.
+**What it shrinks.** The 16-bit pattern, towards the simplest bit pattern that still fails. That is
+usually a single set bit, but a run can also end on another simple pattern, such as a single cleared bit.
 
 **Bugs it finds.** An implementation bug present in one of the two designs only, found without a third
 reference model.
@@ -385,7 +387,8 @@ Python (strategy module):
    :end-before: # docs-end: differential_popcount
 
 ``WIDTH`` is 16, the width of both popcount inputs. ``inject_bug`` makes ``popcount_adder_tree`` drop
-the MSB before counting. The counterexample it shrinks to:
+the MSB before counting. The counterexample it usually shrinks to (``65534``, the MSB with one other bit
+cleared, is another one you may see):
 
 .. code-block:: text
 
@@ -461,6 +464,9 @@ earlier branches, so the simplest patterns — few or one bit set — come first
 
 **Bugs it finds.** Boundary and single-bit bugs: an MSB dropped, a carry mishandled, a mask off by one
 bit.
+
+``bit_patterns.py`` is part of the example, not of the package: copy it into the ``python/`` directory
+of your own testbench and import it from your strategy module, as ``bits_strategies.py`` does.
 
 Python (strategy module):
 

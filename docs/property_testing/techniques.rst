@@ -25,7 +25,7 @@ Do the same in your own run script to keep a known bug switchable in a testbench
 
 .. include:: ../_includes/vunit_names.inc
 
-The snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`,
+Some snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`,
 :ref:`item <property-helper-item>`, :ref:`new_example <property-helper-new-example>` and
 :ref:`pulse <property-helper-pulse>`.
 
@@ -509,7 +509,7 @@ random stimulus seldom reaches, and the testbench can measure how close an examp
 
 **The property.** Every pop returns the oldest word, and ``count`` matches a reference model kept in the
 testbench. The testbench scores each example with the highest occupancy it reached, and Hypothesis
-favours operation lists that fill the FIFO further.
+favours operation lists that fill the FIFO further; :ref:`property-scores` says how to choose a score.
 
 **Why not plain random stimulus.** Filling a depth-8 FIFO needs many more pushes than pops in a row;
 random lists rarely get there. With the score removed, the planted bug was found in 2 of 8 runs; with

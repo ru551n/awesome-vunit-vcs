@@ -109,7 +109,9 @@ begin
           else
             passed := (pp_accepted = '1') = get_boolean(prop, "valid");
           end if;
-          report_example(prop, passed => passed, timed_out => timed_out);
+          -- A truncated packet leaves the parser waiting, which is a rejection too: only a valid
+          -- packet that times out is a lockup
+          report_example(prop, passed => passed, timed_out => timed_out and not passed);
         end loop;
         check_property(prop);
         -- docs-end: invalid_packet_mutation

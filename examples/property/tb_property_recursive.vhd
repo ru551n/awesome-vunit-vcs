@@ -27,9 +27,6 @@ begin
 
   main : process
     variable prop : property_t;
-    -- The op of the current instruction, space-padded to a fixed width so it can be read
-    -- once into a variable instead of read again for each comparison below
-    variable instr_op : string(1 to 8);
 
     -- The path of program element idx, or of a field of it
     impure function instruction(idx : natural; name : string := "") return string is
@@ -38,16 +35,6 @@ begin
         return "program(" & integer'image(idx) & ")";
       end if;
       return "program(" & integer'image(idx) & ")." & name;
-    end;
-
-    -- The op of program element idx, padded to a fixed width; get_string returns an
-    -- unconstrained string, which only a constant (not a variable) may be initialized from
-    impure function instruction_op(idx : natural) return string is
-      constant value : string := get_string(prop, instruction(idx, "op"));
-      variable padded : string(1 to 8) := (others => ' ');
-    begin
-      padded(1 to value'length) := value;
-      return padded;
     end;
   begin
     test_runner_setup(runner, runner_cfg);
@@ -63,13 +50,12 @@ begin
           wait until rising_edge(clk);
           rst <= '0';
           for idx in 0 to get_length(prop, "program") - 1 loop
-            instr_op := instruction_op(idx);
-            if instr_op = "const   " then
+            if get_string(prop, instruction(idx, "op")) = "const" then
               operand <= std_ulogic_vector(to_unsigned(get_integer(prop, instruction(idx, "value")), 8));
               op <= "00";
-            elsif instr_op = "add     " then
+            elsif get_string(prop, instruction(idx, "op")) = "add" then
               op <= "01";
-            elsif instr_op = "subtract" then
+            elsif get_string(prop, instruction(idx, "op")) = "subtract" then
               op <= "10";
             else -- "negate"
               op <= "11";

@@ -64,6 +64,8 @@ The architecture declares a clock and the signals on both sides of the design un
    :end-before: -- docs-end: signals
    :dedent:
 
+.. _first-test-handles:
+
 Step 3: create a source and a monitor (VHDL)
 --------------------------------------------
 

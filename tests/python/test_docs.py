@@ -290,6 +290,35 @@ def test_every_include_marker_exists_exactly_once() -> None:
     assert not offenders, "Every marker must be unique; a marker that is a prefix of another one also matches it"
 
 
+_TESTBENCH_HELPERS = {
+    "apply": "property-helper-apply",
+    "item": "property-helper-item",
+    "new_example": "property-helper-new-example",
+    "pulse": "property-helper-pulse",
+}
+
+
+def _included_text(path: Path, options: dict[str, str]) -> str:
+    text = path.read_text(encoding="utf-8")
+    if "start-after" in options:
+        text = text.split(options["start-after"], 1)[-1]
+    if "end-before" in options:
+        text = text.split(options["end-before"], 1)[0]
+    return text
+
+
+def test_testbench_helpers_are_linked_where_they_are_used() -> None:
+    """A page showing code that calls a testbench helper links to where the helper is defined."""
+    offenders = set()
+    for page, path, options in _literalincludes():
+        included = _included_text(path, options)
+        page_text = page.read_text(encoding="utf-8")
+        for helper, label in _TESTBENCH_HELPERS.items():
+            if re.search(rf"\b{helper}\s*\(", included) and label not in page_text:
+                offenders.add(f"{page.relative_to(REPO)}: {helper}")
+    assert not offenders, f"link these helpers to their definition with :ref:: {sorted(offenders)}"
+
+
 def test_no_include_comes_from_the_test_suite() -> None:
     offenders = [
         f"{page.relative_to(REPO)}: {path.relative_to(REPO)}"

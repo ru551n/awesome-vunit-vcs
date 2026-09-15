@@ -43,6 +43,8 @@ A property testbench needs one context clause, ``property_context``. In a testbe
    :start-after: -- docs-start: libraries
    :end-before: -- docs-end: libraries
 
+.. _property-helper-apply:
+
 The designs under test are an arithmetic unit (ALU), with inputs ``a`` and ``b`` and output ``y``, and a
 register bank. ``apply`` is a small helper in the testbench that puts two operands on the ALU:
 
@@ -120,8 +122,10 @@ smallest one that still fails, and ``check_property`` reports that one as an err
    fail (P=0 S=0 F=1 T=1) lib.tb_fail.all (0.4 s)
 
 The message names the files it mentions below. This property was created with
-``id => get_id("tb_fail:sum")``, which gives it a readable name in the log and in those file names;
-without an ``id`` they use ``awesome_vunit_vcs:property:<n>``.
+``new_property(..., id => get_id("tb_fail:sum"))``. ``get_id`` is VUnit's function for a hierarchical
+name (see the `VUnit logging user guide <https://vunit.github.io/logging/user_guide.html>`_), and the
+``id`` gives the property a readable name in the log and in those file names; without an ``id`` they
+use ``awesome_vunit_vcs:property:<n>``.
 
 The value after ``Minimal counterexample`` is what your design got wrong. To debug it:
 
@@ -143,6 +147,8 @@ has that pattern and everything else about seeds, saved failures, pins and profi
 
 Step 3: read structured examples
 --------------------------------
+
+.. _property-helper-new-example:
 
 From here on, the example testbench creates properties with a helper, ``new_example``, that makes the
 same ``new_property`` call for a strategy name:
@@ -172,6 +178,8 @@ tells whether an optional part is there:
    :end-before: -- docs-end: composite
    :dedent:
 
+.. _property-helper-item:
+
 ``item`` is a small helper in the testbench. It builds ``"(2)"`` from an index, so the path reads
 ``"values(2)"``:
 
@@ -195,7 +203,17 @@ Properties and the Ethernet components fit together. **In Python**, generate fra
    :pyobject: frame_data
 
 **In VHDL**, each example goes through a :term:`source` and comes back from a :term:`monitor`, and the
-property is that it comes back unchanged. The process declares the property and room for the frame it
+property is that it comes back unchanged. One context clause is enough, because ``ethernet_context``
+includes the property package:
+
+.. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
+   :caption: examples/property/tb_property_ethernet.vhd
+   :language: vhdl
+   :start-after: -- docs-start: context
+   :end-before: -- docs-end: context
+
+The GMII source and monitor are created and instantiated as in
+:ref:`Your first Ethernet test, step 3 <first-test-handles>`. The process declares the property and room for the frame it
 receives:
 
 .. literalinclude:: ../../examples/property/tb_property_ethernet.vhd
@@ -292,7 +310,11 @@ Each rule calls ``step`` to have the testbench perform the operation and return 
 compares that with the model.
 
 **In VHDL**, perform whatever step you are given. ``get_rule`` names the operation, and ``report_step``
-returns the result to the model. ``pulse`` is a helper that holds a signal high for one clock cycle:
+returns the result to the model.
+
+.. _property-helper-pulse:
+
+``pulse`` is a helper that holds a signal high for one clock cycle:
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
    :caption: examples/property/tb_property_examples.vhd

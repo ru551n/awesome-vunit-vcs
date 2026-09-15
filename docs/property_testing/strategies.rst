@@ -4,6 +4,8 @@ Test strategies
 Test a sequence of operations
 -----------------------------
 
+The snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`, :ref:`item <property-helper-item>`, :ref:`new_example <property-helper-new-example>` and :ref:`pulse <property-helper-pulse>`.
+
 A design with state is tested with sequences of steps. Return a
 ``hypothesis.stateful.RuleBasedStateMachine`` subclass instead of a strategy: its rules keep a
 reference model in Python and run each step in VHDL with ``step(rule, **fields)``, which returns the

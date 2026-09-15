@@ -169,7 +169,8 @@ package property_pkg is
   -- ``error``, the property could not run, such as an exception in the strategy
   -- or an invalid argument, already logged as a failure on the property's logger.
   impure function get_outcome(prop : property_t) return string;
-  -- The number of examples run, shrinking included. For a stateful property each
+  -- The number of examples run, shrinking, pinned examples and a replayed saved
+  -- failure included. For a stateful property each
   -- step is one example, the ``"start"`` steps included.
   impure function get_example_count(prop : property_t) return natural;
   -- The minimal failing example as Python shows it, empty when there is none.

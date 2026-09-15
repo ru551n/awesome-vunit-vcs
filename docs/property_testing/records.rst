@@ -21,7 +21,8 @@ The run script generates a VHDL package from the dataclasses, rewriting it only 
    :end-before: # docs-end: generate
 
 The package has a record type ``<name>_t``, a getter ``get_<name>(prop, path)`` and
-``to_string(value)`` for every dataclass, so a test reads a whole example with one call:
+``to_string(value)`` for every dataclass, so a test reads a whole example with one call. The snippet uses
+the testbench helpers :ref:`apply <property-helper-apply>` and :ref:`new_example <property-helper-new-example>`:
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
    :caption: examples/property/tb_property_examples.vhd

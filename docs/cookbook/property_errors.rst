@@ -8,7 +8,7 @@ starting with the simplest technique, and end with the hardest failure of all: a
 responding.
 
 The files are the same as before: strategies in ``examples/property/python/strategies.py`` (Python)
-and test loops in ``examples/property/tb_property_examples.vhd`` (VHDL), using the helpers shown in
+and test loops in ``examples/property/tb_property_examples.vhd`` (VHDL), using the helpers :ref:`apply <property-helper-apply>`, :ref:`item <property-helper-item>`, :ref:`new_example <property-helper-new-example>` and :ref:`pulse <property-helper-pulse>` shown in
 :doc:`property_testing`. The design is the same small arithmetic unit too: its operands ``a`` and
 ``b`` and its result ``y`` are declared in step 1 of that article, and the ``pair`` strategy draws the
 two operands.

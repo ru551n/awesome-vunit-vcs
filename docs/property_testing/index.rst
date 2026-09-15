@@ -46,7 +46,7 @@ The strategy returns a Hypothesis strategy:
    :pyobject: scalar
 
 The testbench loops over the examples: read the example, simulate, report the verdict, and check the
-property when the loop ends.
+property when the loop ends. The snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`, :ref:`item <property-helper-item>` and :ref:`new_example <property-helper-new-example>`.
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
    :caption: examples/property/tb_property_examples.vhd

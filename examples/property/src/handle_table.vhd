@@ -11,8 +11,9 @@ use ieee.numeric_std.all;
 
 entity handle_table is
   generic (
-    -- A planted bug: the free-slot search always treats slot 3 as free, so
-    -- allocate can hand out a handle that is still live.
+    -- A planted bug: release frees the lowest still-live slot instead of the
+    -- one named by handle, so a later allocate can hand out a handle that is
+    -- still live.
     inject_bug : boolean := false
   );
   port (
@@ -44,7 +45,7 @@ begin
       elsif allocate = '1' then
         idx := 4;
         for slot in 0 to 3 loop
-          slot_free := (live(slot) = '0') or (inject_bug and (slot = 3));
+          slot_free := live(slot) = '0';
           if slot_free and idx = 4 then
             idx := slot;
           end if;
@@ -58,7 +59,16 @@ begin
           allocated <= '1';
         end if;
       elsif release_handle = '1' then
-        live(to_integer(unsigned(handle))) <= '0';
+        idx := to_integer(unsigned(handle));
+        if inject_bug then
+          for slot in 0 to 3 loop
+            if live(slot) = '1' then
+              idx := slot;
+              exit;
+            end if;
+          end loop;
+        end if;
+        live(idx) <= '0';
         allocated <= '0';
       elsif write_enable = '1' then
         data(to_integer(unsigned(handle))) <= write_data;

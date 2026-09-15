@@ -64,6 +64,11 @@ package ethernet_pkg is
     eth_valid
   );
 
+  -- True for the checks a monitor runs itself, ``eth_scoreboard`` and
+  -- ``eth_user``. The other checks are protocol checks, run by a protocol
+  -- checker.
+  function is_monitor_check(check : ethernet_check_t) return boolean;
+
   -- What a source appends to the frame data:
   --
   -- * ``fcs_append``: pad (when enabled) and append the correct FCS
@@ -451,6 +456,28 @@ package ethernet_pkg is
   procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : ethernet_protocol_checker_t;
+    check : ethernet_check_t;
+    variable count : out natural
+  );
+
+  -- The same procedures for the checks a monitor runs itself
+  -- (:vhdl:`ethernet_pkg.is_monitor_check`). A protocol check is a failure
+  -- on the logger of the monitor's checker; use the protocol checker for it.
+  procedure set_check_enabled(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
+    check : ethernet_check_t;
+    enabled : boolean := true
+  );
+  procedure get_check_count(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
+    check : ethernet_check_t;
+    variable reference : inout ethernet_reference_t
+  );
+  procedure get_check_count(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
     check : ethernet_check_t;
     variable count : out natural
   );
@@ -1204,6 +1231,71 @@ package body ethernet_pkg is
   begin
     get_check_count(net, protocol_checker, check, reference);
     await_get_check_count_reply(net, reference, count);
+  end;
+
+  function is_monitor_check(check : ethernet_check_t) return boolean is
+  begin
+    return check = eth_scoreboard or check = eth_user;
+  end;
+
+  -- Fails when a monitor is asked about a protocol check
+  impure function is_monitor_check(monitor : ethernet_monitor_t; check : ethernet_check_t; procedure_name : string)
+    return boolean is
+  begin
+    if not is_monitor_check(check) then
+      failure(
+        get_logger(monitor.p_checker),
+        procedure_name & " of a monitor handles eth_scoreboard and eth_user; " &
+        ethernet_check_t'image(check) & " is a protocol check, use the protocol checker"
+      );
+      return false;
+    end if;
+    return true;
+  end;
+
+  procedure set_check_enabled(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
+    check : ethernet_check_t;
+    enabled : boolean := true
+  ) is
+    variable msg : msg_t;
+  begin
+    if is_monitor_check(monitor, check, "set_check_enabled") then
+      msg := new_msg(set_ethernet_check_enabled_msg);
+      push(msg, ethernet_check_t'pos(check));
+      push(msg, enabled);
+      send(net, monitor.p_actor, msg);
+    end if;
+  end;
+
+  procedure get_check_count(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
+    check : ethernet_check_t;
+    variable reference : inout ethernet_reference_t
+  ) is
+  begin
+    if is_monitor_check(monitor, check, "get_check_count") then
+      reference := new_msg(get_ethernet_check_count_msg);
+      push(reference, ethernet_check_t'pos(check));
+      send(net, monitor.p_actor, reference);
+    end if;
+  end;
+
+  procedure get_check_count(
+    signal net : inout network_t;
+    monitor : ethernet_monitor_t;
+    check : ethernet_check_t;
+    variable count : out natural
+  ) is
+    variable reference : ethernet_reference_t;
+  begin
+    count := 0;
+    if is_monitor_check(monitor, check, "get_check_count") then
+      get_check_count(net, monitor, check, reference);
+      await_get_check_count_reply(net, reference, count);
+    end if;
   end;
 
   procedure request_without_reply_data(signal net : inout network_t; actor : actor_t; variable msg : inout msg_t) is

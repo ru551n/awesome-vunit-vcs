@@ -245,6 +245,17 @@ begin
         );
         unmock(get_logger(get_id("tb_axis_mac_vci:duplicate")));
 
+      elsif run("test_monitor_serves_the_checks_it_owns") then
+        -- eth_scoreboard and eth_user belong to the monitor and need no protocol checker
+        set_check_enabled(net, default_monitor, eth_user, false);
+        get_check_count(net, default_monitor, eth_user, count);
+        exec("vc.error('ETH_USER', 'not counted while disabled')", new_session(get_id(default_monitor)));
+        get_check_count(net, default_monitor, eth_user, count);
+        check_equal(count, 0, "eth_user while disabled");
+        set_check_enabled(net, default_monitor, eth_user);
+        get_check_count(net, default_monitor, eth_scoreboard, count);
+        check_equal(count, 0, "eth_scoreboard");
+
       elsif run("test_unexpected_message_is_a_check_failure") then
         check_unexpected_message(get_actor(source), get_logger(source), expect_failure => true);
         check_unexpected_message(get_actor(default_monitor), get_logger(default_monitor), expect_failure => true);

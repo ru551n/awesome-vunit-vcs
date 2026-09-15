@@ -722,12 +722,12 @@ package body ethernet_vc_pkg is
       reply_msg := new_msg(reset_ethernet_protocol_checker_reply_msg);
       reply(net, request_msg, reply_msg);
 
-    elsif is_protocol_checker and msg_type = set_ethernet_check_enabled_msg then
+    elsif (is_monitor or is_protocol_checker) and msg_type = set_ethernet_check_enabled_msg then
       check := ethernet_check_t'val(integer'(pop(request_msg)));
       enabled := pop(request_msg);
       backend_call(state.session, "set_check_enabled", arg(ethernet_check_t'image(check)) & arg(enabled));
 
-    elsif is_protocol_checker and msg_type = get_ethernet_check_count_msg then
+    elsif (is_monitor or is_protocol_checker) and msg_type = get_ethernet_check_count_msg then
       check := ethernet_check_t'val(integer'(pop(request_msg)));
       reply_msg := new_msg(get_ethernet_check_count_reply_msg);
       push(reply_msg, backend_call_integer(state.session, "check_count", arg(ethernet_check_t'image(check))));

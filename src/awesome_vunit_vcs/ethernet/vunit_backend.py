@@ -92,6 +92,10 @@ def _saturate(value: int | None) -> int:
     return -1 if value is None else min(value, VHDL_INTEGER_MAX)
 
 
+#: The checks a VHDL monitor runs itself; a protocol checker runs the others
+_MONITOR_CHECKS = frozenset({CheckId.SCOREBOARD, CheckId.USER})
+
+
 class MonitorBackend:
     """
     The Python object behind a VHDL monitor, ``vc`` in the session of the monitor.
@@ -176,7 +180,7 @@ class MonitorBackend:
         self.monitor.frames.subscribe(self._compare_with_expected)
         self.monitor.frames.subscribe(self._collect)
         if not checks:
-            self.monitor.checker.disable(*(check for check in CheckId if check is not CheckId.SCOREBOARD))
+            self.monitor.checker.disable(*(check for check in CheckId if check not in _MONITOR_CHECKS))
         #: Collect received frames for :meth:`take_frames`; VHDL sets it with
         #: :meth:`set_collect_frames` while the monitor has subscribers or pending pops
         self.collect_frames = False
@@ -426,9 +430,11 @@ class MonitorBackend:
 
         It is logged as an error on the checker of the monitor, counted by the
         check and dropped while the check is disabled, like the checks the
-        monitor runs itself. A VHDL monitor runs the scoreboard check and leaves
-        the protocol checks to its protocol checker, so a subscriber in the
-        session of a VHDL monitor reports on ``"ETH_SCOREBOARD"``.
+        monitor runs itself. A VHDL monitor runs ``"ETH_SCOREBOARD"`` and
+        ``"ETH_USER"`` and leaves the protocol checks to its protocol checker,
+        so a subscriber in the session of a VHDL monitor reports on one of
+        those two. In VHDL, ``get_check_count`` and ``set_check_enabled`` on
+        the monitor count and switch them.
 
         Args:
             check: The check name, such as ``"ETH_SCOREBOARD"``.

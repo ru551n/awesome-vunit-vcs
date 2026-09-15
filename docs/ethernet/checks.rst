@@ -180,9 +180,11 @@ Turn a check off
 
    set_check_enabled(net, monitor, eth_ifg, false);
 
-``get_check_count`` counts the violations a check found while it was enabled. On a monitor, both
-procedures pass through to its protocol checker. A monitor without one reports a failure. Both also
-accept the protocol checker handle itself.
+``get_check_count`` counts the violations a check found while it was enabled. On a monitor, the
+protocol checks go to its protocol checker, and a monitor without one reports a failure for them.
+``eth_scoreboard`` and ``eth_user``, the errors the monitor finds itself or that Python reports with
+``vc.error``, are counted by the monitor and need no protocol checker. Both procedures also accept the
+protocol checker handle itself.
 
 Related recipes
 ---------------

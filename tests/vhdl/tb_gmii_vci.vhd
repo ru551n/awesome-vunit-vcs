@@ -232,6 +232,55 @@ begin
         );
         unmock(get_logger(get_id("tb_gmii_vci:duplicate")));
 
+      elsif run("test_monitor_serves_the_checks_it_owns") then
+        -- eth_scoreboard and eth_user belong to the monitor and need no protocol checker
+        set_check_enabled(net, default_monitor, eth_user, false);
+        get_check_count(net, default_monitor, eth_user, count);
+        exec("vc.error('ETH_USER', 'not counted while disabled')", new_session(get_id(default_monitor)));
+        get_check_count(net, default_monitor, eth_user, count);
+        check_equal(count, 0, "eth_user while disabled");
+        set_check_enabled(net, default_monitor, eth_user);
+        get_check_count(net, default_monitor, eth_scoreboard, count);
+        check_equal(count, 0, "eth_scoreboard");
+
+      elsif run("test_monitor_counts_the_errors_python_reports") then
+        -- A subscriber in the monitor's Python session reports long frames with vc.error
+        exec(
+          "def tb_flag_long(frame):" & LF &
+          "    if len(frame.data) > 100:" & LF &
+          "        vc.error('ETH_SCOREBOARD', 'frame too long')" & LF &
+          "vc.on_frame(tb_flag_long)",
+          new_session(get_id(monitor))
+        );
+        disable_stop(get_logger(get_checker(monitor)), error);
+        push_ethernet_frame(net, source, frame_data(64));
+        push_ethernet_frame(net, source, frame_data(200));
+        wait_until_idle;
+        get_check_count(net, monitor, eth_scoreboard, count);
+        check_equal(count, 1, "eth_scoreboard counted by the monitor");
+        check_equal(get_log_count(get_logger(get_checker(monitor)), error), 1, "logged on the monitor's checker");
+        reset_log_count(get_logger(get_checker(monitor)), error);
+
+        set_check_enabled(net, monitor, eth_scoreboard, false);
+        get_check_count(net, monitor, eth_scoreboard, count);
+        push_ethernet_frame(net, source, frame_data(200));
+        wait_until_idle;
+        get_check_count(net, monitor, eth_scoreboard, count);
+        check_equal(count, 1, "not counted while disabled");
+        check_equal(get_log_count(get_logger(get_checker(monitor)), error), 0, "not logged while disabled");
+        set_check_enabled(net, monitor, eth_scoreboard);
+
+      elsif run("test_ethernet_monitor_rejects_protocol_checks") then
+        mock(get_logger(get_checker(default_monitor)), failure);
+        get_check_count(net, as_ethernet_monitor(default_monitor), eth_fcs, count);
+        check_only_log(
+          get_logger(get_checker(default_monitor)),
+          "get_check_count of a monitor handles eth_scoreboard and eth_user; eth_fcs is a protocol check, " &
+          "use the protocol checker",
+          failure
+        );
+        unmock(get_logger(get_checker(default_monitor)));
+
       elsif run("test_unexpected_message_is_a_check_failure") then
         check_unexpected_message(get_actor(source), get_logger(source), expect_failure => true);
         check_unexpected_message(get_actor(default_monitor), get_logger(default_monitor), expect_failure => true);

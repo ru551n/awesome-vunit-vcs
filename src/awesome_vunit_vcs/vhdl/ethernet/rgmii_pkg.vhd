@@ -381,9 +381,12 @@ package rgmii_pkg is
     variable count : out natural
   );
 
-  -- The same procedures for a monitor, forwarded to the protocol checker it
-  -- instantiates (:vhdl:`rgmii_pkg.get_protocol_checker`). A monitor without a
-  -- protocol checker is a failure on the logger of the monitor.
+  -- The same procedures for a monitor. The monitor counts the checks it runs
+  -- itself (:vhdl:`ethernet_pkg.is_monitor_check`: ``eth_scoreboard`` and
+  -- ``eth_user``, which Python code reports with ``vc.error``) and forwards the
+  -- protocol checks to the protocol checker it instantiates
+  -- (:vhdl:`rgmii_pkg.get_protocol_checker`). A protocol check on a monitor
+  -- without a protocol checker is a failure on the logger of the monitor.
   procedure set_check_enabled(
     signal net : inout network_t;
     monitor : rgmii_monitor_t;
@@ -986,7 +989,9 @@ package body rgmii_pkg is
     enabled : boolean := true
   ) is
   begin
-    if has_protocol_checker(monitor, "set_check_enabled") then
+    if is_monitor_check(check) then
+      set_check_enabled(net, as_ethernet_monitor(monitor), check, enabled);
+    elsif has_protocol_checker(monitor, "set_check_enabled") then
       set_check_enabled(net, get_protocol_checker(monitor), check, enabled);
     end if;
   end;
@@ -998,7 +1003,9 @@ package body rgmii_pkg is
     variable reference : inout ethernet_reference_t
   ) is
   begin
-    if has_protocol_checker(monitor, "get_check_count") then
+    if is_monitor_check(check) then
+      get_check_count(net, as_ethernet_monitor(monitor), check, reference);
+    elsif has_protocol_checker(monitor, "get_check_count") then
       get_check_count(net, get_protocol_checker(monitor), check, reference);
     end if;
   end;
@@ -1010,7 +1017,9 @@ package body rgmii_pkg is
     variable count : out natural
   ) is
   begin
-    if has_protocol_checker(monitor, "get_check_count") then
+    if is_monitor_check(check) then
+      get_check_count(net, as_ethernet_monitor(monitor), check, count);
+    elsif has_protocol_checker(monitor, "get_check_count") then
       get_check_count(net, get_protocol_checker(monitor), check, count);
     end if;
   end;

@@ -49,6 +49,10 @@ def test_error_is_a_counted_check_error() -> None:
     backend.error("ETH_SCOREBOARD", "not counted")
     backend.error("ETH_FCS", "disabled in a monitor without protocol checks")
     assert backend.check_count("ETH_SCOREBOARD") == 1 and backend.take_reports() == ""
+    # ETH_USER stays enabled in a monitor without protocol checks, for rules of your own
+    backend.error("ETH_USER", "a rule of my own")
+    assert backend.check_count("ETH_USER") == 1
+    assert [report.severity for report in decode_reports(backend.take_reports())] == [Severity.ERROR]
 
 
 def test_statistics_is_a_property_that_still_calls() -> None:

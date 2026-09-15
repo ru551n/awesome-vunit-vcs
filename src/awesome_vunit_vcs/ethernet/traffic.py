@@ -30,7 +30,9 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import os
 import random
+import traceback
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import SupportsBytes
@@ -165,7 +167,29 @@ def _call(spec: str, args: tuple[object, ...], kwargs: dict[str, object], seed: 
         raise TrafficError(f"Cannot call {spec!r} with {args!r} and {kwargs!r}: {exc}") from exc
     except ValueError:
         pass  # a callable without an inspectable signature is called as it is
-    return function(*args, **kwargs)
+    try:
+        return function(*args, **kwargs)
+    except TrafficError:
+        raise
+    except Exception as exc:
+        raise TrafficError(describe_exception(spec, exc)) from exc
+
+
+def describe_exception(spec: str, exc: BaseException) -> str:
+    """
+    A one-line report of an exception raised by the user's function ``spec``.
+
+    It names the function, the exception and the innermost line of the
+    traceback outside this package, so an error from a packet function, a
+    sequence or a strategy points at the user's code rather than at the call
+    that ran it.
+    """
+    frames = traceback.extract_tb(exc.__traceback__)
+    package = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    user_frames = [frame for frame in frames if not os.path.abspath(frame.filename).startswith(package)]
+    where = user_frames[-1] if user_frames else (frames[-1] if frames else None)
+    location = f" ({where.filename}:{where.lineno})" if where is not None else ""
+    return f"{spec} raised {type(exc).__name__}: {exc}{location}"
 
 
 def call_packet_function(spec: str, *args: object, seed: Seed | None = None, **kwargs: object) -> TrafficItem:
@@ -205,7 +229,22 @@ def sequence(spec: str, *args: object, seed: Seed | None = None, **kwargs: objec
     result = _call(spec, args, kwargs, seed)
     if not isinstance(result, Iterable):
         raise TrafficError(f"{spec!r} returned {type(result).__name__}, not an iterable of frames")
-    return (to_item(value) for value in result)
+    return _items(spec, result)
+
+
+def _items(spec: str, values: Iterable[object]) -> Iterator[TrafficItem]:
+    """The items of a sequence, reporting an exception the generator raises as one of ``spec``."""
+    iterator = iter(values)
+    while True:
+        try:
+            value = next(iterator)
+        except StopIteration:
+            return
+        except TrafficError:
+            raise
+        except Exception as exc:
+            raise TrafficError(describe_exception(spec, exc)) from exc
+        yield to_item(value)
 
 
 def batches(items: Iterable[TrafficItem], max_frames: int) -> Iterator[list[TrafficItem]]:

@@ -48,6 +48,10 @@ STRATEGIES = textwrap.dedent(
 
     def not_a_strategy():
         return 42
+
+
+    def broken_strategy():
+        raise RuntimeError("the strategy is broken")
     """
 )
 
@@ -232,6 +236,16 @@ def test_invalid_strategy_is_a_property_error(strategies: str) -> None:
         PropertyRunner("property_strategies_for_tests:not_a_strategy", search_path=strategies)
     with pytest.raises(PropertyError, match="Cannot import"):
         PropertyRunner("no_such_module_xyz:payloads")
+
+
+def test_an_exception_in_a_strategy_function_names_the_function(strategies: str) -> None:
+    with pytest.raises(PropertyError) as info:
+        PropertyRunner("property_strategies_for_tests:broken_strategy", search_path=strategies)
+    message = str(info.value)
+    assert message.startswith(
+        "property_strategies_for_tests:broken_strategy raised RuntimeError: the strategy is broken"
+    )
+    assert "property_strategies_for_tests.py:" in message
 
 
 def test_package_never_imports_hypothesis() -> None:

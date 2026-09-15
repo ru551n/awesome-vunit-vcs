@@ -29,6 +29,7 @@ import builtins
 import dataclasses
 import enum
 import hashlib
+import inspect
 import json
 import os
 import queue
@@ -601,16 +602,22 @@ def _vhdl_integer(value: Any, path: str) -> int:
 
 def _load_property(spec: str, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> tuple[Any, tuple[Any, ...]]:
     """The strategy or state machine class the function ``spec`` returns, and its pinned examples."""
-    from ..ethernet.traffic import TrafficError, resolve
+    from ..ethernet.traffic import TrafficError, describe_exception, resolve
 
     try:
         function = resolve(spec)
     except TrafficError as exc:
         raise PropertyError(str(exc)) from None
     try:
-        target = function(*args, **kwargs)
+        inspect.signature(function).bind(*args, **kwargs)
     except TypeError as exc:
         raise PropertyError(f"Cannot call {spec!r} with the given arguments: {exc}") from None
+    except ValueError:
+        pass  # a callable without an inspectable signature is called as it is
+    try:
+        target = function(*args, **kwargs)
+    except Exception as exc:
+        raise PropertyError(describe_exception(spec, exc)) from exc
     from hypothesis.stateful import RuleBasedStateMachine
     from hypothesis.strategies import SearchStrategy
 

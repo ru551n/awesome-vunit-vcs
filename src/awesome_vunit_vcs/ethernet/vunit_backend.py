@@ -430,14 +430,14 @@ class MonitorBackend:
 
         It is logged as an error on the checker of the monitor, counted by the
         check and dropped while the check is disabled, like the checks the
-        monitor runs itself. A VHDL monitor runs ``"ETH_SCOREBOARD"`` and
-        ``"ETH_USER"`` and leaves the protocol checks to its protocol checker,
-        so a subscriber in the session of a VHDL monitor reports on one of
-        those two. In VHDL, ``get_check_count`` and ``set_check_enabled`` on
-        the monitor count and switch them.
+        monitor runs itself. Report errors your own code finds on
+        ``"ETH_USER"``: it counts only errors reported from Python, so
+        ``set_check_enabled`` can switch them off without touching the
+        scoreboard (``"ETH_SCOREBOARD"``). In VHDL, ``get_check_count`` and
+        ``set_check_enabled`` on the monitor count and switch it.
 
         Args:
-            check: The check name, such as ``"ETH_SCOREBOARD"``.
+            check: The check name, normally ``"ETH_USER"``.
             message: A summary line, optionally followed by detail lines.
 
         Raises:

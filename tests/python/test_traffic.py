@@ -162,3 +162,30 @@ def test_random_traffic_matches_the_oracle(interface: str) -> None:
         traffic.random_traffic(-1, seed=1)
     with pytest.raises(TrafficError):
         traffic.interface_named("sgmii")
+
+
+def raising_function(size: int) -> eth.Frame:
+    assert size < 10, "size too large"
+    return eth.Frame.from_payload(bytes(size))
+
+
+def raising_generator(count: int) -> Iterator[eth.Frame]:
+    yield eth.Frame.from_payload(b"first")
+    raise ValueError(f"no frame {count}")
+
+
+def test_an_exception_in_a_packet_function_names_the_function() -> None:
+    with pytest.raises(TrafficError) as info:
+        traffic.call_packet_function(f"{SELF}:raising_function", 20)
+    message = str(info.value)
+    assert message.startswith(f"{SELF}:raising_function raised AssertionError: size too large")
+    assert "test_traffic.py:" in message
+
+
+def test_an_exception_in_a_sequence_names_the_generator() -> None:
+    items = traffic.sequence(f"{SELF}:raising_generator", 2)
+    assert next(items).frame.payload.startswith(b"first")
+    with pytest.raises(
+        TrafficError, match=rf"^{SELF}:raising_generator raised ValueError: no frame 2 \(.*test_traffic.py:\d+\)"
+    ):
+        next(items)

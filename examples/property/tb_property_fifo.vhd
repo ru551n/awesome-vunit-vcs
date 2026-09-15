@@ -85,27 +85,31 @@ begin
     end;
   begin
     test_runner_setup(runner, runner_cfg);
-    -- docs-start: fifo
-    prop := new_property("fifo_strategies:operations", seed => get_seed(runner_cfg),
-      output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
-    while next_example(prop) loop
-      rst <= '1';
-      wait until rising_edge(clk);
-      rst <= '0';
-      wait for 1 ns;
-      wr := 0; rd := 0; fill := 0; max_fill := 0; wraps := 0; boundary := 0;
-      ok := true; reached_full := false;
-      for idx in 0 to get_length(prop) - 1 loop
-        step(push_v => get_boolean(prop, item(idx, "push")), pop_v => get_boolean(prop, item(idx, "pop")),
-          data_v => get_integer(prop, item(idx, "data")));
-      end loop;
-      -- Steer Hypothesis towards deep occupancy and boundary operations
-      report_score(prop, "max_occupancy", real(max_fill));
-      report_score(prop, "boundary_events", real(boundary * 3 + wraps * 2 + boolean'pos(reached_full)));
-      report_example(prop, passed => ok);
+    while test_suite loop
+      if run("test_occupancy_targeting") then
+        -- docs-start: fifo
+        prop := new_property("fifo_strategies:operations", seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
+        while next_example(prop) loop
+          rst <= '1';
+          wait until rising_edge(clk);
+          rst <= '0';
+          wait for 1 ns;
+          wr := 0; rd := 0; fill := 0; max_fill := 0; wraps := 0; boundary := 0;
+          ok := true; reached_full := false;
+          for idx in 0 to get_length(prop) - 1 loop
+            step(push_v => get_boolean(prop, item(idx, "push")), pop_v => get_boolean(prop, item(idx, "pop")),
+              data_v => get_integer(prop, item(idx, "data")));
+          end loop;
+          -- Steer Hypothesis towards deep occupancy and boundary operations
+          report_score(prop, "max_occupancy", real(max_fill));
+          report_score(prop, "boundary_events", real(boundary * 3 + wraps * 2 + boolean'pos(reached_full)));
+          report_example(prop, passed => ok);
+        end loop;
+        check_property(prop);
+        -- docs-end: fifo
+      end if;
     end loop;
-    check_property(prop);
-    -- docs-end: fifo
     test_runner_cleanup(runner);
   end process;
 

@@ -45,6 +45,7 @@ import numpy.typing as npt
 from .vunit_bridge import decode_text
 
 __all__ = [
+    "DEFAULT_MAX_EXAMPLES",
     "PROFILE_VARIABLE",
     "START_RULE",
     "ExampleFailed",
@@ -63,11 +64,16 @@ DEFAULT_TIMEOUT_S = 3600.0
 #: VHDL resets the design when it gets it.
 START_RULE = "start"
 
-#: The environment variable selecting the example budget: ``quick`` (the
-#: default) runs ``max_examples`` examples, ``long`` ten times as many, for
-#: example in a nightly run.
+#: The environment variable selecting the default example budget: ``quick`` (the
+#: default) runs :data:`DEFAULT_MAX_EXAMPLES` examples, ``long`` ten times as
+#: many, for example in a nightly run. A property given an explicit
+#: ``max_examples`` runs that many in every profile.
 PROFILE_VARIABLE = "AWESOME_VUNIT_VCS_PROPERTY_PROFILE"
 _PROFILE_SCALES = {"quick": 1, "long": 10}
+
+#: The number of examples a property runs in the ``quick`` profile when it is not
+#: given ``max_examples``.
+DEFAULT_MAX_EXAMPLES = 100
 
 _driver = threading.local()
 
@@ -145,7 +151,11 @@ class PropertyRunner:
         arguments: Keyword arguments for the function, for example
             ``{"max_length": 64}``.
         max_examples: The number of examples Hypothesis generates, not counting
-            the ones it runs while shrinking.
+            the ones it runs while shrinking or the pinned and saved examples it
+            tries first. For a stateful property it is the number of step
+            sequences. ``None`` or 0 uses the profile's budget
+            (:data:`DEFAULT_MAX_EXAMPLES` in ``quick``, ten times as many in
+            ``long``); an explicit number is used in every profile.
         seed: The seed of the example generation, for example VUnit's
             ``get_seed(runner_cfg)``. The same seed gives the same examples. An
             empty seed lets Hypothesis choose.
@@ -175,7 +185,7 @@ class PropertyRunner:
         strategy: str,
         arguments: Mapping[str, Any] | None = None,
         *,
-        max_examples: int = 100,
+        max_examples: int | None = None,
         seed: str | Sequence[int] = "",
         output_path: str | Sequence[int] = "",
         search_path: str | Sequence[int] = "",
@@ -267,7 +277,7 @@ class PropertyRunner:
             self._failures_file = ""  # Hypothesis cannot replay a step sequence as an example
 
         settings = hypothesis.settings(
-            max_examples=max_examples * _profile_scale(),
+            max_examples=max_examples or DEFAULT_MAX_EXAMPLES * _profile_scale(),
             deadline=None,
             suppress_health_check=list(hypothesis.HealthCheck),
             phases=_phases(hypothesis, phases),
@@ -506,22 +516,34 @@ class PropertyRunner:
         if self.outcome == "failed":
             kind = "lockup" if self._failures and self._failures[-1][0] == "timeout" else "wrong behavior"
             what = "Minimal failing steps" if self._stateful else "Minimal counterexample"
-            return f"Property failed after {examples}. {what} ({kind}{last_message}): {self.counterexample()}"
+            return (
+                f"Property failed after {examples}. {what} ({kind}{last_message}): {self.counterexample()}"
+                f"{self._where()}"
+            )
         if self.outcome == "flaky":
             return (
                 f"Property is flaky after {examples}: {self.counterexample()} failed once and then passed; "
-                "the design probably keeps state between examples"
+                f"the design probably keeps state between examples{self._where()}"
             )
         if self.outcome == "aborted":
             return (
                 f"DUT did not recover after lockup after {examples}. "
-                f"Smallest failing example so far: {self.counterexample()}"
+                f"Smallest failing example so far: {self.counterexample()}{self._where()}"
             )
         if self.outcome == "running":
             return "Property has not ended: call next_example until it returns false"
         return f"Property ended with an error after {examples}: {self.detail}"
 
     # Internals
+    def _where(self) -> str:
+        """Where the saved failure and the journal are, for the failure message."""
+        parts = []
+        if self._failures_file and os.path.exists(self._failures_file):
+            parts.append(f"Saved failure: {self._failures_file}")
+        if self._journal and os.path.exists(self._journal):
+            parts.append(f"Journal: {self._journal}")
+        return "".join(f". {part}" for part in parts)
+
     def _finish(self, outcome: str, detail: str) -> None:
         self.outcome, self.detail = outcome, detail
         if outcome == "passed" and self._failures_file and os.path.exists(self._failures_file):

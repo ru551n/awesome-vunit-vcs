@@ -46,9 +46,28 @@ STRATEGIES = textwrap.dedent(
 )
 
 
+PROFILE_STRATEGIES = textwrap.dedent(
+    """
+    from hypothesis import strategies as st
+
+    from awesome_vunit_vcs.common.property import pin
+
+
+    def many():
+        return st.integers(0, 10**9)
+
+
+    @pin(5)
+    def many_pinned():
+        return st.integers(0, 10**9)
+    """
+)
+
+
 @pytest.fixture
 def strategies(tmp_path: Path) -> str:
     (tmp_path / "stateful_strategies_for_tests.py").write_text(STRATEGIES)
+    (tmp_path / "property_strategies_for_profiles.py").write_text(PROFILE_STRATEGIES)
     return str(tmp_path)
 
 
@@ -93,12 +112,31 @@ def test_pinned_example_runs_first(strategies: str) -> None:
     assert runner.outcome == "passed"
 
 
-def test_long_profile_runs_more_examples(strategies: str, monkeypatch: Any) -> None:
-    monkeypatch.setenv(PROFILE_VARIABLE, "long")
-    runner = PropertyRunner("stateful_strategies_for_tests:pinned", max_examples=5, search_path=strategies)
+def _count(runner: PropertyRunner) -> int:
     while runner.next():
         runner.report(True)
-    assert runner.count > 5
+    return runner.count
+
+
+def test_long_profile_runs_more_examples_by_default(strategies: str, monkeypatch: Any) -> None:
+    quick = _count(PropertyRunner("property_strategies_for_profiles:many", search_path=strategies, seed="s"))
+    monkeypatch.setenv(PROFILE_VARIABLE, "long")
+    long = _count(PropertyRunner("property_strategies_for_profiles:many", search_path=strategies, seed="s"))
+    assert quick == 100
+    assert long == 1000
+
+
+def test_explicit_max_examples_wins_over_the_profile(strategies: str, monkeypatch: Any) -> None:
+    monkeypatch.setenv(PROFILE_VARIABLE, "long")
+    runner = PropertyRunner("property_strategies_for_profiles:many", max_examples=7, search_path=strategies, seed="s")
+    assert _count(runner) == 7
+
+
+def test_pinned_examples_run_in_addition_to_max_examples(strategies: str) -> None:
+    runner = PropertyRunner(
+        "property_strategies_for_profiles:many_pinned", max_examples=7, search_path=strategies, seed="s"
+    )
+    assert _count(runner) == 8
 
 
 def test_unknown_profile_is_an_error(strategies: str, monkeypatch: Any) -> None:

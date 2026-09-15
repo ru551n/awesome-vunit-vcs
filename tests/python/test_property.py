@@ -352,3 +352,22 @@ def test_package_never_imports_hypothesis() -> None:
         """
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_failure_message_names_the_saved_failure_and_the_journal(strategies: str, tmp_path: Path) -> None:
+    output = tmp_path / "test_output" / "lib.tb.test"
+    runner = PropertyRunner(
+        "property_strategies_for_tests:payloads",
+        max_examples=300,
+        seed="s",
+        search_path=strategies,
+        output_path=str(output),
+        name="tb:my_prop",
+    )
+    drive(runner, planted_bug)
+    summary = runner.summary()
+    assert runner.outcome == "failed"
+    saved = tmp_path / "test_output" / "property_failures" / "lib.tb.test.tb_my_prop.txt"
+    journal = output / "property_journal_tb_my_prop.jsonl"
+    assert f"Saved failure: {saved}" in summary
+    assert f"Journal: {journal}" in summary

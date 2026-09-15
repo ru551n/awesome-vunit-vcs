@@ -57,7 +57,11 @@ package property_pkg is
   -- Python module search path so the module can be imported.
   --
   -- ``max_examples`` is the number of examples Hypothesis generates, not
-  -- counting the ones it runs while shrinking. Pass ``get_seed(runner_cfg)`` as
+  -- counting the ones it runs while shrinking or the pinned and saved examples
+  -- it tries first; for a stateful property it is the number of step
+  -- sequences. 0, the default, uses the profile's budget: 100 examples, or ten
+  -- times as many with ``AWESOME_VUNIT_VCS_PROPERTY_PROFILE=long``. A number you
+  -- give is used in every profile. Pass ``get_seed(runner_cfg)`` as
   -- ``seed`` to make the examples follow VUnit's seed, and
   -- ``output_path(runner_cfg)`` as ``output_path`` to journal each example
   -- before it runs and to replay the smallest failure first on the next run.
@@ -76,7 +80,7 @@ package property_pkg is
   impure function new_property(
     strategy : string;
     arguments : arg_t := null_arg;
-    max_examples : positive := 100;
+    max_examples : natural := 0;
     seed : string := "";
     output_path : string := "";
     search_path : string := "";
@@ -190,7 +194,7 @@ package body property_pkg is
   impure function new_property(
     strategy : string;
     arguments : arg_t := null_arg;
-    max_examples : positive := 100;
+    max_examples : natural := 0;
     seed : string := "";
     output_path : string := "";
     search_path : string := "";

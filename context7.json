@@ -1,0 +1,29 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "awesome-vunit-vcs",
+  "description": "VUnit verification components for VHDL testbenches: Ethernet (GMII, MII, RGMII, RMII, XGMII, AXI-Stream), QSPI NOR flash, and property-based testing with Hypothesis inside a simulation.",
+  "branch": "main",
+  "folders": ["docs", "examples"],
+  "excludeFolders": [
+    "src",
+    "tests",
+    "benchmarks",
+    "tools",
+    "build",
+    "docs/_build",
+    "docs/_generated",
+    "docs/_static",
+    "docs/contributing",
+    "docs/release_notes"
+  ],
+  "excludeFiles": ["ARCHITECTURE.md", "CONTRIBUTING.md", "AGENTS.md", "CLAUDE.md", "LICENSE"],
+  "rules": [
+    "Add the packages in run.py with vu.add_vhdl_builtins(), vu.add_verification_components(), vu.add_package(\"vunit-python-bridge\", allow_setup=True) and vu.add_package(\"awesome-vunit-vcs\").",
+    "A testbench needs one context clause: library awesome_vunit_vcs; context awesome_vunit_vcs.ethernet_context; (or flash_context, or property_context).",
+    "Create components with new_<component> and pass the handle as the entity's only generic; protocol checks come from a separate <interface>_protocol_checker handle given to the monitor.",
+    "Testbenches are VHDL and decide when things happen; Python modules build frames, packets, sequences and Hypothesis strategies.",
+    "Pass arguments to your Python functions from VHDL with typed kwarg(), kwarg_text() and kwarg_time(), never as Python source strings.",
+    "Call wait_until_idle(net, as_sync(handle)) before checking results, and reset(net, handle) between independent test parts.",
+    "Expected errors are counted with VUnit's disable_stop and get_log_count on the logger of the component that reports them."
+  ]
+}

@@ -59,6 +59,8 @@ describes.
   common tasks.
 * [`examples/`](examples): complete, tested example projects.
 * [Contributing](CONTRIBUTING.md) and [Architecture](ARCHITECTURE.md) for developers.
+* [llms.txt](https://awesome-vunit-vcs.readthedocs.io/en/latest/llms.txt) for AI agents, and
+  [AGENTS.md](AGENTS.md) for agents working on this repository.
 
 ## License
 

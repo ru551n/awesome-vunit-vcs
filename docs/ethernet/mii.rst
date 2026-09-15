@@ -86,7 +86,7 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/interfaces`: *Use MII at 10 or 100 Mbit/s*, *Run one testbench at several rates*
+* :doc:`../cookbook/beyond_gmii`: *MII at 10 or 100 Mbit/s*, *Run the same test at several rates*
 
 API reference
 -------------

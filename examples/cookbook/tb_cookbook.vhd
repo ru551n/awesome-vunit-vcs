@@ -15,9 +15,11 @@ entity tb_cookbook is
 end entity;
 
 architecture tb of tb_cookbook is
+  -- docs-start: signals
   signal clk : std_ulogic := '0';
   signal in_data, out_data : std_ulogic_vector(7 downto 0) := (others => '0');
   signal in_dv, in_er, out_dv, out_er : std_ulogic := '0';
+  -- docs-end: signals
 
   -- docs-start: handles
   constant source : gmii_source_t := new_gmii_source;
@@ -25,12 +27,15 @@ architecture tb of tb_cookbook is
   -- docs-end: handles
   constant subscriber : actor_t := new_actor("tb_cookbook:subscriber");
 
+  -- docs-start: frame
   -- A 60 octet frame: destination, source, EtherType and a payload of ones
   constant frame : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
+  -- docs-end: frame
 begin
   clk <= not clk after 4 ns;
 
   main : process
+    -- docs-start: variables
     variable statistics : ethernet_statistics_t;
     variable count : natural;
     variable msg : msg_t;
@@ -38,12 +43,15 @@ begin
     variable length : natural;
     variable fcs_ok : boolean;
     constant frame_sizes : integer_vector := (60, 100, 1514);
+    -- docs-end: variables
 
+    -- docs-start: wait-helper
     procedure wait_until_idle is
     begin
       wait_until_idle(net, as_sync(source));
       wait_until_idle(net, as_sync(monitor));
     end;
+    -- docs-end: wait-helper
   begin
     -- docs-start: test-structure
     test_runner_setup(runner, runner_cfg);
@@ -180,6 +188,7 @@ begin
 
   test_runner_watchdog(runner, 10 ms);
 
+  -- docs-start: instances
   source_inst : entity awesome_vunit_vcs.gmii_source
     generic map (source)
     port map (clk, in_data, in_dv, in_er);
@@ -192,4 +201,5 @@ begin
   monitor_inst : entity awesome_vunit_vcs.gmii_monitor
     generic map (monitor)
     port map (clk, out_data, out_dv, out_er);
+  -- docs-end: instances
 end architecture;

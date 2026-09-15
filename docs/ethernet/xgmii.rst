@@ -184,7 +184,7 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/interfaces`: *Use XGMII, from 10G up to 400G*, *Run one testbench at several rates*
+* :doc:`../cookbook/beyond_gmii`: *XGMII from 10G up to 400G*, *Run the same test at several rates*
 
 API reference
 -------------

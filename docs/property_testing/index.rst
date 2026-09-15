@@ -120,7 +120,7 @@ A tagged union, where each kind of example has fields of its own:
 Related recipes
 ---------------
 
-* :doc:`../cookbook/properties`: *Write the simplest property*, *Read composite examples*
+* :doc:`../cookbook/property_testing`: *Write the first property*, *Read composite examples*
 
 API reference
 -------------

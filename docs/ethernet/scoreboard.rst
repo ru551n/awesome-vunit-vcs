@@ -58,8 +58,7 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/monitors`: *Wait for one frame to be checked*, *Get the frames a monitor received*,
-  *Get every frame as a message*
+* :doc:`../cookbook/first_test`: *Wait for a frame before moving on*, *Read the received frame yourself*
 
 API reference
 -------------

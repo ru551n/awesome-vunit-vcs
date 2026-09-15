@@ -142,7 +142,7 @@ Related pages
 
 * :doc:`qspi_flash`: *Count errors in a negative test*
 * :doc:`qspi_protocol_checker`: *Switch rules and count violations*
-* :doc:`../cookbook/flash`: *Check QSPI pin timing with a protocol checker*
+* :doc:`../cookbook/flash_boot`: *Check the pin timing*
 
 API reference
 -------------

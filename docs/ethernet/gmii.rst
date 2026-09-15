@@ -174,9 +174,9 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/interfaces`: *Use GMII*
-* :doc:`../cookbook/sources`: *Send a frame*, *Send a malformed frame*
-* :doc:`../cookbook/monitors`: *Put monitors on both sides of a DUT*
+* :doc:`../cookbook/first_test`: *Send a frame and check it*
+* :doc:`../cookbook/error_handling`: *Send a malformed frame*
+* :doc:`../cookbook/first_test`: *Put monitors on both sides of the DUT*
 
 API reference
 -------------

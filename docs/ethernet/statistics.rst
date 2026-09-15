@@ -70,7 +70,7 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/monitors`: *Get statistics*
+* :doc:`../cookbook/first_test`: *Check the statistics*
 
 API reference
 -------------

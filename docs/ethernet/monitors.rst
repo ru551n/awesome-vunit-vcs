@@ -118,8 +118,7 @@ share state.
 Related recipes
 ---------------
 
-* :doc:`../cookbook/setup`: *Create a source and a monitor*
-* :doc:`../cookbook/monitors`: every recipe on that page
+* :doc:`../cookbook/first_test`: *Create a source and a monitor*
 
 API reference
 -------------

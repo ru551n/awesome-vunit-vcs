@@ -92,10 +92,12 @@ begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
       if run("test_mii") then
+        -- docs-start: mii-test
         check_ethernet_frame(net, mii_monitor, frame, blocking => false);
         push_ethernet_frame(net, mii_source, frame);
         wait_until_idle(net, as_sync(mii_source));
         wait_until_idle(net, as_sync(mii_monitor));
+        -- docs-end: mii-test
 
       elsif run("test_rgmii") then
         check_ethernet_frame(net, rgmii_monitor, frame, blocking => false);

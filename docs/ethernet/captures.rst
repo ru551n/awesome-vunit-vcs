@@ -66,8 +66,8 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/monitors`: *Capture traffic for Wireshark*
-* :doc:`../cookbook/python`: *Write a PCAPNG file*
+* :doc:`../cookbook/first_test`: *Capture the traffic for Wireshark*
+* :doc:`../cookbook/python_standalone`: *Save traffic for Wireshark*
 
 API reference
 -------------

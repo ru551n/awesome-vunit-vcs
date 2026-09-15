@@ -141,8 +141,8 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/interfaces`: *Use an AXI-Stream MAC client with backpressure*
-* :doc:`../cookbook/properties`: *Fuzz backpressure on an AXI-Stream bus*
+* :doc:`../cookbook/beyond_gmii`: *AXI-Stream with backpressure*
+* :doc:`../cookbook/property_errors`: *Fuzz backpressure on an AXI-Stream bus*
 
 API reference
 -------------

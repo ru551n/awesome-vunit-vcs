@@ -135,8 +135,7 @@ Hypothesis strategies.
 Related recipes
 ---------------
 
-* :doc:`../cookbook/python_and_vhdl`: every recipe on that page
-* :doc:`../cookbook/monitors`: *Run Python on every received frame*
+* :doc:`../cookbook/python_traffic`: *Check every received frame in Python*
 
 API reference
 -------------

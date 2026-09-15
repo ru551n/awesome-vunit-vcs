@@ -168,7 +168,7 @@ makes strategies short:
 Related recipes
 ---------------
 
-* :doc:`../cookbook/python`: every recipe on that page
+* :doc:`../cookbook/python_standalone`
 
 API reference
 -------------

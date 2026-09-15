@@ -144,7 +144,7 @@ only:
 Related recipes
 ---------------
 
-* :doc:`../cookbook/properties`: every recipe on that page
+* :doc:`../cookbook/property_testing`
 
 API reference
 -------------

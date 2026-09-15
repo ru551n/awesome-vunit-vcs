@@ -35,7 +35,7 @@ What's here
      - One page per VC: pins, constructors, procedures and options
    * - :doc:`checks`, :doc:`configuration`, :doc:`commands`, :doc:`statistics`
      - The checks and error messages, every option, the supported opcodes and the statistics
-   * - :doc:`../cookbook/flash`
+   * - :doc:`../cookbook/flash_boot`
      - Recipes: boot from an image, check writes, check pin timing, reset, custom transfers
    * - :doc:`python`
      - The flash device model in Python, without a simulator

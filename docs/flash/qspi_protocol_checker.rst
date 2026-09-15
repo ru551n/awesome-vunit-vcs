@@ -273,8 +273,7 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/flash`: *Check QSPI pin timing with a protocol checker*, *Reset the flash family
-  between examples*
+* :doc:`../cookbook/flash_boot`: *Check the pin timing*, *Reset between scenarios*
 
 API reference
 -------------

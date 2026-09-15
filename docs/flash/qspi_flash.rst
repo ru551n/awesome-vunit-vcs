@@ -426,8 +426,7 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/flash`: *Preload a flash image and boot from it*, *Check what the DUT wrote to the
-  flash*, *Reset the flash family between examples*
+* :doc:`../cookbook/flash_boot`: *Boot a design from an image*, *Check what the design wrote*, *Reset between scenarios*
 
 API reference
 -------------

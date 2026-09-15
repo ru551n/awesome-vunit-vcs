@@ -323,8 +323,7 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/flash`: *Drive custom QSPI transfers with the QSPI master*, *Check QSPI pin timing
-  with a protocol checker*, *Reset the flash family between examples*
+* :doc:`../cookbook/flash_boot`: *Send your own commands*, *Check the pin timing*, *Reset between scenarios*
 
 API reference
 -------------

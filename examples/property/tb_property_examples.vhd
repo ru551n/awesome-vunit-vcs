@@ -5,6 +5,7 @@
 -- Property-based testing examples, one test case each, on an ALU and a
 -- register bank. The strategies are in python/strategies.py.
 
+-- docs-start: libraries
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -16,6 +17,7 @@ library awesome_vunit_vcs;
 use awesome_vunit_vcs.property_pkg.all;
 
 use work.example_records_pkg.all;
+-- docs-end: libraries
 
 entity tb_property_examples is
   generic (runner_cfg : string);
@@ -35,6 +37,7 @@ begin
     variable sum : std_ulogic_vector(8 downto 0);
     variable passed : boolean;
 
+    -- docs-start: helpers
     impure function new_example(strategy : string) return property_t is
     begin
       return new_property("strategies:" & strategy, seed => get_seed(runner_cfg),
@@ -57,6 +60,7 @@ begin
       wait until rising_edge(clk);
       value <= '0';
     end;
+    -- docs-end: helpers
 
     impure function item(idx : natural; name : string := "") return string is
     begin

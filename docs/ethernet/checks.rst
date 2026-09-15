@@ -187,8 +187,7 @@ accept the protocol checker handle itself.
 Related recipes
 ---------------
 
-* :doc:`../cookbook/sources`: *Send a malformed frame*
-* :doc:`../cookbook/monitors`: *Turn a check off*
+* :doc:`../cookbook/error_handling`: *Send a malformed frame*, *Turn a check off*
 
 API reference
 -------------

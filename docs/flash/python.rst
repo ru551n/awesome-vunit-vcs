@@ -77,8 +77,7 @@ becomes a report that the VHDL component logs on the logger or checker of the fl
 Related recipes
 ---------------
 
-* :doc:`../cookbook/flash`: *Preload a flash image and boot from it*, *Check what the DUT wrote to the
-  flash*
+* :doc:`../cookbook/flash_boot`: *Boot a design from an image*, *Check what the design wrote*
 
 API reference
 -------------

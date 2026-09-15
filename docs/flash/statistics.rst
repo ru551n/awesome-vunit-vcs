@@ -60,7 +60,7 @@ Related pages
 -------------
 
 * :doc:`qspi_flash`: *Read statistics and state*
-* :doc:`../cookbook/flash`: *Reset the flash family between examples*
+* :doc:`../cookbook/flash_boot`: *Reset between scenarios*
 
 API reference
 -------------

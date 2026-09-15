@@ -117,9 +117,7 @@ Octets pushed without ``last`` when ``wait_until_idle`` arrives are a check fail
 Related recipes
 ---------------
 
-* :doc:`../cookbook/sources`: *Send a packet built in Python*, *Send a reproducible random sequence*
-* :doc:`../cookbook/python_and_vhdl`: *Call your own Python function*, *Generate traffic in Python with
-  VUnit's seed*
+* :doc:`../cookbook/python_traffic`: *Send a packet built in Python*, *Send a reproducible random sequence*, *Call your own Python function*
 
 API reference
 -------------

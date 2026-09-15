@@ -120,8 +120,7 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/interfaces`: *Use RGMII at 10, 100 or 1000 Mbit/s*, *Run one testbench at several
-  rates*
+* :doc:`../cookbook/beyond_gmii`: *RGMII at 10, 100 or 1000 Mbit/s*, *Run the same test at several rates*
 
 API reference
 -------------

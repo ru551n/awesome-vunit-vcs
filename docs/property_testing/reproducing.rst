@@ -41,7 +41,7 @@ Good to know
 Related recipes
 ---------------
 
-* :doc:`../cookbook/properties`: *Always test a known failure first*
+* :doc:`../cookbook/property_errors`: *Keep a bug from coming back*
 
 API reference
 -------------

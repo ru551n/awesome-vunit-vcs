@@ -77,7 +77,7 @@ handle all of them in one place.
 Related recipes
 ---------------
 
-* :doc:`../cookbook/python_and_vhdl`: every recipe on that page
+* :doc:`../cookbook/python_traffic`
 
 API reference
 -------------

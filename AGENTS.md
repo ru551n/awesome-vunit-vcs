@@ -24,6 +24,8 @@ source .venv/bin/activate
   development headers are needed.
 - Working in a git worktree while the environment has an editable install of another checkout: set
   `PYTHONPATH=$PWD/src`, or the tests import the other checkout's sources.
+- Run `tests/packaging/check_package.py` without `PYTHONPATH`: it checks that VUnit finds the installed
+  wheel, not a source tree.
 - Write simulation output with `--output-path` to a directory you delete afterwards. Delete temporary
   directories by exact path, never with a glob.
 

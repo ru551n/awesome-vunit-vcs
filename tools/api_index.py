@@ -29,6 +29,7 @@ import inspect
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -403,9 +404,10 @@ _RUN = re.compile(r'run\("(test_[A-Za-z0-9_]+)"\)')
 
 
 def _anchor(title: str) -> str:
-    from docutils.nodes import make_id
-
-    return str(make_id(title))
+    """The id docutils gives a section title (docutils.nodes.make_id), without importing docutils."""
+    ascii_title = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode("ascii")
+    anchor = re.sub(r"[^a-z0-9]+", "-", ascii_title.lower())
+    return re.sub(r"^[^a-z]+|-+$", "", anchor)
 
 
 def _test_for(path: Path, marker: str | None) -> str | None:

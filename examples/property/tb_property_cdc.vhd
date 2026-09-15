@@ -93,46 +93,58 @@ begin
     end;
   begin
     test_runner_setup(runner, runner_cfg);
-    -- docs-start: cdc-property
-    prop := new_property("cdc_strategies:toggle_sync", seed => get_seed(runner_cfg),
-      output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
-    while next_example(prop) loop
-      clk_enable <= false;
-      wait for clock_stop_margin;
-      src_rst <= '1';
-      dst_rst <= '1';
-      src_period <= get_integer(prop, "src_period_ps") * 1 ps;
-      dst_period <= get_integer(prop, "dst_period_ps") * 1 ps;
-      dst_phase <= get_integer(prop, "dst_phase_ps") * 1 ps;
-      clk_enable <= true;
-      wait until rising_edge(src_clk);
-      wait until rising_edge(src_clk);
-      src_rst <= '0';
-      if has_field(prop, "reset_release_ps") then
-        wait for get_integer(prop, "reset_release_ps") * 1 ps;
-      end if;
-      wait until rising_edge(dst_clk);
-      dst_rst <= '0';
-
-      expected := get_length(prop, "events");
-      prev_cycle := 0;
-      for idx in 0 to expected - 1 loop
-        cycle := get_integer(prop, "events(" & integer'image(idx) & ")");
-        for skip in prev_cycle + 1 to cycle loop
+    while test_suite loop
+      if run("test_clock_ratio_and_phase") then
+        -- docs-start: cdc-property
+        prop := new_property("cdc_strategies:toggle_sync", seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
+        while next_example(prop) loop
+          clk_enable <= false;
+          -- Longer than any half period the strategy draws, so both clock generators are
+          -- parked at "wait until clk_enable" and the new example starts from a clean clock
+          wait for clock_stop_margin;
+          src_rst <= '1';
+          dst_rst <= '1';
+          src_period <= get_integer(prop, "src_period_ps") * 1 ps;
+          dst_period <= get_integer(prop, "dst_period_ps") * 1 ps;
+          dst_phase <= get_integer(prop, "dst_phase_ps") * 1 ps;
+          clk_enable <= true;
+          -- 2 source cycles of reset: shorter than the strategy's minimum event spacing (>= 3),
+          -- so it never overlaps an event
           wait until rising_edge(src_clk);
-        end loop;
-        pulse_src;
-        prev_cycle := cycle;
-      end loop;
+          wait until rising_edge(src_clk);
+          src_rst <= '0';
+          if has_field(prop, "reset_release_ps") then
+            wait for get_integer(prop, "reset_release_ps") * 1 ps;
+          end if;
+          wait until rising_edge(dst_clk);
+          dst_rst <= '0';
 
-      for settle in 1 to settle_dst_cycles loop
-        wait until rising_edge(dst_clk);
-      end loop;
-      timed_out := dst_count < expected;
-      report_example(prop, passed => dst_count = expected, timed_out => timed_out, recovered => true);
+          expected := get_length(prop, "events");
+          prev_cycle := 0;
+          for idx in 0 to expected - 1 loop
+            cycle := get_integer(prop, "events(" & integer'image(idx) & ")");
+            -- The strategy already spaced consecutive events >= min_spacing source cycles apart
+            for skip in prev_cycle + 1 to cycle loop
+              wait until rising_edge(src_clk);
+            end loop;
+            pulse_src;
+            prev_cycle := cycle;
+          end loop;
+
+          -- min_spacing = ceil(3 * dst_period / src_period) + 2 source cycles is the
+          -- synchronizer's 3-cycle destination latency plus margin; 8 destination cycles
+          -- comfortably covers that latency however the ratio falls
+          for settle in 1 to settle_dst_cycles loop
+            wait until rising_edge(dst_clk);
+          end loop;
+          timed_out := dst_count < expected;
+          report_example(prop, passed => dst_count = expected, timed_out => timed_out, recovered => true);
+        end loop;
+        check_property(prop);
+        -- docs-end: cdc-property
+      end if;
     end loop;
-    check_property(prop);
-    -- docs-end: cdc-property
     test_runner_cleanup(runner);
   end process;
 

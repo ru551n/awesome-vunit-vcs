@@ -316,8 +316,8 @@ See a complete example
 ~~~~~~~~~~~~~~~~~~~~~~
 
 ``tests/vhdl/tb_flash.vhd``, excerpted above, connects QSPI masters to flashes and makes every claim
-about bytes that crossed the wires. ``tests/vhdl/tb_flash_boot_example.vhd`` tests a DUT that boots
-from a flash image, and :ref:`flash-quick-start` shows it in full. Both run in CI on GHDL and NVC.
+about bytes that crossed the wires. ``examples/flash`` tests a DUT that boots
+from a flash image, and :doc:`../cookbook/flash_boot` walks through it. Both run in CI on GHDL and NVC.
 
 .. _flash-common-options:
 

@@ -51,7 +51,8 @@ invalid combination is a failure on the logger of the flash when it starts.
    * - ``electronic_id``
      - ``integer``
      - -1
-     - The byte ``0xAB`` returns; -1 uses the capacity byte of ``jedec_id`` minus one
+     - The byte ``0xAB`` returns; -1 (``None`` in Python's ``FlashConfig``) uses the capacity byte of
+       ``jedec_id`` minus one
    * - ``sr1_default``
      - ``natural range 0 to 255``
      - ``16#00#``

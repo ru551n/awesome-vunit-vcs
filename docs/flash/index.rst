@@ -49,18 +49,19 @@ What's here
 The pattern
 -----------
 
-.. literalinclude:: ../../tests/vhdl/tb_flash_boot_example.vhd
-   :caption: tests/vhdl/tb_flash_boot_example.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: boot-example
-   :end-before: -- docs-end: boot-example
+   :start-after: -- docs-start: boot
+   :end-before: -- docs-end: boot
+   :dedent:
 
-This test checks a DUT that boots from a flash image. The flash has the default configuration of a
+This test checks a DUT that boots from a flash image; :doc:`../cookbook/flash_boot` builds it up step by step. The flash has the default configuration of a
 16 MiB part and checks the pin timing of the DUT with a default protocol checker. The test loads an
 Intel HEX image, releases the reset, and checks that the RAM of the DUT holds the image and that the
 boot wrote nothing.
 
-The DUT, ``tests/vhdl/boot_reader.vhd``, reads a length header and then the image with fast read
+The DUT, ``examples/flash/src/boot_reader.vhd``, reads a length header and then the image with fast read
 (``0x0B``). The test uses :vhdl:`flash_pkg.flash_load_image`, :vhdl:`flash_pkg.flash_check_content`
 and :vhdl:`flash_pkg.flash_get_written_regions`, and runs in CI on GHDL and NVC.
 
@@ -113,10 +114,10 @@ between its tri-state pins and the records.
 * The default is :vhdl:`qspi_protocol_checker_pkg.null_qspi_protocol_checker`, so pin timing is only
   checked where a protocol checker is passed or instantiated.
 * A checker in both the master and the flash of one bus reports every violation twice.
-* :vhdl:`set_check_enabled <flash_pkg.set_check_enabled>` and
-  :vhdl:`get_check_count <flash_pkg.get_check_count>` take the flash, and
-  :vhdl:`set_check_enabled <qspi_master_pkg.set_check_enabled>` and
-  :vhdl:`get_check_count <qspi_master_pkg.get_check_count>` the master, for the checker it owns.
+* ``set_check_enabled`` and ``get_check_count`` work on a flash and on a master alike, for the protocol
+  checker that component owns: :vhdl:`flash_pkg.set_check_enabled` and :vhdl:`flash_pkg.get_check_count`
+  on a flash, :vhdl:`qspi_master_pkg.set_check_enabled` and :vhdl:`qspi_master_pkg.get_check_count` on a
+  master.
 * :vhdl:`protocol_checker(flash) <flash_pkg.protocol_checker>` returns that checker, for its logger and
   the rest of its procedures.
 

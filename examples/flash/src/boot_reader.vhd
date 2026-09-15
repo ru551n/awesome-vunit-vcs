@@ -2,7 +2,7 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this file,
 -- You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- The design under test of tb_flash_boot_example: a boot loader that copies a
+-- The design under test of tb_flash_examples: a boot loader that copies a
 -- flash image into its RAM.
 --
 -- When rst_n is released it reads the 4-byte length header at address 0 of a

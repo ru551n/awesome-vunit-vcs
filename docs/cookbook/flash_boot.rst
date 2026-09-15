@@ -4,12 +4,11 @@ Booting a design from QSPI flash
 Many FPGA and SoC designs read their firmware or configuration from a QSPI NOR flash when they come out
 of reset. To test that, we need a flash that behaves like the real part, with the image already in it.
 In this article we start with the simplest flash test, a design booting from an image, and build up to
-checking what the design wrote and whether its pin timing is right. Sending our own commands to the
-flash comes last, under *Going further*.
+checking what was written and whether the pin timing is right. Sending our own commands to the flash
+comes last, under *Going further*.
 
-Everything in this article is VHDL, in testbench files. The flash image is a data file, and no Python
-code of your own is needed. The examples are the flash testbenches in ``tests/vhdl``, which CI runs on
-GHDL and NVC:
+Everything in this article is VHDL, in one testbench. The flash image is a data file, and no Python code
+of your own is needed. The example project is ``examples/flash``:
 
 .. list-table::
    :header-rows: 1
@@ -18,172 +17,233 @@ GHDL and NVC:
    * - File
      - Language
      - What it holds
-   * - ``tests/vhdl/tb_flash_boot_example.vhd``
+   * - ``examples/flash/tb_flash_examples.vhd``
      - VHDL
-     - The complete boot test of steps 1 and 2.
-   * - ``tests/vhdl/flash_boot_image.hex``
+     - The testbench, with one test case per step.
+   * - ``examples/flash/src/boot_reader.vhd``
+     - VHDL
+     - The design under test: a boot loader that copies the image into its RAM.
+   * - ``examples/flash/flash_boot_image.hex``
      - Intel HEX
      - The image the flash is loaded with.
-   * - ``tests/vhdl/tb_flash.vhd``
-     - VHDL
-     - The flash tests used in the later steps.
+   * - ``examples/flash/run.py``
+     - Python
+     - The run script.
 
-Run a test through ``tests/vhdl/run.py`` with its name:
+Run one step's test by name:
 
 .. code-block:: console
    :caption: Terminal
 
-   $ python tests/vhdl/run.py "lib.tb_flash_boot_example.*"
+   $ VUNIT_SIMULATOR=nvc python examples/flash/run.py "*test_boot_from_an_image"
 
-Step 1: boot a design from an image
+Step 1: set up the testbench (VHDL)
 -----------------------------------
 
-Here is the whole test. A small boot reader is the design under test:
+A flash testbench needs one context clause:
 
-.. literalinclude:: ../../tests/vhdl/tb_flash_boot_example.vhd
-   :caption: tests/vhdl/tb_flash_boot_example.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: boot-example
-   :end-before: -- docs-end: boot-example
+   :start-after: -- docs-start: context
+   :end-before: -- docs-end: context
+
+The architecture creates a flash with ``new_flash`` and the signals of its bus. The flash connects to the
+design through two record signals, ``m2s`` (master to slave) and ``s2m`` (slave to master). This flash
+also gets a :term:`protocol checker`, so the design's pin timing is checked:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: boot-handles
+   :end-before: -- docs-end: boot-handles
+   :dedent:
+
+Then the flash and the design under test are instantiated on that bus:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: boot-instances
+   :end-before: -- docs-end: boot-instances
+   :dedent:
+
+The process declares the variables the later steps use:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: variables
+   :end-before: -- docs-end: variables
+   :dedent:
+
+Step 2: boot from an image (VHDL)
+---------------------------------
+
+The first test loads the image, releases the design's reset and waits for the boot to finish:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: boot
+   :end-before: -- docs-end: boot
+   :dedent:
 
 Let's follow it:
 
-#. ``context awesome_vunit_vcs.flash_context`` is the only context clause a flash testbench needs.
-#. ``new_flash`` creates the flash handle. The flash entity connects to the design through two record
-   signals, ``m2s`` (master to slave) and ``s2m`` (slave to master).
 #. ``flash_load_image`` puts the image into the flash before the design leaves reset. It reads Intel HEX,
    S-record, raw binary and JSON files, and picks the format from the file extension.
-#. The test releases the reset and waits for the design to finish booting.
+#. The design reads a length header and then the image, and raises ``boot_done``.
+#. ``flash_check_content`` compares the flash content with what the design copied into its RAM.
 
-Step 2: check what the design read and wrote
---------------------------------------------
+A boot should only read. ``flash_get_written_regions`` returns the regions that were programmed or
+erased, as ``[address, length]`` pairs, so a boot leaves none:
 
-The same test ends with two checks. ``flash_check_content`` compares the flash with what the design
-copied into its RAM, so we know it read the image correctly. ``flash_get_written_regions`` returns the
-regions the design programmed or erased, and a boot should leave none.
-
-For a design that stores data, the written regions are what you check. After it has written, ask the
-flash which regions changed and compare their content:
-
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash-written-regions
-   :end-before: -- docs-end: flash-written-regions
+   :start-after: -- docs-start: boot-writes-nothing
+   :end-before: -- docs-end: boot-writes-nothing
    :dedent:
 
-The regions come back as merged ``[address, length]`` pairs. Deallocate the array when you're done. To
-check an erased or otherwise constant region, ``flash_check_content_fill`` saves building the expected
-bytes.
+Deallocate the array when you're done.
 
-A content check that fails is a check failure. When a test expects a mismatch, it counts it, the same
-way :doc:`error_handling` counts Ethernet errors:
+Step 3: check what was written (VHDL)
+-------------------------------------
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+For a design that stores data, the written regions are what you check. Here the testbench's own
+QSPI master component plays the part of such a design. Add it and a second flash on their own bus:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash-content-mismatch
-   :end-before: -- docs-end: flash-content-mismatch
+   :start-after: -- docs-start: master-handles
+   :end-before: -- docs-end: master-handles
    :dedent:
 
-Step 3: check the pin timing
-----------------------------
-
-A design can read the right data with timing a real flash wouldn't accept. To catch that, give the flash
-a :term:`protocol checker` with your part's limits when you create it:
-
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash_constructors
-   :end-before: -- docs-end: flash_constructors
+   :start-after: -- docs-start: master-instances
+   :end-before: -- docs-end: master-instances
    :dedent:
 
-A limit of zero switches its rule off. Without a protocol checker, the flash doesn't check timing at
-all; the boot test of step 1 uses one with default limits.
+The master programs four octets, and ``flash_wait_until_ready`` waits for the flash to finish:
 
-A negative test sends traffic that breaks a rule and counts the violations:
-
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash_protocol_violation
-   :end-before: -- docs-end: flash_protocol_violation
+   :start-after: -- docs-start: program
+   :end-before: -- docs-end: program
    :dedent:
 
-Violations are reported by the protocol checker, named ``<flash id>:protocol_checker``. The flash passes
-``set_check_enabled`` and ``get_check_count`` on to it, so you don't need to look it up:
+Then ask the flash what changed and check the content:
 
-.. literalinclude:: ../../tests/vhdl/tb_flash_vci.vhd
-   :caption: tests/vhdl/tb_flash_vci.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash-check-forwarding
-   :end-before: -- docs-end: flash-check-forwarding
+   :start-after: -- docs-start: written-regions
+   :end-before: -- docs-end: written-regions
    :dedent:
 
-Step 4: reset between scenarios
--------------------------------
+Byte data can be a ``std_ulogic_vector`` literal such as ``x"DEADBEEF"``. ``flash_check_content`` is a
+message to the flash, so ``wait_until_idle`` waits until the flash has checked it. To check an erased or
+otherwise constant region, ``flash_check_content_fill`` saves building the expected bytes.
+
+Step 4: count a content mismatch (VHDL)
+---------------------------------------
+
+A content check that fails is an error on the flash's logger. When a test expects a mismatch, it counts
+it, the same way :doc:`error_handling` counts Ethernet errors:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: content-mismatch
+   :end-before: -- docs-end: content-mismatch
+   :dedent:
+
+Step 5: check the pin timing (VHDL)
+-----------------------------------
+
+A design can read the right data with timing a real flash wouldn't accept. The protocol checker of a
+flash catches that. Its limits are parameters of ``new_qspi_protocol_checker``, and a limit of zero
+switches its rule off. This bus has a master that keeps CS high too briefly between commands:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: timing-handles
+   :end-before: -- docs-end: timing-handles
+   :dedent:
+
+A negative test sends two commands and counts the violation:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: timing-violation
+   :end-before: -- docs-end: timing-violation
+   :dedent:
+
+Violations are reported by the protocol checker, named ``<flash id>:protocol_checker``; count them on its
+logger. ``get_check_count`` and ``set_check_enabled`` take the flash and pass on to its protocol checker,
+so you don't need to look it up. Without a protocol checker, a flash doesn't check timing at all.
+
+Step 6: reset between scenarios (VHDL)
+--------------------------------------
 
 VUnit runs every test case in a fresh simulation, so separate tests never need a reset. Within one test,
-though, a scenario can leave a transfer or a busy period unfinished. Then reset the components.
+though, a scenario can leave a transfer or a busy period unfinished. Then reset the components:
 
-The flash returns to its power-on state. It keeps its content, and its statistics unless you ask it to
-clear them:
-
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash-reset-statistics
-   :end-before: -- docs-end: flash-reset-statistics
+   :start-after: -- docs-start: reset
+   :end-before: -- docs-end: reset
    :dedent:
 
-The protocol checker clears its counts and forgets the edges it saw:
+The flash returns to its power-on state. It keeps its content, and its statistics unless you ask it to
+clear them. The master aborts a transfer in progress and releases the bus. A protocol checker clears its
+counts:
 
-.. literalinclude:: ../../tests/vhdl/tb_qspi_protocol_checker.vhd
-   :caption: tests/vhdl/tb_qspi_protocol_checker.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
    :start-after: -- docs-start: protocol-checker-reset
    :end-before: -- docs-end: protocol-checker-reset
    :dedent:
 
-A flash reset is not an erase. To change the content, preload or erase it.
-
 Going further: send your own commands
 -------------------------------------
 
-So far the design under test did all the talking. The QSPI master component lets the testbench talk to
-the flash too, for example to set up content through the bus as a design would. When you only need
-content in the flash, ``flash_preload`` or ``flash_load_image`` is much faster.
+So far the testbench used the command layer only to stand in for a design. It can send any command.
+When you only need content in the flash, ``flash_load_image`` or ``flash_preload`` is much faster.
 
 The command layer sends the common flash commands:
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: qspi-flash-commands
-   :end-before: -- docs-end: qspi-flash-commands
+   :start-after: -- docs-start: commands
+   :end-before: -- docs-end: commands
    :dedent:
+
+Read data comes back as a byte array, which the caller deallocates.
 
 For anything the command layer doesn't have, ``qspi_transfer`` sends a transaction of your own: a
-command, an address, dummy cycles and data, each on its own number of lanes. Here the non-blocking form
-starts a page program, so the test can act while it runs, and ``await_qspi_transfer_reply`` waits for it
-to end:
+command, an address, dummy cycles and data, each a byte array with its own number of lanes.
+``new_byte_array`` builds a byte array from integers. The non-blocking form below returns at once, so
+the test can act while the transfer runs, and ``await_qspi_transfer_reply`` waits for it to end:
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: qspi-transfer
-   :end-before: -- docs-end: qspi-transfer
+   :start-after: -- docs-start: transfer
+   :end-before: -- docs-end: transfer
    :dedent:
 
-Reset the master between scenarios too; it aborts its transfer and releases the bus:
-
-.. literalinclude:: ../../tests/vhdl/tb_qspi_master.vhd
-   :caption: tests/vhdl/tb_qspi_master.vhd
-   :language: vhdl
-   :start-after: -- docs-start: qspi-master-reset
-   :end-before: -- docs-end: qspi-master-reset
-   :dedent:
+``qspi_transfer`` copies the arrays, so the test deallocates them straight away.
 
 Where to go next
 ----------------

@@ -106,6 +106,11 @@ The examples
      - The tests of the Ethernet articles on GMII, and the same frame on every other interface.
      - GHDL, NVC
      - ``python examples/cookbook/run.py``
+   * - ``examples/flash``
+     - A design booting from a QSPI flash image, content checks, pin timing, resets and commands sent
+       by the testbench.
+     - GHDL, NVC
+     - ``python examples/flash/run.py``
    * - ``examples/gmii``
      - A realistic GMII testbench: monitors on both sides of a design, random frames, a Python
        subscriber and Scapy.
@@ -124,7 +129,7 @@ The examples
      - GHDL, NVC
      - ``python examples/property/run.py``
 
-The flash article uses the flash testbenches in ``tests/vhdl``, run with ``python tests/vhdl/run.py``.
+
 
 Find a feature
 --------------

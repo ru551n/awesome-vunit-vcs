@@ -357,6 +357,10 @@ class FlashBackend:
         """
         Seed content, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.preload`.
 
+        The VHDL component calls it with the data first; in Python, use
+        :meth:`FlashDevice.preload <awesome_vunit_vcs.flash.device.FlashDevice.preload>`, which takes the
+        address first.
+
         Args:
             data: Byte values, an ``integer_array_t``. A value outside 0 to 255
                 is a failure report and nothing is written.
@@ -421,6 +425,10 @@ class FlashBackend:
     def check_content(self, expected: Any, addr: int) -> int:
         """
         Check content, see :meth:`~awesome_vunit_vcs.flash.device.FlashDevice.check_content`.
+
+        The VHDL component calls it with the expected bytes first; in Python, use
+        :meth:`FlashDevice.check_content <awesome_vunit_vcs.flash.device.FlashDevice.check_content>`,
+        which takes the address first.
 
         A mismatch is an error report, which VHDL logs on the VC checker.
 

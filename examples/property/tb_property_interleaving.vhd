@@ -28,13 +28,10 @@ begin
     variable num_events : natural;
     variable passed, held_a, held_b : boolean;
 
-    -- The path of event idx, "(2)", or of a field of it, "(2).name"
-    impure function item(idx : natural; name : string := "") return string is
+    -- The path of a field of event idx, "events(2).cycle"
+    impure function event(idx : natural; name : string) return string is
     begin
-      if name = "" then
-        return "(" & integer'image(idx) & ")";
-      end if;
-      return "(" & integer'image(idx) & ")." & name;
+      return "events(" & integer'image(idx) & ")." & name;
     end;
 
     -- "cycle 0: A request, cycle 1: A cancel, ..." for the current example, in cycle order
@@ -45,13 +42,13 @@ begin
     begin
       for cycle in 0 to 7 loop
         for idx in 0 to num_events - 1 loop
-          if get_integer(prop, "events" & item(idx, "cycle")) = cycle then
+          if get_integer(prop, event(idx, "cycle")) = cycle then
             if not first then
               write(result, string'(", "));
             end if;
             first := false;
             write(result, string'("cycle " & integer'image(cycle) & ": " &
-              get_string(prop, "events" & item(idx, "actor")) & " " & get_string(prop, "events" & item(idx, "action"))));
+              get_string(prop, event(idx, "actor")) & " " & get_string(prop, event(idx, "action"))));
           end if;
         end loop;
       end loop;
@@ -65,11 +62,11 @@ begin
     procedure apply(cycle : natural) is
     begin
       for idx in 0 to num_events - 1 loop
-        if get_integer(prop, "events" & item(idx, "cycle")) = cycle then
-          if get_string(prop, "events" & item(idx, "actor")) = "A" then
-            request_a <= '1' when get_string(prop, "events" & item(idx, "action")) = "request" else '0';
+        if get_integer(prop, event(idx, "cycle")) = cycle then
+          if get_string(prop, event(idx, "actor")) = "A" then
+            request_a <= '1' when get_string(prop, event(idx, "action")) = "request" else '0';
           else
-            request_b <= '1' when get_string(prop, "events" & item(idx, "action")) = "request" else '0';
+            request_b <= '1' when get_string(prop, event(idx, "action")) = "request" else '0';
           end if;
         end if;
       end loop;
@@ -90,8 +87,8 @@ begin
       if run("test_interleaving") then
         -- docs-start: interleaving
         -- Requests, cancels and releases on overlapping cycles never violate mutual
-        -- exclusion or drop a still-requesting client's grant. inject_bug plants a
-        -- release that wrongly clears the other client's grant, found and shrunk.
+        -- exclusion or drop a still-requesting client's grant. inject_bug grants a
+        -- request on the same cycle the other client releases, so both are held.
         prop := new_property("interleaving_strategies:interleaving", seed => get_seed(runner_cfg),
           output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
         while next_example(prop) loop

@@ -76,12 +76,9 @@ begin
   main : process
     variable prop : property_t;
     variable expected, prev_cycle, cycle : natural;
-    variable timed_out : boolean;
-    -- More than half of the largest period the strategy draws (20 ns), so both
-    -- clock generators are parked at "wait until clk_enable" before it goes off
+    -- More than half of the largest period the strategy draws (20 ns)
     constant clock_stop_margin : time := 21 ns;
-    -- Comfortably bounds the synchronizer's 3-cycle latency plus up to one
-    -- destination cycle of alignment slack between the two clock domains
+    -- The synchronizer's 3-cycle latency plus alignment slack between the domains
     constant settle_dst_cycles : positive := 8;
 
     -- Hold src_event high for one source cycle
@@ -132,14 +129,12 @@ begin
             prev_cycle := cycle;
           end loop;
 
-          -- min_spacing = ceil(3 * dst_period / src_period) + 2 source cycles is the
-          -- synchronizer's 3-cycle destination latency plus margin; 8 destination cycles
-          -- comfortably covers that latency however the ratio falls
+          -- Let the last event reach the destination domain
           for settle in 1 to settle_dst_cycles loop
             wait until rising_edge(dst_clk);
           end loop;
-          timed_out := dst_count < expected;
-          report_example(prop, passed => dst_count = expected, timed_out => timed_out, recovered => true);
+          -- A lost event and a duplicated one are both wrong behavior
+          report_example(prop, passed => dst_count = expected);
         end loop;
         check_property(prop);
         -- docs-end: cdc-property

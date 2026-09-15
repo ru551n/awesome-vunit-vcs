@@ -20,20 +20,6 @@ from hypothesis import strategies as st
 # docs-end: imports
 
 
-# docs-start: helpers
-def clock_period(min_ps: int, max_ps: int) -> st.SearchStrategy[int]:
-    """A clock period in picoseconds, small enough to fit a 32-bit VHDL integer."""
-    return st.integers(min_ps, max_ps)
-
-
-def phase(period_ps: int) -> st.SearchStrategy[int]:
-    """A phase offset for a clock of the given period: 0 up to and including one full period."""
-    return st.integers(0, period_ps)
-
-
-# docs-end: helpers
-
-
 # docs-start: toggle_sync
 def toggle_sync() -> st.SearchStrategy[dict[str, object]]:
     """
@@ -44,7 +30,7 @@ def toggle_sync() -> st.SearchStrategy[dict[str, object]]:
     destination ratios and events placed close together.
     """
     periods = st.fixed_dictionaries(
-        {"src_period_ps": clock_period(2_000, 20_000), "dst_period_ps": clock_period(2_000, 20_000)}
+        {"src_period_ps": st.integers(2_000, 20_000), "dst_period_ps": st.integers(2_000, 20_000)}
     )
 
     def with_events(periods: dict[str, int]) -> st.SearchStrategy[dict[str, object]]:
@@ -53,7 +39,7 @@ def toggle_sync() -> st.SearchStrategy[dict[str, object]]:
         events = gaps.map(lambda values: list(accumulate(values)))
         fields: dict[str, st.SearchStrategy[object]] = {
             **{key: st.just(value) for key, value in periods.items()},
-            "dst_phase_ps": phase(periods["dst_period_ps"]),
+            "dst_phase_ps": st.integers(0, periods["dst_period_ps"]),
             "events": events,
         }
         return st.fixed_dictionaries(fields, optional={"reset_release_ps": st.integers(0, periods["dst_period_ps"])})

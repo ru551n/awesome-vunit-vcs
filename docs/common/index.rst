@@ -59,21 +59,14 @@ Use it wherever a procedure takes ``arguments``, such as ``push_ethernet_packet`
 ``push_ethernet_sequence``, ``check_ethernet_sequence`` and ``new_property``.
 
 **In VHDL**, ``arg`` and ``kwarg`` come from the Python bridge, and ``arg_text``, ``kwarg_text``,
-``arg_time`` and ``kwarg_time`` from ``awesome_vunit_vcs.vc_python_pkg``. ``ethernet_context`` includes
-both, so an Ethernet testbench needs nothing more. Any other testbench, such as a property testbench,
-adds these lines:
-
-.. code-block:: vhdl
-   :caption: The context clauses for arguments, outside ethernet_context
-
-   library python_bridge;
-   context python_bridge.python_context;
-
-   library awesome_vunit_vcs;
-   use awesome_vunit_vcs.vc_python_pkg.all;
+``arg_time`` and ``kwarg_time`` from ``awesome_vunit_vcs.vc_python_pkg``. Every context of the package
+includes both: ``ethernet_context``, ``flash_context`` and ``property_context``. A testbench with one of
+them needs nothing more.
 
 **In Python**, a function receives ``arg`` and ``kwarg`` values as ``int``, ``float``, ``bool``, ``str``
-or a list. A ``kwarg_text`` or ``kwarg_time`` value needs decoding with
+or a list. Text and times arrive encoded, as a list of integers, because VHDL can't pass every
+character or a 64-bit time directly; that is why the decoders accept ``str | list[int]``, and a plain
+``str`` passes through unchanged. A ``kwarg_text`` or ``kwarg_time`` value needs decoding with
 :func:`~awesome_vunit_vcs.common.vunit_bridge.decode_text` or
 :func:`~awesome_vunit_vcs.common.vunit_bridge.decode_time_fs`, as ``label`` shows here:
 

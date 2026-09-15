@@ -245,6 +245,15 @@ Let's follow it:
    :end-before: -- docs-end: keep-wel-handles
    :dedent:
 
+This flash needs a master and a bus of its own, instantiated next to the others:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: keep-wel-instances
+   :end-before: -- docs-end: keep-wel-instances
+   :dedent:
+
 .. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
    :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl

@@ -47,10 +47,10 @@ architecture tb of tb_flash_examples is
   -- docs-start: keep-wel-handles
   -- A part that keeps write enable when it refuses a program to a locked region
   constant keep_wel_flash : flash_t := new_flash(clear_wel_on_protection_reject => false);
-  -- docs-end: keep-wel-handles
   constant keep_wel_master : qspi_master_t := new_qspi_master;
   signal keep_wel_m2s : qspi_m2s_t := qspi_m2s_init;
   signal keep_wel_s2m : qspi_s2m_t := qspi_s2m_init;
+  -- docs-end: keep-wel-handles
 begin
   main : process
     -- docs-start: variables
@@ -265,6 +265,7 @@ begin
     generic map (flash => checked_flash)
     port map (m2s => hasty_m2s, s2m => hasty_s2m);
 
+  -- docs-start: keep-wel-instances
   keep_wel_master_inst : entity awesome_vunit_vcs.qspi_master
     generic map (qspi_master => keep_wel_master)
     port map (m2s => keep_wel_m2s, s2m => keep_wel_s2m);
@@ -272,4 +273,5 @@ begin
   keep_wel_flash_inst : entity awesome_vunit_vcs.flash
     generic map (flash => keep_wel_flash)
     port map (m2s => keep_wel_m2s, s2m => keep_wel_s2m);
+  -- docs-end: keep-wel-instances
 end architecture;

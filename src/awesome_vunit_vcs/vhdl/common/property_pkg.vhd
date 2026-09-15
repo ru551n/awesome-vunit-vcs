@@ -150,7 +150,11 @@ package property_pkg is
   -- (``hypothesis.target``); report each name at most once per example.
   procedure report_score(prop : property_t; name : string; value : real);
 
-  -- ``running``, then ``passed``, ``failed``, ``flaky``, ``aborted`` or ``error``.
+  -- How the property ended: ``running`` until ``next_example`` returns false, then
+  -- ``passed``; ``failed``, a counterexample was found; ``flaky``, an example failed
+  -- once and then passed; ``aborted``, the design did not recover after a lockup; or
+  -- ``error``, the property could not run, such as an exception in the strategy
+  -- function or an invalid argument. The log of ``check_property`` says which.
   impure function get_outcome(prop : property_t) return string;
   -- The number of examples run, shrinking included.
   impure function get_example_count(prop : property_t) return natural;

@@ -9,7 +9,9 @@ responding.
 
 The files are the same as before: strategies in ``examples/property/python/strategies.py`` (Python)
 and test loops in ``examples/property/tb_property_examples.vhd`` (VHDL), using the helpers shown in
-:doc:`property_testing`.
+:doc:`property_testing`. The design is the same small arithmetic unit too: its operands ``a`` and
+``b`` and its result ``y`` are declared in step 1 of that article, and the ``pair`` strategy draws the
+two operands.
 
 Step 1: compare two runs instead of expected values
 ---------------------------------------------------

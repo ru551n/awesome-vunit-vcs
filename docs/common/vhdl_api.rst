@@ -6,6 +6,7 @@ VHDL API
    :depth: 1
 
 Use ``vc_python_pkg`` when you write a new component; see :doc:`../contributing/new_family`.
-Testbenches don't need it: they use a family context, such as ``ethernet_context``.
+A testbench doesn't need to name it: ``ethernet_context``, ``flash_context`` and ``property_context``
+all include it.
 
 .. include:: /_generated/vhdl/common.vc.inc

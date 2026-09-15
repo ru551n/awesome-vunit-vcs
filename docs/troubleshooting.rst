@@ -67,6 +67,15 @@ Running simulations
        in another session: execute the module in ``new_session(get_id(monitor))``, the monitor's own. A
        subscriber that raises is not silent; look for a failure naming it on the monitor's logger. See
        :ref:`python-monitors-in-simulation`.
+   * - ``<module>:<function> raised <Type>: <message> (<file>:<line>)``, as a failure on a source
+     - Your packet function or sequence generator raised an exception. The first line names your function
+       and the line in your code; the lines under it are the traceback in your code. For example
+       ``my_packets:broken raised KeyError: 7 (python/my_packets.py:15)``.
+   * - ``Property ended with an error after 0 examples: <module>:<function> raised <Type>: ...
+       while generating 'example' from ...``
+     - Your strategy raised while Hypothesis drew an example, so no example reached the design. The line
+       after ``while generating`` shows where in your code. Call the strategy in pytest, for example
+       ``strategy().example()``, to debug it with a full traceback.
    * - Wrong IFG or utilization
      - ``link_rate_mbps`` does not match the clock of the interface.
    * - A flash reads ``0xFF`` everywhere

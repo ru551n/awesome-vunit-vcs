@@ -129,7 +129,9 @@ Make traffic reproducible with VUnit's seed
        for _ in range(count):
            yield traffic.random_frame(rng, max_payload_octets=200)
 
-The same function, arguments and seed give the same frames. The monitor then expects exactly what the
+:func:`~awesome_vunit_vcs.ethernet.traffic.rng_from` and
+:func:`~awesome_vunit_vcs.ethernet.traffic.random_frame` come with the package; ``random_frame`` returns
+a random valid frame. The same function, arguments and seed give the same frames. The monitor then expects exactly what the
 source sent, and a failing run repeats with the seed VUnit printed. Rerun a test with VUnit's
 ``--seed`` option.
 

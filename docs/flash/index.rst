@@ -65,6 +65,9 @@ The DUT, ``examples/flash/src/boot_reader.vhd``, reads a length header and then 
 (``0x0B``). The test uses :vhdl:`flash_pkg.flash_load_image`, :vhdl:`flash_pkg.flash_check_content`
 and :vhdl:`flash_pkg.flash_get_written_regions`, and runs in CI on GHDL and NVC.
 
+If you write your own QSPI master design, sample the IO lines ``t_clqv`` after the SCK falling edge (6 ns
+by default, see :doc:`configuration`), not on the edge itself, as a real flash drives data that late.
+
 .. code-block:: vhdl
    :caption: Testbench context clause
 

@@ -22,7 +22,24 @@ Replay a failure
   with the seed VUnit printed repeats its examples.
 * **Journal.** With ``output_path``, each example is written to ``property_journal_<name>.jsonl`` in
   the test output path before it runs, so the input that crashed a simulation or hit the watchdog is
-  known.
+  known. Each line is a JSON object of one of two kinds:
+
+  .. list-table::
+     :header-rows: 1
+     :widths: 30 70
+
+     * - Line
+       - Fields
+     * - An example, before it runs
+       - ``index``, counting from 1; ``example``, the example as Python shows it; ``seed``, the seed the
+         testbench gave ``new_property``
+     * - Its verdict, after ``report_example``
+       - ``index``, the same number; ``verdict``: ``passed``, ``failed``, ``timed out`` or
+         ``did not recover``; ``message``, the message the testbench reported
+
+  The last example without a verdict is the one that crashed or hung. ``get_seed(runner_cfg)`` derives
+  the ``seed`` field from the seed VUnit printed, so the two look different: rerun with VUnit's printed
+  seed, ``--seed <printed seed>``, not with the journal's.
 * **Replay.** The smallest failing example is saved in ``<output-path>/test_output/property_failures/``
   and replayed first on the next run with the same ``--output-path``.
 * **Timeouts.** Hypothesis's deadline is disabled; the simulation-time budget of the testbench is the

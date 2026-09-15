@@ -67,7 +67,9 @@ Create the components
      new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
    constant checker : gmii_protocol_checker_t := new_gmii_protocol_checker(max_frame_octets => 9018);
 
-Every parameter has a default. Pass ``protocol_checker`` to a monitor to get the protocol checks.
+Every parameter has a default. Pass ``protocol_checker`` to a monitor to get the protocol checks, and
+reach that protocol checker with
+:vhdl:`get_protocol_checker(monitor) <gmii_pkg.get_protocol_checker>`.
 
 .. include:: ../_includes/vunit_names.inc
 
@@ -100,7 +102,7 @@ subscriber and a Scapy packet.
 .. code-block:: bash
    :caption: Terminal
 
-   python examples/gmii/run.py
+   python examples/gmii/run.py --output-path ../vunit_out
 
 .. dropdown:: tb_gmii_example.vhd
 

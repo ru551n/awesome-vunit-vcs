@@ -4,6 +4,8 @@ Flash
 The flash family verifies designs that talk to serial NOR flash over QSPI. It has three verification
 components (:term:`VCs <VC>`) that share one bus, so a test combines them as its design needs.
 
+.. include:: ../_includes/vunit_names.inc
+
 .. list-table::
    :header-rows: 1
    :widths: 25 75

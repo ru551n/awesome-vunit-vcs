@@ -4,7 +4,7 @@ Test strategies
 Test a sequence of operations
 -----------------------------
 
-The snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`, :ref:`item <property-helper-item>`, :ref:`new_example <property-helper-new-example>` and :ref:`pulse <property-helper-pulse>`.
+The snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`, :ref:`item <property-helper-item>`, :ref:`new_example <property-helper-new-example>` and :ref:`pulse <property-helper-pulse>`. ``BYTE`` is ``st.integers(0, 255)``, from the :ref:`imports of strategies.py <property-helper-byte>`.
 
 .. include:: ../_includes/vunit_names.inc
 
@@ -60,15 +60,33 @@ Handle a design that locks up
 -----------------------------
 
 An example can make a design lock up. Wait for the design with a simulation-time budget and report a
-missed deadline with ``timed_out``: Hypothesis treats a lockup and wrong behavior as different
+missed deadline with the ``timed_out`` argument of
+:vhdl:`report_example(prop, passed, timed_out, recovered) <property_pkg.report_example>`: Hypothesis treats a lockup and wrong behavior as different
 failures, so shrinking a lockup does not slip into another bug.
 :vhdl:`example_budget(base, per_item, items) <property_pkg.example_budget>` gives a budget of
 ``base + per_item * items``, so it grows with the example; the testbench below waits
 ``example_budget(10 ns, 10 ns, 1)`` for each octet. Reset the design after a lockup and report whether it
-works again as ``recovered``; a design that does not recover ends the property as aborted, with the
+works again with its ``recovered`` argument; a design that does not recover ends the property as aborted, with the
 smallest failing example found so far.
 
-``tb_property_lockup.vhd`` has a testbench of its own, with a sink that stops taking octets after
+``tb_property_lockup.vhd`` declares the ports of the sink as testbench signals, and the property and
+``timed_out`` as variables of its process:
+
+.. literalinclude:: ../../examples/property/tb_property_lockup.vhd
+   :caption: examples/property/tb_property_lockup.vhd
+   :language: vhdl
+   :start-after: -- docs-start: sink-signals
+   :end-before: -- docs-end: sink-signals
+   :dedent: 2
+
+.. literalinclude:: ../../examples/property/tb_property_lockup.vhd
+   :caption: examples/property/tb_property_lockup.vhd
+   :language: vhdl
+   :start-after: -- docs-start: property-variables
+   :end-before: -- docs-end: property-variables
+   :dedent: 4
+
+It is a testbench of its own, with a sink that stops taking octets after
 0xFF. The property found the lockup and shrank it to ``[255, 0]``, which its strategy now pins (see
 :doc:`reproducing`):
 

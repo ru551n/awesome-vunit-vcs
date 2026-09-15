@@ -20,14 +20,18 @@ entity tb_property_lockup is
 end entity;
 
 architecture tb of tb_property_lockup is
+  -- docs-start: sink-signals
   signal clk, rst, valid, ready : std_ulogic := '0';
   signal data : std_ulogic_vector(7 downto 0) := (others => '0');
+  -- docs-end: sink-signals
 begin
   clk <= not clk after 5 ns;
 
   main : process
+    -- docs-start: property-variables
     variable prop : property_t;
     variable timed_out : boolean;
+    -- docs-end: property-variables
   begin
     test_runner_setup(runner, runner_cfg);
     -- docs-start: lockup

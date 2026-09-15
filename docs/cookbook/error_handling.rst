@@ -12,6 +12,8 @@ testbench file ``examples/cookbook/tb_cookbook.vhd``. No Python code is needed. 
 ``wait_until_idle;``, the small helper from :ref:`step 4 of the first test <first-test-structure>` that
 waits for the source and the monitor.
 
+.. include:: ../_includes/vunit_names.inc
+
 Step 1: send a frame with a bad FCS
 -----------------------------------
 
@@ -39,7 +41,7 @@ With ``-v`` you can see the error being reported:
 .. code-block:: console
    :caption: Terminal
 
-   $ VUNIT_SIMULATOR=nvc python examples/cookbook/run.py -v "*test_count_a_malformed_frame"
+   $ VUNIT_SIMULATOR=nvc python examples/cookbook/run.py --output-path ../vunit_out -v "*test_count_a_malformed_frame"
    596000000 fs - awesome_vunit_vcs:gmii_monitor:1:protocol_checker - ERROR - ETH_FCS: bad FCS on frame 0
                                                                               expected=0x7B01ADA8
                                                                               received=0x84FE5257

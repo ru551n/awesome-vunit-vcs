@@ -4,6 +4,8 @@ QSPI NOR flash
 The :vhdl:`flash` component is a QSPI NOR flash that your design reads, programs and erases over its
 pins. A testbench sets it up and inspects it with VHDL procedures and never writes Python.
 
+.. include:: ../_includes/vunit_names.inc
+
 When to use it
 --------------
 
@@ -76,11 +78,7 @@ Connect the pins
 * The bus is SPI mode 0: SCK is low when idle, the flash samples the controller's lanes on the rising
   edge of SCK and changes its own after the falling edge.
 * No power-up delay is modelled. Load or preload the content, wait until the flash is idle with
-  ``wait_until_idle(net, as_sync(flash))``, then release your design's reset. ``net``, ``as_sync`` and
-  ``wait_until_idle`` are VUnit's (`com library <https://vunit.github.io/com/user_guide.html>`_), as are
-  ``get_id``, ``disable_stop`` and ``get_log_count`` (`logging library
-  <https://vunit.github.io/logging/user_guide.html>`_) and ``integer_array_t`` (`data types
-  <https://vunit.github.io/data_types/user_guide.html>`_); ``flash_context`` makes them visible.
+  ``wait_until_idle(net, as_sync(flash))``, then release your design's reset.
 * ``s2m`` has the initial value ``qspi_s2m_init``, no lane driven.
 * A single-lane phase uses ``IO0`` from the controller (MOSI) and ``IO1`` from the flash (MISO).
 * Dual and quad phases use ``IO1`` to ``IO0`` and ``IO3`` to ``IO0`` in both directions, with the most
@@ -356,7 +354,9 @@ the checker of the protocol checker. See :doc:`qspi_protocol_checker` for its ch
        blocking ``get_check_count`` then returns 0, and the reference is ``null_msg``
    * - :vhdl:`protocol_checker(flash) <flash_pkg.protocol_checker>`
      - The protocol checker the flash instantiates, with its final id, or ``null_qspi_protocol_checker``
-   * - ``get_id``, ``get_logger``, ``get_actor``, ``get_checker``, ``as_sync``
+   * - :vhdl:`get_id <flash_pkg.get_id>`, :vhdl:`get_logger <flash_pkg.get_logger>`,
+       :vhdl:`get_actor <flash_pkg.get_actor>`, :vhdl:`get_checker <flash_pkg.get_checker>`,
+       :vhdl:`as_sync <flash_pkg.as_sync>`
      - The identity of the flash, and its handle for ``wait_until_idle`` and ``wait_for_time``
 
 Look up the supported commands

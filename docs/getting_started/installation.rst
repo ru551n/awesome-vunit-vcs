@@ -75,7 +75,7 @@ Check the installation
    :caption: Terminal
 
    python -c "import awesome_vunit_vcs, vunit_python_bridge; print('ok')"
-   VUNIT_SIMULATOR=nvc python examples/quickstart/run.py
+   VUNIT_SIMULATOR=nvc python examples/quickstart/run.py --output-path ../vunit_out
 
 The first simulation takes a few seconds longer while the bridge builds itself. If something fails,
 see :doc:`../troubleshooting`.

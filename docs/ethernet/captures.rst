@@ -4,6 +4,8 @@ Captures
 A :term:`monitor` writes the frames it receives to a PCAPNG file that Wireshark opens directly.
 :doc:`monitors` shows how to create the monitor.
 
+.. include:: ../_includes/vunit_names.inc
+
 Capture a test
 --------------
 

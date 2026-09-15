@@ -3,6 +3,8 @@ VUnit integration
 
 Add awesome-vunit-vcs to a VUnit project with two ``add_package`` calls and one context clause.
 
+.. include:: ../_includes/vunit_names.inc
+
 Add the packages to your run script
 -----------------------------------
 

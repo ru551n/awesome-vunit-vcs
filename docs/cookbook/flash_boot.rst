@@ -7,6 +7,8 @@ In this article we start with the simplest flash test, a design booting from an 
 checking what was written and whether the pin timing is right. Sending our own commands to the flash
 comes last, under *Going further*.
 
+.. include:: ../_includes/vunit_names.inc
+
 Everything in this article is VHDL, in one testbench. The flash image is a data file, and no Python code
 of your own is needed. The design under test here is a small boot loader; to connect your own design,
 wire its QSPI pins to the flash's ``qspi_m2s_t`` and ``qspi_s2m_t`` records as
@@ -41,7 +43,7 @@ Run one step's test by name:
 .. code-block:: console
    :caption: Terminal
 
-   $ VUNIT_SIMULATOR=nvc python examples/flash/run.py "*test_boot_from_an_image"
+   $ VUNIT_SIMULATOR=nvc python examples/flash/run.py --output-path ../vunit_out "*test_boot_from_an_image"
 
 Step 1: set up the testbench (VHDL)
 -----------------------------------

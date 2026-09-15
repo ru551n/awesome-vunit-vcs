@@ -37,8 +37,8 @@ ruff check .                                   # lint
 ruff format --check .                          # formatting
 mypy                                           # strict type checking
 pytest                                         # Python unit tests
-VUNIT_SIMULATOR=ghdl python tests/vhdl/run.py -p 2
-VUNIT_SIMULATOR=nvc python tests/vhdl/run.py -p 2
+VUNIT_SIMULATOR=ghdl python tests/vhdl/run.py --output-path ../vunit_out -p 2
+VUNIT_SIMULATOR=nvc python tests/vhdl/run.py --output-path ../vunit_out -p 2
 pytest tests/packaging                         # slow: builds and installs the wheel
 pip install -r docs/requirements.txt
 sphinx-build -W --keep-going -b html docs docs/_build

@@ -11,7 +11,7 @@ The files are the same as before: strategies in ``examples/property/python/strat
 and test loops in ``examples/property/tb_property_examples.vhd`` (VHDL), using the helpers :ref:`apply <property-helper-apply>`, :ref:`item <property-helper-item>`, :ref:`new_example <property-helper-new-example>` and :ref:`pulse <property-helper-pulse>` shown in
 :doc:`property_testing`. The design is the same small arithmetic unit too: its operands ``a`` and
 ``b`` and its result ``y`` are declared in step 1 of that article, and the ``pair`` strategy draws the
-two operands.
+two operands. ``BYTE`` is ``st.integers(0, 255)``, from the :ref:`imports of strategies.py <property-helper-byte>`.
 
 .. include:: ../_includes/vunit_names.inc
 
@@ -96,7 +96,8 @@ Step 5: fuzz backpressure on an AXI-Stream bus
 ----------------------------------------------
 
 Timing fuzzing works with the Ethernet components too. On AXI-Stream the receiver decides when to take
-data. **In Python**, draw the sink's ``tready`` pattern together with the frame:
+data. **In Python**, draw the sink's ``tready`` pattern together with the frame. ``frame_data`` is the
+strategy for the frame's octets, defined next to it in ``strategies.py``:
 
 .. literalinclude:: ../../examples/property/python/strategies.py
    :caption: examples/property/python/strategies.py
@@ -137,7 +138,7 @@ quick run for every commit. For a deeper search, for example every night, run th
 .. code-block:: console
    :caption: Terminal
 
-   $ AWESOME_VUNIT_VCS_PROPERTY_PROFILE=long python examples/property/run.py
+   $ AWESOME_VUNIT_VCS_PROPERTY_PROFILE=long python examples/property/run.py --output-path ../vunit_out
 
 Going further: handle a design that locks up
 --------------------------------------------

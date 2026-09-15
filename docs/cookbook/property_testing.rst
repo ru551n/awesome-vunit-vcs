@@ -9,6 +9,8 @@ still fails.
 In this article we start with the smallest property that passes and build up to structured data and
 Ethernet frames. Sequences of operations on a design with state come last, under *Going further*.
 
+.. include:: ../_includes/vunit_names.inc
+
 Every property has two halves in two files:
 
 .. list-table::
@@ -62,6 +64,8 @@ Step 2: write the first property
 ``pin`` and ``step`` come from ``awesome_vunit_vcs.common.property`` and ``strategy_for`` from
 ``awesome_vunit_vcs.records``, for later steps:
 
+.. _property-helper-byte:
+
 .. literalinclude:: ../../examples/property/python/strategies.py
    :caption: examples/property/python/strategies.py
    :language: python
@@ -100,7 +104,7 @@ failing one. Run it like any other VUnit test:
 .. code-block:: console
    :caption: Terminal
 
-   $ VUNIT_SIMULATOR=nvc python examples/property/run.py "*test_scalar"
+   $ VUNIT_SIMULATOR=nvc python examples/property/run.py --output-path ../vunit_out "*test_scalar"
    pass lib.tb_property_examples.test_scalar (0.3 s)
    pass 1 of 1
    All passed!
@@ -116,7 +120,7 @@ smallest one that still fails, and ``check_property`` reports that one as an err
 .. code-block:: console
    :caption: Terminal
 
-   $ VUNIT_SIMULATOR=nvc python run.py -v
+   $ VUNIT_SIMULATOR=nvc python run.py --output-path ../vunit_out -v
    Seed for lib.tb_fail.all: 33341be35c1f9e05
    0 fs - tb_fail:sum - ERROR - Property failed after 20 examples. Minimal counterexample (wrong behavior): 200. Saved failure: <output-path>/test_output/property_failures/lib.tb_fail.all_<hash>.tb_fail_sum.txt. Journal: <output-path>/test_output/lib.tb_fail.all_<hash>/property_journal_tb_fail_sum.jsonl
    fail (P=0 S=0 F=1 T=1) lib.tb_fail.all (0.4 s)
@@ -129,7 +133,7 @@ use ``awesome_vunit_vcs:property:<n>``.
 
 The value after ``Minimal counterexample`` is what your design got wrong. To debug it:
 
-#. **Rerun with the same seed.** ``python run.py --seed 33341be35c1f9e05`` runs the same examples again.
+#. **Rerun with the same seed.** ``python run.py --output-path ../vunit_out --seed 33341be35c1f9e05`` runs the same examples again.
 #. **Look at the saved failure.** The smallest failing example is saved in
    ``<output-path>/test_output/property_failures/``, in the file the message names:
    ``lib.tb_fail.all_<hash>.tb_fail_sum.txt`` here, the test's output directory name and the property

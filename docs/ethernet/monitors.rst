@@ -5,6 +5,8 @@ A :term:`monitor` watches one direction of an interface and never drives it. It 
 compares them with the frames you expect, keeps statistics and writes captures. The procedures are the
 same on every interface; the examples use GMII.
 
+.. include:: ../_includes/vunit_names.inc
+
 Create a monitor
 ----------------
 

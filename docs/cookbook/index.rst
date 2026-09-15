@@ -103,25 +103,25 @@ The examples
    * - ``examples/quickstart``
      - The smallest complete testbench: a GMII source, a register stage and a monitor.
      - GHDL, NVC
-     - ``python examples/quickstart/run.py``
+     - ``python examples/quickstart/run.py --output-path ../vunit_out``
    * - ``examples/cookbook``
      - The tests of the Ethernet articles on GMII, and the same frame on every other interface.
      - GHDL, NVC
-     - ``python examples/cookbook/run.py``
+     - ``python examples/cookbook/run.py --output-path ../vunit_out``
    * - ``examples/flash``
      - A design booting from a QSPI flash image, content checks, pin timing, resets and commands sent
        by the testbench.
      - GHDL, NVC
-     - ``python examples/flash/run.py``
+     - ``python examples/flash/run.py --output-path ../vunit_out``
    * - ``examples/gmii``
      - A realistic GMII testbench: monitors on both sides of a design, random frames, a Python
        subscriber and Scapy.
      - GHDL, NVC
-     - ``python examples/gmii/run.py``
+     - ``python examples/gmii/run.py --output-path ../vunit_out``
    * - ``examples/external_project``
      - A project outside the repository that finds the installed package by name.
      - GHDL, NVC
-     - ``python examples/external_project/run.py``
+     - ``python examples/external_project/run.py --output-path ../vunit_out``
    * - ``examples/python``
      - The Python API without a simulator: frames, decoding, checks, captures, Scapy, Hypothesis.
      - Python only
@@ -129,7 +129,7 @@ The examples
    * - ``examples/property``
      - Property-based testing in simulation with Hypothesis.
      - GHDL, NVC
-     - ``python examples/property/run.py``
+     - ``python examples/property/run.py --output-path ../vunit_out``
 
 
 

@@ -4,6 +4,8 @@ Python in a simulation
 A normal testbench never writes Python: the VHDL procedures do everything. Add Python code when a
 check needs it, such as a reference model, or when a test needs generated traffic.
 
+.. include:: ../_includes/vunit_names.inc
+
 .. contents:: On this page
    :local:
    :depth: 1

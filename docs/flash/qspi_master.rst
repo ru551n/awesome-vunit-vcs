@@ -5,6 +5,8 @@ The :vhdl:`qspi_master` component drives a QSPI bus from a testbench. It runs on
 whose bytes, lane widths and dummy cycles you choose, and ``qspi_flash_cmd_pkg`` builds the common
 :term:`JEDEC` flash commands on top of it.
 
+.. include:: ../_includes/vunit_names.inc
+
 When to use it
 --------------
 

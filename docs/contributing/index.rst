@@ -55,8 +55,8 @@ These are the checks CI runs. A pull request must pass all of them.
     ruff format --check .                          # formatting, including code blocks in Markdown
     mypy                                           # strict type checking
     pytest                                         # Python unit tests
-    VUNIT_SIMULATOR=ghdl python tests/vhdl/run.py -p 2
-    VUNIT_SIMULATOR=nvc python tests/vhdl/run.py -p 2
+    VUNIT_SIMULATOR=ghdl python tests/vhdl/run.py --output-path ../vunit_out -p 2
+    VUNIT_SIMULATOR=nvc python tests/vhdl/run.py --output-path ../vunit_out -p 2
     pytest tests/packaging                         # slow: builds and installs the wheel
 
 The documentation is built with warnings as errors:

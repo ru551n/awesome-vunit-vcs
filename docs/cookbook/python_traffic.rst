@@ -7,6 +7,8 @@ or computing what a design should answer. In this article we add Python to the G
 :doc:`first_test`. We start with the simplest case, calling one Python function from VHDL, and build up
 to Python checking every received frame.
 
+.. include:: ../_includes/vunit_names.inc
+
 What goes in Python and what goes in VHDL
 -----------------------------------------
 

@@ -10,6 +10,8 @@ what a monitor received.
 The design under test is as simple as it gets: one register stage on a GMII bus. That keeps the focus
 on the testbench.
 
+.. include:: ../_includes/vunit_names.inc
+
 .. list-table:: Where the code in this article lives
    :header-rows: 1
    :widths: 30 20 50
@@ -159,7 +161,7 @@ Run it:
 .. code-block:: console
    :caption: Terminal
 
-   $ VUNIT_SIMULATOR=nvc python examples/cookbook/run.py "*test_send_and_check_a_frame"
+   $ VUNIT_SIMULATOR=nvc python examples/cookbook/run.py --output-path ../vunit_out "*test_send_and_check_a_frame"
    pass lib.tb_cookbook.test_send_and_check_a_frame (0.2 s)
    ==== Summary ========================================================
    pass lib.tb_cookbook.test_send_and_check_a_frame (0.2 s)
@@ -204,7 +206,7 @@ Run the test with ``-v`` to see the summary in the log:
 .. code-block:: console
    :caption: Terminal
 
-   $ VUNIT_SIMULATOR=nvc python examples/cookbook/run.py -v "*test_statistics"
+   $ VUNIT_SIMULATOR=nvc python examples/cookbook/run.py --output-path ../vunit_out -v "*test_statistics"
    1340000000 fs - awesome_vunit_vcs:gmii_monitor:1 - INFO - awesome_vunit_vcs:gmii_monitor:1 statistics
                    frames: total=2 good=2 bad=0
                    octets: wire=144 frame=128 payload=92

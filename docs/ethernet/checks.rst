@@ -4,6 +4,8 @@ Checks
 A :term:`protocol checker` runs the protocol checks, all enabled by default. A :term:`monitor` runs
 the scoreboard. :doc:`monitors` shows how to create both.
 
+.. include:: ../_includes/vunit_names.inc
+
 A violation is an error on the checker of the component that found it. The message starts with the
 check ID in upper case:
 

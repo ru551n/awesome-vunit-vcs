@@ -4,6 +4,8 @@ QSPI protocol checker
 The :vhdl:`qspi_protocol_checker` component passively observes a QSPI bus and checks the pin timing the
 master must meet. It never drives a pin.
 
+.. include:: ../_includes/vunit_names.inc
+
 When to use it
 --------------
 

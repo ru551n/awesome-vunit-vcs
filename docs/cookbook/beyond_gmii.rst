@@ -7,6 +7,8 @@ same.
 
 Everything in this article is VHDL, in :repo-file:`examples/cookbook/tb_cookbook_interfaces.vhd`.
 
+.. include:: ../_includes/vunit_names.inc
+
 The test stays the same
 -----------------------
 
@@ -74,7 +76,8 @@ Run the same test at several rates
 ----------------------------------
 
 When a design supports several rates, make the rates generics of the testbench and add one
-configuration per set of rates in the run script (Python). VUnit then runs every test case at each:
+configuration per set of rates in the run script (Python), on the library ``lib`` it adds the testbenches
+to. VUnit then runs every test case at each:
 
 .. literalinclude:: ../../examples/cookbook/run.py
    :caption: examples/cookbook/run.py

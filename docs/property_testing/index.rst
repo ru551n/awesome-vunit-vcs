@@ -14,9 +14,11 @@ The package does not depend on Hypothesis; install it where the simulation runs:
 
    pip install hypothesis
 
-The examples are in ``examples/property``; run them with ``python examples/property/run.py``. The
+The examples are in ``examples/property``; run them with ``python examples/property/run.py --output-path ../vunit_out``. The
 strategies are the functions of ``examples/property/python/strategies.py``, and most examples are
 test cases of ``tb_property_examples.vhd``, which shares an ALU and a register bank between them.
+
+.. include:: ../_includes/vunit_names.inc
 
 .. list-table::
    :header-rows: 1
@@ -46,7 +48,7 @@ The strategy returns a Hypothesis strategy:
    :pyobject: scalar
 
 The testbench loops over the examples: read the example, simulate, report the verdict, and check the
-property when the loop ends. The snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`, :ref:`item <property-helper-item>` and :ref:`new_example <property-helper-new-example>`.
+property when the loop ends. The snippets on this page use testbench helpers from the cookbook: :ref:`apply <property-helper-apply>`, :ref:`item <property-helper-item>` and :ref:`new_example <property-helper-new-example>`. ``BYTE`` is ``st.integers(0, 255)``, from the :ref:`imports of strategies.py <property-helper-byte>`.
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
    :caption: examples/property/tb_property_examples.vhd

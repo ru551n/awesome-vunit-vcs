@@ -7,10 +7,13 @@ lands so the guardrail blocks regressions.
 
 from __future__ import annotations
 
+import ast
+import builtins
 import importlib
 import importlib.util
 import re
 import sys
+import textwrap
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -264,7 +267,8 @@ def _literalincludes() -> list[tuple[Path, Path, dict[str, str]]]:
         if "_generated" in page.parts:
             continue
         text = page.read_text(encoding="utf-8")
-        for match in re.finditer(r"^\.\. literalinclude:: (\S+)\n((?:[ \t]+:[\w-]+:[^\n]*\n)*)", text, re.MULTILINE):
+        pattern = r"^[ \t]*\.\. literalinclude:: (\S+)\n((?:[ \t]+:[\w-]+:[^\n]*\n)*)"
+        for match in re.finditer(pattern, text, re.MULTILINE):
             options = dict(re.findall(r":([\w-]+):[ \t]*([^\n]*)", match[2]))
             includes.append((page, (page.parent / match[1]).resolve(), options))
     return includes
@@ -382,3 +386,188 @@ def test_included_code_never_shows_docs_markers(tmp_path: Path) -> None:
         if re.search(r"docs-(start|end):", included):
             leaks.append(f"{page.relative_to(REPO)}: {path.name}")
     assert not leaks, f"Includes that show docs markers: {leaks}"
+
+
+def _page_text(page: Path) -> str:
+    """The text of a page with the shared notes it includes appended."""
+    text = page.read_text(encoding="utf-8")
+    for match in re.finditer(r"^[ \t]*\.\. include:: (\S+)$", text, re.MULTILINE):
+        include = (page.parent / match[1]).resolve()
+        if include.suffix == ".inc" and "_generated" not in include.parts and include.is_file():
+            text += "\n" + include.read_text(encoding="utf-8")
+    return text
+
+
+def _mentioned(name: str, text: str) -> bool:
+    """Whether name appears in inline code or in a link or role of a page."""
+    word = re.escape(name)
+    return re.search(rf"``[^`\n]*\b{word}\b[^`\n]*``|`[^`\n]*\b{word}\b[^`\n]*`", text, re.IGNORECASE) is not None
+
+
+def _without_code(text: str) -> str:
+    """The prose of a page: blocks that show code are dropped."""
+    kept: list[str] = []
+    block_indent: int | None = None
+    for line in text.splitlines():
+        indent = len(line) - len(line.lstrip())
+        if block_indent is not None:
+            if not line.strip() or indent > block_indent:
+                continue
+            block_indent = None
+        if re.match(r"\s*\.\. (code-block|literalinclude)::", line):
+            block_indent = indent
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+_MODULE_NAMES = {"__file__", "__name__", "__doc__"}
+
+
+def _python_snippet(path: Path, options: dict[str, str]) -> str:
+    if "pyobject" in options:
+        source = path.read_text(encoding="utf-8")
+        for node in ast.parse(source).body:
+            if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name == options["pyobject"]:
+                return ast.get_source_segment(source, node, padded=True) or ""
+        return ""
+    return textwrap.dedent(_included_text(path, options))
+
+
+def _bound_names(tree: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load):
+            names.add(node.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.arg):
+            names.add(node.arg)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            names |= {(alias.asname or alias.name).split(".")[0] for alias in node.names}
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            names.add(node.name)
+    return names
+
+
+def test_python_snippets_define_the_names_they_use() -> None:
+    """A Python snippet defines, imports or explains on its page every name it uses."""
+    snippets: list[tuple[Path, Path, ast.Module]] = []
+    for page, path, options in _literalincludes():
+        if path.suffix != ".py":
+            continue
+        try:
+            snippets.append((page, path, ast.parse(_python_snippet(path, options))))
+        except SyntaxError:
+            continue  # a fragment, such as the start of a multi-line statement
+    shown: dict[Path, set[str]] = {}
+    for page, _, tree in snippets:
+        shown.setdefault(page, set()).update(_bound_names(tree))
+    offenders = set()
+    for page, path, tree in snippets:
+        # a name is defined by any snippet on the page; names the file imports are conventional (st, Path)
+        allowed = shown[page] | _imported_names(path) | set(dir(builtins)) | _MODULE_NAMES
+        text = _without_code(_page_text(page))
+        used = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
+        offenders |= {f"{page.relative_to(REPO)}: {name}" for name in used - allowed if not _mentioned(name, text)}
+    assert not offenders, f"define, import or explain these names where the snippet is shown: {sorted(offenders)}"
+
+
+def _imported_names(path: Path) -> set[str]:
+    return {
+        (alias.asname or alias.name).split(".")[0]
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+        for alias in node.names
+    }
+
+
+def test_run_commands_keep_output_out_of_the_checkout() -> None:
+    sources = [page for page in DOCS.rglob("*.rst") if "_generated" not in page.parts and "_build" not in page.parts]
+    sources += [REPO / name for name in ("README.md", "CONTRIBUTING.md", "AGENTS.md")]
+    offenders = [
+        f"{path.relative_to(REPO)}:{number}"
+        for path in sources
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if re.search(r"python\S*\s+\S*run\.py\b", line) and "--output-path" not in line
+    ]
+    assert not offenders, f"add --output-path so these runs write outside the checkout: {offenders}"
+
+
+#: Standard VHDL names that VUnit's packages overload; readers know them without a note
+_STANDARD_VHDL_NAMES = {"to_integer", "to_string", "to_hstring", "to_ostring", "resize", "write", "read"}
+
+_VHDL_DECLARATION = re.compile(
+    r"^\s*(?:impure\s+|pure\s+)?(procedure|function|type|subtype|alias)\s+(\w+)", re.IGNORECASE | re.MULTILINE
+)
+
+
+def _vunit_names() -> dict[str, str]:
+    """VUnit's public subprograms and types that the examples may use, by kind."""
+    spec = importlib.util.find_spec("vunit")
+    if spec is None or spec.origin is None:
+        pytest.skip("VUnit is not installed")
+    vhdl = Path(spec.origin).parent / "vhdl"
+    files = [
+        *vhdl.glob("check/src/check*.vhd"),
+        *vhdl.glob("logging/src/*_pkg.vhd"),
+        *vhdl.glob("run/src/run*.vhd"),
+        vhdl / "com" / "src" / "com_api.vhd",
+        vhdl / "com" / "src" / "com_types.vhd",
+        *vhdl.glob("data_types/src/*_pkg.vhd"),
+        vhdl / "verification_components" / "src" / "sync_pkg.vhd",
+    ]
+    names: dict[str, str] = {}
+    for path in files:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        declarations = re.split(r"^\s*package\s+body\b", text, flags=re.IGNORECASE | re.MULTILINE)[0]
+        for kind, name in _VHDL_DECLARATION.findall(declarations):
+            names.setdefault(name.lower(), kind.lower())
+    names["randomptype"] = "type"  # OSVVM
+    ours = {name.lower() for path in VHDL.rglob("*.vhd") for _, name in _VHDL_DECLARATION.findall(path.read_text())}
+    return {name: kind for name, kind in names.items() if name not in ours and name not in _STANDARD_VHDL_NAMES}
+
+
+def _vhdl_code(page: Path, includes: list[tuple[Path, Path, dict[str, str]]]) -> str:
+    code = [
+        _included_text(path, options)
+        for include_page, path, options in includes
+        if include_page == page and (path.suffix == ".vhd" or options.get("language") == "vhdl")
+    ]
+    lines = page.read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
+        match = re.match(r"(\s*)\.\. code-block:: vhdl", line)
+        if match:
+            block = []
+            for body in lines[index + 1 :]:
+                if body.strip() and len(body) - len(body.lstrip()) <= len(match[1]):
+                    break
+                block.append(body)
+            code.append("\n".join(block))
+    return re.sub(r"--[^\n]*", "", "\n".join(code))
+
+
+def test_vunit_names_are_explained_where_they_are_used() -> None:
+    """VUnit's subprograms and types in a page's VHDL are named in its VUnit note or linked."""
+    vunit = _vunit_names()
+    includes = _literalincludes()
+    offenders = {}
+    for page in sorted(DOCS.rglob("*.rst")):
+        if "_generated" in page.parts or "_build" in page.parts:
+            continue
+        code = _vhdl_code(page, includes)
+        used = {
+            match[1].lower()
+            for match in re.finditer(r"\b(\w+)\s*\(", code)
+            if vunit.get(match[1].lower()) in {"procedure", "function", "alias"}
+        }
+        used |= {
+            match[1].lower()
+            for match in re.finditer(r":\s*(?:in\s+|out\s+|inout\s+)?(\w+)", code)
+            if vunit.get(match[1].lower()) in {"type", "subtype"}
+        }
+        text = _without_code(_page_text(page))
+        missing = sorted(name for name in used if not _mentioned(name, text))
+        if missing:
+            offenders[str(page.relative_to(REPO))] = missing
+    assert not offenders, f"name these in the VUnit note (docs/_includes/vunit_names.inc) or link them: {offenders}"

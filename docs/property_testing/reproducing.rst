@@ -1,6 +1,8 @@
 Reproduce failures
 ==================
 
+.. include:: ../_includes/vunit_names.inc
+
 Pin known failures and set budgets
 ----------------------------------
 

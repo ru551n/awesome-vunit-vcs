@@ -4,6 +4,8 @@ Statistics
 Every :term:`monitor` keeps statistics of the frames it receives. :doc:`monitors` shows how to create
 the monitor.
 
+.. include:: ../_includes/vunit_names.inc
+
 Read and log statistics
 -----------------------
 

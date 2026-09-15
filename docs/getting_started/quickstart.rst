@@ -4,6 +4,8 @@ Quick start
 In five minutes you install the package, run a testbench that sends GMII frames through a design,
 and open the captured traffic in Wireshark.
 
+.. include:: ../_includes/vunit_names.inc
+
 1. Install the package
 ----------------------
 
@@ -86,14 +88,14 @@ What each part does:
       .. code-block:: bash
          :caption: Terminal
 
-         VUNIT_SIMULATOR=ghdl python examples/quickstart/run.py
+         VUNIT_SIMULATOR=ghdl python examples/quickstart/run.py --output-path ../vunit_out
 
    .. tab-item:: NVC
 
       .. code-block:: bash
          :caption: Terminal
 
-         VUNIT_SIMULATOR=nvc python examples/quickstart/run.py
+         VUNIT_SIMULATOR=nvc python examples/quickstart/run.py --output-path ../vunit_out
 
 The test passes, and ``log_statistics`` prints a summary like this one:
 

@@ -277,14 +277,26 @@ def test_no_include_selects_lines_by_number() -> None:
     assert not offenders, "Use docs-start/docs-end markers instead of :lines:"
 
 
-def test_every_include_marker_exists() -> None:
-    missing = []
+def test_every_include_marker_exists_exactly_once() -> None:
+    offenders = []
     for page, path, options in _literalincludes():
         text = path.read_text(encoding="utf-8")
         for option in ("start-after", "end-before"):
-            if option in options and options[option] not in text:
-                missing.append(f"{page.relative_to(REPO)}: {options[option]!r} not in {path.relative_to(REPO)}")
-    assert not missing
+            if option not in options:
+                continue
+            count = text.count(options[option])
+            if count != 1:
+                offenders.append(f"{page.relative_to(REPO)}: {options[option]!r} occurs {count} times in {path.name}")
+    assert not offenders, "Every marker must be unique; a marker that is a prefix of another one also matches it"
+
+
+def test_no_include_comes_from_the_test_suite() -> None:
+    offenders = [
+        f"{page.relative_to(REPO)}: {path.relative_to(REPO)}"
+        for page, path, _ in _literalincludes()
+        if (REPO / "tests") in path.parents
+    ]
+    assert not offenders, "Include tested examples from examples/, not the test suite"
 
 
 def test_every_example_is_in_the_cookbook() -> None:

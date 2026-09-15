@@ -85,8 +85,8 @@ The first test loads the image, releases the design's reset and waits for the bo
 .. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
    :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: boot
-   :end-before: -- docs-end: boot
+   :start-after: -- docs-start: boot-test
+   :end-before: -- docs-end: boot-test
    :dedent:
 
 Let's follow it:
@@ -214,6 +214,57 @@ counts:
    :end-before: -- docs-end: protocol-checker-reset
    :dedent:
 
+Step 7: test write protection (VHDL)
+------------------------------------
+
+A flash can lock regions against programs and erases, for example to keep a boot loader safe from a
+bad firmware update. A real part refuses a program to a locked region silently: nothing changes and no
+error is reported. Only the status register shows it. To test that a design copes, lock a region and
+let the design try to write it:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: write-protection
+   :end-before: -- docs-end: write-protection
+   :dedent:
+
+Let's follow it:
+
+#. ``flash_set_protection`` locks 4 KiB from address 0. A region is locked or unlocked here directly, as
+   the lock bits of a real part would set it.
+#. The program is refused. ``flash_get_stat`` counts the refusal as ``protect_reject_count``, and the
+   content stays erased.
+#. ``wel``, the write-enable latch, is 0 after the refusal. Parts differ here: some keep write enable
+   set. ``clear_wel_on_protection_reject`` picks the behaviour of your part:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: keep-wel-handles
+   :end-before: -- docs-end: keep-wel-handles
+   :dedent:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: keep-wel-test
+   :end-before: -- docs-end: keep-wel-test
+   :dedent:
+
+A refusal isn't an error, but some requests are: a statistic that doesn't exist, an address outside the
+device or an image that can't be read. The flash reports those as a *failure* on its logger, one level
+above the errors of steps 4 and 5, so a test that expects one disables the stop at that level:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: failed-request
+   :end-before: -- docs-end: failed-request
+   :dedent:
+
+:ref:`flash-error-levels` lists which level each kind of error uses.
+
 Going further: send your own commands
 -------------------------------------
 
@@ -233,8 +284,20 @@ Read data comes back as a byte array, which the caller deallocates.
 
 For anything the command layer doesn't have, ``qspi_transfer`` sends a transaction of your own: a
 command, an address, dummy cycles and data, each a byte array with its own number of lanes.
-``new_byte_array`` builds a byte array from integers. The non-blocking form below returns at once, so
-the test can act while the transfer runs, and ``await_qspi_transfer_reply`` waits for it to end:
+``new_byte_array`` builds a byte array from integers. The simplest form blocks until the transaction is
+done and returns the bytes it read. Here it reads the three ID bytes that follow the ``0x9F`` command:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: read-transfer
+   :end-before: -- docs-end: read-transfer
+   :dedent:
+
+``got`` is a new byte array with ``num_read_bytes`` bytes, which the test deallocates.
+
+The non-blocking form returns at once, so the test can act while the transfer runs, and
+``await_qspi_transfer_reply`` waits for it to end:
 
 .. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
    :caption: examples/flash/tb_flash_examples.vhd

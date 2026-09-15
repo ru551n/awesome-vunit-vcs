@@ -97,6 +97,37 @@ the first error stops the simulation, as any VUnit check failure does.
   :vhdl:`flash_pkg.flash_check_content` and :vhdl:`flash_pkg.flash_check_content_fill`; there is no
   VUnit memory model view of it.
 
+.. _flash-error-levels:
+
+Count errors in a negative test
+-------------------------------
+
+A test that expects an error disables the stop on the logger that reports it, at the level it is
+reported, then counts it and resets the count:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 35 25
+
+   * - Kind of error
+     - Logger
+     - Level
+   * - Pin timing violation
+     - ``get_logger(protocol_checker(flash))``
+     - ``error``
+   * - Content mismatch, metavalue on a sampled lane, unexpected message
+     - ``get_logger(flash)``
+     - ``error``
+   * - Request the flash cannot carry out, such as an unknown statistic or an address outside the device
+     - ``get_logger(flash)``
+     - ``failure``
+   * - Metavalue on a read lane of a QSPI master
+     - ``get_logger(qspi_master)``
+     - ``error``
+
+A program or erase refused by write protection is not an error; the flash counts it as
+``protect_reject_count``. :doc:`../cookbook/flash_boot` has a tested example of each.
+
 Read the messages of a flash
 ----------------------------
 

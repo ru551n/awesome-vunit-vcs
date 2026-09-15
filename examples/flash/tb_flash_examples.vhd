@@ -43,6 +43,14 @@ architecture tb of tb_flash_examples is
   signal hasty_m2s : qspi_m2s_t := qspi_m2s_init;
   signal hasty_s2m : qspi_s2m_t := qspi_s2m_init;
   -- docs-end: timing-handles
+
+  -- docs-start: keep-wel-handles
+  -- A part that keeps write enable when it refuses a program to a locked region
+  constant keep_wel_flash : flash_t := new_flash(clear_wel_on_protection_reject => false);
+  -- docs-end: keep-wel-handles
+  constant keep_wel_master : qspi_master_t := new_qspi_master;
+  signal keep_wel_m2s : qspi_m2s_t := qspi_m2s_init;
+  signal keep_wel_s2m : qspi_s2m_t := qspi_s2m_init;
 begin
   main : process
     -- docs-start: variables
@@ -55,13 +63,13 @@ begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
       if run("test_boot_from_an_image") then
-        -- docs-start: boot
+        -- docs-start: boot-test
         flash_load_image(net, boot_flash, tb_path(runner_cfg) & "flash_boot_image.hex");
         rst_n <= '1';
         wait until boot_done = '1';
         -- What the design copied into its RAM is the image
         flash_check_content(net, boot_flash, 0, ram(0 to 8 * image_bytes - 1));
-        -- docs-end: boot
+        -- docs-end: boot-test
         -- docs-start: boot-writes-nothing
         -- A boot reads; it programs and erases nothing
         flash_get_written_regions(net, boot_flash, regions);
@@ -114,6 +122,52 @@ begin
         check_equal(count, 0);
         -- docs-end: protocol-checker-reset
 
+      elsif run("test_switch_a_timing_rule_off") then
+        -- docs-start: switch-rule
+        -- Switched off, the rule neither reports nor counts the short gap
+        set_check_enabled(net, checked_flash, qspi_cs_deselect, false);
+        qspi_flash_read_id(net, hasty_master, got);
+        deallocate(got);
+        qspi_flash_read_id(net, hasty_master, got);
+        deallocate(got);
+        get_check_count(net, checked_flash, qspi_cs_deselect, count);
+        check_equal(count, 0);
+        set_check_enabled(net, checked_flash, qspi_cs_deselect);  -- and on again
+        -- docs-end: switch-rule
+
+      elsif run("test_write_protection") then
+        -- docs-start: write-protection
+        -- Lock the first 4 KiB: a program there is refused, as by a real part
+        flash_set_protection(net, data_flash, 16#000000#, 16#001000#);
+        qspi_flash_write_enable(net, master);
+        qspi_flash_page_program(net, master, 16#000010#, x"00");
+        flash_wait_until_ready(net, data_flash);
+        flash_get_stat(net, data_flash, "protect_reject_count", count);
+        check_equal(count, 1, "refused programs");
+        flash_get_stat(net, data_flash, "wel", count);
+        check_equal(count, 0, "the refusal cleared write enable");
+        -- The content is still erased
+        flash_check_content(net, data_flash, 16#000010#, x"FF");
+        wait_until_idle(net, as_sync(data_flash));
+        -- docs-end: write-protection
+        -- docs-start: keep-wel-test
+        flash_set_protection(net, keep_wel_flash, 16#000000#, 16#001000#);
+        qspi_flash_write_enable(net, keep_wel_master);
+        qspi_flash_page_program(net, keep_wel_master, 16#000010#, x"00");
+        flash_wait_until_ready(net, keep_wel_flash);
+        flash_get_stat(net, keep_wel_flash, "wel", count);
+        check_equal(count, 1, "this part keeps write enable");
+        -- docs-end: keep-wel-test
+
+      elsif run("test_count_a_failed_request") then
+        -- docs-start: failed-request
+        -- A request the flash cannot carry out is a failure on its logger
+        disable_stop(get_logger(data_flash), failure);
+        flash_get_stat(net, data_flash, "no_such_statistic", count);
+        check_equal(get_log_count(get_logger(data_flash), failure), 1);
+        reset_log_count(get_logger(data_flash), failure);
+        -- docs-end: failed-request
+
       elsif run("test_reset_between_scenarios") then
         -- docs-start: reset
         qspi_flash_write_enable(net, master);
@@ -132,6 +186,22 @@ begin
         flash_check_content(net, data_flash, 16#002000#, x"5A");
         wait_until_idle(net, as_sync(data_flash));
         -- docs-end: reset
+
+      elsif run("test_read_the_id_with_a_transfer") then
+        -- docs-start: read-transfer
+        -- A read built by hand: the 0x9F command, then three bytes read back
+        cmd := new_byte_array((0 => qspi_flash_op_read_id));
+        qspi_transfer(net, master, cmd, got, num_read_bytes => 3);
+        deallocate(cmd);
+        -- The command layer reads the same ID
+        qspi_flash_read_id(net, master, wr_data);
+        check_equal(length(got), 3);
+        for idx in 0 to 2 loop
+          check_equal(get(got, idx), get(wr_data, idx), "ID byte " & to_string(idx));
+        end loop;
+        deallocate(got);
+        deallocate(wr_data);
+        -- docs-end: read-transfer
 
       elsif run("test_send_your_own_commands") then
         -- docs-start: commands
@@ -194,4 +264,12 @@ begin
   checked_flash_inst : entity awesome_vunit_vcs.flash
     generic map (flash => checked_flash)
     port map (m2s => hasty_m2s, s2m => hasty_s2m);
+
+  keep_wel_master_inst : entity awesome_vunit_vcs.qspi_master
+    generic map (qspi_master => keep_wel_master)
+    port map (m2s => keep_wel_m2s, s2m => keep_wel_s2m);
+
+  keep_wel_flash_inst : entity awesome_vunit_vcs.flash
+    generic map (flash => keep_wel_flash)
+    port map (m2s => keep_wel_m2s, s2m => keep_wel_s2m);
 end architecture;

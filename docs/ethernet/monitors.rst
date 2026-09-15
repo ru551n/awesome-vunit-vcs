@@ -98,8 +98,8 @@ Subscribe to frames
 
 While a monitor has subscribers, it publishes every frame it receives as an ``ethernet_frame_msg``:
 
-.. literalinclude:: ../../tests/vhdl/tb_gmii_vci.vhd
-   :caption: tests/vhdl/tb_gmii_vci.vhd
+.. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
    :language: vhdl
    :start-after: -- docs-start: subscribe
    :end-before: -- docs-end: subscribe

@@ -56,8 +56,8 @@ Create the components
 .. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
    :caption: examples/cookbook/tb_cookbook_interfaces.vhd
    :language: vhdl
-   :start-after: -- docs-start: rgmii
-   :end-before: -- docs-end: rgmii
+   :start-after: -- docs-start: rgmii-handles
+   :end-before: -- docs-end: rgmii-handles
    :dedent:
 
 Match the data timing of your design

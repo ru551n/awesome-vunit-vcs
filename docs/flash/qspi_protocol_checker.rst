@@ -64,39 +64,32 @@ The :term:`handle` is the only generic: ``protocol_checker : qspi_protocol_check
 Create the checker
 ~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../../tests/vhdl/tb_qspi_protocol_checker.vhd
-   :caption: tests/vhdl/tb_qspi_protocol_checker.vhd
+The simplest way is to pass a checker as the ``protocol_checker`` parameter of
+:vhdl:`flash_pkg.new_flash` or :vhdl:`qspi_master_pkg.new_qspi_master`. They instantiate it on their own
+pins as ``<parent id>:protocol_checker`` (see :doc:`index`). This flash's checker requires a CS
+deselect time of 30 ns:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: protocol_checker_constructor
-   :end-before: -- docs-end: protocol_checker_constructor
-   :dedent: 2
+   :start-after: -- docs-start: timing-handles
+   :end-before: -- docs-end: timing-handles
+   :dedent:
 
-.. literalinclude:: ../../tests/vhdl/tb_qspi_protocol_checker.vhd
-   :caption: tests/vhdl/tb_qspi_protocol_checker.vhd
-   :language: vhdl
-   :start-after: -- docs-start: protocol_checker_instance
-   :end-before: -- docs-end: protocol_checker_instance
-   :dedent: 2
-
-``tests/vhdl/tb_qspi_protocol_checker.vhd`` drives a raw bus and breaks one rule in each test; these
-are its checker and the instance.
-
-Instead of an entity of its own, the checker can be passed as the ``protocol_checker`` parameter of
-:vhdl:`flash_pkg.new_flash` or :vhdl:`qspi_master_pkg.new_qspi_master`. They then instantiate it on
-their own pins as ``<parent id>:protocol_checker`` (see :doc:`index`).
+To check a bus without a flash or master of this package, instantiate the
+:vhdl:`qspi_protocol_checker` entity on the bus signals instead, with its handle as the only generic.
 
 Check the pin timing
 ~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../../tests/vhdl/tb_qspi_protocol_checker.vhd
-   :caption: tests/vhdl/tb_qspi_protocol_checker.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: protocol_checker_cs_deselect
-   :end-before: -- docs-end: protocol_checker_cs_deselect
-   :dedent: 8
+   :start-after: -- docs-start: timing-violation
+   :end-before: -- docs-end: timing-violation
+   :dedent:
 
-This test uses a CS deselect time that is too short, and checks the exact message and the per-rule
-counts.
+The master keeps CS high too briefly between two commands, and the test counts the one violation.
 
 .. list-table::
    :header-rows: 1
@@ -143,15 +136,15 @@ check ID, and times are in ns with up to three decimals:
 Switch rules and count violations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../../tests/vhdl/tb_qspi_protocol_checker.vhd
-   :caption: tests/vhdl/tb_qspi_protocol_checker.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: protocol_checker_disable
-   :end-before: -- docs-end: protocol_checker_disable
-   :dedent: 8
+   :start-after: -- docs-start: switch-rule
+   :end-before: -- docs-end: switch-rule
+   :dedent:
 
-This test switches a rule off and on again. ``send_frame``, ``check_counts``, ``check_no_violations``
-and ``check_one_error`` are helpers of the testbench.
+This test switches the CS deselect rule off, sends the same two commands as above without a violation,
+and switches the rule on again.
 
 .. list-table::
    :header-rows: 1

@@ -22,7 +22,7 @@ end entity;
 architecture tb of tb_cookbook_interfaces is
   constant frame : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
 
-  -- docs-start: mii
+  -- docs-start: mii-handles
   -- MII: 2.5 MHz at 10 Mbit/s, 25 MHz at 100 Mbit/s
   constant mii_source : mii_source_t := new_mii_source(link_rate_mbps => mii_link_rate_mbps);
   constant mii_monitor : mii_monitor_t := new_mii_monitor(
@@ -31,9 +31,9 @@ architecture tb of tb_cookbook_interfaces is
   signal mii_clk : std_ulogic := '0';
   signal mii_data : std_ulogic_vector(3 downto 0) := (others => '0');
   signal mii_dv, mii_er : std_ulogic := '0';
-  -- docs-end: mii
+  -- docs-end: mii-handles
 
-  -- docs-start: rgmii
+  -- docs-start: rgmii-handles
   -- RGMII: both clock edges; 125 MHz at 1000 Mbit/s, 25 MHz at 100, 2.5 MHz at 10
   constant rgmii_source : rgmii_source_t := new_rgmii_source(link_rate_mbps => rgmii_link_rate_mbps);
   constant rgmii_monitor : rgmii_monitor_t := new_rgmii_monitor(
@@ -42,9 +42,9 @@ architecture tb of tb_cookbook_interfaces is
   signal rgmii_clk : std_ulogic := '0';
   signal rgmii_data : std_ulogic_vector(3 downto 0) := (others => '0');
   signal rgmii_ctl : std_ulogic := '0';
-  -- docs-end: rgmii
+  -- docs-end: rgmii-handles
 
-  -- docs-start: rmii
+  -- docs-start: rmii-handles
   -- RMII: a 50 MHz reference clock at both 10 and 100 Mbit/s
   constant rmii_source : rmii_source_t := new_rmii_source(link_rate_mbps => rmii_link_rate_mbps);
   constant rmii_monitor : rmii_monitor_t := new_rmii_monitor(
@@ -53,9 +53,9 @@ architecture tb of tb_cookbook_interfaces is
   signal rmii_ref_clk : std_ulogic := '0';
   signal rmii_data : std_ulogic_vector(1 downto 0) := (others => '0');
   signal rmii_dv, rmii_er : std_ulogic := '0';
-  -- docs-end: rmii
+  -- docs-end: rmii-handles
 
-  -- docs-start: xgmii
+  -- docs-start: xgmii-handles
   -- XGMII family: 4 lanes (XGMII) or 8 lanes (25GMII up to 400GMII); one column per rising edge
   constant xgmii_source : xgmii_source_t := new_xgmii_source(lanes => xgmii_lanes, link_rate_mbps => xgmii_link_rate_mbps);
   constant xgmii_monitor : xgmii_monitor_t := new_xgmii_monitor(
@@ -65,9 +65,9 @@ architecture tb of tb_cookbook_interfaces is
   signal xgmii_clk : std_ulogic := '0';
   signal xgmii_data : std_ulogic_vector(data_length(xgmii_source) - 1 downto 0);
   signal xgmii_ctrl : std_ulogic_vector(ctrl_length(xgmii_source) - 1 downto 0);
-  -- docs-end: xgmii
+  -- docs-end: xgmii-handles
 
-  -- docs-start: axis-mac
+  -- docs-start: axis-mac-handles
   -- AXI-Stream MAC client: frames without preamble, a sink with tready high on 60 % of the clocks
   constant axis_source : axis_mac_source_t := new_axis_mac_source(bytes_per_beat => 8);
   constant axis_sink : axis_mac_sink_t := new_axis_mac_sink(ready_high_percent => 60);
@@ -79,7 +79,7 @@ architecture tb of tb_cookbook_interfaces is
   signal tkeep : std_ulogic_vector(keep_length(axis_source) - 1 downto 0);
   signal tvalid, tready, tlast : std_ulogic;
   signal tuser : std_ulogic_vector(user_length(axis_source) - 1 downto 0);
-  -- docs-end: axis-mac
+  -- docs-end: axis-mac-handles
 begin
   mii_clk <= not mii_clk after (4000 ns / mii_link_rate_mbps) / 2;
   rgmii_clk <= not rgmii_clk after 4 ns when rgmii_link_rate_mbps = 1000 else not rgmii_clk after (4000 ns / rgmii_link_rate_mbps) / 2;

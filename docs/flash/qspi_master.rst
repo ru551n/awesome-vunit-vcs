@@ -69,22 +69,21 @@ generic: ``qspi_master : qspi_master_t``.
 Create the master
 ~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash_constructors
-   :end-before: -- docs-end: flash_constructors
-   :dedent: 2
+   :start-after: -- docs-start: master-handles
+   :end-before: -- docs-end: master-handles
+   :dedent:
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash_instances
-   :end-before: -- docs-end: flash_instances
-   :dedent: 2
+   :start-after: -- docs-start: master-instances
+   :end-before: -- docs-end: master-instances
+   :dedent:
 
-``tests/vhdl/tb_flash.vhd`` connects a master to a flash on one bus; these are its handles and
-signals. Create the handle with :vhdl:`qspi_master_pkg.new_qspi_master`.
+A master and a flash share one bus. Create the handle with :vhdl:`qspi_master_pkg.new_qspi_master`.
 
 Send flash commands
 ~~~~~~~~~~~~~~~~~~~
@@ -186,16 +185,24 @@ The optional parameters of ``qspi_transfer`` are ``cmd_lanes``, ``addr``, ``addr
 default to 1 and the counts to 0. :vhdl:`new_byte_array <qspi_master_pkg.new_byte_array>` makes a
 byte array of integer literals, such as ``new_byte_array((16#06#, 16#A5#))``; the caller deallocates it.
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
-   :language: vhdl
-   :start-after: -- docs-start: qspi_master_continuous_read
-   :end-before: -- docs-end: qspi_master_continuous_read
-   :dedent: 8
+The blocking form is the simplest. This one reads the three ID bytes that follow ``0x9F``:
 
-This test uses the command layer and ``qspi_transfer`` together: it arms
-:term:`continuous read` with ``0xEB`` and then reads without an opcode. ``ramp`` and ``check_bytes``
-are helpers of the testbench.
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: read-transfer
+   :end-before: -- docs-end: read-transfer
+   :dedent:
+
+The non-blocking form returns at once, so the test can act while the transfer runs:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: transfer
+   :end-before: -- docs-end: transfer
+   :dedent:
+
 
 Change the clock and wait
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -258,8 +265,8 @@ violations per rule:
 See a complete example
 ~~~~~~~~~~~~~~~~~~~~~~
 
-``tests/vhdl/tb_flash.vhd``, excerpted above, drives flashes with masters in CI on GHDL and NVC.
-``tests/vhdl/tb_qspi_master.vhd`` checks the master bit by bit against a stub device.
+``examples/flash``, excerpted above, drives flashes with masters in CI on GHDL and NVC, and
+:doc:`../cookbook/flash_boot` walks through it.
 
 Common options
 --------------

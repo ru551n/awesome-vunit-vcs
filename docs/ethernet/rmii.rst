@@ -59,8 +59,8 @@ Create the components
 .. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
    :caption: examples/cookbook/tb_cookbook_interfaces.vhd
    :language: vhdl
-   :start-after: -- docs-start: rmii
-   :end-before: -- docs-end: rmii
+   :start-after: -- docs-start: rmii-handles
+   :end-before: -- docs-end: rmii-handles
    :dedent:
 
 Test the receive side of a MAC

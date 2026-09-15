@@ -82,22 +82,22 @@ Connect the pins
 Create the flash
 ~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash_constructors
-   :end-before: -- docs-end: flash_constructors
-   :dedent: 2
+   :start-after: -- docs-start: boot-handles
+   :end-before: -- docs-end: boot-handles
+   :dedent:
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash_instances
-   :end-before: -- docs-end: flash_instances
-   :dedent: 2
+   :start-after: -- docs-start: boot-instances
+   :end-before: -- docs-end: boot-instances
+   :dedent:
 
-``tests/vhdl/tb_flash.vhd`` connects QSPI masters to flashes; these are a master and a flash with a
-protocol checker. Every parameter has a default, and :ref:`flash-common-options` lists them.
+This flash has a protocol checker and feeds a design that boots from it. Every parameter has a
+default, and :ref:`flash-common-options` lists them.
 
 Preload a flash image
 ~~~~~~~~~~~~~~~~~~~~~
@@ -174,15 +174,22 @@ A relative ``file_name`` is relative to the directory the simulator runs in.
 Check what the DUT wrote
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash_sector_erase
-   :end-before: -- docs-end: flash_sector_erase
-   :dedent: 8
+   :start-after: -- docs-start: program
+   :end-before: -- docs-end: program
+   :dedent:
 
-This test erases a sector over the bus and checks the result in the model. ``poll_until_ready`` and
-``send_raw_byte`` are helpers of the testbench.
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: written-regions
+   :end-before: -- docs-end: written-regions
+   :dedent:
+
+The testbench's QSPI master stands in for a design that programs four octets; the test then asks the
+flash what was written and checks the content.
 
 .. list-table::
    :header-rows: 1
@@ -252,26 +259,35 @@ every name.
 Count errors in a negative test
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+Negative tests disable the stop, count the errors and reset the count. A content mismatch is an error on
+the flash's logger:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash_metavalue
-   :end-before: -- docs-end: flash_metavalue
-   :dedent: 8
+   :start-after: -- docs-start: content-mismatch
+   :end-before: -- docs-end: content-mismatch
+   :dedent:
 
-Negative tests disable the stop, count the errors and reset the count. This one bit-bangs a metavalue
-on a lane the flash samples.
+A request the flash cannot carry out is a failure, one level higher:
 
-.. literalinclude:: ../../tests/vhdl/tb_flash.vhd
-   :caption: tests/vhdl/tb_flash.vhd
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: flash_protocol_violation
-   :end-before: -- docs-end: flash_protocol_violation
-   :dedent: 8
+   :start-after: -- docs-start: failed-request
+   :end-before: -- docs-end: failed-request
+   :dedent:
 
-This one breaks the ``t_shsl`` of the flash's protocol checker with a CS deselect time that is too
-short. The flash checks what the device itself sees: errors are check failures on its checker, and
-requests the model cannot carry out are failures on its logger.
+A pin timing violation is an error on the logger of the flash's protocol checker:
+
+.. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
+   :caption: examples/flash/tb_flash_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: timing-violation
+   :end-before: -- docs-end: timing-violation
+   :dedent:
+
+:ref:`flash-error-levels` lists the logger and level of each kind of error.
 
 Every message a flash reports is listed in :doc:`checks`.
 
@@ -315,9 +331,9 @@ The device model runs without a simulator, for example to test an image or a dri
 See a complete example
 ~~~~~~~~~~~~~~~~~~~~~~
 
-``tests/vhdl/tb_flash.vhd``, excerpted above, connects QSPI masters to flashes and makes every claim
-about bytes that crossed the wires. ``examples/flash`` tests a DUT that boots
-from a flash image, and :doc:`../cookbook/flash_boot` walks through it. Both run in CI on GHDL and NVC.
+``examples/flash``, excerpted above, tests a design that boots from a flash image, programs a flash,
+checks write protection and pin timing, and sends custom transfers. :doc:`../cookbook/flash_boot` walks
+through it step by step. It runs in CI on GHDL and NVC.
 
 .. _flash-common-options:
 

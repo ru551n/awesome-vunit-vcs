@@ -52,8 +52,8 @@ The pattern
 .. literalinclude:: ../../examples/flash/tb_flash_examples.vhd
    :caption: examples/flash/tb_flash_examples.vhd
    :language: vhdl
-   :start-after: -- docs-start: boot
-   :end-before: -- docs-end: boot
+   :start-after: -- docs-start: boot-test
+   :end-before: -- docs-end: boot-test
    :dedent:
 
 This test checks a DUT that boots from a flash image; :doc:`../cookbook/flash_boot` builds it up step by step. The flash has the default configuration of a

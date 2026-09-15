@@ -28,8 +28,8 @@ match the rate:
 .. literalinclude:: ../../examples/cookbook/tb_cookbook_interfaces.vhd
    :caption: examples/cookbook/tb_cookbook_interfaces.vhd
    :language: vhdl
-   :start-after: -- docs-start: mii
-   :end-before: -- docs-end: mii
+   :start-after: -- docs-start: mii-handles
+   :end-before: -- docs-end: mii-handles
    :dedent:
 
 Then instantiate the MII entities instead of the GMII ones:

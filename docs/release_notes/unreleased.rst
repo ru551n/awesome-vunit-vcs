@@ -85,6 +85,11 @@ Breaking changes to the VHDL API
 Property-based testing
 ----------------------
 
+* ``property_context`` is the one context clause of a property testbench, and ``ethernet_context`` and
+  ``flash_context`` include ``property_pkg`` and the typed Python arguments too.
+* An exception in a strategy function, a packet function or a sequence generator is logged with the
+  function and the line in your code first, followed by the traceback lines in your code.
+* The property journal records the verdict of each example after its ``example`` line.
 * ``property_pkg`` runs a Hypothesis property inside one simulation: ``new_property`` names a
   Python function returning a strategy, ``next_example`` and ``report_example`` loop over the
   examples, and ``check_property`` reports the minimal counterexample Hypothesis shrank to.

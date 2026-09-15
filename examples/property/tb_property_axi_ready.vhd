@@ -64,7 +64,7 @@ begin
     variable passed : boolean;
     variable skipped : natural;
 
-    impure function new_example return property_t is
+    impure function new_fork_property return property_t is
     begin
       return new_property("axi_ready_strategies:ready_fork", seed => get_seed(runner_cfg),
         output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
@@ -188,7 +188,7 @@ begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
       skipped := 0;
-      prop := new_example;
+      prop := new_fork_property;
 
       if run("test_tready_fork") then
         -- docs-start: tready-fork

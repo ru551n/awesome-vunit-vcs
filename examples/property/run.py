@@ -45,7 +45,7 @@ lib.add_source_files(ROOT / "*.vhd")
 
 # Some examples have a deliberate bug behind an inject_bug generic, off by default. Set
 # AWESOME_VUNIT_VCS_EXAMPLE_BUGS=1 to turn it on and watch Hypothesis find and shrink it.
-BUG_BENCHES = ["tb_property_bits"]
+BUG_BENCHES = ["tb_property_axi_ready", "tb_property_bits"]
 if os.environ.get("AWESOME_VUNIT_VCS_EXAMPLE_BUGS") == "1":
     for test_bench in lib.get_test_benches():
         if test_bench.name in BUG_BENCHES:

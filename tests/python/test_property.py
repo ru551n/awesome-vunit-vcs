@@ -61,6 +61,21 @@ STRATEGIES = textwrap.dedent(
 
     def crashes_while_drawing():
         return st.integers(0, 3).map(_crash)
+
+
+    def broken_machine():
+        from hypothesis.stateful import RuleBasedStateMachine, rule
+
+        class BrokenMachine(RuleBasedStateMachine):
+            def __init__(self):
+                super().__init__()
+                raise ValueError("the machine is broken")
+
+            @rule()
+            def noop(self):
+                pass
+
+        return BrokenMachine
     """
 )
 
@@ -287,6 +302,43 @@ def test_an_exception_while_drawing_names_the_strategy_and_the_line(strategies: 
     assert first_line.startswith("property_strategies_for_tests:crashes_while_drawing raised ZeroDivisionError")
     assert "property_strategies_for_tests.py:" in first_line
     assert "return value // 0" in runner.detail
+    assert runner.take_error() == runner.detail
+    assert runner.take_error() == ""
+
+
+def test_an_exception_in_the_strategy_function_ends_the_property_for_vhdl(strategies: str) -> None:
+    runner = PropertyRunner("property_strategies_for_tests:broken_strategy", search_path=strategies, start=False)
+    runner.start()
+    assert runner.outcome == "error"
+    first_line = runner.detail.splitlines()[0]
+    assert first_line.startswith(
+        "property_strategies_for_tests:broken_strategy raised RuntimeError: the strategy is broken"
+    )
+    assert "property_strategies_for_tests.py:" in first_line
+    assert not runner.next()
+    assert runner.take_error() == runner.detail
+    assert runner.take_error() == ""
+    assert runner.summary().startswith("Property ended with an error after 0 examples")
+
+
+def test_an_invalid_strategy_ends_the_property_for_vhdl(strategies: str) -> None:
+    runner = PropertyRunner("property_strategies_for_tests:not_a_strategy", search_path=strategies, start=False)
+    runner.start()
+    assert runner.outcome == "error"
+    assert runner.detail.startswith("'property_strategies_for_tests:not_a_strategy' returned")
+    assert not runner.next()
+
+
+def test_an_exception_while_building_a_state_machine_ends_the_property(strategies: str) -> None:
+    runner = PropertyRunner("property_strategies_for_tests:broken_machine", search_path=strategies, start=False)
+    runner.start()
+    drive(runner, lambda r: {"passed": True})
+    assert runner.outcome == "error"
+    first_line = runner.detail.splitlines()[0]
+    assert first_line.startswith(
+        "property_strategies_for_tests:broken_machine raised ValueError: the machine is broken"
+    )
+    assert runner.take_error()
 
 
 def test_package_never_imports_hypothesis() -> None:

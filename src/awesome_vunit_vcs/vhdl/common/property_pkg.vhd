@@ -64,6 +64,15 @@ package property_pkg is
   --
   -- A null ``id`` becomes ``awesome_vunit_vcs:property:<n>``; a null ``logger``
   -- the logger of the id and a null ``checker`` a checker on that logger.
+  --
+  -- When the property cannot run, because the strategy function raises, the
+  -- strategy raises while drawing an example, the arguments are invalid or
+  -- Hypothesis is not installed, one failure is logged on the property's logger
+  -- and the property ends: :vhdl:`property_pkg.next_example` returns false and
+  -- :vhdl:`property_pkg.get_outcome` is ``error``. For an exception in your code the
+  -- first line of the failure is ``module:function raised Type: message (file:line)``,
+  -- followed by the traceback lines in your code. To expect it, pass your own
+  -- ``logger`` and ``disable_stop(logger, failure)`` before creating the property.
   impure function new_property(
     strategy : string;
     arguments : arg_t := null_arg;
@@ -154,19 +163,30 @@ package property_pkg is
   -- ``passed``; ``failed``, a counterexample was found; ``flaky``, an example failed
   -- once and then passed; ``aborted``, the design did not recover after a lockup; or
   -- ``error``, the property could not run, such as an exception in the strategy
-  -- function or an invalid argument. The log of ``check_property`` says which.
+  -- or an invalid argument, already logged as a failure on the property's logger.
   impure function get_outcome(prop : property_t) return string;
-  -- The number of examples run, shrinking included.
+  -- The number of examples run, shrinking included. For a stateful property each
+  -- step is one example, the ``"start"`` steps included.
   impure function get_example_count(prop : property_t) return natural;
   -- The minimal failing example as Python shows it, empty when there is none.
   impure function get_counterexample(prop : property_t) return string;
 
   -- Check that the property passed. A failure logs the minimal counterexample
-  -- on the checker of the property.
+  -- on the checker of the property. A property that ended with ``error`` was
+  -- already logged as a failure and is not reported again.
   procedure check_property(prop : property_t; msg : string := "");
 end package;
 
 package body property_pkg is
+  -- Log the error that ended a property, once, as a failure on its logger
+  procedure report_property_error(prop : property_t) is
+    constant detail : string := backend_call_string(prop.p_session, "take_error");
+  begin
+    if detail /= "" then
+      failure(prop.p_logger, detail);
+    end if;
+  end;
+
   impure function new_property(
     strategy : string;
     arguments : arg_t := null_arg;
@@ -195,7 +215,7 @@ package body property_pkg is
       result.p_checker := new_checker(result.p_logger);
     end if;
 
-    result.p_session := new_vc_session(result.p_id);
+    result.p_session := new_vc_session(result.p_id, result.p_logger);
     create_backend(
       result.p_session, "awesome_vunit_vcs.common.property", "PropertyRunner",
       arg(strategy) & kwarg("max_examples", max_examples) & kwarg_text("seed", seed) &
@@ -204,6 +224,7 @@ package body property_pkg is
     );
     -- The strategy's own arguments are given separately, so they never collide with the runner's
     backend_call(result.p_session, "start", arguments);
+    report_property_error(result);
     return result;
   end;
 
@@ -223,8 +244,12 @@ package body property_pkg is
   end;
 
   impure function next_example(prop : property_t) return boolean is
+    constant more : boolean := backend_call_boolean(prop.p_session, "next");
   begin
-    return backend_call_boolean(prop.p_session, "next");
+    if not more then
+      report_property_error(prop);
+    end if;
+    return more;
   end;
 
   impure function get_integer(prop : property_t; path : string := "") return integer is
@@ -330,6 +355,10 @@ package body property_pkg is
   procedure check_property(prop : property_t; msg : string := "") is
     constant summary : string := backend_call_string(prop.p_session, "summary");
   begin
+    report_property_error(prop);
+    if get_outcome(prop) = "error" then
+      return;  -- logged once as a failure when the property ended
+    end if;
     if msg = "" then
       check(prop.p_checker, get_outcome(prop) = "passed", summary);
     else

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from hypothesis import strategies as st
+from hypothesis.stateful import RuleBasedStateMachine, rule
 
 
 def payloads(max_size: int = 16) -> st.SearchStrategy[list[int]]:
@@ -41,3 +42,41 @@ def composite() -> st.SearchStrategy[dict[str, object]]:
             "vlan": st.none() | st.integers(1, 4094),
         }
     )
+
+
+# Strategies with bugs, for the tests of how a property that cannot run is reported
+
+
+def broken_function() -> st.SearchStrategy[int]:
+    """Raises before it returns a strategy."""
+    raise RuntimeError("the strategy function is broken")
+
+
+def _crash(value: int) -> int:
+    return value // 0
+
+
+def crashes_while_drawing() -> st.SearchStrategy[int]:
+    """Raises while Hypothesis draws an example."""
+    return st.integers(0, 3).map(_crash)
+
+
+def not_a_strategy() -> int:
+    """Returns something that is not a strategy."""
+    return 7
+
+
+class BrokenMachine(RuleBasedStateMachine):
+    """A state machine whose constructor raises."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        raise ValueError("the machine is broken")
+
+    @rule()
+    def noop(self) -> None:
+        pass
+
+
+def broken_machine() -> type[RuleBasedStateMachine]:
+    return BrokenMachine

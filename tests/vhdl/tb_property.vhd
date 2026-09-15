@@ -113,6 +113,26 @@ begin
         report_example(prop, passed => done, timed_out => not done, recovered => ready = '1');
       end loop;
     end;
+
+    -- A strategy with a bug is one failure on the logger given to new_property,
+    -- the outcome error, and nothing else
+    procedure check_strategy_error(strategy : string) is
+      constant logger : logger_t := get_logger("tb_property:strategy_error:" & strategy);
+    begin
+      disable_stop(logger, failure);
+      prop := new_property(
+        "property_strategies:" & strategy, seed => get_seed(runner_cfg),
+        search_path => tb_path(runner_cfg) & "python", logger => logger);
+      while next_example(prop) loop
+        report_example(prop, passed => true);
+      end loop;
+      check_equal(get_outcome(prop), "error", "outcome of " & strategy);
+      check_property(prop);
+      check_equal(get_log_count(logger, failure), 1, "failures logged for " & strategy);
+      check_equal(get_log_count(logger, error), 0, "errors logged for " & strategy);
+      check_equal(get_log_count(get_logger(get_id(prop)), failure), 0, "failures on the id of " & strategy);
+      reset_log_count(logger, failure);
+    end;
   begin
     test_runner_setup(runner, runner_cfg);
 
@@ -210,6 +230,12 @@ begin
           report_example(prop, passed => get_boolean(prop, "config.enabled") or true);
         end loop;
         check_property(prop);
+
+      elsif run("test_a_strategy_with_a_bug_is_one_failure") then
+        check_strategy_error("broken_function");
+        check_strategy_error("crashes_while_drawing");
+        check_strategy_error("not_a_strategy");
+        check_strategy_error("broken_machine");
       end if;
     end loop;
 

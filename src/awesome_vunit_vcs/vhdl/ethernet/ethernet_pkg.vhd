@@ -211,7 +211,9 @@ package ethernet_pkg is
   -- the bridge's typed ``arg`` and ``kwarg``, for example
   -- ``kwarg("port", 1234) & kwarg("size", 128)``. The function returns the
   -- octets from the destination address up to, not including, the FCS, or
-  -- anything ``bytes()`` accepts, such as a Scapy packet.
+  -- anything ``bytes()`` accepts, such as a Scapy packet. An exception in the
+  -- function is logged as one failure on the logger of the source, first line
+  -- ``module:function raised Type: message (file:line)``.
   procedure push_ethernet_packet(
     signal net : inout network_t;
     source : ethernet_source_t;
@@ -225,7 +227,8 @@ package ethernet_pkg is
   -- until the generator is exhausted when count is 0. The frames are fetched
   -- in batches, so a sequence costs few bridge calls. seed is passed to the
   -- function unchanged; the same function, arguments and seed produce the
-  -- same frames, for example ``seed => get_string_seed(runner_cfg)``.
+  -- same frames, for example ``seed => get_string_seed(runner_cfg)``. An exception
+  -- in the generator is logged like one in :vhdl:`ethernet_pkg.push_ethernet_packet`.
   procedure push_ethernet_sequence(
     signal net : inout network_t;
     source : ethernet_source_t;

@@ -199,20 +199,55 @@ class PropertyRunner:
         """``running``, then ``passed``, ``failed``, ``flaky``, ``aborted`` or ``error``."""
         self.detail = ""
         """What Hypothesis reported when the property ended."""
+        # The state next() and summary() need, also when starting fails
+        self._stateful = False
+        self._examples: queue.Queue[tuple[str, Any]] = queue.Queue()
+        self._verdicts: queue.Queue[tuple[str, str, float]] = queue.Queue()
+        self._journal = ""
+        self._failures_file = ""
+        self._steps: list[dict[str, Any]] = []
+        self._current: Any = None
+        self._has_current = False
+        self._cache: dict[str, Any] = {}
+        self._failures: list[tuple[str, str, str]] = []
+        self._error_taken = False
         if start:
             self.start(**(arguments or {}))
+            if self.outcome == "error":
+                raise PropertyError(self.detail)
 
     def start(self, *args: Any, **kwargs: Any) -> None:
         """
         Load the strategy function with its arguments and start generating examples.
 
+        When that fails, because Hypothesis is not installed, the strategy function
+        raises or the strategy, arguments or phases are invalid, the property ends at
+        once with the outcome ``error`` and :attr:`detail` saying why, first line
+        ``module:function raised Type: message (file:line)`` for an exception in the
+        user's code.
+
         Raises:
-            PropertyError: Hypothesis is not installed, the property was already
-                started, or the strategy, arguments or phases are invalid.
+            PropertyError: The property was already started.
         """
         if self._started:
             raise PropertyError("The property is already started")
         self._started = True
+        try:
+            self._launch(args, kwargs)
+        except Exception as exc:
+            self._finish("error", _error_detail(self._strategy, exc))
+
+    def take_error(self) -> str:
+        """
+        The :attr:`detail` of a property that ended with an error, once; an empty string
+        otherwise. VHDL logs it as one failure.
+        """
+        if self.outcome != "error" or self._error_taken:
+            return ""
+        self._error_taken = True
+        return self.detail
+
+    def _launch(self, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> None:
         strategy, max_examples, seed, name = self._strategy, self._max_examples, self._seed, self._name
         output_path, search_path, phases = self._output_path, self._search_path, self._phases
         try:
@@ -227,16 +262,9 @@ class PropertyRunner:
         target, pins = _load_property(strategy, args, kwargs)
         self._stateful = isinstance(target, type)
 
-        self._examples: queue.Queue[tuple[str, Any]] = queue.Queue()
-        self._verdicts: queue.Queue[tuple[str, str, float]] = queue.Queue()
         self._journal, self._failures_file = _files(output_path, name)
         if self._stateful:
             self._failures_file = ""  # Hypothesis cannot replay a step sequence as an example
-        self._steps: list[dict[str, Any]] = []
-        self._current: Any = None
-        self._has_current = False
-        self._cache: dict[str, Any] = {}
-        self._failures: list[tuple[str, str, str]] = []
 
         settings = hypothesis.settings(
             max_examples=max_examples * _profile_scale(),
@@ -684,9 +712,16 @@ def _error_detail(spec: str, exc: BaseException) -> str:
     An exception from the user's strategy names the strategy function and the
     innermost line of the user's code, like errors of packet functions do.
     """
-    if isinstance(exc, PropertyError):
-        return _describe(exc)
     from ..ethernet.traffic import describe_exception, user_traceback
+
+    if isinstance(exc, PropertyError):
+        # Raised by this module with a message for the user; a cause is the user's exception
+        lines = [str(exc)]
+        if exc.__cause__ is not None:
+            details = user_traceback(exc.__cause__)
+            if details:
+                lines.append(details)
+        return "\n".join(lines)
 
     lines = [describe_exception(spec, exc), *getattr(exc, "__notes__", [])]
     details = user_traceback(exc)

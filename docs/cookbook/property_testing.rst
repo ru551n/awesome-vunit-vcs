@@ -28,7 +28,9 @@ Every property has two halves in two files:
      - The testbench: a loop that runs each example through the design and reports the result.
    * - ``examples/property/run.py``
      - Python
-     - The run script.
+     - The run script, with the same package setup as any other testbench
+       (:doc:`../getting_started/vunit_integration`): ``add_verification_components()`` is needed
+       even when the testbench uses no verification component.
 
 You need Hypothesis installed (``pip install hypothesis``) to run properties. Your VHDL never imports
 anything from it.

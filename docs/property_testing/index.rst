@@ -63,8 +63,8 @@ property when the loop ends. The snippets on this page use testbench helpers fro
    :end-before: -- docs-end: scalar
    :dedent: 8
 
-``new_property`` names the strategy as ``"module:function"`` and ``search_path`` makes the module
-importable. ``seed => get_seed(runner_cfg)`` makes the examples follow VUnit's seed, and
+``new_property`` names the strategy as ``"module:function"`` and ``search_path`` is the directory the
+module is imported from: here ``python``, next to the testbench file, which ``tb_path(runner_cfg)`` names. ``seed => get_seed(runner_cfg)`` makes the examples follow VUnit's seed, and
 ``output_path => output_path(runner_cfg)`` journals and replays them (see :doc:`reproducing`).
 
 The testbench needs one context clause, ``context awesome_vunit_vcs.property_context;``. The Ethernet

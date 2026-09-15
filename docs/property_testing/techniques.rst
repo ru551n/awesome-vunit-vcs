@@ -534,8 +534,13 @@ time.
 semantic rule broken (``bad_magic``, ``wrong_length``, ``bad_checksum``, ``truncation``, or
 ``invalid_reserved_bit``).
 
+The mutation kinds belong to this packet format. For another design, write one mutation per
+rejection rule it has, such as a bad stop bit for a UART receiver.
+
 **The property.** The parser accepts exactly when the packet is exactly valid, and rejects for every
-mutated one; a valid packet that never finishes is a lockup, reported with ``timed_out``.
+mutated one; a valid packet that never finishes is a lockup. A mutated packet that leaves the parser
+waiting counts as rejected, so the testbench reports ``timed_out and not passed``: a timeout only when
+the example also failed.
 
 **Why not plain random stimulus.** A packet built entirely at random is rejected for many unrelated
 reasons at once, drowning out the rule under test; starting from a valid packet and mutating exactly

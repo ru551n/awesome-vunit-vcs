@@ -3,6 +3,8 @@ Reproduce failures
 
 .. include:: ../_includes/vunit_names.inc
 
+.. _property-pins:
+
 Pin known failures and set budgets
 ----------------------------------
 
@@ -17,6 +19,8 @@ Pin known failures and set budgets
   request CI runs the quick profile and a nightly workflow the long one.
 * **Saved failures in CI.** CI keeps ``property_failures/`` in the Actions cache between runs, so a
   failure one run found is tried first by the next.
+
+.. _property-replay:
 
 Replay a failure
 ----------------

@@ -116,6 +116,11 @@ Property-based testing
   bank against a reference model, scores, a metamorphic property, timing, swarm testing and a generated
   record in one testbench, plus an Ethernet frame
   property and a lockup. The package does not depend on Hypothesis.
+* More examples in ``examples/property``: differential and round-trip testing with hardware-aware bit
+  patterns, a handle-table resource lifecycle with a Bundle, an interleaved-event arbiter race, a
+  recursive grammar-based expression evaluator, fault injection and invalid-input mutation, a
+  clock-domain-crossing synchronizer, and a paired-fork check that TVALID does not wait for TREADY. Turn
+  their planted bugs on with ``AWESOME_VUNIT_VCS_EXAMPLE_BUGS=1``.
 * Stateful properties: a strategy function may return a ``RuleBasedStateMachine`` subclass whose
   rules run steps in VHDL with ``step``; ``get_rule`` and ``report_step`` in ``property_pkg``.
 * ``@pin`` keeps counterexamples as regressions, and ``AWESOME_VUNIT_VCS_PROPERTY_PROFILE`` selects a

@@ -28,6 +28,10 @@ test cases of ``tb_property_examples.vhd``, which shares an ALU and a register b
      - What's here
    * - :doc:`strategies`
      - Stateful properties, Ethernet frames, lockups, scores, metamorphic, timing and swarm testing
+   * - :doc:`techniques`
+     - A coverage matrix of testing techniques, and examples for the ones not shown elsewhere: differential
+       and round-trip testing, resource lifecycles, event interleaving, recursive grammars, fault
+       injection, invalid-input mutation, CDC and AXI4-Stream TREADY sensitivity
    * - :doc:`records`
      - Sharing records between Python and VHDL, generated from dataclasses
    * - :doc:`reproducing`
@@ -36,6 +40,8 @@ test cases of ``tb_property_examples.vhd``, which shares an ALU and a register b
      - ``property_pkg``
    * - :doc:`python_api`
      - The property runner, records and the VHDL generator
+
+.. _property-scalar-values:
 
 Write a first property
 ----------------------
@@ -65,6 +71,8 @@ The testbench needs one context clause, ``context awesome_vunit_vcs.property_con
 and flash contexts include it, so a testbench with those needs nothing more.
 
 .. include:: ../_includes/vunit_names.inc
+
+.. _property-composite-values:
 
 Read composite examples
 -----------------------
@@ -139,6 +147,7 @@ API reference
    :hidden:
 
    strategies
+   techniques
    records
    reproducing
    vhdl_api

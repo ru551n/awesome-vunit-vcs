@@ -1,6 +1,8 @@
 Test strategies
 ===============
 
+.. _property-stateful:
+
 Test a sequence of operations
 -----------------------------
 
@@ -56,6 +58,8 @@ The typed Python API of the Ethernet VCs (``Frame``, ``WireOptions``, ``Malforma
 ``expected_violations``) gives strategies for malformed traffic and the violations a protocol checker
 must count.
 
+.. _property-lockup:
+
 Handle a design that locks up
 -----------------------------
 
@@ -101,6 +105,8 @@ Examples must be independent. Reset the design, and every verification component
 (``reset`` of the Ethernet VCs, shown in :doc:`../cookbook/error_handling`), before each example. A property whose example fails once and passes
 when repeated is reported as flaky, which usually means state leaked between examples.
 
+.. _property-scores:
+
 Steer the search with scores
 ----------------------------
 
@@ -117,6 +123,8 @@ once per example.
    :end-before: -- docs-end: score
    :dedent: 8
 
+.. _property-metamorphic:
+
 Compare two runs
 ----------------
 
@@ -129,6 +137,8 @@ design with a transformed input must give a related output. Both runs belong to 
    :start-after: -- docs-start: metamorphic
    :end-before: -- docs-end: metamorphic
    :dedent: 8
+
+.. _property-timing:
 
 Generate timing separately from data
 ------------------------------------
@@ -148,6 +158,8 @@ smallest data together with the simplest timing that still fails:
    :start-after: -- docs-start: timing
    :end-before: -- docs-end: timing
    :dedent: 8
+
+.. _property-swarm:
 
 Test random feature subsets
 ---------------------------

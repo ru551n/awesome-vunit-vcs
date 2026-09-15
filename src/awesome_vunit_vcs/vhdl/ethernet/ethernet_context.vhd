@@ -33,4 +33,5 @@ context ethernet_context is
   use awesome_vunit_vcs.rgmii_pkg.all;
   use awesome_vunit_vcs.rmii_pkg.all;
   use awesome_vunit_vcs.xgmii_pkg.all;
+  use awesome_vunit_vcs.property_pkg.all;
 end context;

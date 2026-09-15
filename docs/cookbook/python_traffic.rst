@@ -117,6 +117,11 @@ that returns a frame. This one builds an IPv4 frame whose payload starts with a 
 The function may return a ``Frame``, the frame octets as ``bytes``, or a Scapy packet. The source adds
 the preamble, SFD and FCS in every case.
 
+``label`` shows how to pass text. **In the testbench**, ``kwarg_text`` sends text that may contain any
+character; **in the Python module**, ``decode_text`` turns it back into a ``str``. ``kwarg_text`` comes
+with ``ethernet_context``, like ``arg`` and ``kwarg``. :ref:`passing-arguments` lists every kind of
+argument.
+
 Step 4: unit test the Python part
 ---------------------------------
 
@@ -196,19 +201,28 @@ Check every received frame in Python
 To look at *every* frame a monitor receives, attach a :term:`subscriber`. **This Python file** runs in the
 monitor's Python session, where the monitor is available as the object ``vc``:
 
-.. literalinclude:: ../../examples/gmii/python/frame_sizes.py
-   :caption: examples/gmii/python/frame_sizes.py
+.. literalinclude:: ../../examples/cookbook/python/cookbook_subscriber.py
+   :caption: examples/cookbook/python/cookbook_subscriber.py
    :language: python
-   :start-after: # docs-start: example
-   :end-before: # docs-end: example
+   :start-after: # docs-start: subscriber
+   :end-before: # docs-end: subscriber
 
-``@vc.on_frame`` calls the function for each frame. To report a problem, call ``vc.error``: that counts
-as a check error, like a built-in check, so a negative test can count it. An exception, by contrast,
-stops the test.
+``@vc.on_frame`` calls the function for each frame. To report a problem, call ``vc.error``. The monitor
+counts it like a frame that doesn't match, so a negative test counts it the same way. An exception, by
+contrast, stops the test.
 
-The testbench loads the file into the monitor's session and reads the result back; see the
-``test_python_subscriber`` test of :repo-file:`examples/gmii/tb_gmii_example.vhd` and
-:doc:`../ethernet/python_simulation`.
+**In the testbench**, load the file into the monitor's session with ``exec_file``, then count the error
+on the monitor's logger:
+
+.. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
+   :language: vhdl
+   :start-after: -- docs-start: python-subscriber-errors
+   :end-before: -- docs-end: python-subscriber-errors
+   :dedent:
+
+``exec_file`` and ``new_session`` come with ``ethernet_context``. :doc:`error_handling` shows which
+logger counts which errors, and :doc:`../ethernet/python_simulation` what else a subscriber can use.
 
 Do and don't
 ------------

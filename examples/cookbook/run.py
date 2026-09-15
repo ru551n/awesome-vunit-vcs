@@ -11,6 +11,7 @@ documentation: sending frames, checking them, negative tests, statistics,
 captures, subscribers, resets and the MII, RGMII, RMII and XGMII interfaces.
 """
 
+# docs-start: python-path
 import os
 from pathlib import Path
 
@@ -18,7 +19,6 @@ from vunit import VUnit
 
 ROOT = Path(__file__).parent
 
-# docs-start: python-path
 # The packet and sequence functions in python/ are imported by name in the simulator
 os.environ["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT / "python"), os.environ.get("PYTHONPATH")]))
 # docs-end: python-path

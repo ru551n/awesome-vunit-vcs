@@ -48,7 +48,37 @@ With ``-v`` you can see the error being reported:
 The error comes from ``gmii_monitor:1:protocol_checker``. The protocol checker is named after its
 monitor, so the log shows where a problem was found.
 
-Step 2: choose what to break
+Step 2: count an error the monitor finds
+----------------------------------------
+
+The protocol checker isn't the only one reporting errors. The monitor itself reports a frame that
+doesn't match the one the test expected (``eth_scoreboard``), and errors your Python code reports with
+``vc.error`` (see :doc:`python_traffic`). The monitor logs those, so count them on the monitor's logger:
+
+.. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
+   :caption: examples/cookbook/tb_cookbook.vhd
+   :language: vhdl
+   :start-after: -- docs-start: mismatched-frame
+   :end-before: -- docs-end: mismatched-frame
+   :dedent:
+
+The expected frame ends with ``x"00"`` where the sent one has ``x"FF"``, so the monitor reports one
+mismatch. Compared with step 1, only the logger changes:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 55
+
+   * - Error
+     - Logger for ``disable_stop`` and ``reset_log_count``
+   * - A protocol check, such as ``eth_fcs``, ``eth_ifg`` or ``eth_runt``
+     - ``get_logger(get_protocol_checker(monitor))``
+   * - ``eth_scoreboard`` or ``eth_user``: a mismatch, or an error reported from Python
+     - ``get_logger(monitor)``
+
+``get_check_count(net, monitor, check, count)`` counts both kinds.
+
+Step 3: choose what to break
 ----------------------------
 
 A bad FCS is one option. ``frame_options`` takes only what you change; everything you leave out keeps a
@@ -76,7 +106,7 @@ valid default:
 To test a different error, change the option in step 1 and the check you count. :doc:`../ethernet/checks`
 lists which check reports each kind of error.
 
-Step 3: turn a check off
+Step 4: turn a check off
 ------------------------
 
 Sometimes a test breaks a rule on purpose but has no interest in it, for example while testing
@@ -89,10 +119,10 @@ something unrelated. Then switch the check off instead of counting:
    :end-before: -- docs-end: disable-check
    :dedent:
 
-When the error *is* the point of the test, count it as in step 1. A disabled check can't tell you the
+When the error *is* the point of the test, count it as in steps 1 and 2. A disabled check can't tell you the
 error happened.
 
-Step 4: set your own limits
+Step 5: set your own limits
 ---------------------------
 
 The default protocol checker uses the limits of standard Ethernet. When your design allows something

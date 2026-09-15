@@ -28,7 +28,9 @@ the frame data, and ``to_wire`` shows what goes on the wire, including deliberat
    :start-after: # docs-start: example
    :end-before: # docs-end: example
 
-``WireOptions`` describes what to break, like ``frame_options`` does in VHDL. ``expected_violations``
+``WireOptions`` describes what to break, like ``frame_options`` does in VHDL. Its ``fcs`` is ``"bad"`` or
+``"none"`` where VHDL has ``fcs_bad`` and ``fcs_none``, and ``"append"`` where VHDL has ``fcs_append``.
+The default, ``"auto"``, appends the correct FCS. ``expected_violations``
 tells you in advance which checks will report it.
 
 Step 2: turn frames into samples and back (Python)

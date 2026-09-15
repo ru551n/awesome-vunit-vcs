@@ -4,16 +4,18 @@
 
 """Traffic functions that tb_cookbook.vhd names in push_ethernet_packet and the sequence procedures."""
 
+# docs-start: packet-function
 from collections.abc import Iterator
 
 from awesome_vunit_vcs import ethernet as eth
+from awesome_vunit_vcs.common.vunit_bridge import decode_text
 from awesome_vunit_vcs.ethernet import traffic
 
 
-# docs-start: packet-function
-def udp_to_dut(port: int, size: int) -> eth.Frame:
-    """An IPv4 frame whose payload starts with the port number."""
-    return eth.Frame.from_payload(port.to_bytes(2, "big") + bytes(size), ethertype=0x0800)
+def udp_to_dut(port: int, size: int, label: str | list[int] = "") -> eth.Frame:
+    """An IPv4 frame whose payload is the port number, ``size`` zero octets and the label."""
+    payload = port.to_bytes(2, "big") + bytes(size) + decode_text(label).encode()
+    return eth.Frame.from_payload(payload, ethertype=0x0800)
 
 
 # docs-end: packet-function

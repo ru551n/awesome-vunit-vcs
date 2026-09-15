@@ -89,6 +89,18 @@ begin
         reset_log_count(get_logger(get_protocol_checker(monitor)), error);
         -- docs-end: malformed-frame
 
+      elsif run("test_count_a_mismatched_frame") then
+        -- docs-start: mismatched-frame
+        -- The monitor itself reports a frame that differs from the expected one
+        disable_stop(get_logger(monitor), error);
+        check_ethernet_frame(net, monitor, frame(0 to 8 * 59 - 1) & x"00", blocking => false);
+        push_ethernet_frame(net, source, frame);
+        wait_until_idle;
+        get_check_count(net, monitor, eth_scoreboard, count);
+        check_equal(count, 1);
+        reset_log_count(get_logger(monitor), error);
+        -- docs-end: mismatched-frame
+
       elsif run("test_disable_a_check") then
         -- docs-start: disable-check
         set_check_enabled(net, monitor, eth_fcs, false);
@@ -100,7 +112,10 @@ begin
 
       elsif run("test_send_a_packet_from_python") then
         -- docs-start: packet
-        push_ethernet_packet(net, source, "cookbook_traffic:udp_to_dut", kwarg("port", 1234) & kwarg("size", 64));
+        push_ethernet_packet(
+          net, source, "cookbook_traffic:udp_to_dut",
+          kwarg("port", 1234) & kwarg("size", 64) & kwarg_text("label", "first frame")
+        );
         wait_until_idle;
         get_statistics(net, monitor, statistics);
         check_equal(statistics.good_frames, 1);
@@ -168,6 +183,19 @@ begin
         -- The Python model predicts what the monitor must count
         check_equal(statistics.payload_octets, call("cookbook_model.expected_payload_octets", arg(frame_sizes)));
         -- docs-end: reference-model
+
+      elsif run("test_count_errors_from_a_python_subscriber") then
+        -- docs-start: python-subscriber-errors
+        -- python/cookbook_subscriber.py runs in the monitor's Python session
+        exec_file(tb_path(runner_cfg) & "python/cookbook_subscriber.py", new_session(get_id(monitor)));
+        disable_stop(get_logger(monitor), error);
+        push_ethernet_frame(net, source, frame);
+        push_ethernet_frame(net, source, frame & (0 to 8 * 100 - 1 => '0'));
+        wait_until_idle;
+        get_check_count(net, monitor, eth_scoreboard, count);
+        check_equal(count, 1, "the subscriber reported the long frame");
+        reset_log_count(get_logger(monitor), error);
+        -- docs-end: python-subscriber-errors
 
       elsif run("test_reset_a_source") then
         -- docs-start: reset

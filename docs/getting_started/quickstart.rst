@@ -124,7 +124,7 @@ Next steps
    :widths: 40 60
 
    * - Send a bad FCS and count the error
-     - :doc:`../ethernet/checks`
+     - :doc:`../cookbook/error_handling`
    * - Use another interface
      - :doc:`../ethernet/xgmii`, :doc:`../ethernet/mii`
    * - Generate traffic in Python

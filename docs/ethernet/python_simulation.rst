@@ -32,8 +32,8 @@ In the session of a monitor, your code can use:
 * ``@vc.on_frame``, to call a function with every
   :class:`~awesome_vunit_vcs.ethernet.api.Frame` the monitor receives from then on;
 * ``vc.frames``, the most recent frames, and ``vc.statistics``;
-* ``vc.error(check, message)``, to report a counted check error. A monitor runs the scoreboard check,
-  so a subscriber there reports on ``"ETH_SCOREBOARD"``.
+* ``vc.error(check, message)``, to report a counted check error. A subscriber in a monitor reports on
+  ``"ETH_SCOREBOARD"`` or ``"ETH_USER"``, the checks the monitor runs itself.
 
 .. _python-monitors-in-simulation:
 
@@ -58,8 +58,8 @@ The testbench loads it with ``exec_file`` and reads the result back with ``eval`
    :end-before: elsif run("test_scapy_packet") then
    :dedent: 8
 
-``exec_file``, ``exec``, ``eval_integer`` and ``new_session`` come from
-``context python_bridge.python_context``.
+``exec_file``, ``exec``, ``eval_integer`` and ``new_session`` come from the Python bridge.
+``ethernet_context`` already includes them, so an Ethernet testbench needs no extra context clause.
 
 A subscriber reports problems in one of two ways:
 
@@ -74,6 +74,9 @@ A subscriber reports problems in one of two ways:
        turn it off, so negative tests can count it.
    * - An exception
      - A failure that stops the test. Use it for bugs in the subscriber itself.
+
+The error is logged on the monitor's logger. *Check every received frame in Python* in
+:doc:`../cookbook/python_traffic` counts one in a negative test.
 
 Keep subscribers fast: they run while the monitor processes traffic. :doc:`monitors` shows how to
 create the monitor in VHDL.

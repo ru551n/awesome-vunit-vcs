@@ -32,7 +32,8 @@ VHDL API
   ``push_ethernet_frame``, and packets and reproducible sequences from Python functions:
   ``push_ethernet_packet``, ``push_ethernet_sequence`` and ``check_ethernet_sequence``.
 * ``reset(net, vc)`` recovers any VC, also while the clock is stopped.
-* ``ethernet_context`` is the only context clause a testbench needs.
+* ``ethernet_context`` is the only context clause a testbench needs, including ``arg_text``,
+  ``kwarg_text``, ``arg_time`` and ``kwarg_time`` for arguments to Python.
 * ``eth_user`` counts errors Python code reports with ``vc.error``.
 
 Breaking changes to the VHDL API

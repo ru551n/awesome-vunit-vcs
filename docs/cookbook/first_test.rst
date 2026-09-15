@@ -103,8 +103,9 @@ run and report each one on its own:
    :end-before: -- docs-end: test-structure
    :dedent:
 
-The process declares the variables the test cases below use. You only need the ones for the steps you
-use:
+The process declares the variables the later test cases use: ``statistics`` for statistics, ``count``
+for counting errors, and ``msg``, ``received``, ``length`` and ``fcs_ok`` for reading received frames.
+Declare only the ones your tests need:
 
 .. literalinclude:: ../../examples/cookbook/tb_cookbook.vhd
    :caption: examples/cookbook/tb_cookbook.vhd

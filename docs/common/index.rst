@@ -56,17 +56,39 @@ Write arguments as VHDL values and combine them with ``&``. Your function receiv
    );
 
 Use it wherever a procedure takes ``arguments``, such as ``push_ethernet_packet``,
-``push_ethernet_sequence``, ``check_ethernet_sequence`` and ``new_property``. A function that takes a
-``kwarg_text`` or ``kwarg_time`` argument turns it into a ``str`` or femtoseconds with
-:func:`~awesome_vunit_vcs.common.vunit_bridge.decode_text` and
-:func:`~awesome_vunit_vcs.common.vunit_bridge.decode_time_fs`.
+``push_ethernet_sequence``, ``check_ethernet_sequence`` and ``new_property``.
 
-Write your own components
--------------------------
+**In VHDL**, ``arg`` and ``kwarg`` come from the Python bridge, and ``arg_text``, ``kwarg_text``,
+``arg_time`` and ``kwarg_time`` from ``awesome_vunit_vcs.vc_python_pkg``. ``ethernet_context`` includes
+both, so an Ethernet testbench needs nothing more. Any other testbench, such as a property testbench,
+adds these lines:
 
-``awesome_vunit_vcs.vc_python_pkg`` is the package components use to reach Python. You only need it to
-write a new component; see :doc:`../contributing/index`. Testbenches use the component procedures,
-and the bridge directly where needed.
+.. code-block:: vhdl
+   :caption: The context clauses for arguments, outside ethernet_context
+
+   library python_bridge;
+   context python_bridge.python_context;
+
+   library awesome_vunit_vcs;
+   use awesome_vunit_vcs.vc_python_pkg.all;
+
+**In Python**, a function receives ``arg`` and ``kwarg`` values as ``int``, ``float``, ``bool``, ``str``
+or a list. A ``kwarg_text`` or ``kwarg_time`` value needs decoding with
+:func:`~awesome_vunit_vcs.common.vunit_bridge.decode_text` or
+:func:`~awesome_vunit_vcs.common.vunit_bridge.decode_time_fs`, as ``label`` shows here:
+
+.. literalinclude:: ../../examples/cookbook/python/cookbook_traffic.py
+   :caption: examples/cookbook/python/cookbook_traffic.py
+   :language: python
+   :start-after: # docs-start: packet-function
+   :end-before: # docs-end: packet-function
+
+The rest of the Python bridge package
+-------------------------------------
+
+``awesome_vunit_vcs.vc_python_pkg`` also holds what the components use to reach Python, such as
+``create_backend`` and ``backend_call``. A testbench rarely needs those; they matter when you write a
+component of your own, see :doc:`../contributing/index`.
 
 Catch every package error
 -------------------------

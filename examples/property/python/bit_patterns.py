@@ -96,17 +96,19 @@ def sparse_mask(width: int) -> st.SearchStrategy[int]:
 
 # docs-start: interesting_unsigned
 def interesting_unsigned(width: int) -> st.SearchStrategy[int]:
-    # Structured, hardware-relevant corner cases mixed with ordinary arbitrary values
+    # Structured, hardware-relevant corner cases mixed with ordinary arbitrary values.
+    # Hypothesis shrinks sampled_from towards earlier elements and one_of towards
+    # earlier branches, so the simplest patterns (few or one bit set) come first.
     structured = st.one_of(
-        st.sampled_from([zero(width), one(width), all_ones(width), sign_bit(width), max_signed_positive(width)]),
+        st.sampled_from([zero(width), one(width), sign_bit(width), max_signed_positive(width), all_ones(width)]),
         powers_of_two(width),
+        one_hot(width),
         powers_of_two_minus_one(width),
         powers_of_two_plus_one(width),
-        one_hot(width),
         one_cold(width),
-        alternating_bits(width),
         contiguous_mask(width),
         sparse_mask(width),
+        alternating_bits(width),
     )
     arbitrary = st.integers(0, (1 << width) - 1)
     return st.one_of(structured, arbitrary)

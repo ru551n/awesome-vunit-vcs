@@ -10,18 +10,6 @@ from hypothesis import strategies as st
 WIDTH = 16
 
 
-# docs-start: bit_patterns
-def bit_patterns():
-    # Each pattern carries its own reference bit count, computed in Python
-    def with_count(value: int) -> dict[str, int]:
-        return {"value": value, "expected_count": bin(value).count("1")}
-
-    return interesting_unsigned(WIDTH).map(with_count)
-
-
-# docs-end: bit_patterns
-
-
 # docs-start: differential_popcount
 def differential_popcount():
     # One hardware-aware 16-bit pattern, fed to both popcount implementations

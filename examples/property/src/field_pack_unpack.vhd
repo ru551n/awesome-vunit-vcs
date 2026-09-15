@@ -26,6 +26,10 @@ library ieee;
 use ieee.std_logic_1164.all;
 
 entity field_unpacker is
+  generic (
+    -- A planted bug: the address MSB and the value LSB are swapped
+    inject_bug : boolean := false
+  );
   port (
     packed : in std_ulogic_vector(15 downto 0);
     opcode : out std_ulogic_vector(3 downto 0);
@@ -39,6 +43,6 @@ architecture a of field_unpacker is
 begin
   opcode <= packed(15 downto 12);
   flag <= packed(11);
-  address <= packed(10 downto 5);
-  value <= packed(4 downto 0);
+  address <= packed(0) & packed(9 downto 5) when inject_bug else packed(10 downto 5);
+  value <= packed(4 downto 1) & packed(10) when inject_bug else packed(4 downto 0);
 end architecture;

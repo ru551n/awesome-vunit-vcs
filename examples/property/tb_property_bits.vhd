@@ -2,9 +2,9 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this file,
 -- You can obtain one at http://mozilla.org/MPL/2.0/.
 --
--- Property-based testing examples of hardware-aware bit-pattern strategies, a
--- differential popcount and a round-trip pack/unpack. The strategies are in
--- python/bits_strategies.py, built from python/bit_patterns.py.
+-- Property-based testing examples of a differential popcount, using
+-- hardware-aware bit-pattern strategies, and a round-trip pack/unpack. The
+-- strategies are in python/bits_strategies.py, built from python/bit_patterns.py.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -16,7 +16,8 @@ context awesome_vunit_vcs.property_context;
 entity tb_property_bits is
   generic (
     runner_cfg : string;
-    -- Plants the popcount_adder_tree bug: see examples/property/src/popcount_adder_tree.vhd
+    -- Plants the popcount_adder_tree and field_unpacker bugs: see
+    -- examples/property/src/popcount_adder_tree.vhd and field_pack_unpack.vhd
     inject_bug : boolean := false
   );
 end entity;
@@ -43,20 +44,7 @@ begin
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
-      if run("test_bit_patterns") then
-        -- docs-start: bit_patterns
-        -- popcount_loop's count matches a bit count computed in Python from the
-        -- same hardware-aware pattern: a known-value check, not a duplicated model
-        prop := new_example("bit_patterns");
-        while next_example(prop) loop
-          data_in <= get_unsigned(prop, "value", 16);
-          wait for 1 ns;
-          report_example(prop, passed => to_integer(unsigned(count_loop)) = get_integer(prop, "expected_count"));
-        end loop;
-        check_property(prop);
-        -- docs-end: bit_patterns
-
-      elsif run("test_differential_popcount") then
+      if run("test_differential_popcount") then
         -- docs-start: differential_popcount
         -- Two independently written popcount implementations must agree, with no
         -- golden third implementation. inject_bug makes the adder tree drop the
@@ -74,7 +62,9 @@ begin
       elsif run("test_roundtrip_pack") then
         -- docs-start: roundtrip_pack
         -- Unpacking a packed record returns the original fields: no expected
-        -- value is computed, only that unpack(pack(x)) = x
+        -- value is computed, only that unpack(pack(x)) = x. inject_bug swaps the
+        -- address MSB with the value LSB in the unpacker; Hypothesis shrinks the
+        -- failure to a minimal record showing it.
         prop := new_example("roundtrip_pack");
         while next_example(prop) loop
           opcode_in <= std_ulogic_vector(to_unsigned(get_integer(prop, "opcode"), 4));
@@ -84,7 +74,11 @@ begin
           wait for 1 ns;
           passed := opcode_out = opcode_in and flag_out = flag_in and address_out = address_in and
             value_out = value_in;
-          report_example(prop, passed => passed);
+          report_example(prop, passed => passed,
+            msg => "in: opcode=" & to_hstring(opcode_in) & " flag=" & std_ulogic'image(flag_in) &
+            " address=" & to_hstring(address_in) & " value=" & to_hstring(value_in) &
+            " out: opcode=" & to_hstring(opcode_out) & " flag=" & std_ulogic'image(flag_out) &
+            " address=" & to_hstring(address_out) & " value=" & to_hstring(value_out));
         end loop;
         check_property(prop);
         -- docs-end: roundtrip_pack
@@ -104,5 +98,6 @@ begin
     port map (opcode => opcode_in, flag => flag_in, address => address_in, value => value_in, packed => packed);
 
   field_unpacker_inst : entity work.field_unpacker
+    generic map (inject_bug => inject_bug)
     port map (packed => packed, opcode => opcode_out, flag => flag_out, address => address_out, value => value_out);
 end architecture;

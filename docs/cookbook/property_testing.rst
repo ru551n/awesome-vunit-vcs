@@ -59,7 +59,17 @@ testbench.
 Step 2: write the first property
 --------------------------------
 
-**In Python**, the strategy for our first property is just a byte:
+**In Python**, a strategies module starts with its imports. ``strategies`` comes from Hypothesis;
+``pin`` and ``step`` come from ``awesome_vunit_vcs.common.property`` and ``strategy_for`` from
+``awesome_vunit_vcs.records``, for later steps:
+
+.. literalinclude:: ../../examples/property/python/strategies.py
+   :caption: examples/property/python/strategies.py
+   :language: python
+   :start-after: # docs-start: imports
+   :end-before: # docs-end: imports
+
+The strategy for our first property is just a byte:
 
 .. literalinclude:: ../../examples/property/python/strategies.py
    :caption: examples/property/python/strategies.py
@@ -97,15 +107,16 @@ Keep examples independent. If your design has state, reset it at the start of ea
 Step 3: read structured examples
 --------------------------------
 
-Real test data has structure: an offset plus a list of values, for example. **In Python**, a strategy
-can return dictionaries and lists:
+Real test data has structure: a list of values and an optional offset, for example. **In Python**, a
+strategy can return dictionaries and lists. ``optional`` adds a key to some examples only:
 
 .. literalinclude:: ../../examples/property/python/strategies.py
    :caption: examples/property/python/strategies.py
    :language: python
    :pyobject: composite
 
-**In VHDL**, reach the parts with a path, and use ``get_length`` for a list:
+**In VHDL**, reach the parts with a path. ``get_length`` gives the length of a list, and ``has_field``
+tells whether an optional part is there:
 
 .. literalinclude:: ../../examples/property/tb_property_examples.vhd
    :caption: examples/property/tb_property_examples.vhd
@@ -114,9 +125,17 @@ can return dictionaries and lists:
    :end-before: -- docs-end: composite
    :dedent:
 
-``item`` is a small helper in the testbench that builds ``"(2)"`` from an index, so the path reads
-``"values(2)"``. Paths can go deeper, such as ``"frames(2).payload"``, and ``has_field`` checks
-whether an optional part is there.
+``item`` is a small helper in the testbench. It builds ``"(2)"`` from an index, so the path reads
+``"values(2)"``:
+
+.. literalinclude:: ../../examples/property/tb_property_examples.vhd
+   :caption: examples/property/tb_property_examples.vhd
+   :language: vhdl
+   :start-after: -- docs-start: item-helper
+   :end-before: -- docs-end: item-helper
+   :dedent:
+
+Paths can go deeper, such as ``"frames(2).payload"``.
 
 Step 4: send generated frames through the Ethernet components
 -------------------------------------------------------------
@@ -227,8 +246,9 @@ returns the result to the model:
 
 Every sequence begins with the ``"start"`` rule, where the testbench resets the design. The register
 bank in this example has a planted bug: it loses writes to address 5. Hypothesis finds it and shrinks
-the failure to two steps, ``write(address=5, data=1); read(address=5)``. The example checks that
-counterexample with ``get_counterexample``; in your own tests, end with ``check_property(prop)``.
+the failure to two steps, ``write(address=5, data=1); read(address=5)``. Because the example expects
+that failure, it checks the counterexample instead of calling ``check_property``; see
+:ref:`expect-a-failure`. In your own tests, end with ``check_property(prop)``.
 
 Where to go next
 ----------------

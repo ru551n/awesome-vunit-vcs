@@ -36,6 +36,7 @@ begin
     variable pair : pair_t;
     variable sum : std_ulogic_vector(8 downto 0);
     variable passed : boolean;
+    variable offset : natural;
 
     -- docs-start: helpers
     impure function new_example(strategy : string) return property_t is
@@ -62,6 +63,8 @@ begin
     end;
     -- docs-end: helpers
 
+    -- docs-start: item-helper
+    -- The path of list element idx, "(2)", or of a field of it, "(2).name"
     impure function item(idx : natural; name : string := "") return string is
     begin
       if name = "" then
@@ -69,6 +72,7 @@ begin
       end if;
       return "(" & integer'image(idx) & ")." & name;
     end;
+    -- docs-end: item-helper
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
@@ -84,13 +88,17 @@ begin
 
       elsif run("test_composite") then
         -- docs-start: composite
-        -- The offset of the record is added to every value of its list
+        -- The offset is added to every value of the list; without an offset, nothing is
         prop := new_example("composite");
         while next_example(prop) loop
+          offset := 0;
+          if has_field(prop, "offset") then
+            offset := get_integer(prop, "offset");
+          end if;
           passed := true;
           for idx in 0 to get_length(prop, "values") - 1 loop
-            apply(get_integer(prop, "values" & item(idx)), get_integer(prop, "offset"));
-            passed := passed and to_integer(unsigned(y)) = get_integer(prop, "values" & item(idx)) + get_integer(prop, "offset");
+            apply(get_integer(prop, "values" & item(idx)), offset);
+            passed := passed and to_integer(unsigned(y)) = get_integer(prop, "values" & item(idx)) + offset;
           end loop;
           report_example(prop, passed => passed);
         end loop;
@@ -131,7 +139,11 @@ begin
           end if;
           report_step(prop, value => to_integer(unsigned(buggy_read_data)));
         end loop;
+        -- docs-start: expect-failure
+        -- The failure is expected here, so check the result instead of calling check_property
+        check_equal(get_outcome(prop), "failed");
         check_equal(get_counterexample(prop), "write(address=5, data=1); read(address=5)");
+        -- docs-end: expect-failure
         -- docs-end: stateful
 
       elsif run("test_generated_record") then

@@ -4,12 +4,15 @@
 
 """The Hypothesis strategies of the property examples, one function per example."""
 
+# docs-start: imports
 from example_records import Pair
 from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, rule
 
 from awesome_vunit_vcs.common.property import pin, step
 from awesome_vunit_vcs.records import strategy_for
+
+# docs-end: imports
 
 BYTE = st.integers(0, 255)
 
@@ -19,7 +22,8 @@ def scalar():
 
 
 def composite():
-    return st.fixed_dictionaries({"offset": BYTE, "values": st.lists(BYTE, max_size=8)})
+    # "offset" is optional: some examples have it, some don't
+    return st.fixed_dictionaries({"values": st.lists(BYTE, max_size=8)}, optional={"offset": BYTE})
 
 
 def tagged_union():

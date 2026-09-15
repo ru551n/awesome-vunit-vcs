@@ -14,6 +14,7 @@ functions in python/strategies.py.
 Needs Hypothesis: ``pip install hypothesis``.
 """
 
+# docs-start: generate
 import sys
 from pathlib import Path
 
@@ -23,7 +24,6 @@ from awesome_vunit_vcs.gen_vhdl import write_vhdl
 
 ROOT = Path(__file__).parent
 
-# docs-start: generate
 # The VHDL record of the Pair dataclass, regenerated when the dataclass changes
 sys.path.insert(0, str(ROOT / "python"))
 from example_records import Pair  # noqa: E402

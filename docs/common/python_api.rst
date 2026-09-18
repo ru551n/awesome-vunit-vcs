@@ -36,3 +36,11 @@ The base classes of the Python objects behind the VHDL components of the I2C and
 
 .. automodule:: awesome_vunit_vcs.common.backend
    :members: VcBackend, SampleBackend, int32_array, exception_summary, VHDL_INTEGER_MAX
+
+Sparse memory
+-------------
+
+The byte store of the flash array and the AXI4 memory.
+
+.. automodule:: awesome_vunit_vcs.common.sparse_memory
+   :members: SparseMemory, SparseMemoryError

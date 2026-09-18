@@ -18,6 +18,7 @@ the models follow. User documentation lives at <https://awesome-vunit-vcs.readth
 - [Active sources and responders](#active-sources-and-responders)
   - [The flash responder](#the-flash-responder)
   - [The I2C family](#the-i2c-family)
+  - [The AXI4 family](#the-axi4-family)
 - [Design decisions](#design-decisions)
 - [Performance](#performance)
 - [Known limitations](#known-limitations)
@@ -268,6 +269,54 @@ stretch_ps, num_reports]` as an `integer_array_t`, so no packed layout needs a v
 main process, which serves the messages of the testbench, waits one delta cycle after receiving a
 message, so a STOP in the same time step reaches the model before a memory check that follows it.
 
+### The AXI4 family
+
+The AXI4 monitor and protocol checker are passive, so they follow the sample batch path of the Ethernet
+monitors rather than the responder path above; they sit here next to I2C because the split is the same:
+the VHDL knows when to sample and nothing else.
+
+```text
+VHDL (vhdl/axi4)                                 Python (awesome_vunit_vcs.axi4)
+------------------------------------             -----------------------------------------------
+axi4_monitor, axi4_protocol_checker              Axi4MonitorBackend, Axi4ProtocolCheckerBackend
+  at every rising ACLK edge:                       SampleDecoder: records -> Axi4Sample, control
+    control record: ARESETn or period changed      TransactionTracker: per-ID transactions,
+    per channel with VALID 1, a VALID change,        W before AW, beat addresses and byte lanes
+      or a metavalue on VALID/READY:        ---->  Axi4Monitor -> Axi4Transaction, scoreboards
+      header word + payload words                  Axi4PerformanceMonitor: counts, latencies
+  flush: batch full, messages, end of a            Axi4ProtocolChecker: channel rules, address
+    transaction with subscribers/pops,               rules, WLAST/RLAST/WSTRB, timeouts
+    tick every timeout_cycles (checker)
+  log the reports                           <----  reports
+```
+
+**Records.** A record is a header word (channel, VALID, READY, metavalue bits for VALID, READY and the
+payload, ARESETn and its metavalue bit) followed by the fields of the channel packed 32 bits to a word,
+first field in the least significant bits. A wide payload is several words with the same time (delta 0),
+as `vunit_bridge.py` documents for multi-lane samples: a 32-bit W beat is 3 words (header, then data,
+WSTRB, WLAST, WUSER and the lane metavalue mask in 41 bits), a 1024-bit one 42. The data channels carry
+one metavalue bit per byte lane, so Python can tell a metavalue on a lane that carries data from one on
+an unused lane, which the protocol allows; the data bits themselves are sent with metavalues as 0.
+Control records carry a change of ARESETn, a change of the clock period (measured by VHDL between rising
+edges, one payload word in ps), or a tick. Idle cycles, with VALID 0 on every channel, record nothing:
+their time is implied by the next record. A cycle with VALID falling is recorded, which is what
+`AXI4_VALID_DROP` needs; a cycle with VALID high and READY low is recorded, which is what
+`AXI4_STABLE`, `AXI4_TIMEOUT` and the backpressure statistics need.
+
+**Batches.** The monitor flushes when 4096 words are waiting, before it handles a message, and at a B
+handshake or a last R beat only while it has subscribers or pending pops, so publishing and pops are
+timely without costing a bridge call per transaction otherwise. VHDL may split a record across two
+batches; the decoder keeps the unfinished words. The protocol checker also records a tick and flushes
+every `timeout_cycles` clock cycles: a transaction that never completes produces no records, so without
+the tick it would only be reported at `test_runner_cleanup`, which a watchdog may never reach.
+
+**Transactions.** `TransactionTracker` keeps writes waiting for data in AW order, W beats that came
+before their AW in a buffer, writes waiting for B per ID, and reads per ID. W beats belong to the oldest
+write without all its data (AXI4 has no WID); B and R belong to the oldest transaction of their ID. The
+burst length, not WLAST or RLAST, ends a transaction, so a wrong LAST is one violation and does not
+desynchronize everything after it. The tracker is shared by the monitor and the checker, which each run
+their own copy on their own records.
+
 ## Design decisions
 
 Investigated on 2026-09-14 against VUnit `feature/package-setup-hooks` (1ecac00),
@@ -434,6 +483,50 @@ A time of 0 in a constructor means "the value of the speed mode", so tests chang
 need. A check that should not run is switched off with `set_check_enabled`, not given a limit of 0;
 the one exception is `t_hd_dat`, whose specification minimum is 0.
 
+### AXI4: records in VHDL, everything else in Python
+
+The request was a thin VHDL frontend with the difficult logic in Python, and the AXI4 rules are exactly
+the kind of logic that is easy to get wrong in VHDL: the address and byte lanes of every beat of FIXED,
+INCR and WRAP bursts, narrow and unaligned, per-ID matching with write data that may come first,
+exclusive access rules, latency percentiles. In Python each of them is a small function unit tested
+against hand-computed values from the formulas of the specification (`tests/python/test_axi4_core.py`),
+and the VHDL is two entities that share one recording procedure per channel.
+
+### AXI4: a record per channel with VALID, not a word per cycle
+
+Recording every cycle would make an idle interface as expensive as a busy one; recording only
+handshakes would lose stalls, dropped VALIDs and payload changes during a stall. Recording a channel when
+VALID is 1 or changed gives the checker everything it needs with the cost proportional to traffic, and
+the time of the idle cycles in between is implied. The clock period travels as a control record so that
+cycle counts (latencies, utilization, timeouts) need no configuration.
+
+### AXI4: checks that are not in the list
+
+`AXI4_ORDER` (same-ID response ordering) and `AXI4_WDATA_INTERLEAVE` were considered and left out: on
+the pins of AXI4 neither can be observed. Responses with the same ID are indistinguishable, so they are
+matched to the oldest transaction of their ID by definition, and without WID write data can only be
+attributed in AW order. A slave that answers same-ID transactions out of order, or a master that
+interleaves write data, shows up as `AXI4_RLAST`, `AXI4_WLAST` or `AXI4_WSTRB` violations or as shadow
+memory differences. AXI4-Lite needs no check of its own: its interface has no length, size, burst, lock
+or ID signals, which the decoder forces to their AXI4-Lite values, and an EXOKAY response is an
+`AXI4_EXCL` violation since a Lite access is never exclusive. Data widths other than 32 and 64 bits are
+rejected by `new_axi4_bus` for AXI4-Lite.
+
+### AXI4: the shadow memory takes writes at B and allows overlap
+
+A write takes effect at its B handshake, only for the bytes WSTRB selects, and only when it succeeded
+(OKAY for a normal write, EXOKAY for an exclusive one; a failed exclusive write leaves memory unchanged).
+A read may return, per byte, the value at its AR handshake or any value written while it was
+outstanding, because the specification does not order a read and a write that overlap unless the master
+waits for the response. Bytes never written through the interface are not checked, so a memory
+initialized behind the bus causes no false reports. The memory keeps 16 values per byte for this.
+
+### AXI4: the monitor gives its checker its bus
+
+A protocol checker passed to a monitor is instantiated on the monitor's ports, so its widths can only be
+the monitor's. `new_axi4_protocol_checker` therefore takes a bus with a default, and the monitor replaces
+it with its own, as it replaces the id. A standalone checker gets its bus explicitly.
+
 ## Performance
 
 ### Bridge benchmark
@@ -509,6 +602,40 @@ the bridge never dominates a test that also simulates a design. Rerun it with:
 
 ```bash
 VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*i2c*"
+```
+
+### AXI4 monitor and protocol checker
+
+`benchmarks/tb_axi4_benchmark.vhd` drives both sides of an AXI4 interface at full throughput: 5000
+writes and 5000 reads of 16 beats each (160,000 data beats in 170,000 clock cycles), observed by
+nothing, by a monitor, or by a monitor with its protocol checker. A 32-bit data beat is a record of 3
+words; a 512-bit one of 22. The cost per beat is (with - without) / 160,000. Wall clock time per test,
+VUnit `-p 1`, two runs each, which agreed to 0.1 s.
+
+Measured on 2026-09-18 with GHDL 7.0.0-dev (6.0.0.r418.g753dfcf0b, mcode backend), NVC 1.23-devel
+(1.22.0.r66.gef5084a94, LLVM 21.1.8) and CPython 3.12 on a Linux workstation.
+
+| Configuration | NVC (s) | GHDL (s) |
+|---|---|---|
+| 32-bit, nothing observing | 0.1 | 0.45 |
+| 32-bit, monitor | 1.5 | 2.7 |
+| 32-bit, monitor and protocol checker | 2.5 | 4.5 |
+| 512-bit, nothing observing | 0.1 | 0.9 |
+| 512-bit, monitor | 3.1 | 8.35 |
+| **Monitor, per 32-bit beat** | **9 µs** | **14 µs** |
+| Protocol checker, per 32-bit beat | 6 µs | 11 µs |
+| Monitor, per 512-bit beat | 19 µs | 47 µs |
+
+Per recorded word the monitor costs about 3 µs on NVC, several times the 0.5 µs per sample of the GMII
+monitor. The bridge is not what dominates: the batches are the same 4096 words, one call each. The
+difference is the Python work per record (decoding the fields, burst arithmetic, the tracker and the
+statistics) and, on GHDL, the VHDL loop that packs the payload bit by bit, which grows with the data
+width. A monitor on a busy 32-bit interface costs about as much as simulating a small design for the
+same cycles; the protocol checker, which runs its own tracker on its own records, costs two thirds of
+that again. Rerun it with:
+
+```bash
+VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*axi4*"
 ```
 
 ## Known limitations
@@ -641,6 +768,30 @@ VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*i
 - Sample times are rounded down to 1 ps.
 - `I2C_F_SCL` leaves out SCL periods across a START or STOP; tSU;STA and tHD;STA cover them.
 
+### AXI4 monitor
+
+- Latencies, utilization and timeouts count cycles as time / the latest measured clock period, so a
+  stopped or changing clock distorts them.
+- A write takes effect in the shadow memory at its B handshake: a slave that makes write data visible to
+  an overlapping read before the read's AR handshake but sends B after the read completes is reported.
+- The VHDL `axi4_transaction_t` has no USER signals and limits IDs to 31 bits and addresses to 64 bits.
+- It keeps the last 1024 transactions for pops; older ones are dropped.
+- `wait_until_idle` does not wait for outstanding transactions to complete.
+- Without a protocol checker it reports metavalues on VALID, READY, ARESETn and non-data payload fields,
+  but not on data byte lanes, which need the burst of the beat.
+
+### AXI4 protocol checker
+
+- Same-ID ordering and write data interleaving are not observable on AXI4 pins (see the design decision
+  above).
+- Violations are reported when records reach Python: at the latest after `timeout_cycles` cycles, before
+  a message, or when a batch is full. The message has the time of the violation.
+- The exclusive access monitor rules beyond the transaction itself (an exclusive write matching an
+  earlier exclusive read of the same ID) are not checked.
+- Recommendations that are not rules of the specification, such as READY within a fixed number of
+  cycles, are only covered by `timeout_cycles`.
+- AXI3 (WID, 16-beat INCR limit, locked transfers) and the AXI5/ACE extensions are not modeled.
+
 ## Specification references
 
 - **I2C:** NXP UM10204, I2C-bus specification and user manual, Rev. 7.0 (2021-10-01): 3.1.4 (START and
@@ -652,6 +803,13 @@ VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*i
 - **SMBus:** System Management Bus Specification 3.2, 6.4 (Packet Error Checking): CRC-8 with the
   polynomial x^8 + x^2 + x + 1 over every byte of the transaction, address bytes included. The check
   value of CRC-8/SMBUS over "123456789" is 0xF4.
+- **AXI4:** AMBA AXI and ACE Protocol Specification, ARM IHI 0022, AXI4 and AXI4-Lite. The chapters
+  on single interface requirements (clock and reset, the handshake process, transaction structure: burst
+  length, size and type, the transfer address and byte lane formulas, write strobes), transaction
+  attributes (AxCACHE), transaction identifiers and ordering, atomic accesses (exclusive access
+  restrictions and the EXOKAY response), and AXI4-Lite. `awesome_vunit_vcs.axi4.burst` implements the
+  address and byte lane formulas as the specification writes them (Start_Address, Aligned_Address,
+  Wrap_Boundary, Lower_Byte_Lane, Upper_Byte_Lane).
 - **24Cxx EEPROMs:** page writes that wrap within the page, a self-timed write cycle started by the STOP,
   and acknowledge polling, as in the data sheets of the 24C02/24C04/24C16 families.
 

@@ -51,16 +51,16 @@ A directive is ``[action, ack, byte_out, stretch in ps, num_reports]``, see
 from __future__ import annotations
 
 import importlib
-import traceback
 from collections import deque
 from collections.abc import Callable, Sequence
-from typing import Any, TypeVar
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 
-from ..common.reports import ReportQueue, Severity, encode_reports
-from ..common.vunit_bridge import decode_samples, decode_text, decode_time_fs, split_time
+from ..common.backend import VHDL_INTEGER_MAX, SampleBackend, VcBackend, int32_array
+from ..common.reports import Severity
+from ..common.vunit_bridge import decode_text, decode_time_fs, split_time
 from .checker import I2cCheckId, I2cProtocolChecker, I2cViolation
 from .devices import Eeprom24, I2cDevice, RegisterDevice
 from .errors import I2cValueError
@@ -72,8 +72,6 @@ from .transfer import I2cTransfer
 
 __all__ = ["I2cMasterBackend", "I2cMonitorBackend", "I2cProtocolCheckerBackend", "I2cTargetBackend"]
 
-T = TypeVar("T")
-
 #: The device models a target names without a module
 DEVICE_MODELS: dict[str, type[I2cDevice]] = {
     "device": I2cDevice,
@@ -81,24 +79,11 @@ DEVICE_MODELS: dict[str, type[I2cDevice]] = {
     "eeprom": Eeprom24,
 }
 
-#: Largest value a VHDL integer holds
-VHDL_INTEGER_MAX = 2**31 - 1
-
 _PS = 1000
-
-
-def _int32(values: Any) -> npt.NDArray[np.int32]:
-    return np.array(values, dtype=np.int32).reshape(-1)
 
 
 def _time(value: int | Sequence[int] | None) -> int:
     return 0 if value is None else decode_time_fs(value)
-
-
-def _summary(exc: BaseException) -> str:
-    frames = traceback.extract_tb(exc.__traceback__)
-    where = f" ({frames[-1].filename}:{frames[-1].lineno})" if frames else ""
-    return f"{type(exc).__name__}: {exc}{where}"
 
 
 def _ps(time_fs: int, what: str) -> int:
@@ -108,34 +93,7 @@ def _ps(time_fs: int, what: str) -> int:
     return value
 
 
-class _Backend:
-    """Reports, and calls that never raise."""
-
-    def __init__(self, name: str | Sequence[int]) -> None:
-        self.name = decode_text(name)
-        self.reports = ReportQueue()
-
-    def _guard(self, method: str, fn: Callable[[], T], fallback: T) -> T:
-        try:
-            return fn()
-        except Exception as exc:
-            self.reports.add(Severity.FAILURE, f"{self.name}: {method} failed: {_summary(exc)}")
-            return fallback
-
-    def error(self, message: str) -> None:
-        """Report a check failure on the checker of the VC, for example from a subscriber."""
-        self.reports.add(Severity.ERROR, f"{self.name}: {message}")
-
-    def num_reports(self) -> int:
-        """The number of reports waiting."""
-        return len(self.reports)
-
-    def take_reports(self) -> str:
-        """The waiting reports, encoded for VHDL."""
-        return encode_reports(self.reports.take())
-
-
-class I2cMasterBackend(_Backend):
+class I2cMasterBackend(VcBackend):
     """
     The Python object behind a VHDL I2C master: compiles transfers and reads their results.
 
@@ -171,7 +129,7 @@ class I2cMasterBackend(_Backend):
         }
         default = master_timing(speed if 0 <= speed <= 2 else 0)
         times = {key: _time(value) for key, value in overrides.items()}
-        self.timing_fs = self._guard("configure", lambda: master_timing(speed, **times), default)
+        self.timing_fs = self.guard("configure", lambda: master_timing(speed, **times), default)
         self._program: Program | None = None
         self._expect_ack = False
         self._description = ""
@@ -179,9 +137,9 @@ class I2cMasterBackend(_Backend):
     def timing(self) -> npt.NDArray[np.int32]:
         """The times the master drives, in ps, in the order of the constructor."""
         timing = self.timing_fs
-        return self._guard(
+        return self.guard(
             "timing",
-            lambda: _int32(
+            lambda: int32_array(
                 [
                     _ps(value, name)
                     for name, value in (
@@ -195,7 +153,7 @@ class I2cMasterBackend(_Backend):
                     )
                 ]
             ),
-            _int32([5_000_000, 5_000_000, 1_000_000, 5_000_000, 5_000_000, 5_000_000, 5_000_000]),
+            int32_array([5_000_000, 5_000_000, 1_000_000, 5_000_000, 5_000_000, 5_000_000, 5_000_000]),
         )
 
     def transfer(
@@ -224,24 +182,24 @@ class I2cMasterBackend(_Backend):
             self._program = compile_transfer(
                 address, [int(value) for value in write], num_read, ten_bit=ten_bit, pec=pec, stop=stop
             )
-            return _int32(self._program.words)
+            return int32_array(self._program.words)
 
         self._expect_ack = expect_ack
         kind = "write-read" if len(write) and num_read else "read" if num_read else "write"
         self._description = f"{kind} of 0x{address:02X}"
         self._program = None
-        return self._guard("transfer", compile_, _int32([]))
+        return self.guard("transfer", compile_, int32_array([]))
 
     def transfer_ops(self, ops: str | Sequence[int]) -> npt.NDArray[np.int32]:
         """Compile operations, see :func:`~awesome_vunit_vcs.i2c.master.compile_ops`."""
 
         def compile_() -> npt.NDArray[np.int32]:
             self._program = compile_ops(decode_text(ops))
-            return _int32(self._program.words)
+            return int32_array(self._program.words)
 
         self._expect_ack = False
         self._program = None
-        return self._guard("transfer_ops", compile_, _int32([]))
+        return self.guard("transfer_ops", compile_, int32_array([]))
 
     def complete(self, results: Sequence[int]) -> npt.NDArray[np.int32]:
         """
@@ -262,7 +220,7 @@ class I2cMasterBackend(_Backend):
                 self.reports.add(Severity.INFO, f"{self.name}: lost arbitration in a {self._description or 'transfer'}")
             if self._expect_ack and result.status is not I2cStatus.OK:
                 self.error(f"{self._description}: {result.status.name.lower().replace('_', ' ')}")
-            return _int32(
+            return int32_array(
                 [
                     int(result.status),
                     len(self.reports),
@@ -273,16 +231,16 @@ class I2cMasterBackend(_Backend):
                 ]
             )
 
-        return self._guard("complete", complete_, _int32([int(I2cStatus.ARBITRATION_LOST), 0, 0, 0]))
+        return self.guard("complete", complete_, int32_array([int(I2cStatus.ARBITRATION_LOST), 0, 0, 0]))
 
 
 def _directive(directive: Directive, reports: int) -> npt.NDArray[np.int32]:
-    return _int32(
+    return int32_array(
         [int(directive.action), int(directive.ack), directive.byte_out, _ps(directive.stretch_fs, "stretch"), reports]
     )
 
 
-class I2cTargetBackend(_Backend):
+class I2cTargetBackend(VcBackend):
     """
     The Python object behind a VHDL I2C target: an :class:`~awesome_vunit_vcs.i2c.target.I2cTarget`
     with a device model.
@@ -315,7 +273,7 @@ class I2cTargetBackend(_Backend):
         self._pec = pec
         self._pec_read_bytes = pec_read_bytes
         self._arguments: tuple[tuple[Any, ...], dict[str, Any]] = ((), {})
-        self.target = self._guard(
+        self.target = self.guard(
             "configure", lambda: self._make_target(I2cDevice(), _time(stretch)), I2cTarget(I2cDevice(), 0)
         )
 
@@ -366,7 +324,7 @@ class I2cTargetBackend(_Backend):
                 raise I2cValueError(f"{name} is not an I2cDevice")
             self.target = self._make_target(device, self.target.stretch_fs)
 
-        self._guard("create_device", create, None)
+        self.guard("create_device", create, None)
         return len(self.reports)
 
     @property
@@ -387,14 +345,14 @@ class I2cTargetBackend(_Backend):
         return self._directive("transmitted", lambda: self.target.transmitted(bool(acked), decode_time_fs(now)))
 
     def _directive(self, method: str, fn: Callable[[], Directive]) -> npt.NDArray[np.int32]:
-        directive = self._guard(method, fn, Directive(Action.IGNORE))
-        return self._guard(
-            method, lambda: _directive(directive, len(self.reports)), _int32([2, 0, 0, 0, len(self.reports)])
+        directive = self.guard(method, fn, Directive(Action.IGNORE))
+        return self.guard(
+            method, lambda: _directive(directive, len(self.reports)), int32_array([2, 0, 0, 0, len(self.reports)])
         )
 
     def stop(self, now: int | Sequence[int]) -> int:
         """A STOP. Returns the number of reports waiting."""
-        self._guard("stop", lambda: self.target.stop(decode_time_fs(now)), None)
+        self.guard("stop", lambda: self.target.stop(decode_time_fs(now)), None)
         return len(self.reports)
 
     def reset(self) -> int:
@@ -404,22 +362,24 @@ class I2cTargetBackend(_Backend):
 
     def set_stretch(self, stretch: int | Sequence[int]) -> int:
         """Stretch SCL for this long before every acknowledge bit, 0 for no stretching."""
-        self._guard("set_stretch", lambda: setattr(self.target, "stretch_fs", decode_time_fs(stretch)), None)
+        self.guard("set_stretch", lambda: setattr(self.target, "stretch_fs", decode_time_fs(stretch)), None)
         return len(self.reports)
 
     def inject_nack(self, index: int) -> int:
         """Do not acknowledge byte ``index`` of the next transfer, 0 for the address."""
-        self._guard("inject_nack", lambda: self.target.inject_nack(index), None)
+        self.guard("inject_nack", lambda: self.target.inject_nack(index), None)
         return len(self.reports)
 
     def preload(self, data: Any, address: int) -> int:
         """Write device memory directly."""
-        self._guard("preload", lambda: self.device.preload(address, _bytes(data)), None)
+        self.guard("preload", lambda: self.device.preload(address, _bytes(data)), None)
         return len(self.reports)
 
     def read_memory(self, address: int, length: int) -> npt.NDArray[np.int32]:
         """Read device memory directly."""
-        return self._guard("read_memory", lambda: _int32(list(self.device.read_memory(address, length))), _int32([]))
+        return self.guard(
+            "read_memory", lambda: int32_array(list(self.device.read_memory(address, length))), int32_array([])
+        )
 
     def check_memory(self, expected: Any, address: int, message: str | Sequence[int] = "") -> int:
         """Compare device memory with ``expected``; a difference is a check failure."""
@@ -435,7 +395,7 @@ class I2cTargetBackend(_Backend):
                     f"expected 0x{want[offset]:02X}"
                 )
 
-        self._guard("check_memory", check, None)
+        self.guard("check_memory", check, None)
         return len(self.reports)
 
 
@@ -465,29 +425,7 @@ def _flat(transfer: I2cTransfer) -> list[int]:
     ]
 
 
-class _SampleBackend(_Backend):
-    def push(self, samples: Any, base_time: int | Sequence[int], delta_unit: int | Sequence[int] = 1) -> int:
-        """
-        Process a sample batch. Returns the number of reports waiting.
-
-        Args:
-            samples: ``[word, delta]`` pairs, see :mod:`~awesome_vunit_vcs.i2c.bus`.
-            base_time: The time of the first sample.
-            delta_unit: The unit of the deltas.
-        """
-
-        def push_() -> None:
-            words, times = decode_samples(samples, decode_time_fs(base_time), decode_time_fs(delta_unit))
-            self._feed(words.tolist(), times.tolist())
-
-        self._guard("push", push_, None)
-        return len(self.reports)
-
-    def _feed(self, words: list[int], times: list[int]) -> None:
-        raise NotImplementedError
-
-
-class I2cMonitorBackend(_SampleBackend):
+class I2cMonitorBackend(SampleBackend):
     """
     The Python object behind a VHDL I2C monitor.
 
@@ -503,7 +441,7 @@ class I2cMonitorBackend(_SampleBackend):
 
     def __init__(self, name: str | Sequence[int], report_metavalues: bool = True, keep_transfers: int = 1024) -> None:
         super().__init__(name)
-        self.monitor = I2cMonitor(on_subscriber_error=self._subscriber_error)
+        self.monitor = I2cMonitor(on_subscriber_error=self.subscriber_error)
         self.monitor.transfers.subscribe(self._compare)
         self.monitor.transfers.subscribe(self._keep)
         if report_metavalues:
@@ -518,11 +456,7 @@ class I2cMonitorBackend(_SampleBackend):
         self._kept: deque[I2cTransfer] = deque(maxlen=keep_transfers)
         self._expected: deque[tuple[int, bool, bytes, str]] = deque()
 
-    def _subscriber_error(self, subscriber: Callable[..., None], exc: BaseException) -> None:
-        name = getattr(subscriber, "__qualname__", repr(subscriber))
-        self.reports.add(Severity.FAILURE, f"{self.name}: subscriber {name} raised {_summary(exc)}")
-
-    def _feed(self, words: list[int], times: list[int]) -> None:
+    def feed(self, words: list[int], times: list[int]) -> None:
         self.monitor.feed(words, times)
 
     def _keep(self, transfer: I2cTransfer) -> None:
@@ -558,7 +492,7 @@ class I2cMonitorBackend(_SampleBackend):
     def take_published(self) -> npt.NDArray[np.int32]:
         """The transfers since the last call while publishing, flat for VHDL, see :meth:`pop_transfer`."""
         transfers, self._published = self._published, []
-        return _int32([value for transfer in transfers for value in _flat(transfer)])
+        return int32_array([value for transfer in transfers for value in _flat(transfer)])
 
     def pop_transfer(self) -> npt.NDArray[np.int32]:
         """
@@ -567,7 +501,7 @@ class I2cMonitorBackend(_SampleBackend):
         first data byte not acknowledged (-1 for none), the start time in fs as ``hi, lo``, the number
         of data bytes and the bytes. The monitor keeps the last ``keep_transfers`` transfers.
         """
-        return _int32(_flat(self._kept.popleft()) if self._kept else [])
+        return int32_array(_flat(self._kept.popleft()) if self._kept else [])
 
     def check_transfer(
         self, address: int, read: bool, data: Sequence[int] = (), message: str | Sequence[int] = ""
@@ -601,7 +535,7 @@ class I2cMonitorBackend(_SampleBackend):
                 stats.scl_frequency_hz,
                 stats.max_scl_frequency_hz,
             ]
-            return _int32(
+            return int32_array(
                 [
                     *(min(value, VHDL_INTEGER_MAX) for value in counts),
                     *split_time(stats.busy_fs),
@@ -610,7 +544,7 @@ class I2cMonitorBackend(_SampleBackend):
                 ]
             )
 
-        return self._guard("statistics", values, _int32([0] * 16))
+        return self.guard("statistics", values, int32_array([0] * 16))
 
     def reset(self, clear_statistics: bool = False) -> int:
         """Drop a transfer in progress, the kept and the expected transfers."""
@@ -631,7 +565,7 @@ class I2cMonitorBackend(_SampleBackend):
         return len(self.reports)
 
 
-class I2cProtocolCheckerBackend(_SampleBackend):
+class I2cProtocolCheckerBackend(SampleBackend):
     """
     The Python object behind a VHDL I2C protocol checker.
 
@@ -680,13 +614,13 @@ class I2cProtocolCheckerBackend(_SampleBackend):
             )
             return I2cProtocolChecker(limits, _time(t_stuck))
 
-        self.checker = self._guard("configure", create, I2cProtocolChecker())
+        self.checker = self.guard("configure", create, I2cProtocolChecker())
         self.checker.violations.subscribe(self._violation)
 
     def _violation(self, violation: I2cViolation) -> None:
         self.reports.add(Severity.ERROR, f"{self.name}: {violation.message}")
 
-    def _feed(self, words: list[int], times: list[int]) -> None:
+    def feed(self, words: list[int], times: list[int]) -> None:
         self.checker.feed(words, times)
 
     def set_check_enabled(self, check: str | Sequence[int], enabled: bool) -> int:
@@ -699,12 +633,12 @@ class I2cProtocolCheckerBackend(_SampleBackend):
             else:
                 self.checker.disable(name)
 
-        self._guard("set_check_enabled", switch, None)
+        self.guard("set_check_enabled", switch, None)
         return len(self.reports)
 
     def check_count(self, check: str | Sequence[int]) -> int:
         """Violations of a check given by name."""
-        return self._guard("check_count", lambda: self.checker.count(decode_text(check)), 0)
+        return self.guard("check_count", lambda: self.checker.count(decode_text(check)), 0)
 
     def reset(self) -> int:
         """Forget the timing history and set the counts to 0."""
@@ -713,5 +647,5 @@ class I2cProtocolCheckerBackend(_SampleBackend):
 
     def finish(self, now: int | Sequence[int]) -> int:
         """At the end of the test: a line stuck low."""
-        self._guard("finish", lambda: self.checker.check_stuck(decode_time_fs(now)), None)
+        self.guard("finish", lambda: self.checker.check_stuck(decode_time_fs(now)), None)
         return len(self.reports)

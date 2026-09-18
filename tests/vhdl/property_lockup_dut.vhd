@@ -7,27 +7,32 @@
 -- rst. With reset_works false the reset is ignored, so the lockup never clears.
 
 library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
+  use ieee.std_logic_1164.all;
+  use ieee.numeric_std.all;
 
 entity property_lockup_dut is
   port (
-    clk : in std_ulogic;
-    rst : in std_ulogic;
-    reset_works : in boolean;
-    data : in std_ulogic_vector(7 downto 0);
-    valid : in std_ulogic;
+    clk : in  std_ulogic;
+    rst : in  std_ulogic;
+    reset_works : in  boolean;
+    data : in  std_ulogic_vector(7 downto 0);
+    valid : in  std_ulogic;
     ready : out std_ulogic := '0'
   );
 end entity;
 
 architecture a of property_lockup_dut is
-  signal high_seen, locked : boolean := false;
-begin
-  ready <= '0' when locked or rst = '1' else '1';
 
-  main : process(clk)
+  signal high_seen, locked : boolean := false;
+
+begin
+
+  ready <= '0' when locked or rst = '1' else
+           '1';
+
+  main : process (clk)
   begin
+
     if rising_edge(clk) then
       if rst = '1' and reset_works then
         high_seen <= false;
@@ -40,4 +45,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

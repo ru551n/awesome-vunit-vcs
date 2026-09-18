@@ -9,34 +9,36 @@
 -- pins, as axi_stream_monitor of VUnit does.
 
 library ieee;
-use ieee.std_logic_1164.all;
+  use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.com_context;
 
-use work.ethernet_vc_pkg.all;
-use work.rmii_pkg.all;
+  use work.ethernet_vc_pkg.all;
+  use work.rmii_pkg.all;
 
 entity rmii_monitor is
   generic (
-    monitor : rmii_monitor_t
-  );
+    monitor : rmii_monitor_t);
   port (
     -- REF_CLK, 50 MHz
-    ref_clk : in std_ulogic;
+    ref_clk : in  std_ulogic;
     -- TXD or RXD
-    data : in std_ulogic_vector(data_length(monitor) - 1 downto 0);
+    data : in  std_ulogic_vector(data_length(monitor) - 1 downto 0);
     -- TX_EN or CRS_DV
-    dv : in std_ulogic;
+    dv : in  std_ulogic;
     -- RX_ER; RMII has no TX_ER
-    er : in std_ulogic := '0'
+    er : in  std_ulogic := '0'
   );
 end entity;
 
 architecture a of rmii_monitor is
+
 begin
+
   main : process
   begin
+
     monitor_symbol_interface(net, to_ethernet_vc(monitor), ref_clk, data, dv, er);
   end process;
 
@@ -51,5 +53,7 @@ begin
         dv => dv,
         er => er
       );
-  end generate;
+
+  end generate protocol_checker_gen;
+
 end architecture;

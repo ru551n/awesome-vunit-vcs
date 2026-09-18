@@ -9,6 +9,7 @@
 --   context awesome_vunit_vcs.ethernet_context;
 
 context ethernet_context is
+
   library ieee;
   use ieee.std_logic_1164.all;
 
@@ -34,4 +35,5 @@ context ethernet_context is
   use awesome_vunit_vcs.rmii_pkg.all;
   use awesome_vunit_vcs.xgmii_pkg.all;
   use awesome_vunit_vcs.property_pkg.all;
-end context;
+
+end context ethernet_context;

@@ -3,11 +3,11 @@
 -- You can obtain one at http://mozilla.org/MPL/2.0/.
 
 library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
+  use ieee.std_logic_1164.all;
+  use ieee.numeric_std.all;
 
 library osvvm;
-use osvvm.RandomPkg.RandomPType;
+  use osvvm.randompkg.randomptype;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
@@ -16,15 +16,20 @@ context awesome_vunit_vcs.ethernet_context;
 -- observes the input and one the output, each with a protocol checker: the
 -- frames must leave the DUT as they entered it.
 entity tb_gmii_example is
-  generic (runner_cfg : string);
+  generic (
+    runner_cfg : string);
 end entity;
 
 architecture tb of tb_gmii_example is
+
   constant clk_period : time := 8 ns;
 
   signal clk : std_ulogic := '0';
   signal in_data, out_data : std_ulogic_vector(7 downto 0);
-  signal in_dv, in_er, out_dv, out_er : std_ulogic;
+  signal in_dv : std_ulogic;
+  signal in_er : std_ulogic;
+  signal out_dv : std_ulogic;
+  signal out_er : std_ulogic;
 
   constant source : gmii_source_t := new_gmii_source;
   -- docs-start: monitors
@@ -34,47 +39,60 @@ architecture tb of tb_gmii_example is
     id => get_id("tb_gmii_example:input_monitor")
   );
   -- The output monitor uses the default protocol checks
-  constant output_monitor : gmii_monitor_t := new_gmii_monitor(
-    protocol_checker => default_gmii_protocol_checker, id => get_id("tb_gmii_example:output_monitor")
-  );
-  -- docs-end: monitors
+  constant output_monitor : gmii_monitor_t :=
+    new_gmii_monitor(protocol_checker => default_gmii_protocol_checker, id => get_id("tb_gmii_example:output_monitor"));
+
+-- docs-end: monitors
 begin
+
   clk <= not clk after clk_period / 2;
 
   main : process
-    variable rnd : RandomPType;
+
+    variable rnd : randomptype;
     variable count : natural;
     variable input_statistics, output_statistics : ethernet_statistics_t;
 
     -- Frame data from the destination address up to, not including, the FCS:
     -- the addresses, the local experimental EtherType and a random payload
-    impure function random_frame(octets : positive) return std_ulogic_vector is
+    impure function random_frame (octets : positive) return std_ulogic_vector is
+
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
+
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       for idx in 14 to octets - 1 loop
+
         result(8 * idx to 8 * idx + 7) := rnd.RandSlv(8);
       end loop;
+
       return result;
     end;
+
   begin
+
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
 
     while test_suite loop
+
       if run("test_frames_pass_through_the_dut") then
         start_capture(net, output_monitor, output_path(runner_cfg) & "gmii_example.pcapng");
 
         for idx in 1 to 20 loop
+
           -- The scoreboard compares the next received frame with the expected
           -- one; a difference is an ETH_SCOREBOARD check failure
           check_ethernet_frame(net, output_monitor, random_frame(rnd.RandInt(60, 1514)), blocking => false);
         end loop;
+
         -- Replay the same random sequence for the source
         rnd.InitSeed(get_string_seed(runner_cfg));
         for idx in 1 to 20 loop
+
           push_ethernet_frame(net, source, random_frame(rnd.RandInt(60, 1514)));
         end loop;
+
         wait_until_idle(net, as_sync(source));
         wait_until_idle(net, as_sync(input_monitor));
         wait_until_idle(net, as_sync(output_monitor));
@@ -122,7 +140,8 @@ begin
 
       elsif run("test_scapy_packet") then
         if eval_boolean(
-          "__import__('importlib.util').util.find_spec('scapy') is not None", new_session("tb_gmii_example:scapy")
+          "__import__('importlib.util').util.find_spec('scapy') is not None",
+          new_session("tb_gmii_example:scapy")
         ) then
           -- python/packets.py builds the packet; the directory is on the Python path
           exec("import sys");
@@ -187,5 +206,6 @@ begin
       dv => out_dv,
       er => out_er
     );
+
   -- docs-end: monitor-instance
 end architecture;

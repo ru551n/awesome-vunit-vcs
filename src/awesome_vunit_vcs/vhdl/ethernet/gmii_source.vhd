@@ -7,21 +7,20 @@
 -- the pins change, which is on the rising edge of its clock.
 
 library ieee;
-use ieee.std_logic_1164.all;
+  use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.com_context;
 
-use work.ethernet_vc_pkg.all;
-use work.gmii_pkg.all;
+  use work.ethernet_vc_pkg.all;
+  use work.gmii_pkg.all;
 
 entity gmii_source is
   generic (
-    source : gmii_source_t
-  );
+    source : gmii_source_t);
   port (
     -- GTX_CLK or RX_CLK
-    clk : in std_ulogic;
+    clk : in  std_ulogic;
     -- TXD or RXD
     data : out std_ulogic_vector(data_length(source) - 1 downto 0) := (others => '0');
     -- TX_EN or RX_DV
@@ -32,9 +31,13 @@ entity gmii_source is
 end entity;
 
 architecture a of gmii_source is
+
 begin
+
   main : process
   begin
+
     drive_symbol_interface(net, to_ethernet_vc(source), clk, data, dv, er);
   end process;
+
 end architecture;

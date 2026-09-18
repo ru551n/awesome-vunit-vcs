@@ -15,29 +15,25 @@ context awesome_vunit_vcs.flash_context;
 
 entity tb_qspi_protocol_checker_vci is
   generic (
-    runner_cfg : string
-  );
+    runner_cfg : string);
 end entity;
 
 architecture tb of tb_qspi_protocol_checker_vci is
+
   -- The first protocol checker with a default id of this architecture
   constant default_checker : qspi_protocol_checker_t := new_qspi_protocol_checker;
   signal default_m2s : qspi_m2s_t := qspi_m2s_init;
 
   constant second_default_checker : qspi_protocol_checker_t := new_qspi_protocol_checker;
 
-  constant explicit_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
-    id => get_id("tb_qspi_protocol_checker_vci:explicit_checker")
-  );
+  constant explicit_checker : qspi_protocol_checker_t :=
+    new_qspi_protocol_checker(id => get_id("tb_qspi_protocol_checker_vci:explicit_checker"));
 
   constant custom_logger : logger_t := get_logger("tb_qspi_protocol_checker_vci:custom_logger");
   constant custom_actor : actor_t := new_actor("tb_qspi_protocol_checker_vci:custom_actor");
   constant custom_checker : checker_t := new_checker(get_logger("tb_qspi_protocol_checker_vci:custom_checker"));
-  constant custom_protocol_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
-    logger => custom_logger,
-    actor => custom_actor,
-    checker => custom_checker
-  );
+  constant custom_protocol_checker : qspi_protocol_checker_t :=
+    new_qspi_protocol_checker(logger => custom_logger, actor => custom_actor, checker => custom_checker);
   signal custom_m2s : qspi_m2s_t := qspi_m2s_init;
 
   constant ignoring_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
@@ -75,7 +71,9 @@ architecture tb of tb_qspi_protocol_checker_vci is
   constant after_adoption_checker : qspi_protocol_checker_t := new_qspi_protocol_checker;
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown qspi_protocol_checker message");
+
 begin
+
   default_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
     generic map (
       protocol_checker => default_checker
@@ -104,15 +102,18 @@ begin
     );
 
   main : process
+
     variable reference : qspi_protocol_checker_reference_t;
     variable count : natural;
     variable reference_count : natural;
     variable start : time;
 
     -- A message of an unknown type, like the VCI tests of the Ethernet VCs
-    procedure check_unexpected_message(actor : actor_t; logger : logger_t; expect_failure : boolean) is
+    procedure check_unexpected_message (actor : actor_t; logger : logger_t; expect_failure : boolean) is
+
       variable request_msg : msg_t;
     begin
+
       mock(logger, error);
       request_msg := new_msg(unknown_msg_type);
       send(net, actor, request_msg);
@@ -129,7 +130,9 @@ begin
     -- each checker
     procedure deselect_too_briefly is
     begin
+
       for idx in 1 to 2 loop
+
         default_m2s.cs_n <= '0';
         custom_m2s.cs_n <= '0';
         wait for 10 ns;
@@ -137,12 +140,16 @@ begin
         custom_m2s.cs_n <= '1';
         wait for 10 ns;
       end loop;
+
       wait for 50 ns;
     end;
+
   begin
+
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
+
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_checker))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_checker))), "qspi_protocol_checker", "name of its parent");
@@ -151,10 +158,7 @@ begin
 
       elsif run("test_default_logger_actor_and_checker_are_used") then
         check(get_logger(default_checker) = get_logger(get_id(default_checker)), "logger of the id");
-        check(
-          get_actor(default_checker) = find(get_id(default_checker), enable_deferred_creation => false),
-          "actor"
-        );
+        check(get_actor(default_checker) = find(get_id(default_checker), enable_deferred_creation => false), "actor");
         check(as_sync(default_checker) = get_actor(default_checker), "as_sync");
         check(get_logger(get_checker(default_checker)) = get_logger(default_checker), "checker on the logger");
 
@@ -167,15 +171,8 @@ begin
 
       elsif run("test_explicit_id_is_used") then
         check(get_id(explicit_checker) = get_id("tb_qspi_protocol_checker_vci:explicit_checker"), "id");
-        check_equal(
-          get_full_name(get_logger(explicit_checker)),
-          full_name(get_id(explicit_checker)),
-          "logger name"
-        );
-        check(
-          get_actor(explicit_checker) = find(get_id(explicit_checker), enable_deferred_creation => false),
-          "actor"
-        );
+        check_equal(get_full_name(get_logger(explicit_checker)), full_name(get_id(explicit_checker)), "logger name");
+        check(get_actor(explicit_checker) = find(get_id(explicit_checker), enable_deferred_creation => false), "actor");
 
       elsif run("test_custom_logger_actor_and_checker_are_used") then
         check(get_logger(custom_protocol_checker) = custom_logger, "logger");
@@ -217,11 +214,13 @@ begin
         disable_stop(get_logger(default_checker), error);
         deselect_too_briefly;
         for rule in qspi_check_t loop
+
           get_check_count(net, default_checker, rule, count);
           get_check_count(net, default_checker, rule, reference);
           await_get_check_count_reply(net, reference, reference_count);
           check_equal(reference_count, count, "count of " & qspi_check_t'image(rule));
         end loop;
+
         get_check_count(net, default_checker, qspi_cs_deselect, count);
         check_equal(count, 1, "blocking qspi_cs_deselect count");
         reset_log_count(get_logger(default_checker), error);
@@ -270,8 +269,8 @@ begin
           "the logger follows the child id"
         );
         check(
-          get_actor(protocol_checker(derived_master)) =
-          find(get_id(protocol_checker(derived_master)), enable_deferred_creation => false),
+          get_actor(protocol_checker(derived_master))
+          = find(get_id(protocol_checker(derived_master)), enable_deferred_creation => false),
           "the actor follows the child id"
         );
 

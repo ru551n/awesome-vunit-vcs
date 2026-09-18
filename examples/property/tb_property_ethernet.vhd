@@ -8,13 +8,16 @@
 -- docs-start: context
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
+
 -- docs-end: context
 
 entity tb_property_ethernet is
-  generic (runner_cfg : string);
+  generic (
+    runner_cfg : string);
 end entity;
 
 architecture tb of tb_property_ethernet is
+
   signal clk : std_ulogic := '0';
   signal data : std_ulogic_vector(7 downto 0);
   signal dv, er : std_ulogic;
@@ -27,12 +30,17 @@ architecture tb of tb_property_ethernet is
   constant axis_monitor : axis_mac_monitor_t := new_axis_mac_monitor;
   signal tdata : std_ulogic_vector(data_length(axis_source) - 1 downto 0);
   signal tkeep : std_ulogic_vector(keep_length(axis_source) - 1 downto 0);
-  signal tvalid, tready, tlast : std_ulogic;
+  signal tvalid : std_ulogic;
+  signal tready : std_ulogic;
+  signal tlast : std_ulogic;
   signal tuser : std_ulogic_vector(user_length(axis_source) - 1 downto 0);
+
 begin
+
   clk <= not clk after 4 ns;
 
   main : process
+
     -- docs-start: frame-variables
     variable prop : property_t;
     -- Room for the longest frame the strategy draws
@@ -40,72 +48,141 @@ begin
     variable length : natural;
     -- Destination, source and EtherType: the 14 octets before the payload
     constant header : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5";
-    -- docs-end: frame-variables
+
+  -- docs-end: frame-variables
   begin
+
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_gmii_payload_lengths") then
         -- docs-start: payload-lengths
-        prop := new_property("strategies:payload_length", seed => get_seed(runner_cfg),
-          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
+        prop := new_property(
+          "strategies:payload_length",
+          seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg),
+          search_path => tb_path(runner_cfg) & "python"
+        );
         while next_example(prop) loop
+
           -- A frame of the header and a payload of the drawn length
           push_ethernet_frame(net, source, header & std_ulogic_vector'(1 to 8 * get_integer(prop) => '1'));
           -- The received frame data and its length in octets
           pop_ethernet_frame(net, monitor, received, length);
           report_example(prop, passed => length = header'length / 8 + get_integer(prop));
         end loop;
+
         check_property(prop);
-        -- docs-end: payload-lengths
+      -- docs-end: payload-lengths
 
       elsif run("test_gmii_frames") then
         -- docs-start: ethernet
-        prop := new_property("strategies:frame_data", seed => get_seed(runner_cfg),
-          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
+        prop := new_property(
+          "strategies:frame_data",
+          seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg),
+          search_path => tb_path(runner_cfg) & "python"
+        );
         while next_example(prop) loop
+
           push_ethernet_frame(net, source, get_unsigned(prop, "", 8 * get_length(prop)));
           pop_ethernet_frame(net, monitor, received, length);
-          report_example(prop, passed => length = get_length(prop) and
-            received(0 to 8 * length - 1) = get_unsigned(prop, "", 8 * get_length(prop)));
+          report_example(
+            prop,
+            passed =>
+              length = get_length(prop) and received(0 to 8 * length - 1) = get_unsigned(prop, "", 8 * get_length(prop))
+          );
         end loop;
+
         check_property(prop);
-        -- docs-end: ethernet
+      -- docs-end: ethernet
 
       elsif run("test_axis_backpressure") then
         -- docs-start: axis-backpressure
-        prop := new_property("strategies:backpressure", seed => get_seed(runner_cfg),
-          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
+        prop := new_property(
+          "strategies:backpressure",
+          seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg),
+          search_path => tb_path(runner_cfg) & "python"
+        );
         while next_example(prop) loop
+
           set_ready_pattern(net, axis_sink, get_integer(prop, "ready_high_percent"), get_integer(prop, "seed"));
           push_ethernet_frame(net, axis_source, get_unsigned(prop, "frame", 8 * get_length(prop, "frame")));
           pop_ethernet_frame(net, axis_monitor, received, length);
-          report_example(prop, passed => length = get_length(prop, "frame") and
-            received(0 to 8 * length - 1) = get_unsigned(prop, "frame", 8 * get_length(prop, "frame")));
+          report_example(
+            prop,
+            passed =>
+              length = get_length(prop, "frame")
+              and received(0 to 8 * length - 1) = get_unsigned(prop, "frame", 8 * get_length(prop, "frame"))
+          );
         end loop;
+
         check_property(prop);
-        -- docs-end: axis-backpressure
+      -- docs-end: axis-backpressure
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 
   source_inst : entity awesome_vunit_vcs.gmii_source
-    generic map (source => source)
-    port map (clk => clk, data => data, dv => dv, er => er);
+    generic map (
+      source => source
+    )
+    port map (
+      clk => clk,
+      data => data,
+      dv => dv,
+      er => er
+    );
 
   monitor_inst : entity awesome_vunit_vcs.gmii_monitor
-    generic map (monitor => monitor)
-    port map (clk => clk, data => data, dv => dv, er => er);
+    generic map (
+      monitor => monitor
+    )
+    port map (
+      clk => clk,
+      data => data,
+      dv => dv,
+      er => er
+    );
 
   axis_source_inst : entity awesome_vunit_vcs.axis_mac_source
-    generic map (source => axis_source)
-    port map (clk => clk, tdata => tdata, tkeep => tkeep, tvalid => tvalid, tready => tready, tlast => tlast, tuser => tuser);
+    generic map (
+      source => axis_source
+    )
+    port map (
+      clk => clk,
+      tdata => tdata,
+      tkeep => tkeep,
+      tvalid => tvalid,
+      tready => tready,
+      tlast => tlast,
+      tuser => tuser
+    );
 
   axis_sink_inst : entity awesome_vunit_vcs.axis_mac_sink
-    generic map (sink => axis_sink)
-    port map (clk => clk, tready => tready);
+    generic map (
+      sink => axis_sink
+    )
+    port map (
+      clk => clk,
+      tready => tready
+    );
 
   axis_monitor_inst : entity awesome_vunit_vcs.axis_mac_monitor
-    generic map (monitor => axis_monitor)
-    port map (clk => clk, tdata => tdata, tkeep => tkeep, tvalid => tvalid, tready => tready, tlast => tlast, tuser => tuser);
+    generic map (
+      monitor => axis_monitor
+    )
+    port map (
+      clk => clk,
+      tdata => tdata,
+      tkeep => tkeep,
+      tvalid => tvalid,
+      tready => tready,
+      tlast => tlast,
+      tuser => tuser
+    );
+
 end architecture;

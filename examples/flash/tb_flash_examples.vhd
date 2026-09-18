@@ -11,13 +11,16 @@
 -- docs-start: context
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.flash_context;
+
 -- docs-end: context
 
 entity tb_flash_examples is
-  generic (runner_cfg : string);
+  generic (
+    runner_cfg : string);
 end entity;
 
 architecture tb of tb_flash_examples is
+
   -- docs-start: boot-handles
   -- The flash the design boots from, with a protocol checker for the design's pin timing
   constant boot_flash : flash_t := new_flash(protocol_checker => new_qspi_protocol_checker);
@@ -61,18 +64,26 @@ architecture tb of tb_flash_examples is
   signal rtl_m2s : qspi_m2s_t := qspi_m2s_init;
   signal rtl_s2m : qspi_s2m_t := qspi_s2m_init;
   signal rtl_data : std_ulogic_vector(0 to 8 * 4 - 1);
-  -- docs-end: rtl-handles
+
+-- docs-end: rtl-handles
 begin
+
   main : process
+
     -- docs-start: variables
     variable regions, got : integer_array_t := null_integer_array;
-    variable cmd, addr, wr_data : integer_array_t := null_integer_array;
+    variable cmd : integer_array_t := null_integer_array;
+    variable addr : integer_array_t := null_integer_array;
+    variable wr_data : integer_array_t := null_integer_array;
     variable count : natural;
     variable reference : qspi_transfer_reference_t;
-    -- docs-end: variables
+
+  -- docs-end: variables
   begin
+
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_boot_from_an_image") then
         -- docs-start: boot-test
         flash_load_image(net, boot_flash, tb_path(runner_cfg) & "flash_boot_image.hex");
@@ -88,7 +99,7 @@ begin
         flash_get_written_regions(net, boot_flash, regions);
         check_equal(length(regions), 0, "written regions");
         deallocate(regions);
-        -- docs-end: boot-writes-nothing
+      -- docs-end: boot-writes-nothing
 
       elsif run("test_check_what_was_written") then
         -- docs-start: program
@@ -105,7 +116,7 @@ begin
         deallocate(regions);
         flash_check_content(net, data_flash, 16#001000#, x"DEADBEEF");
         wait_until_idle(net, as_sync(data_flash));
-        -- docs-end: written-regions
+      -- docs-end: written-regions
 
       elsif run("test_count_a_content_mismatch") then
         -- docs-start: content-mismatch
@@ -115,7 +126,7 @@ begin
         wait_until_idle(net, as_sync(data_flash));
         check_equal(get_log_count(get_logger(data_flash), error), 1);
         reset_log_count(get_logger(data_flash), error);
-        -- docs-end: content-mismatch
+      -- docs-end: content-mismatch
 
       elsif run("test_check_the_pin_timing") then
         -- docs-start: timing-violation
@@ -130,10 +141,10 @@ begin
         reset_log_count(get_logger(protocol_checker(checked_flash)), error);
         -- docs-end: timing-violation
         -- docs-start: protocol-checker-reset
-        reset(net, protocol_checker(checked_flash));  -- clears its counts
+        reset(net, protocol_checker(checked_flash)); -- clears its counts
         get_check_count(net, checked_flash, qspi_cs_deselect, count);
         check_equal(count, 0);
-        -- docs-end: protocol-checker-reset
+      -- docs-end: protocol-checker-reset
 
       elsif run("test_switch_a_timing_rule_off") then
         -- docs-start: switch-rule
@@ -145,8 +156,8 @@ begin
         deallocate(got);
         get_check_count(net, checked_flash, qspi_cs_deselect, count);
         check_equal(count, 0);
-        set_check_enabled(net, checked_flash, qspi_cs_deselect);  -- and on again
-        -- docs-end: switch-rule
+        set_check_enabled(net, checked_flash, qspi_cs_deselect); -- and on again
+      -- docs-end: switch-rule
 
       elsif run("test_write_protection") then
         -- docs-start: write-protection
@@ -170,7 +181,7 @@ begin
         flash_wait_until_ready(net, keep_wel_flash);
         flash_get_stat(net, keep_wel_flash, "wel", count);
         check_equal(count, 1, "this part keeps write enable");
-        -- docs-end: keep-wel-test
+      -- docs-end: keep-wel-test
 
       elsif run("test_count_a_failed_request") then
         -- docs-start: failed-request
@@ -179,7 +190,7 @@ begin
         flash_get_stat(net, data_flash, "no_such_statistic", count);
         check_equal(get_log_count(get_logger(data_flash), failure), 1);
         reset_log_count(get_logger(data_flash), failure);
-        -- docs-end: failed-request
+      -- docs-end: failed-request
 
       elsif run("test_reset_between_scenarios") then
         -- docs-start: reset
@@ -198,7 +209,7 @@ begin
         -- A reset is not an erase
         flash_check_content(net, data_flash, 16#002000#, x"5A");
         wait_until_idle(net, as_sync(data_flash));
-        -- docs-end: reset
+      -- docs-end: reset
 
       elsif run("test_read_the_id_with_a_transfer") then
         -- docs-start: read-transfer
@@ -210,11 +221,13 @@ begin
         qspi_flash_read_id(net, master, wr_data);
         check_equal(length(got), 3);
         for idx in 0 to 2 loop
+
           check_equal(get(got, idx), get(wr_data, idx), "ID byte " & to_string(idx));
         end loop;
+
         deallocate(got);
         deallocate(wr_data);
-        -- docs-end: read-transfer
+      -- docs-end: read-transfer
 
       elsif run("test_send_your_own_commands") then
         -- docs-start: commands
@@ -242,7 +255,7 @@ begin
         flash_wait_until_ready(net, data_flash);
         flash_check_content(net, data_flash, 16#004000#, x"A55A");
         wait_until_idle(net, as_sync(data_flash));
-        -- docs-end: transfer
+      -- docs-end: transfer
 
       elsif run("test_boot_with_a_pin_level_design") then
         -- docs-start: rtl-boot-test
@@ -251,9 +264,10 @@ begin
         rtl_rst_n <= '1';
         wait until rtl_done = '1';
         check_equal(rtl_data, std_ulogic_vector'(x"DEADBEEF"), "the bytes the design read");
-        -- docs-end: rtl-boot-test
+      -- docs-end: rtl-boot-test
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 
@@ -261,50 +275,107 @@ begin
 
   -- docs-start: boot-instances
   boot_flash_inst : entity awesome_vunit_vcs.flash
-    generic map (flash => boot_flash)
-    port map (m2s => m2s, s2m => s2m);
+    generic map (
+      flash => boot_flash
+    )
+    port map (
+      m2s => m2s,
+      s2m => s2m
+    );
 
   -- The design under test
   boot_reader_inst : entity work.boot_reader
-    port map (rst_n => rst_n, m2s => m2s, s2m => s2m, ram => ram, boot_done => boot_done);
+    port map (
+      rst_n => rst_n,
+      m2s => m2s,
+      s2m => s2m,
+      ram => ram,
+      boot_done => boot_done
+    );
+
   -- docs-end: boot-instances
 
   -- docs-start: master-instances
   master_inst : entity awesome_vunit_vcs.qspi_master
-    generic map (qspi_master => master)
-    port map (m2s => master_m2s, s2m => master_s2m);
+    generic map (
+      qspi_master => master
+    )
+    port map (
+      m2s => master_m2s,
+      s2m => master_s2m
+    );
 
   data_flash_inst : entity awesome_vunit_vcs.flash
-    generic map (flash => data_flash)
-    port map (m2s => master_m2s, s2m => master_s2m);
+    generic map (
+      flash => data_flash
+    )
+    port map (
+      m2s => master_m2s,
+      s2m => master_s2m
+    );
+
   -- docs-end: master-instances
 
   hasty_master_inst : entity awesome_vunit_vcs.qspi_master
-    generic map (qspi_master => hasty_master)
-    port map (m2s => hasty_m2s, s2m => hasty_s2m);
+    generic map (
+      qspi_master => hasty_master
+    )
+    port map (
+      m2s => hasty_m2s,
+      s2m => hasty_s2m
+    );
 
   checked_flash_inst : entity awesome_vunit_vcs.flash
-    generic map (flash => checked_flash)
-    port map (m2s => hasty_m2s, s2m => hasty_s2m);
+    generic map (
+      flash => checked_flash
+    )
+    port map (
+      m2s => hasty_m2s,
+      s2m => hasty_s2m
+    );
 
   -- docs-start: keep-wel-instances
   keep_wel_master_inst : entity awesome_vunit_vcs.qspi_master
-    generic map (qspi_master => keep_wel_master)
-    port map (m2s => keep_wel_m2s, s2m => keep_wel_s2m);
+    generic map (
+      qspi_master => keep_wel_master
+    )
+    port map (
+      m2s => keep_wel_m2s,
+      s2m => keep_wel_s2m
+    );
 
   keep_wel_flash_inst : entity awesome_vunit_vcs.flash
-    generic map (flash => keep_wel_flash)
-    port map (m2s => keep_wel_m2s, s2m => keep_wel_s2m);
+    generic map (
+      flash => keep_wel_flash
+    )
+    port map (
+      m2s => keep_wel_m2s,
+      s2m => keep_wel_s2m
+    );
+
   -- docs-end: keep-wel-instances
 
   -- docs-start: rtl-instances
   clk <= not clk after 5 ns;
 
   rtl_flash_inst : entity awesome_vunit_vcs.flash
-    generic map (flash => rtl_flash)
-    port map (m2s => rtl_m2s, s2m => rtl_s2m);
+    generic map (
+      flash => rtl_flash
+    )
+    port map (
+      m2s => rtl_m2s,
+      s2m => rtl_s2m
+    );
 
   spi_boot_reader_inst : entity work.spi_boot_reader
-    port map (clk => clk, rst_n => rtl_rst_n, m2s => rtl_m2s, s2m => rtl_s2m, data => rtl_data, done => rtl_done);
+    port map (
+      clk => clk,
+      rst_n => rtl_rst_n,
+      m2s => rtl_m2s,
+      s2m => rtl_s2m,
+      data => rtl_data,
+      done => rtl_done
+    );
+
   -- docs-end: rtl-instances
 end architecture;

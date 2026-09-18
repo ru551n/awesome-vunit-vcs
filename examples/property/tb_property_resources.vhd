@@ -7,41 +7,61 @@
 -- python/resources_strategies.py.
 
 library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
+  use ieee.std_logic_1164.all;
+  use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
 
 entity tb_property_resources is
-  generic (runner_cfg : string; inject_bug : boolean := false);
+  generic (
+    runner_cfg : string;
+    inject_bug : boolean := false);
 end entity;
 
 architecture tb of tb_property_resources is
-  signal clk, rst, allocate, release_handle, write_enable, allocated : std_ulogic := '0';
+
+  signal clk : std_ulogic := '0';
+  signal rst : std_ulogic := '0';
+  signal allocate : std_ulogic := '0';
+  signal release_handle : std_ulogic := '0';
+  signal write_enable : std_ulogic := '0';
+  signal allocated : std_ulogic := '0';
   signal handle, allocated_handle : std_ulogic_vector(1 downto 0) := (others => '0');
   signal write_data, read_data : std_ulogic_vector(7 downto 0) := (others => '0');
+
 begin
+
   clk <= not clk after 5 ns;
 
   main : process
+
     variable prop : property_t;
 
     -- Hold a signal high for one clock cycle
-    procedure pulse(signal value : out std_ulogic) is
+    procedure pulse (signal value : out std_ulogic) is
     begin
+
       value <= '1';
       wait until rising_edge(clk);
       value <= '0';
     end;
+
   begin
+
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_resources") then
         -- docs-start: resources
-        prop := new_property("resources_strategies:resources", seed => get_seed(runner_cfg),
-          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
+        prop := new_property(
+          "resources_strategies:resources",
+          seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg),
+          search_path => tb_path(runner_cfg) & "python"
+        );
         while next_example(prop) loop
+
           if get_rule(prop) = "start" then
             pulse(rst);
             report_step(prop, value => 0);
@@ -68,18 +88,30 @@ begin
             report_step(prop, value => 0);
           end if;
         end loop;
+
         check_property(prop);
         -- docs-end: resources
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 
   dut : entity work.handle_table
-    generic map (inject_bug => inject_bug)
+    generic map (
+      inject_bug => inject_bug
+    )
     port map (
-      clk => clk, rst => rst, allocate => allocate, release_handle => release_handle, write_enable => write_enable,
-      handle => handle, write_data => write_data, read_data => read_data,
-      allocated_handle => allocated_handle, allocated => allocated
+      clk => clk,
+      rst => rst,
+      allocate => allocate,
+      release_handle => release_handle,
+      write_enable => write_enable,
+      handle => handle,
+      write_data => write_data,
+      read_data => read_data,
+      allocated_handle => allocated_handle,
+      allocated => allocated
     );
+
 end architecture;

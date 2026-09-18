@@ -5,20 +5,26 @@
 -- docs-start: context
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
+
 -- docs-end: context
 
 -- One test case per common construct. A GMII source sends frames through a
 -- register stage (the design under test) to a monitor with the default
 -- protocol checks.
 entity tb_cookbook is
-  generic (runner_cfg : string);
+  generic (
+    runner_cfg : string);
 end entity;
 
 architecture tb of tb_cookbook is
+
   -- docs-start: signals
   signal clk : std_ulogic := '0';
   signal in_data, out_data : std_ulogic_vector(7 downto 0) := (others => '0');
-  signal in_dv, in_er, out_dv, out_er : std_ulogic := '0';
+  signal in_dv : std_ulogic := '0';
+  signal in_er : std_ulogic := '0';
+  signal out_dv : std_ulogic := '0';
+  signal out_er : std_ulogic := '0';
   -- docs-end: signals
 
   -- docs-start: handles
@@ -30,11 +36,14 @@ architecture tb of tb_cookbook is
   -- docs-start: frame
   -- A 60 octet frame: destination, source, EtherType and a payload of ones
   constant frame : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
-  -- docs-end: frame
+
+-- docs-end: frame
 begin
+
   clk <= not clk after 4 ns;
 
   main : process
+
     -- docs-start: variables
     variable statistics : ethernet_statistics_t;
     variable count : natural;
@@ -48,34 +57,38 @@ begin
     -- docs-start: wait-helper
     procedure wait_until_idle is
     begin
+
       wait_until_idle(net, as_sync(source));
       wait_until_idle(net, as_sync(monitor));
     end;
-    -- docs-end: wait-helper
+
+  -- docs-end: wait-helper
   begin
+
     -- docs-start: test-structure
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_send_and_check_a_frame") then
         -- docs-end: test-structure
         -- docs-start: send-frame
         check_ethernet_frame(net, monitor, frame, blocking => false);
         push_ethernet_frame(net, source, frame);
         wait_until_idle;
-        -- docs-end: send-frame
+      -- docs-end: send-frame
 
       elsif run("test_send_header_fields") then
         -- docs-start: header-fields
         check_ethernet_frame(net, monitor, frame, blocking => false);
         push_ethernet_frame(net, source, x"020000000001", x"020000000002", x"88B5", (0 to 8 * 46 - 1 => '1'));
         wait_until_idle;
-        -- docs-end: header-fields
+      -- docs-end: header-fields
 
       elsif run("test_blocking_check") then
         -- docs-start: blocking-check
         push_ethernet_frame(net, source, frame);
-        check_ethernet_frame(net, monitor, frame);  -- returns when the frame has been received
-        -- docs-end: blocking-check
+        check_ethernet_frame(net, monitor, frame); -- returns when the frame has been received
+      -- docs-end: blocking-check
 
       elsif run("test_count_a_malformed_frame") then
         -- docs-start: malformed-frame
@@ -87,7 +100,7 @@ begin
         check_equal(count, 1);
         -- An error left uncounted still fails the test at cleanup
         reset_log_count(get_logger(get_protocol_checker(monitor)), error);
-        -- docs-end: malformed-frame
+      -- docs-end: malformed-frame
 
       elsif run("test_count_a_mismatched_frame") then
         -- docs-start: mismatched-frame
@@ -99,7 +112,7 @@ begin
         get_check_count(net, monitor, eth_scoreboard, count);
         check_equal(count, 1);
         reset_log_count(get_logger(monitor), error);
-        -- docs-end: mismatched-frame
+      -- docs-end: mismatched-frame
 
       elsif run("test_disable_a_check") then
         -- docs-start: disable-check
@@ -108,26 +121,40 @@ begin
         wait_until_idle;
         get_check_count(net, monitor, eth_fcs, count);
         check_equal(count, 0);
-        -- docs-end: disable-check
+      -- docs-end: disable-check
 
       elsif run("test_send_a_packet_from_python") then
         -- docs-start: packet
         push_ethernet_packet(
-          net, source, "cookbook_traffic:udp_to_dut",
+          net,
+          source,
+          "cookbook_traffic:udp_to_dut",
           kwarg("port", 1234) & kwarg("size", 64) & kwarg_text("label", "first frame") & kwarg_time("sent_at", now)
         );
         wait_until_idle;
         get_statistics(net, monitor, statistics);
         check_equal(statistics.good_frames, 1);
-        -- docs-end: packet
+      -- docs-end: packet
 
       elsif run("test_send_a_seeded_sequence") then
         -- docs-start: sequence
         -- The same function, arguments and seed give the same frames on both sides
-        check_ethernet_sequence(net, monitor, "cookbook_traffic:random_frames", count => 20, seed => get_string_seed(runner_cfg));
-        push_ethernet_sequence(net, source, "cookbook_traffic:random_frames", count => 20, seed => get_string_seed(runner_cfg));
+        check_ethernet_sequence(
+          net,
+          monitor,
+          "cookbook_traffic:random_frames",
+          count => 20,
+          seed => get_string_seed(runner_cfg)
+        );
+        push_ethernet_sequence(
+          net,
+          source,
+          "cookbook_traffic:random_frames",
+          count => 20,
+          seed => get_string_seed(runner_cfg)
+        );
         wait_until_idle;
-        -- docs-end: sequence
+      -- docs-end: sequence
 
       elsif run("test_pop_received_frames") then
         -- docs-start: pop-frame
@@ -136,7 +163,7 @@ begin
         check_equal(length, 60);
         check_true(fcs_ok);
         check_equal(received(0 to 8 * length - 1), frame);
-        -- docs-end: pop-frame
+      -- docs-end: pop-frame
 
       elsif run("test_subscribe_to_frames") then
         -- docs-start: subscribe
@@ -146,7 +173,7 @@ begin
         pop_ethernet_frame(msg, received, length, fcs_ok);
         check_equal(length, 60);
         unsubscribe(subscriber, get_actor(monitor));
-        -- docs-end: subscribe
+      -- docs-end: subscribe
 
       elsif run("test_statistics") then
         -- docs-start: statistics
@@ -155,34 +182,36 @@ begin
         wait_until_idle;
         get_statistics(net, monitor, statistics);
         check_equal(statistics.good_frames, 2);
-        log_statistics(net, monitor);  -- a readable summary in the log
-        -- docs-end: statistics
+        log_statistics(net, monitor); -- a readable summary in the log
+      -- docs-end: statistics
 
       elsif run("test_capture_to_pcapng") then
         -- docs-start: capture
         start_capture(net, monitor, output_path(runner_cfg) & "frames.pcapng");
         push_ethernet_frame(net, source, frame);
         wait_until_idle;
-        stop_capture(net, monitor);  -- open frames.pcapng in Wireshark
-        -- docs-end: capture
+        stop_capture(net, monitor); -- open frames.pcapng in Wireshark
+      -- docs-end: capture
 
       elsif run("test_call_a_python_function") then
         -- docs-start: call-python
         import_module_from_file(tb_path(runner_cfg) & "python/cookbook_model.py", "cookbook_model");
         check(call_integer_vector("cookbook_model.gain_table", kwarg("length", 4)) = integer_vector'(0, 1, 4, 9));
-        -- docs-end: call-python
+      -- docs-end: call-python
 
       elsif run("test_python_reference_model") then
         -- docs-start: reference-model
         import_module_from_file(tb_path(runner_cfg) & "python/cookbook_model.py", "cookbook_model");
         for idx in frame_sizes'range loop
+
           push_ethernet_frame(net, source, frame(0 to 111) & (0 to 8 * (frame_sizes(idx) - 14) - 1 => '1'));
         end loop;
+
         wait_until_idle;
         get_statistics(net, monitor, statistics);
         -- The Python model predicts what the monitor must count
         check_equal(statistics.payload_octets, call("cookbook_model.expected_payload_octets", arg(frame_sizes)));
-        -- docs-end: reference-model
+      -- docs-end: reference-model
 
       elsif run("test_count_errors_from_a_python_subscriber") then
         -- docs-start: python-subscriber-errors
@@ -195,7 +224,7 @@ begin
         get_check_count(net, monitor, eth_user, count);
         check_equal(count, 1, "the subscriber reported the long frame");
         reset_log_count(get_logger(monitor), error);
-        -- docs-end: python-subscriber-errors
+      -- docs-end: python-subscriber-errors
 
       elsif run("test_reset_a_source") then
         -- docs-start: reset
@@ -208,9 +237,10 @@ begin
         check_ethernet_frame(net, monitor, frame, blocking => false);
         push_ethernet_frame(net, source, frame);
         wait_until_idle;
-        -- docs-end: reset
+      -- docs-end: reset
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 
@@ -218,8 +248,15 @@ begin
 
   -- docs-start: instances
   source_inst : entity awesome_vunit_vcs.gmii_source
-    generic map (source)
-    port map (clk, in_data, in_dv, in_er);
+    generic map (
+      source => source
+    )
+    port map (
+      clk => clk,
+      data => in_data,
+      dv => in_dv,
+      er => in_er
+    );
 
   -- The design under test: one register stage
   out_data <= in_data when rising_edge(clk);
@@ -227,7 +264,15 @@ begin
   out_er <= in_er when rising_edge(clk);
 
   monitor_inst : entity awesome_vunit_vcs.gmii_monitor
-    generic map (monitor)
-    port map (clk, out_data, out_dv, out_er);
+    generic map (
+      monitor => monitor
+    )
+    port map (
+      clk => clk,
+      data => out_data,
+      dv => out_dv,
+      er => out_er
+    );
+
   -- docs-end: instances
 end architecture;

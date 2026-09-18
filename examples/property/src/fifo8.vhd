@@ -6,41 +6,50 @@
 -- tb_property_fifo.vhd.
 
 library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
+  use ieee.std_logic_1164.all;
+  use ieee.numeric_std.all;
 
 entity fifo8 is
   generic (
     -- A planted bug: a simultaneous push and pop while full drops the pushed
     -- word instead of keeping it, only visible near full and at wraparound.
-    inject_bug : boolean := false
-  );
+    inject_bug : boolean := false);
   port (
-    clk, rst : in std_ulogic;
-    push, pop : in std_ulogic;
-    data_in : in std_ulogic_vector(7 downto 0);
+    clk : in  std_ulogic;
+    rst : in  std_ulogic;
+    push : in  std_ulogic;
+    pop : in  std_ulogic;
+    data_in : in  std_ulogic_vector(7 downto 0);
     data_out : out std_ulogic_vector(7 downto 0);
-    full, empty : out std_ulogic;
+    full : out std_ulogic;
+    empty : out std_ulogic;
     count : out std_ulogic_vector(3 downto 0)
   );
 end entity;
 
 architecture a of fifo8 is
+
   type memory_t is array (0 to 7) of std_ulogic_vector(7 downto 0);
+
   signal memory : memory_t := (others => (others => '0'));
   signal wr_ptr, rd_ptr : natural range 0 to 7 := 0;
   signal fill : natural range 0 to 8 := 0;
   signal is_full, is_empty : std_ulogic;
+
 begin
-  is_full <= '1' when fill = 8 else '0';
-  is_empty <= '1' when fill = 0 else '0';
+
+  is_full <= '1' when fill = 8 else
+             '0';
+  is_empty <= '1' when fill = 0 else
+              '0';
   full <= is_full;
   empty <= is_empty;
   count <= std_ulogic_vector(to_unsigned(fill, 4));
   data_out <= memory(rd_ptr);
 
-  main : process(clk)
+  main : process (clk)
   begin
+
     if rising_edge(clk) then
       if rst = '1' then
         wr_ptr <= 0;
@@ -75,4 +84,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

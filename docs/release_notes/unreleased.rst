@@ -34,6 +34,16 @@ The first release is being prepared. Nothing has been released yet.
   ``axi4_burst_4k``, ``axi4_wlast``, ``axi4_timeout`` and the other checks of ``axi4_check_t``.
   ``axi4_context`` is the one context clause of an AXI4 testbench, and ``awesome_vunit_vcs.axi4``
   has the burst arithmetic, monitor and checks for plain Python.
+* AXI4: ``axi4_read_slave`` and ``axi4_write_slave``, with the generics, ports and procedures of VUnit's
+  ``axi_read_slave`` and ``axi_write_slave`` (``new_axi4_slave``, the FIFO depths, stall
+  probabilities, response latency, 4 KB and well behaved checks, ``get_statistics``), plus WRAP
+  bursts, AXI3, SLVERR on permission failures, ``aresetn``, ``reset``, ``wait_until_idle`` and
+  ``wait_for_time``. They share an ``axi4_memory_t``: VUnit's ``memory_t`` (buffers, permissions,
+  expected data, words, ``integer_array_t``) on a sparse 64-bit address space, with ``fill`` and
+  ``load_image`` of the flash family's image formats. ``awesome_vunit_vcs.axi4`` has the
+  ``MemoryModel`` and ``Axi4Slave`` for plain Python.
+* Common: ``awesome_vunit_vcs.common.sparse_memory.SparseMemory``, the sparse byte store of the flash
+  array, now shared with the AXI4 memory.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
 
 VHDL API

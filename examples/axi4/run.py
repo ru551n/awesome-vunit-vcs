@@ -6,10 +6,12 @@
 AXI4
 ----
 
-The AXI4 examples of the documentation, in tb_axi4_examples.vhd: a monitor
+The AXI4 examples of the documentation. In tb_axi4_examples.vhd: a monitor
 with a protocol checker and a shadow memory on an AXI4-Lite interface of
 VUnit's bus master and AXI slaves, and on an AXI4 interface with IDs and
-bursts, statistics, and a protocol violation counted by the checker.
+bursts, statistics, and a protocol violation counted by the checker. In
+tb_axi4_slave_examples.vhd: the AXI4 read and write slaves on a sparse
+memory, with a preloaded image, expected data and statistics.
 """
 
 # docs-start: run-script

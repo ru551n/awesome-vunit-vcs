@@ -1,10 +1,10 @@
 AXI4
 ====
 
-The AXI4 family observes AXI4 and AXI4-Lite memory-mapped interfaces, following the AMBA AXI
-specification (ARM IHI 0022). It has two verification components (:term:`VCs <VC>`), both strictly
+The AXI4 family observes and answers AXI4 and AXI4-Lite memory-mapped interfaces, following the AMBA
+AXI specification (ARM IHI 0022). Two of its verification components (:term:`VCs <VC>`) are strictly
 passive: they never drive a signal, so they sit next to any master and slave, your design or VUnit's own
-AXI verification components.
+AXI verification components. The read and write slaves answer a master from a sparse memory.
 
 .. include:: ../_includes/vunit_names.inc
 
@@ -21,10 +21,13 @@ AXI verification components.
      - Checks the rules of the protocol: handshakes, burst types and lengths, the 4 KB boundary, WLAST
        and RLAST, write strobes, exclusive accesses, responses without a transaction, metavalues and
        timeouts.
+   * - :vhdl:`axi4_read_slave`, :vhdl:`axi4_write_slave`
+     - Answer a master from an ``axi4_memory_t``: VUnit's ``axi_read_slave`` and ``axi_write_slave``
+       with WRAP bursts, a sparse 64-bit address space and error responses.
 
 VUnit has AXI slaves (``axi_write_slave``, ``axi_read_slave``) and an AXI-Lite master
 (``axi_lite_master``), but no monitor or protocol checker of AXI4 memory-mapped interfaces; this family
-fills that gap. The VHDL components only record what happens at every rising edge of ACLK. What the
+fills that gap, and has slaves of its own whose memory costs nothing until it is touched. The VHDL components only record what happens at every rising edge of ACLK. What the
 records mean, from the address of every beat to latency percentiles, is decided by the Python package
 ``awesome_vunit_vcs.axi4``, which also works in plain ``pytest``.
 
@@ -37,8 +40,10 @@ What's here
 
    * - Page
      - What's here
-   * - :doc:`axi4_monitor`, :doc:`axi4_protocol_checker`
+   * - :doc:`axi4_monitor`, :doc:`axi4_protocol_checker`, :doc:`axi4_slaves`
      - One page per VC: pins, constructors, procedures, checks and statistics
+   * - :doc:`axi4_memory`
+     - The sparse memory of the slaves: buffers, permissions, expected data and images
    * - :doc:`python`
      - The burst arithmetic, monitor and protocol checker without a simulator
    * - :doc:`vhdl_api`
@@ -60,7 +65,8 @@ AXI slaves and bus master included:
    :start-after: -- docs-start: context
    :end-before: -- docs-end: context
 
-``axi4_context`` makes ``axi4_pkg``, ``axi4_monitor_pkg`` and ``axi4_protocol_checker_pkg`` visible,
+``axi4_context`` makes ``axi4_pkg``, ``axi4_monitor_pkg``, ``axi4_protocol_checker_pkg``,
+``axi4_memory_pkg`` and ``axi4_slave_pkg`` visible,
 together with ``ieee.std_logic_1164``, ``ieee.numeric_std``, ``vunit_context``, ``com_context``,
 VUnit's ``vc_context`` and the typed Python arguments of ``vc_python_pkg``.
 
@@ -137,8 +143,8 @@ checker of a component derive from its id unless they are passed explicitly.
    * - Constructed with
      - Id
    * - No ``id``
-     - ``awesome_vunit_vcs:<vc>:<n>``, where ``<vc>`` is ``axi4_monitor`` or ``axi4_protocol_checker``
-       and ``<n>`` numbers the default ids from 1
+     - ``awesome_vunit_vcs:<vc>:<n>``, where ``<vc>`` is ``axi4_monitor``, ``axi4_protocol_checker``,
+       ``axi4_slave`` or ``axi4_memory``, and ``<n>`` numbers the default ids from 1
    * - ``id => get_id("tb:monitor")``
      - ``tb:monitor``
    * - A protocol checker without an explicit ``id``, passed to ``new_axi4_monitor``
@@ -156,8 +162,9 @@ checker of a component derive from its id unless they are passed explicitly.
 Standard interfaces
 -------------------
 
-Both VCs have ``as_sync(vc)``, VUnit's sync interface: ``wait_until_idle`` returns when Python has
-processed everything recorded so far, and ``wait_for_time`` delays the handling of the next message.
+Every VC has ``as_sync(vc)``, VUnit's sync interface: ``wait_until_idle`` returns when Python has
+processed everything a monitor or checker recorded so far, or when a slave has no burst queued or in
+progress, and ``wait_for_time`` delays the handling of the next message.
 
 Procedures
 ----------
@@ -177,6 +184,9 @@ read later with the matching ``await_`` procedure.
      - :doc:`axi4_monitor`
    * - ``set_check_enabled``, ``get_check_count``
      - :doc:`axi4_protocol_checker`
+   * - ``set_address_fifo_depth``, ``set_response_latency``, ``get_statistics`` and the others of VUnit's
+       ``axi_slave_pkg``
+     - :doc:`axi4_slaves`
    * - ``reset``
      - Below
 
@@ -191,8 +201,12 @@ not see on ARESETn:
        Keeps the shadow memory, and the statistics unless ``clear_statistics => true``.
    * - Protocol checker
      - Sets its counts to 0 and forgets the history of the interface. Keeps its check switches.
+   * - Read and write slaves
+     - Drop the bursts and responses queued or in progress. Keep the configuration, the statistics
+       and the memory.
 
-Both components also forget the outstanding transactions when ARESETn falls.
+The monitor and the protocol checker also forget the outstanding transactions when ARESETn falls; the
+slaves drop their bursts while ARESETn is 0.
 
 Every declaration is listed in the :doc:`vhdl_api`.
 
@@ -202,6 +216,8 @@ Every declaration is listed in the :doc:`vhdl_api`.
 
    axi4_monitor
    axi4_protocol_checker
+   axi4_slaves
+   axi4_memory
    python
    vhdl_api
    python_api

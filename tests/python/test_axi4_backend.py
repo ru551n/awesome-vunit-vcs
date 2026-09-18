@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+import numpy as np
 from axi4_helpers import PERIOD_FS, Recorder
 
-from awesome_vunit_vcs.axi4.vunit_backend import Axi4MonitorBackend, Axi4ProtocolCheckerBackend
+from awesome_vunit_vcs.axi4.vunit_backend import Axi4MemoryBackend, Axi4MonitorBackend, Axi4ProtocolCheckerBackend
 from awesome_vunit_vcs.common.reports import Severity, decode_reports
 from awesome_vunit_vcs.common.vunit_bridge import encode_samples, split_time
 
@@ -138,3 +139,47 @@ def test_protocol_checker_backend() -> None:
     reports = decode_reports(backend.take_reports())
     assert "AXI4_TIMEOUT" in reports[0].message and reports[1].severity == Severity.FAILURE
     assert backend.reset() == 0 and backend.check_count("AXI4_TIMEOUT") == 0
+
+
+# -- the memory of the slaves ----------------------------------------------------
+
+
+def test_memory_backend_backdoor_and_reports() -> None:
+    backend = Axi4MemoryBackend([ord(c) for c in "tb:memory"], default_permission=0)
+    assert backend.allocate(4, [ord(c) for c in "buf"], 1, 3) == 0
+    assert backend.allocate(4, "far", 1, 3, address=2**40, wide=True) == 0
+    assert backend.allocate(4, "far", 1, 3, address=2**40) == -1  # the address does not fit a VHDL integer
+    assert decode_reports(backend.take_reports())[0].severity == Severity.FAILURE
+    assert backend.write_word(2**40, [0x11, 0x22], 1) == 0
+    # 0x2211 written big endian, read little endian: 0x1122, least significant byte first
+    assert list(backend.read_word(2**40, 2, 0)) == [0x22, 0x11]
+    assert backend.read_bytes(2**40, 2).dtype.name == "uint8"
+    assert backend.set_expected_integer(0, -2, 2, 2) == 0
+    assert not backend.expected_was_written(0, 2)
+    assert backend.check_expected_was_written() == 2
+    assert [r.message for r in decode_reports(backend.take_reports())] == [
+        "The address 0 at offset 0 within buffer 'buf' at range (0 to 3) was never written with expected byte 254",
+        "The address 1 at offset 1 within buffer 'buf' at range (0 to 3) was never written with expected byte 255",
+    ]
+    assert backend.write_integer_array(8, np.array([[1, 2], [3, 4]]), 1, 3, 2) == 0
+    assert list(backend.read_bytes(8, 6)) == [1, 2, 0, 3, 4, 0]
+
+
+def test_memory_backend_slaves_share_the_memory() -> None:
+    backend = Axi4MemoryBackend("tb:memory")
+    writer = backend.attach("tb:write_slave", 32, True, True)
+    reader = backend.attach("tb:read_slave", 32, False, True)
+    assert list(backend.accept_write(writer, 3, 2**33, 1, 2, 1)) == [0, 0]
+    lanes = [0x100 | value for value in range(8)]
+    assert list(backend.write_burst(writer, np.array(lanes))) == [0, 0]
+    flat = backend.read_burst(reader, 1, 2**33 + 2, 0, 1, 1).tolist()
+    # no reports, burst #0, OKAY, lanes 0-1 unused, lanes 2-3 the bytes written
+    assert flat == [0, 0, 0, -1, -1, 2, 3]
+    assert list(backend.statistics(writer, True))[2] == 1
+    assert list(backend.statistics(writer, False))[2] == 0
+    # A metavalue in a strobed byte, and a second port's reports kept apart
+    backend.accept_write(writer, 0, 0, 0, 2, 1)
+    assert backend.write_burst(writer, np.array([0x100, 0x300, 0, 0])).tolist() == [1, 0]
+    assert backend.take_reports(reader) == ""
+    assert "Metavalue in WDATA lane 1" in backend.take_reports(writer)
+    assert backend.reset_slave(writer) == 0

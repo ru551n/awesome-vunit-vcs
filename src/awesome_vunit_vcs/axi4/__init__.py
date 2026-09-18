@@ -3,7 +3,8 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 """
-The AXI4 family: a passive monitor, a protocol checker and performance statistics of AXI4 and AXI4-Lite.
+The AXI4 family: a passive monitor, a protocol checker and performance statistics of AXI4 and AXI4-Lite,
+and read and write slaves on a sparse memory.
 
 The VHDL components (``vhdl/axi4``) record what happens on the five channels at every rising edge of
 ACLK and nothing else. Everything those records mean lives here and works without a simulator:
@@ -16,6 +17,9 @@ ACLK and nothing else. Everything those records mean lives here and works withou
   :class:`~awesome_vunit_vcs.axi4.checks.Axi4CheckId`
 * :mod:`~awesome_vunit_vcs.axi4.performance`: bandwidth, utilization, backpressure, latencies
 * :mod:`~awesome_vunit_vcs.axi4.memory`: the shadow memory scoreboard
+* :mod:`~awesome_vunit_vcs.axi4.memory_model`: the sparse memory of the slaves, with VUnit's permissions and
+  expected data
+* :mod:`~awesome_vunit_vcs.axi4.slave`: what the read and write slaves read, write and respond
 * :mod:`~awesome_vunit_vcs.axi4.vunit_backend`: the objects the VHDL components create
 
 Times are integers in femtoseconds (fs), latencies in clock cycles, sizes in bytes.
@@ -29,8 +33,10 @@ from .checker import Axi4ProtocolChecker
 from .checks import Axi4CheckId, Axi4Violation
 from .errors import Axi4Error, Axi4ValueError
 from .memory import ShadowMemory
+from .memory_model import Buffer, Endianness, MemoryModel, Permission
 from .monitor import Axi4Monitor
 from .performance import Axi4PerformanceMonitor, Axi4Statistics, ChannelStatistics, DirectionStatistics, Distribution
+from .slave import Axi4Slave, SlaveBurst, SlaveRead
 from .transaction import Axi4Beat, Axi4Transaction, Direction, Response
 
 __all__ = [
@@ -42,19 +48,26 @@ __all__ = [
     "Axi4PerformanceMonitor",
     "Axi4ProtocolChecker",
     "Axi4Sample",
+    "Axi4Slave",
     "Axi4Statistics",
     "Axi4Transaction",
     "Axi4ValueError",
     "Axi4Violation",
+    "Buffer",
     "BurstType",
     "Channel",
     "ChannelStatistics",
     "Direction",
     "DirectionStatistics",
     "Distribution",
+    "Endianness",
+    "MemoryModel",
+    "Permission",
     "Response",
     "SampleDecoder",
     "ShadowMemory",
+    "SlaveBurst",
+    "SlaveRead",
     "beat_addresses",
     "beat_lanes",
     "crosses_4k",

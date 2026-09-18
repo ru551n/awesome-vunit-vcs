@@ -1,7 +1,7 @@
 Adding a component family or interface
 ======================================
 
-A family (for example ``i2c``, ``axi`` or ``mdio``) is a Python subpackage plus a VHDL directory.
+A family (for example ``spi``, ``axi`` or ``mdio``) is a Python subpackage plus a VHDL directory.
 Ethernet is the reference implementation.
 
 Find your way around

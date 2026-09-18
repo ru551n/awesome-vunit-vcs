@@ -82,6 +82,15 @@ Other VC families
        region protection, and busy times. A QSPI master with a JEDEC command layer, and a passive
        QSPI protocol checker of the master's pin timing. See :doc:`flash/index`.
      - Done
+   * - I2C
+     - A master (Standard-mode, Fast-mode and Fast-mode Plus, 7- and 10-bit addresses, clock
+       stretching and synchronization, arbitration, SMBus PEC, malformed transfers), a target with
+       Python device models (register map, 24Cxx EEPROM, your own), a monitor and a protocol checker
+       of the timing of each speed mode. See :doc:`i2c/index`.
+     - Done
 
-New families follow :doc:`contributing/new_family`. Ideas such as I2C, MDIO or AXI monitors are
-welcome as issues or pull requests.
+Later, for I2C: High-speed mode, Ultra Fast-mode, the rise and fall time and data valid time checks,
+and SMBus timeouts and block protocols.
+
+New families follow :doc:`contributing/new_family`. Ideas such as MDIO or AXI monitors are welcome as
+issues or pull requests.

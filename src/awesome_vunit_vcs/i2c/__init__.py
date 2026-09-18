@@ -12,7 +12,8 @@ works without a simulator:
 * :mod:`~awesome_vunit_vcs.i2c.bus`: SCL and SDA samples to START, STOP and bit events
 * :mod:`~awesome_vunit_vcs.i2c.transfer`: events to transfers, with reserved and 10-bit addresses
 * :mod:`~awesome_vunit_vcs.i2c.monitor`: transfers and statistics
-* :mod:`~awesome_vunit_vcs.i2c.checker`: the timing and protocol checks, each with a :class:`CheckId`
+* :mod:`~awesome_vunit_vcs.i2c.checker`: the timing and protocol checks, each with an
+  :class:`~awesome_vunit_vcs.i2c.checker.I2cCheckId`
 * :mod:`~awesome_vunit_vcs.i2c.timing`: the speed modes and their limits
 * :mod:`~awesome_vunit_vcs.i2c.master`: transfers compiled into operations for the VHDL master
 * :mod:`~awesome_vunit_vcs.i2c.target` and :mod:`~awesome_vunit_vcs.i2c.devices`: the target's
@@ -25,7 +26,7 @@ Times are integers in femtoseconds (fs), frequencies in Hz.
 
 from __future__ import annotations
 
-from .checker import CheckId, I2cProtocolChecker, Violation
+from .checker import I2cCheckId, I2cProtocolChecker, I2cViolation
 from .devices import Eeprom24, I2cDevice, RegisterDevice
 from .errors import I2cError, I2cValueError
 from .master import I2cResult, I2cStatus, compile_ops, compile_transfer
@@ -38,8 +39,8 @@ from .transfer import AddressKind, I2cTransfer
 __all__ = [
     "AddressKind",
     "BusLimits",
-    "CheckId",
     "Eeprom24",
+    "I2cCheckId",
     "I2cDevice",
     "I2cError",
     "I2cMonitor",
@@ -50,10 +51,10 @@ __all__ = [
     "I2cTarget",
     "I2cTransfer",
     "I2cValueError",
+    "I2cViolation",
     "MasterTiming",
     "RegisterDevice",
     "SpeedMode",
-    "Violation",
     "bus_limits",
     "compile_ops",
     "compile_transfer",

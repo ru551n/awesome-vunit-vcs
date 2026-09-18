@@ -26,6 +26,9 @@ calls them once per byte. Times are integers in femtoseconds.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
+from ..common.vunit_bridge import decode_time_fs
 from .errors import I2cValueError
 
 __all__ = ["Eeprom24", "I2cDevice", "RegisterDevice"]
@@ -195,7 +198,7 @@ class Eeprom24(_Memory):
         size_bytes: The memory size.
         page_bytes: The page size.
         address_bytes: How many bytes of a write select the memory address.
-        t_wr_fs: The write cycle time in fs, 5 ms by default.
+        t_wr_fs: The write cycle time in fs, 5 ms by default, or as ``kwarg_time`` sends it from VHDL.
         fill: The initial value of every byte, 0xFF like an erased part.
     """
 
@@ -204,7 +207,7 @@ class Eeprom24(_Memory):
         size_bytes: int = 256,
         page_bytes: int = 8,
         address_bytes: int = 1,
-        t_wr_fs: int = 5_000_000_000_000,
+        t_wr_fs: int | Sequence[int] = 5_000_000_000_000,
         fill: int = 0xFF,
     ) -> None:
         super().__init__(size_bytes, fill)
@@ -212,8 +215,10 @@ class Eeprom24(_Memory):
             raise I2cValueError(f"address_bytes={address_bytes} must be 1 or 2")
         if page_bytes < 1 or size_bytes % page_bytes:
             raise I2cValueError(f"page_bytes={page_bytes} must divide size_bytes={size_bytes}")
-        if t_wr_fs < 0:
-            raise I2cValueError(f"Negative t_wr_fs={t_wr_fs}")
+        try:
+            t_wr_fs = decode_time_fs(t_wr_fs)
+        except ValueError as exc:
+            raise I2cValueError(f"t_wr_fs: {exc}") from None
         self.page_bytes = page_bytes
         self.address_bytes = address_bytes
         self.t_wr_fs = t_wr_fs

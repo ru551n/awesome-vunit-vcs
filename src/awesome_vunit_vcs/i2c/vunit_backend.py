@@ -39,6 +39,8 @@ some.
     read_memory(address, length)               -> integer_array_t
 
     I2cMonitorBackend(name: text, report_metavalues)
+    set_publish(enabled); take_published() -> transfers; pop_transfer() -> transfer or empty
+    check_transfer(address, read, data, message: text); statistics_values(now: time); reset(clear); finish()
     I2cProtocolCheckerBackend(name: text, speed, f_scl_max=Hz, t_hd_sta=time, ..., t_stuck=time)
     push(samples, base_time, delta_unit)       -> num_reports
 
@@ -59,7 +61,7 @@ import numpy.typing as npt
 
 from ..common.reports import ReportQueue, Severity, encode_reports
 from ..common.vunit_bridge import decode_samples, decode_text, decode_time_fs, split_time
-from .checker import CheckId, I2cProtocolChecker, Violation
+from .checker import I2cCheckId, I2cProtocolChecker, I2cViolation
 from .devices import Eeprom24, I2cDevice, RegisterDevice
 from .errors import I2cValueError
 from .master import I2cStatus, Program, compile_ops, compile_transfer
@@ -444,6 +446,25 @@ def _bytes(values: Any) -> bytes:
     return array.astype(np.uint8).tobytes()
 
 
+def _flat(transfer: I2cTransfer) -> list[int]:
+    flags = (
+        transfer.read
+        | transfer.ten_bit << 1
+        | transfer.repeated_start << 2
+        | transfer.stopped << 3
+        | transfer.address_ack << 4
+    )
+    nack = transfer.nack_index
+    return [
+        -1 if transfer.address is None else transfer.address,
+        flags,
+        -1 if nack is None else nack,
+        *split_time(transfer.start_fs),
+        len(transfer.data),
+        *transfer.data,
+    ]
+
+
 class _SampleBackend(_Backend):
     def push(self, samples: Any, base_time: int | Sequence[int], delta_unit: int | Sequence[int] = 1) -> int:
         """
@@ -480,22 +501,22 @@ class I2cMonitorBackend(_SampleBackend):
             ``transfers`` to extend the monitor from Python.
     """
 
-    def __init__(self, name: str | Sequence[int], report_metavalues: bool = True) -> None:
+    def __init__(self, name: str | Sequence[int], report_metavalues: bool = True, keep_transfers: int = 1024) -> None:
         super().__init__(name)
         self.monitor = I2cMonitor(on_subscriber_error=self._subscriber_error)
         self.monitor.transfers.subscribe(self._compare)
-        self.monitor.transfers.subscribe(self._collect)
+        self.monitor.transfers.subscribe(self._keep)
         if report_metavalues:
             self.monitor.metavalues.subscribe(
                 lambda event: self.error(
-                    f"{CheckId.METAVALUE.value}: metavalue on {'SDA' if event.sda else 'SCL'} at {event.time_fs} fs"
+                    f"{I2cCheckId.METAVALUE.value}: metavalue on {'SDA' if event.sda else 'SCL'} at {event.time_fs} fs"
                 )
             )
-        #: Collect transfers for :meth:`take_transfers`; VHDL sets it while it has subscribers or pops
-        self.collect_transfers = False
-        self._collected: list[I2cTransfer] = []
+        #: Collect transfers for :meth:`take_published`; VHDL sets it while the monitor has subscribers
+        self.publish_transfers = False
+        self._published: list[I2cTransfer] = []
+        self._kept: deque[I2cTransfer] = deque(maxlen=keep_transfers)
         self._expected: deque[tuple[int, bool, bytes, str]] = deque()
-        self.scoreboard_errors = 0
 
     def _subscriber_error(self, subscriber: Callable[..., None], exc: BaseException) -> None:
         name = getattr(subscriber, "__qualname__", repr(subscriber))
@@ -504,9 +525,10 @@ class I2cMonitorBackend(_SampleBackend):
     def _feed(self, words: list[int], times: list[int]) -> None:
         self.monitor.feed(words, times)
 
-    def _collect(self, transfer: I2cTransfer) -> None:
-        if self.collect_transfers:
-            self._collected.append(transfer)
+    def _keep(self, transfer: I2cTransfer) -> None:
+        self._kept.append(transfer)
+        if self.publish_transfers:
+            self._published.append(transfer)
 
     def _compare(self, transfer: I2cTransfer) -> None:
         if not self._expected:
@@ -521,44 +543,31 @@ class I2cMonitorBackend(_SampleBackend):
         if transfer.data != data:
             differences.append(f"data {transfer.data.hex(' ').upper()}, expected {data.hex(' ').upper()}")
         if differences:
-            self.scoreboard_errors += 1
             prefix = f"{message}: " if message else ""
             self.error(
-                f"{CheckId.SCOREBOARD.value}: {prefix}transfer {transfer.index} at {transfer.start_fs} fs has "
+                f"{I2cCheckId.SCOREBOARD.value}: {prefix}transfer {transfer.index} at {transfer.start_fs} fs has "
                 + "; ".join(differences)
             )
 
-    def set_collect_transfers(self, enabled: bool) -> None:
-        """Collect transfers for :meth:`take_transfers` or not."""
-        self.collect_transfers = bool(enabled)
+    def set_publish(self, enabled: bool) -> None:
+        """Collect transfers for :meth:`take_published` or not."""
+        self.publish_transfers = bool(enabled)
+        if not enabled:
+            self._published = []
 
-    def take_transfers(self) -> npt.NDArray[np.int32]:
+    def take_published(self) -> npt.NDArray[np.int32]:
+        """The transfers since the last call while publishing, flat for VHDL, see :meth:`pop_transfer`."""
+        transfers, self._published = self._published, []
+        return _int32([value for transfer in transfers for value in _flat(transfer)])
+
+    def pop_transfer(self) -> npt.NDArray[np.int32]:
         """
-        The transfers collected since the last call, flat for VHDL: per transfer ``address`` (-1 for
-        none), ``flags`` (bit 0 read, 1 10-bit, 2 repeated START, 3 STOP, 4 address ACK), the index of
-        the first data byte not acknowledged (-1 for none), the start time in fs as ``hi, lo``, the
-        number of data bytes and the bytes.
+        The oldest transfer kept, flat for VHDL, or an empty array: ``address`` (-1 for none),
+        ``flags`` (bit 0 read, 1 10-bit, 2 repeated START, 3 STOP, 4 address ACK), the index of the
+        first data byte not acknowledged (-1 for none), the start time in fs as ``hi, lo``, the number
+        of data bytes and the bytes. The monitor keeps the last ``keep_transfers`` transfers.
         """
-        transfers, self._collected = self._collected, []
-        values: list[int] = []
-        for transfer in transfers:
-            flags = (
-                transfer.read
-                | transfer.ten_bit << 1
-                | transfer.repeated_start << 2
-                | transfer.stopped << 3
-                | transfer.address_ack << 4
-            )
-            nack = transfer.nack_index
-            values += [
-                -1 if transfer.address is None else transfer.address,
-                flags,
-                -1 if nack is None else nack,
-                *split_time(transfer.start_fs),
-                len(transfer.data),
-                *transfer.data,
-            ]
-        return _int32(values)
+        return _int32(_flat(self._kept.popleft()) if self._kept else [])
 
     def check_transfer(
         self, address: int, read: bool, data: Sequence[int] = (), message: str | Sequence[int] = ""
@@ -604,11 +613,12 @@ class I2cMonitorBackend(_SampleBackend):
         return self._guard("statistics", values, _int32([0] * 16))
 
     def reset(self, clear_statistics: bool = False) -> int:
-        """Drop a transfer in progress, the collected and the expected transfers."""
+        """Drop a transfer in progress, the kept and the expected transfers."""
         self.monitor.reset()
         if clear_statistics:
             self.monitor.clear_statistics()
-        self._collected = []
+        self._kept.clear()
+        self._published = []
         self._expected.clear()
         return len(self.reports)
 
@@ -616,7 +626,7 @@ class I2cMonitorBackend(_SampleBackend):
         """At the end of the test: an expected transfer that never came is a check failure."""
         for address, _, _, message in self._expected:
             prefix = f"{message}: " if message else ""
-            self.error(f"{CheckId.SCOREBOARD.value}: {prefix}expected transfer to 0x{address:02X} never came")
+            self.error(f"{I2cCheckId.SCOREBOARD.value}: {prefix}expected transfer to 0x{address:02X} never came")
         self._expected.clear()
         return len(self.reports)
 
@@ -673,7 +683,7 @@ class I2cProtocolCheckerBackend(_SampleBackend):
         self.checker = self._guard("configure", create, I2cProtocolChecker())
         self.checker.violations.subscribe(self._violation)
 
-    def _violation(self, violation: Violation) -> None:
+    def _violation(self, violation: I2cViolation) -> None:
         self.reports.add(Severity.ERROR, f"{self.name}: {violation.message}")
 
     def _feed(self, words: list[int], times: list[int]) -> None:

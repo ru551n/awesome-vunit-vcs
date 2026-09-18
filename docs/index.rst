@@ -48,6 +48,10 @@ Status
      - Any
      - Done
      - ``axis_mac_source``, ``axis_mac_sink``, ``axis_mac_monitor``, ``axis_mac_protocol_checker``
+   * - I2C
+     - 100 kHz, 400 kHz, 1 MHz
+     - Done
+     - ``i2c_master``, ``i2c_target``, ``i2c_monitor``, ``i2c_protocol_checker``
 
 Every component is tested with GHDL and NVC.
 
@@ -107,6 +111,12 @@ Components
 
       A QSPI NOR flash model, a QSPI master and a QSPI protocol checker.
 
+   .. grid-item-card:: I2C
+      :link: i2c/index
+      :link-type: doc
+
+      An I2C master, a target with device models in Python, a monitor and a protocol checker.
+
    .. grid-item-card:: Common
       :link: common/index
       :link-type: doc
@@ -158,6 +168,13 @@ declaration, signature and cookbook example.
    :hidden:
 
    flash/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: I2C
+   :hidden:
+
+   i2c/index
 
 .. toctree::
    :maxdepth: 2

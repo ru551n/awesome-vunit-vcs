@@ -21,7 +21,8 @@ Bits    Field
 
 The master returns one result per operation: 0 for a START, STOP or bit group,
 0 (ACK) or 1 (NACK) for a written byte, the byte for a read, -1 for an
-operation it did not execute and -2 where it lost arbitration.
+operation it did not execute, -2 where it lost arbitration and -3 where SCL
+stayed low for longer than its stretch timeout.
 :meth:`Program.result` turns them into an :class:`I2cResult`.
 """
 
@@ -35,7 +36,7 @@ from dataclasses import dataclass
 from .errors import I2cValueError
 from .pec import smbus_pec
 
-__all__ = ["I2cResult", "I2cStatus", "OpKind", "Program", "compile_ops", "compile_transfer", "op_word"]
+__all__ = ["I2cResult", "I2cStatus", "OpKind", "OpRole", "Program", "compile_ops", "compile_transfer", "op_word"]
 
 
 class OpKind(enum.IntEnum):
@@ -61,6 +62,8 @@ class I2cStatus(enum.IntEnum):
     ARBITRATION_LOST = 3
     #: The PEC of a read was wrong
     PEC_ERROR = 4
+    #: SCL stayed low for longer than the stretch timeout of the master
+    SCL_TIMEOUT = 5
 
 
 #: The flag bit of an operation word
@@ -69,6 +72,8 @@ FLAG = 1 << 11
 NOT_EXECUTED = -1
 #: What the master returns where it lost arbitration
 ARBITRATION_LOST = -2
+#: What the master returns where SCL stayed low for longer than its stretch timeout
+SCL_TIMEOUT = -3
 
 
 def op_word(kind: OpKind, value: int = 0, flag: bool = False, bits: int = 0) -> int:
@@ -102,7 +107,9 @@ class I2cResult:
     acks: tuple[bool, ...]
 
 
-class _Role(enum.Enum):
+class OpRole(enum.Enum):
+    """What an operation of a :class:`Program` is for, to read its result."""
+
     CONTROL = "control"
     ADDRESS = "address"
     DATA = "data"
@@ -121,7 +128,7 @@ class Program:
     """
 
     words: tuple[int, ...]
-    roles: tuple[_Role, ...]
+    roles: tuple[OpRole, ...]
     pec: bool = False
 
     def result(self, results: Sequence[int]) -> I2cResult:
@@ -140,8 +147,8 @@ class Program:
         acks = []
         for word, role, value in zip(self.words, self.roles, values, strict=True):
             kind = OpKind(word >> 8 & 7)
-            if value == ARBITRATION_LOST:
-                status = I2cStatus.ARBITRATION_LOST
+            if value in (ARBITRATION_LOST, SCL_TIMEOUT):
+                status = I2cStatus.ARBITRATION_LOST if value == ARBITRATION_LOST else I2cStatus.SCL_TIMEOUT
                 break
             if value == NOT_EXECUTED:
                 continue
@@ -149,34 +156,34 @@ class Program:
                 wire.append(word & 0xFF)
                 acks.append(value == 0)
                 if value and status is I2cStatus.OK:
-                    status = I2cStatus.ADDRESS_NACK if role is _Role.ADDRESS else I2cStatus.DATA_NACK
+                    status = I2cStatus.ADDRESS_NACK if role is OpRole.ADDRESS else I2cStatus.DATA_NACK
             elif kind is OpKind.READ:
                 wire.append(value & 0xFF)
-                if role is not _Role.PEC:
+                if role is not OpRole.PEC:
                     read.append(value & 0xFF)
         if self.pec and status is I2cStatus.OK and smbus_pec(wire) != 0:
             status = I2cStatus.PEC_ERROR
         return I2cResult(status, bytes(read), tuple(acks))
 
 
-def _address_ops(address: int, ten_bit: bool, read: bool, after_write: bool) -> list[tuple[int, _Role]]:
+def _address_ops(address: int, ten_bit: bool, read: bool, after_write: bool) -> list[tuple[int, OpRole]]:
     """The address bytes of a transfer, after its START."""
     rw = 1 if read else 0
     if not ten_bit:
         if not 0 <= address <= 0x7F:
             raise I2cValueError(f"A 7-bit address is 0 to 0x7F, not 0x{address:X}")
-        return [(op_word(OpKind.WRITE, address << 1 | rw, flag=True), _Role.ADDRESS)]
+        return [(op_word(OpKind.WRITE, address << 1 | rw, flag=True), OpRole.ADDRESS)]
     if not 0 <= address <= 0x3FF:
         raise I2cValueError(f"A 10-bit address is 0 to 0x3FF, not 0x{address:X}")
     high = 0xF0 | (address >> 8) << 1
     if read and after_write:
-        return [(op_word(OpKind.WRITE, high | 1, flag=True), _Role.ADDRESS)]
+        return [(op_word(OpKind.WRITE, high | 1, flag=True), OpRole.ADDRESS)]
     ops = [
-        (op_word(OpKind.WRITE, high, flag=True), _Role.ADDRESS),
-        (op_word(OpKind.WRITE, address & 0xFF, flag=True), _Role.ADDRESS),
+        (op_word(OpKind.WRITE, high, flag=True), OpRole.ADDRESS),
+        (op_word(OpKind.WRITE, address & 0xFF, flag=True), OpRole.ADDRESS),
     ]
     if read:
-        ops += [(op_word(OpKind.START), _Role.CONTROL), (op_word(OpKind.WRITE, high | 1, flag=True), _Role.ADDRESS)]
+        ops += [(op_word(OpKind.START), OpRole.CONTROL), (op_word(OpKind.WRITE, high | 1, flag=True), OpRole.ADDRESS)]
     return ops
 
 
@@ -206,24 +213,24 @@ def compile_transfer(
     """
     if num_read < 0:
         raise I2cValueError(f"Negative number of bytes to read {num_read}")
-    ops: list[tuple[int, _Role]] = [(op_word(OpKind.START), _Role.CONTROL)]
+    ops: list[tuple[int, OpRole]] = [(op_word(OpKind.START), OpRole.CONTROL)]
     wire: list[int] = []
     if write or not num_read:
         ops += _address_ops(address, ten_bit, read=False, after_write=False)
-        ops += [(op_word(OpKind.WRITE, int(value), flag=True), _Role.DATA) for value in write]
+        ops += [(op_word(OpKind.WRITE, int(value), flag=True), OpRole.DATA) for value in write]
         wire = [word & 0xFF for word, _ in ops if word >> 8 & 7 == OpKind.WRITE]
         if pec and not num_read:
-            ops.append((op_word(OpKind.WRITE, smbus_pec(wire), flag=True), _Role.PEC))
+            ops.append((op_word(OpKind.WRITE, smbus_pec(wire), flag=True), OpRole.PEC))
     if num_read:
         if len(ops) > 1:
-            ops.append((op_word(OpKind.START), _Role.CONTROL))
+            ops.append((op_word(OpKind.START), OpRole.CONTROL))
         ops += _address_ops(address, ten_bit, read=True, after_write=len(ops) > 1)
         count = num_read + (1 if pec else 0)
         for index in range(count):
-            role = _Role.PEC if pec and index == count - 1 else _Role.DATA
+            role = OpRole.PEC if pec and index == count - 1 else OpRole.DATA
             ops.append((op_word(OpKind.READ, flag=index < count - 1), role))
     if stop:
-        ops.append((op_word(OpKind.STOP), _Role.CONTROL))
+        ops.append((op_word(OpKind.STOP), OpRole.CONTROL))
     words, roles = zip(*ops, strict=True)
     return Program(tuple(words), tuple(roles), pec=pec and num_read > 0)
 
@@ -251,7 +258,7 @@ def compile_ops(text: str) -> Program:
     Raises:
         I2cValueError: An unknown operation.
     """
-    ops: list[tuple[int, _Role]] = []
+    ops: list[tuple[int, OpRole]] = []
     after_start = False
     for token in re.split(r"[\s,]+", text.strip().upper()):
         if not token:
@@ -259,18 +266,18 @@ def compile_ops(text: str) -> Program:
         if not _TOKEN.match(token):
             raise I2cValueError(f"Unknown I2C operation {token!r} in {text!r}")
         if token == "S":
-            ops.append((op_word(OpKind.START), _Role.CONTROL))
+            ops.append((op_word(OpKind.START), OpRole.CONTROL))
             after_start = True
             continue
         if token == "P":
-            ops.append((op_word(OpKind.STOP), _Role.CONTROL))
+            ops.append((op_word(OpKind.STOP), OpRole.CONTROL))
         elif token in ("R", "RN"):
-            ops.append((op_word(OpKind.READ, flag=token == "R"), _Role.DATA))
+            ops.append((op_word(OpKind.READ, flag=token == "R"), OpRole.DATA))
         elif token.startswith("B"):
-            ops.append((op_word(OpKind.BITS, int(token[1:], 2), bits=len(token) - 1), _Role.CONTROL))
+            ops.append((op_word(OpKind.BITS, int(token[1:], 2), bits=len(token) - 1), OpRole.CONTROL))
         else:
             value = int(token, 0)
-            ops.append((op_word(OpKind.WRITE, value), _Role.ADDRESS if after_start else _Role.DATA))
+            ops.append((op_word(OpKind.WRITE, value), OpRole.ADDRESS if after_start else OpRole.DATA))
         after_start = False
     if not ops:
         raise I2cValueError("An I2C transfer needs at least one operation")

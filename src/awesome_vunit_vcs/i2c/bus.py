@@ -44,7 +44,7 @@ SDA_METAVALUE_BIT = 8
 class EventKind(enum.Enum):
     """What happened on the bus."""
 
-    #: SDA fell while SCL was high: a START or a repeated START
+    #: SDA fell while SCL was high, a START or a repeated START
     START = "start"
     #: SDA rose while SCL was high
     STOP = "stop"

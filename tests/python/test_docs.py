@@ -42,7 +42,7 @@ def _families() -> list[Path]:
 
 
 #: The documentation section of every component family, holding its VHDL and Python API pages
-SECTIONS = ("ethernet", "property_testing", "flash", "common")
+SECTIONS = ("ethernet", "property_testing", "flash", "i2c", "common")
 
 
 def _generated_includes() -> set[str]:
@@ -78,6 +78,7 @@ PUBLIC_MODULES = (
     "awesome_vunit_vcs.ethernet.lowlevel",
     "awesome_vunit_vcs.common.property",
     "awesome_vunit_vcs.flash",
+    "awesome_vunit_vcs.i2c",
     "awesome_vunit_vcs.records",
     "awesome_vunit_vcs.gen_vhdl",
 )
@@ -128,11 +129,11 @@ def test_every_vhdl_file_parses_into_a_design_unit() -> None:
 
 
 def _check_literals(vhdl_package: Path) -> set[str]:
-    text = vhdl_package.read_text(encoding="utf-8")
+    # Comments may hold semicolons, such as the tHD;STA of I2C
+    text = re.sub(r"--[^\n]*", "", vhdl_package.read_text(encoding="utf-8"))
     match = re.search(r"type\s+\w+_check_t\s+is\s*\((?P<literals>[^;]*?)\)\s*;", text, re.IGNORECASE | re.DOTALL)
     assert match is not None, f"No check type in {vhdl_package.name}"
-    code = re.sub(r"--[^\n]*", "", match["literals"])
-    return {literal.strip().upper() for literal in code.split(",") if literal.strip()}
+    return {literal.strip().upper() for literal in match["literals"].split(",") if literal.strip()}
 
 
 def test_vhdl_checks_are_the_python_check_ids() -> None:
@@ -144,6 +145,20 @@ def test_vhdl_checks_are_the_python_check_ids() -> None:
     for package in packages:
         vhdl_checks |= _check_literals(package)
     assert vhdl_checks == {check.value.upper() for check in CheckId}
+
+
+def test_vhdl_i2c_checks_are_the_python_check_ids() -> None:
+    from awesome_vunit_vcs.i2c import I2cCheckId
+
+    assert _check_literals(VHDL / "i2c" / "i2c_pkg.vhd") == {check.value for check in I2cCheckId}
+
+
+def test_every_i2c_check_is_in_the_checks_table() -> None:
+    from awesome_vunit_vcs.i2c import I2cCheckId
+
+    table = (DOCS / "i2c" / "i2c_protocol_checker.rst").read_text(encoding="utf-8")
+    missing = [check.value for check in I2cCheckId if f"``{check.value.lower()}``" not in table]
+    assert not missing
 
 
 def test_every_check_is_in_the_checks_table() -> None:
@@ -339,7 +354,7 @@ def test_every_example_is_in_the_cookbook() -> None:
     assert not missing, "Add these examples to the table in docs/cookbook/index.rst"
 
 
-_FAMILY_CONTEXT = re.compile(r"context\s+awesome_vunit_vcs\.(ethernet|flash|property)_context\b")
+_FAMILY_CONTEXT = re.compile(r"context\s+awesome_vunit_vcs\.(ethernet|flash|i2c|property)_context\b")
 _INCLUDED_CONTEXT = re.compile(
     r"context\s+(vunit_lib\.vunit_context|vunit_lib\.com_context|python_bridge\.python_context)\b"
 )

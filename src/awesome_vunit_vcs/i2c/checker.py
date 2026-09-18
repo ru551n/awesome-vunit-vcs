@@ -5,7 +5,7 @@
 """
 The I2C protocol checker: bus timing and bit-level protocol, from SCL and SDA samples.
 
-Every check has a stable identifier (:class:`CheckId`) and can be enabled or
+Every check has a stable identifier (:class:`I2cCheckId`) and can be enabled or
 disabled on its own. A violation message starts with the check ID and gives
 the measured value, the limit and the simulation time, all in fs.
 """
@@ -21,10 +21,10 @@ from .bus import SCL_BIT, SCL_METAVALUE_BIT, SDA_BIT, SDA_METAVALUE_BIT, BusDeco
 from .errors import I2cValueError
 from .timing import BusLimits, bus_limits
 
-__all__ = ["CheckId", "I2cProtocolChecker", "Violation"]
+__all__ = ["I2cCheckId", "I2cProtocolChecker", "I2cViolation"]
 
 
-class CheckId(str, enum.Enum):
+class I2cCheckId(str, enum.Enum):
     """
     The stable identifiers of the I2C checks.
 
@@ -50,9 +50,9 @@ class CheckId(str, enum.Enum):
     T_SU_STO = "I2C_T_SU_STO"
     #: A START less than tBUF after a STOP
     T_BUF = "I2C_T_BUF"
-    #: SDA changed while SCL was high inside a byte: a START or STOP after 1 to 7 bits
+    #: SDA changed while SCL was high inside a byte, a START or STOP after 1 to 7 bits
     SDA_STABLE = "I2C_SDA_STABLE"
-    #: A byte without an acknowledge bit: a START or STOP right after 8 bits
+    #: A byte without an acknowledge bit, a START or STOP right after 8 bits
     ACK_SLOT = "I2C_ACK_SLOT"
     #: A metavalue on SCL or SDA
     METAVALUE = "I2C_METAVALUE"
@@ -62,14 +62,14 @@ class CheckId(str, enum.Enum):
     SCOREBOARD = "I2C_SCOREBOARD"
 
     @classmethod
-    def parse(cls, check: CheckId | str) -> CheckId:
+    def parse(cls, check: I2cCheckId | str) -> I2cCheckId:
         """
         Look up a check by member, value or name, case insensitively.
 
         Raises:
             I2cValueError: ``check`` names no check.
         """
-        if isinstance(check, CheckId):
+        if isinstance(check, I2cCheckId):
             return check
         name = check.strip().upper()
         for member in cls:
@@ -80,14 +80,14 @@ class CheckId(str, enum.Enum):
 
 
 #: The checks :class:`I2cProtocolChecker` runs; the monitor runs the others
-PROTOCOL_CHECKS = frozenset(CheckId) - {CheckId.SCOREBOARD}
+PROTOCOL_CHECKS = frozenset(I2cCheckId) - {I2cCheckId.SCOREBOARD}
 
 
 @dataclass(frozen=True, slots=True)
-class Violation:
+class I2cViolation:
     """A failed check."""
 
-    check: CheckId
+    check: I2cCheckId
     #: Starts with the check ID
     message: str
     #: Simulation time of the violation in fs
@@ -112,7 +112,7 @@ class I2cProtocolChecker:
             raise I2cValueError(f"Negative t_stuck_fs={t_stuck_fs}")
         self.limits = limits or bus_limits()
         self.t_stuck_fs = t_stuck_fs
-        self.violations: Publisher[Violation] = Publisher()
+        self.violations: Publisher[I2cViolation] = Publisher()
         self._enabled = set(PROTOCOL_CHECKS)
         self._counts = dict.fromkeys(PROTOCOL_CHECKS, 0)
         self._decoder = BusDecoder()
@@ -138,36 +138,36 @@ class I2cProtocolChecker:
         self._metavalue = [False, False]
 
     # Switches and counts
-    def enable(self, *checks: CheckId | str) -> None:
-        """Enable checks, given as :class:`CheckId` or names."""
+    def enable(self, *checks: I2cCheckId | str) -> None:
+        """Enable checks, given as :class:`I2cCheckId` or names."""
         self._enabled.update(self._protocol_check(check) for check in checks)
 
-    def disable(self, *checks: CheckId | str) -> None:
+    def disable(self, *checks: I2cCheckId | str) -> None:
         """Disable checks; a disabled check neither reports nor counts."""
         self._enabled.difference_update(self._protocol_check(check) for check in checks)
 
-    def is_enabled(self, check: CheckId | str) -> bool:
+    def is_enabled(self, check: I2cCheckId | str) -> bool:
         """Whether a check is enabled."""
         return self._protocol_check(check) in self._enabled
 
-    def count(self, check: CheckId | str) -> int:
+    def count(self, check: I2cCheckId | str) -> int:
         """Violations found by a check while it was enabled."""
         return self._counts[self._protocol_check(check)]
 
     @staticmethod
-    def _protocol_check(check: CheckId | str) -> CheckId:
-        parsed = CheckId.parse(check)
+    def _protocol_check(check: I2cCheckId | str) -> I2cCheckId:
+        parsed = I2cCheckId.parse(check)
         if parsed not in PROTOCOL_CHECKS:
             raise I2cValueError(f"{parsed.value} is not a check of the protocol checker")
         return parsed
 
-    def _report(self, check: CheckId, text: str, time_fs: int) -> None:
+    def _report(self, check: I2cCheckId, text: str, time_fs: int) -> None:
         if check not in self._enabled:
             return
         self._counts[check] += 1
-        self.violations.publish(Violation(check, f"{check.value}: {text} at {time_fs} fs", time_fs))
+        self.violations.publish(I2cViolation(check, f"{check.value}: {text} at {time_fs} fs", time_fs))
 
-    def _minimum(self, check: CheckId, what: str, measured: int, limit: int, time_fs: int) -> None:
+    def _minimum(self, check: I2cCheckId, what: str, measured: int, limit: int, time_fs: int) -> None:
         if measured < limit:
             self._report(check, f"{what} {measured} fs, less than the minimum {limit} fs", time_fs)
 
@@ -190,7 +190,7 @@ class I2cProtocolChecker:
             if since is not None and not self._stuck_reported[line] and now_fs - since > self.t_stuck_fs:
                 self._stuck_reported[line] = True
                 self._report(
-                    CheckId.STUCK_LOW,
+                    I2cCheckId.STUCK_LOW,
                     f"{name} low since {since} fs, longer than the limit {self.t_stuck_fs} fs,",
                     now_fs,
                 )
@@ -201,7 +201,7 @@ class I2cProtocolChecker:
         ):
             metavalue = bool(word & meta_bit)
             if metavalue and not self._metavalue[line]:
-                self._report(CheckId.METAVALUE, f"metavalue on {name}", time_fs)
+                self._report(I2cCheckId.METAVALUE, f"metavalue on {name}", time_fs)
             self._metavalue[line] = metavalue
             if metavalue:
                 continue
@@ -219,12 +219,14 @@ class I2cProtocolChecker:
         if kind is EventKind.RISE:
             # A period across a START or STOP is not a clock period; tSU;STA and tHD;STA apply
             if self._last_rise is not None and not self._condition_since_rise:
-                self._minimum(CheckId.F_SCL, "SCL period", time_fs - self._last_rise, limits.t_period_min_fs, time_fs)
+                self._minimum(
+                    I2cCheckId.F_SCL, "SCL period", time_fs - self._last_rise, limits.t_period_min_fs, time_fs
+                )
             if self._last_fall is not None:
-                self._minimum(CheckId.T_LOW, "SCL low for", time_fs - self._last_fall, limits.t_low_fs, time_fs)
+                self._minimum(I2cCheckId.T_LOW, "SCL low for", time_fs - self._last_fall, limits.t_low_fs, time_fs)
             if self._data_change is not None:
                 self._minimum(
-                    CheckId.T_SU_DAT,
+                    I2cCheckId.T_SU_DAT,
                     "SDA changed before SCL rose by",
                     time_fs - self._data_change,
                     limits.t_su_dat_fs,
@@ -238,16 +240,16 @@ class I2cProtocolChecker:
                 self._bits += 1
         elif kind is EventKind.FALL:
             if self._start is not None:
-                self._minimum(CheckId.T_HD_STA, "START held for", time_fs - self._start, limits.t_hd_sta_fs, time_fs)
+                self._minimum(I2cCheckId.T_HD_STA, "START held for", time_fs - self._start, limits.t_hd_sta_fs, time_fs)
                 self._start = None
             elif self._last_rise is not None and not self._condition_in_high:
-                self._minimum(CheckId.T_HIGH, "SCL high for", time_fs - self._last_rise, limits.t_high_fs, time_fs)
+                self._minimum(I2cCheckId.T_HIGH, "SCL high for", time_fs - self._last_rise, limits.t_high_fs, time_fs)
             self._last_fall = time_fs
             self._data_change = None
         elif kind is EventKind.DATA:
             if self._last_fall is not None and self._data_change is None:
                 self._minimum(
-                    CheckId.T_HD_DAT,
+                    I2cCheckId.T_HD_DAT,
                     "SDA changed after SCL fell by",
                     time_fs - self._last_fall,
                     limits.t_hd_dat_fs,
@@ -261,14 +263,14 @@ class I2cProtocolChecker:
                 self._check_byte_boundary("repeated START", time_fs)
                 if self._last_rise is not None:
                     self._minimum(
-                        CheckId.T_SU_STA,
+                        I2cCheckId.T_SU_STA,
                         "repeated START after SCL rose by",
                         time_fs - self._last_rise,
                         limits.t_su_sta_fs,
                         time_fs,
                     )
             elif self._last_stop is not None:
-                self._minimum(CheckId.T_BUF, "bus free for", time_fs - self._last_stop, limits.t_buf_fs, time_fs)
+                self._minimum(I2cCheckId.T_BUF, "bus free for", time_fs - self._last_stop, limits.t_buf_fs, time_fs)
             self._busy = True
             self._bits = 0
             self._start = time_fs
@@ -279,7 +281,11 @@ class I2cProtocolChecker:
                 self._check_byte_boundary("STOP", time_fs)
             if self._last_rise is not None:
                 self._minimum(
-                    CheckId.T_SU_STO, "STOP after SCL rose by", time_fs - self._last_rise, limits.t_su_sto_fs, time_fs
+                    I2cCheckId.T_SU_STO,
+                    "STOP after SCL rose by",
+                    time_fs - self._last_rise,
+                    limits.t_su_sto_fs,
+                    time_fs,
                 )
             self._busy = False
             self._start = None
@@ -292,11 +298,11 @@ class I2cProtocolChecker:
         bits = (self._bits - 1) % 9
         if bits == 8:
             self._report(
-                CheckId.ACK_SLOT, f"{condition} after the 8 bits of a byte, without an acknowledge bit", time_fs
+                I2cCheckId.ACK_SLOT, f"{condition} after the 8 bits of a byte, without an acknowledge bit", time_fs
             )
         elif bits:
             self._report(
-                CheckId.SDA_STABLE,
+                I2cCheckId.SDA_STABLE,
                 f"SDA changed while SCL was high after {bits} bits of a byte, a {condition} inside the byte",
                 time_fs,
             )

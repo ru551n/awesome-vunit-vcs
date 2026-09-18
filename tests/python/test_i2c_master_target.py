@@ -99,6 +99,7 @@ def test_results() -> None:
     assert data_nack.status is I2cStatus.DATA_NACK
     lost = program.result([0, -2, -1, -1, -1, -1, -1, -1])
     assert lost.status is I2cStatus.ARBITRATION_LOST
+    assert program.result([0, 0, -3, -1, -1, -1, -1, -1]).status is I2cStatus.SCL_TIMEOUT
     with pytest.raises(I2cValueError):
         program.result([0])
 

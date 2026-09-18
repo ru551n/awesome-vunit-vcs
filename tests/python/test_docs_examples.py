@@ -25,6 +25,7 @@ def test_every_example_is_listed() -> None:
         "check_frames.py",
         "decode_samples.py",
         "flash_jedec_id.py",
+        "i2c_device_model.py",
         "monitor_subscribers.py",
         "packet_functions.py",
         "property_based.py",

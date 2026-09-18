@@ -113,17 +113,21 @@ def test_eeprom_through_the_backend() -> None:
 
 def test_monitor_collects_transfers_for_vhdl() -> None:
     monitor = I2cMonitorBackend(_text("mon"))
-    monitor.set_collect_transfers(True)
+    monitor.set_publish(True)
     bus = Bus().write(0x50, b"\x12\x34").start().byte(0xF4).byte(0xA5).start().byte(0xF5).byte(0x77, False).stop()
     assert _push(monitor, bus) == 0
-    values = monitor.take_transfers().tolist()
+    values = monitor.take_published().tolist()
     # address, flags, nack index, start hi, start lo, count, bytes
     assert values[:8] == [0x50, 0b11000, -1, 0, 0, 2, 0x12, 0x34]
     ten_bit_write = values[8:14]
     assert ten_bit_write[:3] == [0x2A5, 0b10010, -1] and ten_bit_write[5] == 0
     assert values[14:17] == [0x2A5, 0b11111, 0] and values[-2:] == [1, 0x77]
-    assert monitor.take_transfers().size == 0
+    assert monitor.take_published().size == 0
     assert monitor.transfer_count() == 3
+    assert monitor.pop_transfer().tolist() == values[:8]
+    monitor.pop_transfer()
+    assert monitor.pop_transfer().tolist() == values[14:]
+    assert monitor.pop_transfer().size == 0
 
 
 def test_monitor_scoreboard_statistics_and_metavalues() -> None:

@@ -2,8 +2,9 @@
 
 Instructions for AI coding agents working on awesome-vunit-vcs, a VUnit package of verification
 components: Ethernet (GMII, MII, RGMII, RMII, XGMII, AXI-Stream MAC client), a QSPI NOR flash with a
-QSPI master and protocol checker, and property-based testing with Hypothesis inside a simulation.
-VHDL handles simulation timing; Python handles verification semantics.
+QSPI master and protocol checker, I2C (master, target, monitor, protocol checker), and property-based
+testing with Hypothesis inside a simulation. VHDL handles simulation timing; Python handles
+verification semantics.
 
 ## Environment
 
@@ -44,6 +45,7 @@ VUNIT_SIMULATOR=nvc python examples/quickstart/run.py -p 2 --output-path out/qui
 VUNIT_SIMULATOR=nvc python examples/gmii/run.py -p 2 --output-path out/gmii
 VUNIT_SIMULATOR=nvc python examples/cookbook/run.py -p 2 --output-path out/cookbook
 VUNIT_SIMULATOR=nvc python examples/flash/run.py -p 2 --output-path out/flash
+VUNIT_SIMULATOR=nvc python examples/i2c/run.py -p 2 --output-path out/i2c
 VUNIT_SIMULATOR=nvc python examples/property/run.py -p 2 --output-path out/property
 sphinx-build -W -n --keep-going -b html docs docs/_build
 pytest tests/python/test_agent_docs.py tests/python/test_docs.py   # docs guardrails, need docs requirements
@@ -56,15 +58,16 @@ property examples with `AWESOME_VUNIT_VCS_PROPERTY_PROFILE=long`.
 ## Layout
 
 - `src/awesome_vunit_vcs/`: the package. `vhdl/<family>/` holds the VHDL (`common`, `ethernet`,
-  `flash`); `common/`, `ethernet/`, `flash/`, `records.py` and `gen_vhdl.py` hold the Python.
+  `flash`, `i2c`); `common/`, `ethernet/`, `flash/`, `i2c/`, `records.py` and `gen_vhdl.py` hold the
+  Python.
   `vunit_pkg.toml` tells VUnit which sources to compile.
 - `tests/python/`: pytest, including the docs guardrails (`test_docs.py`, `test_agent_docs.py`).
 - `tests/vhdl/`: VUnit testbenches (`run.py`), including one `tb_<component>_vci.vhd` conformance
   testbench per component.
 - `tests/packaging/`: the wheel/install check and the pinned unreleased requirements.
 - `examples/`: tested example projects; the documentation includes code only from here.
-- `docs/`: Sphinx. One section per family (`ethernet/`, `property_testing/`, `flash/`, `common/`), each
-  with usage pages, `vhdl_api.rst` and `python_api.rst`; `cookbook/` holds the step-by-step articles.
+- `docs/`: Sphinx. One section per family (`ethernet/`, `property_testing/`, `flash/`, `i2c/`,
+  `common/`), each with usage pages, `vhdl_api.rst` and `python_api.rst`; `cookbook/` holds the step-by-step articles.
 - `tools/`: `vhdl_docs.py` (VHDL reference from doc comments), `api_index.py` (api/*.json),
   `llms_docs.py` (llms.txt), `release.py`.
 - `ARCHITECTURE.md`: design decisions, benchmarks and limitations. `CONTRIBUTING.md`: human guide.
@@ -76,7 +79,7 @@ property examples with `AWESOME_VUNIT_VCS_PROPERTY_PROFILE=long`.
   `logger`, `actor`, `checker`, `unexpected_msg_type_policy`; port widths come from accessor functions,
   never `p_` fields; every component supports `wait_until_idle`, `wait_for_time` and `reset`; protocol
   checks live in a separate `<interface>_protocol_checker`. Details: `docs/contributing/conventions.rst`.
-- One context clause per family (`ethernet_context`, `flash_context`, `property_context`) must be all
+- One context clause per family (`ethernet_context`, `flash_context`, `i2c_context`, `property_context`) must be all
   a testbench needs.
 - VHDL calls Python only through `vc_python_pkg` (`create_backend`, `backend_call*`) with typed
   arguments (`arg`/`kwarg`, `arg_text`/`kwarg_text`, `arg_time`/`kwarg_time`). Never build Python

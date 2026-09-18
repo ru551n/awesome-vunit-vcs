@@ -55,7 +55,7 @@ Status
    * - AXI4, AXI4-Lite
      - Data 8 to 1024 bits
      - Done
-     - ``axi4_monitor``, ``axi4_protocol_checker``
+     - ``axi4_monitor``, ``axi4_protocol_checker``, ``axi4_read_slave``, ``axi4_write_slave``
 
 Every component is tested with GHDL and NVC.
 
@@ -125,8 +125,8 @@ Components
       :link: axi4/index
       :link-type: doc
 
-      An AXI4 and AXI4-Lite monitor with a shadow memory and performance statistics, and a protocol
-      checker.
+      An AXI4 and AXI4-Lite monitor with a shadow memory and performance statistics, a protocol
+      checker, and read and write slaves on a sparse memory.
 
    .. grid-item-card:: Common
       :link: common/index

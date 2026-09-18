@@ -551,7 +551,7 @@ class Axi4MemoryBackend(VcBackend):
         return self._errors(self.memory.write(address, data_bytes))
 
     def read_bytes(self, address: int, num_bytes: int) -> npt.NDArray[np.uint8]:
-        """Read bytes without a permission check, as 8-bit values; see :meth:`num_reports` for the failures."""
+        """Read bytes without a permission check, as 8-bit values; VHDL fetches the failures after the call."""
         data, failures = self.memory.read(address, num_bytes)
         self._errors(failures)
         return np.frombuffer(data, dtype=np.uint8).copy()

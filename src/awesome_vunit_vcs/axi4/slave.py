@@ -115,8 +115,8 @@ class Axi4Slave:
         Accept a burst at its address handshake: count it and check what the slave supports.
 
         Returns:
-            The burst, and the failures: a reserved burst type, a beat wider than the bus, a WRAP burst
-            of an illegal length or alignment (these make the burst unsupported), and a 4 KB crossing.
+            The burst and the failures. A reserved burst type, a beat wider than the bus and a WRAP burst of
+            an illegal length or alignment make the burst unsupported; a 4 KB crossing is only a failure.
         """
         index = self._indexes[id_]
         self._indexes[id_] += 1

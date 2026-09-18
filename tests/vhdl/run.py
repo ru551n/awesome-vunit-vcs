@@ -9,6 +9,7 @@ The packages are added the way a user adds them, so the tests also prove that
 the installed VHDL library and Python backend modules are found without paths.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -24,6 +25,9 @@ sys.path.insert(0, str(ROOT / "python"))
 from record_types import Link  # noqa: E402
 
 write_vhdl([Link], "record_types_pkg", ROOT / "generated" / "record_types_pkg.vhd")
+
+# The device models of tb_i2c are imported by name in the simulator
+os.environ["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT / "python"), os.environ.get("PYTHONPATH")]))
 
 vu = VUnit.from_argv()
 vu.add_vhdl_builtins()
@@ -81,6 +85,11 @@ for link_rate_mbps, edge_aligned in ((1000, False), (100, False), (10, False), (
 tb_rmii = lib.test_bench("tb_rmii")
 for link_rate_mbps in (10, 100):
     tb_rmii.add_config(name=f"{link_rate_mbps}_mbps", generics={"link_rate_mbps": link_rate_mbps})
+
+# The I2C loopback in each speed mode
+tb_i2c_loopback = lib.test_bench("tb_i2c_loopback")
+for speed_mode, name in enumerate(("standard", "fast", "fast_plus")):
+    tb_i2c_loopback.add_config(name=name, generics={"speed_mode": speed_mode})
 
 if __name__ == "__main__":
     vu.main()

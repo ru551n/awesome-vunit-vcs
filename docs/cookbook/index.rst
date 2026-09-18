@@ -113,6 +113,11 @@ The examples
        by the testbench.
      - GHDL, NVC
      - ``python examples/flash/run.py --output-path ../vunit_out``
+   * - ``examples/i2c``
+     - An I2C master with a sensor modelled in Python, an EEPROM with acknowledge polling, SMBus PEC, a
+       monitor with statistics, and timing violations counted by a protocol checker.
+     - GHDL, NVC
+     - ``python examples/i2c/run.py --output-path ../vunit_out``
    * - ``examples/gmii``
      - A realistic GMII testbench: monitors on both sides of a design, random frames, a Python
        subscriber and Scapy.

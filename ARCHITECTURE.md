@@ -17,6 +17,7 @@ the models follow. User documentation lives at <https://awesome-vunit-vcs.readth
 - [What belongs where, per interface](#what-belongs-where-per-interface)
 - [Active sources and responders](#active-sources-and-responders)
   - [The flash responder](#the-flash-responder)
+  - [The I2C family](#the-i2c-family)
 - [Design decisions](#design-decisions)
 - [Performance](#performance)
 - [Known limitations](#known-limitations)
@@ -218,6 +219,55 @@ is a deadline, `now < deadline`, evaluated whenever it is read. The opcode table
 `flash_pkg` has the same table written by hand and compares `flash_layout_version` with
 `LAYOUT_VERSION` from the backend at time 0; a difference is a failure on the logger of the flash.
 
+### The I2C family
+
+I2C is the family where the split is at its sharpest: the four entities in `vhdl/i2c` know how to
+drive a line open drain and when to sample it, and nothing else. `awesome_vunit_vcs.i2c` decides what
+every edge means.
+
+```text
+VHDL (vhdl/i2c)                                  Python (awesome_vunit_vcs.i2c)
+------------------------------------             -----------------------------------------------
+i2c_monitor, i2c_protocol_checker                I2cMonitorBackend, I2cProtocolCheckerBackend
+  record a sample at every SCL/SDA change  ---->   BusDecoder: START, STOP, bits, metavalues
+  flush at a potential STOP and messages           TransferAssembler -> I2cTransfer, statistics
+  a sample of its own after t_stuck                I2cProtocolChecker: timing and bit checks
+i2c_master                                       I2cMasterBackend
+  receive a com message                    ---->   compile_transfer / compile_ops -> operations
+  clock the operations bit by bit          <----   one word per START, byte, bit group, STOP
+  results: ACK/NACK, bytes, lost, timeout  ---->   Program.result -> status, data, reports
+i2c_target                                       I2cTargetBackend
+  START / 8 bits in / ACK bit sampled      ---->   I2cTarget: address, 10-bit, general call,
+  drive ACK, stretch, shift a byte out     <----     NACK injection, PEC, stretch; device model
+```
+
+Lines are `std_logic` ports driven `'0'` or `'Z'`; the testbench pulls them up with `'H'` and every
+component reads them with `to_x01`. This is the one family whose ports are resolved, because several
+components drive the same wire.
+
+**Samples.** The monitor and the protocol checker record the word `scl | sda << 1 | meta_scl << 2 |
+meta_sda << 3` on every change of either line, event driven rather than per clock (I2C has no clock
+the testbench owns). They flush when SDA rises while SCL is high, which is where a STOP ends a
+transaction, and before handling a message. A line stuck low has no edges, so the protocol checker
+wakes up after `t_stuck` without a change and records the unchanged word; Python then sees the time
+and reports `I2C_STUCK_LOW` once per low period. When SCL and SDA change in the same sample, the
+decoder puts the SDA change in the low phase of SCL, so a simultaneous change is never a START or STOP.
+
+**The master** asks its backend for an operation list, one call per transfer, and returns one result
+per operation in a second call. An operation word is `value | kind << 8 | flag << 11 | bits << 12`
+(`kind` START, write, read, STOP or bit group; `flag` is "ACK this read" or "end with the STOP on a
+NACK"). The results are 0/1 for the acknowledge bit of a write, the byte of a read, -1 for an
+operation not executed, -2 for a lost arbitration and -3 for SCL held low longer than the stretch
+timeout. The timing comes from `master_timing` once, at time 0. Clock synchronization is the
+`wait until scl = '0' for t_high` of the high phase; arbitration is a 1 written that reads back as 0.
+A small process follows START and STOP so a START waits for a free bus and tBUF.
+
+**The target** calls its backend at a START, after the 8th bit of a byte it receives, after the
+acknowledge bit of a byte it transmitted, and at a STOP. Each call returns `[action, ack, byte_out,
+stretch_ps, num_reports]` as an `integer_array_t`, so no packed layout needs a version handshake. The
+main process, which serves the messages of the testbench, waits one delta cycle after receiving a
+message, so a STOP in the same time step reaches the model before a memory check that follows it.
+
 ## Design decisions
 
 Investigated on 2026-09-14 against VUnit `feature/package-setup-hooks` (1ecac00),
@@ -354,6 +404,36 @@ A monitor records every clock with `tvalid` high, not only handshakes, so the de
 Frames start at the destination address: `MonitorConfig.has_preamble` turns off the preamble, SFD and
 gap handling of the Python core.
 
+### I2C: semantics in Python, a frontend in VHDL
+
+A controller or target written in VHDL would need its own state machine for START, repeated START,
+10-bit addressing, general call, acknowledge polling, PEC and malformed traffic, and a second copy of
+the same knowledge in the monitor and the checker. With the semantics in Python the four entities are
+edge engines, the transfer decoding and the checks are unit tested against hand-drawn waveforms, and
+a user's device model is a Python class. The price is a bridge call per byte in the target, which I2C
+can afford: a byte takes at least 9 µs at 1 MHz.
+
+### I2C master: an operation list instead of a call per byte
+
+The master knows the whole transfer before it starts, so Python compiles it once and VHDL runs it.
+The only decision that depends on the bus, stopping after a NACK, is a flag on the write operation
+rather than a bridge call per byte. `i2c_transfer` exposes the operation list as text (`"S 0xA0 B101
+P"`) so tests can send what `compile_transfer` never would.
+
+### I2C checks named and counted in Python
+
+The protocol checker has no VHDL timing code: every limit is a field of `BusLimits`, taken from the
+characteristics table of UM10204 per speed mode, and a violation is a report with the check ID,
+measured value, limit and time. `I2cCheckId` and `i2c_check_t` list the same checks, which
+`tests/python/test_docs.py` enforces. `I2C_SCOREBOARD` belongs to the monitor, and the monitor reports
+`I2C_METAVALUE` itself only when it has no protocol checker, so a metavalue is reported once.
+
+### I2C timing: what "0" means
+
+A time of 0 in a constructor means "the value of the speed mode", so tests change only what they
+need. A check that should not run is switched off with `set_check_enabled`, not given a limit of 0;
+the one exception is `t_hd_dat`, whose specification minimum is 0.
+
 ## Performance
 
 ### Bridge benchmark
@@ -403,6 +483,33 @@ x1 read without a flash, 3.6 s and 3.7 s.
 - **Image-sized content goes through the preload and check procedures.** `flash_preload_fill` and
   `flash_load_image` cost one bridge call regardless of size, `flash_preload` and `flash_check_content`
   one array transfer.
+
+### I2C target and monitor
+
+A master reads 16 × 2048 bytes in Fast-mode Plus (32,768 bytes, 295 ms of simulated time), from an
+empty bus that reads 0xFF, from an `i2c_target` with the `"device"` model, and from that target with an
+`i2c_monitor` on the bus. The cost of the target per byte is (target - empty bus) / 32,768; it
+includes the VHDL process of the target following every edge as well as the bridge call. Wall clock
+time per test, VUnit `-p 1`, two runs each, which agreed to 0.1 s.
+
+Measured on 2026-09-18 with GHDL 7.0.0-dev (6.0.0.r418.g753dfcf0b, mcode backend), NVC 1.23-devel
+(1.22.0.r66.gef5084a94, LLVM 21.1.8) and CPython 3.12 on a Linux workstation.
+
+| Configuration | NVC (s) | GHDL (s) |
+|---|---|---|
+| Empty bus (master only) | 0.7 | 1.6 |
+| Target | 1.45 | 2.85 |
+| Target and monitor | 2.2 | 3.9 |
+| **Target, per byte** | **23 µs** | **38 µs** |
+| **Monitor, per byte** (about 27 samples) | 23 µs | 32 µs |
+
+The per-byte cost of the target is close to the flash responder's (14 to 31 µs), as expected for one
+bridge call per byte. It is 3 to 4 times the 9 µs a byte takes on a 1 MHz bus in simulated time, so
+the bridge never dominates a test that also simulates a design. Rerun it with:
+
+```bash
+VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*i2c*"
+```
 
 ## Known limitations
 
@@ -499,7 +606,54 @@ x1 read without a flash, 3.6 s and 3.7 s.
   rules, so the output timing of the device (tCLQV, tSHQZ) and bus contention are not checked.
 - Times in messages are truncated to whole picoseconds.
 
+### I2C master
+
+- It stops driving at the bit where it loses arbitration instead of clocking out the rest of the byte.
+- Operation strings are limited by the simulator's stack for the text sent to Python: about 32,000
+  characters on GHDL (128 KiB `--max-stack-alloc`).
+- `reset` does not abort a transfer in progress; a transfer stuck on SCL ends after `stretch_timeout`.
+- High-speed mode (3.4 MHz), Ultra Fast-mode and SMBus timeouts are not modeled.
+- A write-read with 10-bit addressing repeats only the first address byte after the repeated START,
+  as the specification allows; a target that needs the full address again is not supported.
+
+### I2C target
+
+- One bridge call per byte and per START or STOP (see [I2C target and monitor](#i2c-target-and-monitor)).
+- It stretches SCL only before acknowledge bits, not before transmitting a byte.
+- With PEC, a read sends a fixed number of data bytes (`pec_read_bytes`) before the PEC, since the
+  target cannot know the length of the read; SMBus block reads with a count byte are not modeled.
+- A NACK injected into a byte of a write still hands the byte to the device model.
+- The general call is answered as a plain write to the model; its second byte (software reset,
+  address programming) is not interpreted.
+
+### I2C monitor
+
+- `stretch_time` is an estimate from the bus alone: low periods longer than 1.5 times their median.
+- A START or STOP right after the 8 bits of a byte takes the SCL edge of the condition as the
+  acknowledge bit; the protocol checker reports the byte as `I2C_ACK_SLOT`.
+- It keeps the last 1024 transfers for pops; older ones are dropped.
+- `wait_until_idle` does not wait for the end of a transaction.
+
+### I2C protocol checker
+
+- Only minimum times are checked. Rise and fall times, the data valid times tVD;DAT and tVD;ACK, spike
+  suppression and bus capacitance need analog edges, which the simulated lines do not have.
+- Sample times are rounded down to 1 ps.
+- `I2C_F_SCL` leaves out SCL periods across a START or STOP; tSU;STA and tHD;STA cover them.
+
 ## Specification references
+
+- **I2C:** NXP UM10204, I2C-bus specification and user manual, Rev. 7.0 (2021-10-01): 3.1.4 (START and
+  STOP), 3.1.6 (acknowledge), 3.1.7 and 3.1.8 (clock synchronization and arbitration), 3.1.9 (clock
+  stretching), 3.1.10 and 3.1.11 (7-bit addressing, general call), 3.1.12 (reserved addresses, Table 4),
+  3.1.13 (10-bit addressing), and Table 10 (characteristics of the SDA and SCL bus lines for
+  Standard-mode, Fast-mode and Fast-mode Plus), from which `awesome_vunit_vcs.i2c.timing` takes its
+  limits.
+- **SMBus:** System Management Bus Specification 3.2, 6.4 (Packet Error Checking): CRC-8 with the
+  polynomial x^8 + x^2 + x + 1 over every byte of the transaction, address bytes included. The check
+  value of CRC-8/SMBUS over "123456789" is 0xF4.
+- **24Cxx EEPROMs:** page writes that wrap within the page, a self-timed write cycle started by the STOP,
+  and acknowledge polling, as in the data sheets of the 24C02/24C04/24C16 families.
 
 - **MII:** IEEE 802.3 Clause 22 (nibble order, 2.5/25 MHz clocks); the trailing half octet as alignment
   error follows 4.2.4.2.1.

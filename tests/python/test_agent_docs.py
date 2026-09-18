@@ -146,6 +146,7 @@ def test_llms_txt_links_every_page(llms_output: Path) -> None:
         "Ethernet",
         "Property-based testing",
         "Flash / QSPI",
+        "I2C",
         "Common",
         "API reference",
     ):

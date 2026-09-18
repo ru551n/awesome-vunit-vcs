@@ -13,6 +13,15 @@ The first release is being prepared. Nothing has been released yet.
   VC with a JEDEC command layer, and a QSPI protocol checker VC for the pin timing of the master.
   Every flash VC has ``reset(net, handle)``; the master's aborts a transfer in progress. Bytes can be
   given as ``std_ulogic_vector`` literals such as ``x"DEADBEEF"``, or with ``new_byte_array``.
+* I2C: an ``i2c_master`` (Standard-mode, Fast-mode and Fast-mode Plus with every time replaceable,
+  7- and 10-bit addresses, writes, reads and write-reads with a repeated START, SMBus PEC, clock
+  stretching and synchronization, arbitration, and ``i2c_transfer`` for malformed traffic), an
+  ``i2c_target`` with Python device models (a register map, a 24Cxx EEPROM with page writes and
+  acknowledge polling, or a class of your own), clock stretching and NACK injection, an
+  ``i2c_monitor`` with pops, a scoreboard, subscribers and statistics, and an
+  ``i2c_protocol_checker`` with the timing checks of each speed mode (``i2c_t_low``,
+  ``i2c_t_su_dat`` and the others). ``i2c_context`` is the one context clause of an I2C testbench,
+  and ``awesome_vunit_vcs.i2c`` has the device models, decoder and checks for plain Python.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
 
 VHDL API

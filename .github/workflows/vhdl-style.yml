@@ -6,9 +6,11 @@ name: VHDL style
 # lines. To fix them locally:
 #
 #   pip install -e ".[dev]"
-#   vsg-rs --recursive src/awesome_vunit_vcs/vhdl tests/vhdl examples benchmarks -c vsg.yaml --fix
+#   vsg-rs $(git ls-files "*.vhd" ":!:tests/python/golden") -c vsg.yaml --fix
 #
-# tests/python/golden holds generated VHDL compared byte for byte and is not checked.
+# Only tracked VHDL is checked, and not the generated tests/python/golden (compared byte
+# for byte). A fresh checkout has no generated VHDL, so directories suffice here; locally,
+# git ls-files skips what the tests and examples generate.
 
 on:
   push:

@@ -1,0 +1,39 @@
+name: VHDL style
+
+# Checks the VHDL against the VUnit-derived style in vsg.yaml with vsg-rs
+# (https://github.com/ru551n/vsg-rs). On pull requests, layout findings are posted as
+# suggested changes and a summary comment; other findings are annotations on the changed
+# lines. To fix them locally:
+#
+#   pip install -e ".[dev]"
+#   vsg-rs --recursive src/awesome_vunit_vcs/vhdl tests/vhdl examples benchmarks -c vsg.yaml --fix
+#
+# tests/python/golden holds generated VHDL compared byte for byte and is not checked.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vsg:
+    name: vsg-rs
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Suggested changes and the summary comment
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ru551n/vsg-rs@v0.9.6
+        with:
+          args: --recursive src/awesome_vunit_vcs/vhdl tests/vhdl examples benchmarks -c vsg.yaml

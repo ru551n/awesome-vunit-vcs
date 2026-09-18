@@ -52,6 +52,10 @@ Status
      - 100 kHz, 400 kHz, 1 MHz
      - Done
      - ``i2c_master``, ``i2c_target``, ``i2c_monitor``, ``i2c_protocol_checker``
+   * - AXI4, AXI4-Lite
+     - Data 8 to 1024 bits
+     - Done
+     - ``axi4_monitor``, ``axi4_protocol_checker``
 
 Every component is tested with GHDL and NVC.
 
@@ -117,6 +121,13 @@ Components
 
       An I2C master, a target with device models in Python, a monitor and a protocol checker.
 
+   .. grid-item-card:: AXI4
+      :link: axi4/index
+      :link-type: doc
+
+      An AXI4 and AXI4-Lite monitor with a shadow memory and performance statistics, and a protocol
+      checker.
+
    .. grid-item-card:: Common
       :link: common/index
       :link-type: doc
@@ -175,6 +186,13 @@ declaration, signature and cookbook example.
    :hidden:
 
    i2c/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: AXI4
+   :hidden:
+
+   axi4/index
 
 .. toctree::
    :maxdepth: 2

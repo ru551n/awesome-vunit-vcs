@@ -27,6 +27,7 @@ from .vunit_bridge import decode_samples, decode_text, decode_time_fs
 
 __all__ = ["VHDL_INTEGER_MAX", "SampleBackend", "VcBackend", "exception_summary", "int32_array"]
 
+#: The result of a guarded call
 T = TypeVar("T")
 
 #: Largest value a VHDL integer holds

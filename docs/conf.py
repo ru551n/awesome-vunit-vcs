@@ -92,6 +92,8 @@ nitpick_ignore_regex = [
     (r"py:class", r"numpy\._typing\..*"),
     (r"py:class", r"numpy\.(int32|int64|uint8)"),
     (r"py:class", r"TypeAliasForwardRef"),
+    # the type variable of the guarded calls of a backend
+    (r"py:class", r"awesome_vunit_vcs\.common\.backend\.T"),
     # autodoc renders the aliases quoted where a module uses them as forward references
     (r"py:class", r"'awesome_vunit_vcs\.ethernet\.phy\.common\.Int(32|64)Array'"),
     # napoleon reads the first line of this constant's comment as its type

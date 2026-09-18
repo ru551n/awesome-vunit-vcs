@@ -127,8 +127,15 @@ class Axi4MonitorBackend(SampleBackend):
 
     Args:
         name: The name of the monitor, used in messages.
-        data_width, address_width, id_width, awuser_width, wuser_width, buser_width, aruser_width,
-            ruser_width, lite: The interface, see :class:`~awesome_vunit_vcs.axi4.bus.Axi4Config`.
+        data_width: The width of the data bus, see :class:`~awesome_vunit_vcs.axi4.bus.Axi4Config`.
+        address_width: The width of the addresses.
+        id_width: The width of the IDs.
+        awuser_width: The width of AWUSER.
+        wuser_width: The width of WUSER.
+        buser_width: The width of BUSER.
+        aruser_width: The width of ARUSER.
+        ruser_width: The width of RUSER.
+        lite: The interface is AXI4-Lite.
         shadow_memory: Check reads against the data written before them (``AXI4_SCOREBOARD``).
         per_id_statistics: Keep the statistics of each ID too.
         report_metavalues: Report metavalues as check failures (``AXI4_METAVALUE``); a monitor with a
@@ -352,8 +359,15 @@ class Axi4ProtocolCheckerBackend(SampleBackend):
 
     Args:
         name: The name of the protocol checker, used in messages.
-        data_width, address_width, id_width, awuser_width, wuser_width, buser_width, aruser_width,
-            ruser_width, lite: The interface, see :class:`~awesome_vunit_vcs.axi4.bus.Axi4Config`.
+        data_width: The width of the data bus, see :class:`~awesome_vunit_vcs.axi4.bus.Axi4Config`.
+        address_width: The width of the addresses.
+        id_width: The width of the IDs.
+        awuser_width: The width of AWUSER.
+        wuser_width: The width of WUSER.
+        buser_width: The width of BUSER.
+        aruser_width: The width of ARUSER.
+        ruser_width: The width of RUSER.
+        lite: The interface is AXI4-Lite.
         timeout_cycles: See :class:`~awesome_vunit_vcs.axi4.checker.Axi4ProtocolChecker`.
 
     Attributes:

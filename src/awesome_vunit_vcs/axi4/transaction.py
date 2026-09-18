@@ -178,10 +178,6 @@ class Axi4Transaction:
         )
 
 
-#: Called with a check, a message and the time in fs
-ViolationHandler = Callable[[Axi4CheckId, str, int], None]
-
-
 class _Pending:
     """A transaction whose address handshake came and that is not complete."""
 
@@ -213,16 +209,17 @@ class TransactionTracker:
     Args:
         config: The widths of the interface.
         on_transaction: Called with every complete transaction.
-        on_violation: Called with the protocol violations the reconstruction finds: ``AXI4_WLAST``,
-            ``AXI4_RLAST``, ``AXI4_WSTRB``, ``AXI4_UNEXPECTED_RESP``, ``AXI4_EXCL`` (EXOKAY to a normal
-            access), ``AXI4_METAVALUE`` (on an active read data lane) and ``AXI4_TIMEOUT``.
+        on_violation: Called with the check, the message and the time in fs of every protocol violation
+            the reconstruction finds: ``AXI4_WLAST``, ``AXI4_RLAST``, ``AXI4_WSTRB``,
+            ``AXI4_UNEXPECTED_RESP``, ``AXI4_EXCL`` (EXOKAY to a normal access), ``AXI4_METAVALUE`` (on an
+            active read data lane) and ``AXI4_TIMEOUT``.
     """
 
     def __init__(
         self,
         config: Axi4Config,
         on_transaction: Callable[[Axi4Transaction], None],
-        on_violation: ViolationHandler | None = None,
+        on_violation: Callable[[Axi4CheckId, str, int], None] | None = None,
     ) -> None:
         self.config = config
         self._on_transaction = on_transaction

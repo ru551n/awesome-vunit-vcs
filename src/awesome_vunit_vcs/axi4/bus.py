@@ -277,12 +277,12 @@ class Axi4Sample:
 
     @property
     def handshake(self) -> bool:
-        """VALID and READY are 1 outside reset: the payload is transferred."""
+        """Whether VALID and READY are 1 outside reset, so the payload is transferred."""
         return self.valid and self.ready and not self.in_reset
 
     @property
     def stall(self) -> bool:
-        """VALID is 1 and READY is not, outside reset: backpressure."""
+        """Whether VALID is 1 and READY is not, outside reset, so the channel is under backpressure."""
         return self.valid and not self.ready and not self.in_reset
 
 

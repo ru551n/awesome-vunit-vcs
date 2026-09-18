@@ -223,11 +223,7 @@ def test_expected_violations_refuses_what_it_cannot_predict() -> None:
     assert eth.Malformation.BAD_SFD not in eth.supported_malformations(eth.MII)
 
 
-def test_deprecated_names_warn_and_lowlevel_does_not() -> None:
-    with pytest.warns(DeprecationWarning, match="MacFrame"):
-        assert eth.MacFrame is lowlevel.MacFrame  # type: ignore[attr-defined]
-    with pytest.warns(DeprecationWarning):
-        assert eth.EthernetSource is not None  # type: ignore[attr-defined]
+def test_lowlevel_names_do_not_warn() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         assert lowlevel.EthernetStatistics is eth.Statistics

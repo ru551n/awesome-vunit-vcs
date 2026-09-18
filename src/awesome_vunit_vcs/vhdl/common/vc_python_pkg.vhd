@@ -85,9 +85,10 @@ package vc_python_pkg is
   procedure push_arg (msg : msg_t; value : arg_t);
   impure function pop_arg (msg : msg_t) return arg_t;
 
-  -- Fetch the reports waiting in the backend and log them: errors as check
-  -- failures on checker, the others on logger at their level
-  procedure log_reports (session : python_session_t; logger : logger_t; checker : checker_t);
+  -- Fetch the reports waiting in the backend, ``vc.take_reports(args)``, and
+  -- log them: errors as check failures on checker, the others on logger at
+  -- their level
+  procedure log_reports (session : python_session_t; logger : logger_t; checker : checker_t; args : arg_t := null_arg);
 
   -- The samples a passive VC recorded and has not sent to its backend yet,
   -- created with :vhdl:`vc_python_pkg.new_sample_batch`
@@ -273,9 +274,14 @@ package body vc_python_pkg is
     return (name => name, value => value);
   end;
 
-  procedure log_reports (session : python_session_t; logger : logger_t; checker : checker_t) is
+  procedure log_reports (
+    session : python_session_t;
+    logger : logger_t;
+    checker : checker_t;
+    args : arg_t := null_arg
+  ) is
 
-    constant reports : string := backend_call_string(session, "take_reports");
+    constant reports : string := backend_call_string(session, "take_reports", args);
     alias text : string(1 to reports'length) is reports;
     variable first : positive := 1;
     variable last : natural;

@@ -11,11 +11,12 @@ Everything a test normally needs is importable from one module::
     from awesome_vunit_vcs import axi4
 
 The package exports ``Axi4Beat``, ``Axi4CheckId``, ``Axi4Config``, ``Axi4Error``, ``Axi4Monitor``,
-``Axi4PerformanceMonitor``, ``Axi4ProtocolChecker``, ``Axi4Sample``, ``Axi4Statistics``,
-``Axi4Transaction``, ``Axi4ValueError``, ``Axi4Violation``, ``BurstType``, ``Channel``,
-``ChannelStatistics``, ``Direction``, ``DirectionStatistics``, ``Distribution``, ``Response``,
-``SampleDecoder``, ``ShadowMemory``, ``beat_addresses``, ``beat_lanes`` and ``crosses_4k``, documented
-in the modules that define them below.
+``Axi4PerformanceMonitor``, ``Axi4ProtocolChecker``, ``Axi4Sample``, ``Axi4Slave``, ``Axi4Statistics``,
+``Axi4Transaction``, ``Axi4ValueError``, ``Axi4Violation``, ``Buffer``, ``BurstType``, ``Channel``,
+``ChannelStatistics``, ``Direction``, ``DirectionStatistics``, ``Distribution``, ``Endianness``,
+``MemoryModel``, ``Permission``, ``Response``, ``SampleDecoder``, ``ShadowMemory``, ``SlaveBurst``,
+``SlaveRead``, ``beat_addresses``, ``beat_lanes`` and ``crosses_4k``, documented in the modules that
+define them below.
 
 .. automodule:: awesome_vunit_vcs.axi4
    :no-members:
@@ -63,6 +64,18 @@ Protocol checker
 .. automodule:: awesome_vunit_vcs.axi4.checks
    :members: Axi4CheckId, Axi4Violation, PROTOCOL_CHECKS
 
+Slaves and their memory
+-----------------------
+
+The memory behind the read and write slaves, VUnit's ``memory_t`` on the sparse store of
+:mod:`~awesome_vunit_vcs.common.sparse_memory`, and what the slaves read, write and respond.
+
+.. automodule:: awesome_vunit_vcs.axi4.memory_model
+   :members: MemoryModel, Buffer, Permission, Endianness
+
+.. automodule:: awesome_vunit_vcs.axi4.slave
+   :members: Axi4Slave, SlaveBurst, SlaveRead
+
 Exceptions
 ----------
 
@@ -79,4 +92,4 @@ Simulation backends
 The Python objects behind the VHDL components, ``vc`` in the Python session of each.
 
 .. automodule:: awesome_vunit_vcs.axi4.vunit_backend
-   :members: Axi4MonitorBackend, Axi4ProtocolCheckerBackend
+   :members: Axi4MonitorBackend, Axi4ProtocolCheckerBackend, Axi4MemoryBackend

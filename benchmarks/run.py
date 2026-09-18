@@ -3,8 +3,8 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 """
-Bridge benchmarks of the GMII monitor, the I2C target and monitor, and the AXI4 monitor and
-protocol checker.
+Bridge benchmarks of the GMII monitor, the I2C target and monitor, the AXI4 monitor and
+protocol checker, and the AXI4 read and write slaves.
 
 Run one configuration at a time, so they do not compete for CPU, and collect
 the ``BENCHMARK`` lines::
@@ -64,6 +64,12 @@ axi4_configs = {
 }
 for name, generics in axi4_configs.items():
     axi4.add_config(name=name, generics={"config_name": name, **generics})
+
+axi4_slaves = lib.test_bench("tb_axi4_slave_benchmark")
+for beats in (1, 16):
+    for vunit_slaves in (True, False):
+        name = f"axi4_{'vunit' if vunit_slaves else 'awesome'}_slaves_{beats}_beats"
+        axi4_slaves.add_config(name=name, generics={"config_name": name, "beats": beats, "vunit_slaves": vunit_slaves})
 
 if __name__ == "__main__":
     vu.main()

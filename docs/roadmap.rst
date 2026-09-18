@@ -92,13 +92,14 @@ Other VC families
    * - AXI4
      - A passive AXI4 and AXI4-Lite monitor (transactions per ID, FIXED, INCR and WRAP bursts, narrow
        and unaligned transfers, a shadow memory scoreboard, and performance statistics with latency
-       percentiles, bandwidth, outstanding transactions and backpressure) and a protocol checker with
-       timeouts. See :doc:`axi4/index`.
+       percentiles, bandwidth, outstanding transactions and backpressure), a protocol checker with
+       timeouts, and read and write slaves with the features of VUnit's on a sparse memory with
+       permissions, expected data and image preload. See :doc:`axi4/index`.
      - Done
 
 Later, for I2C: High-speed mode, Ultra Fast-mode, the rise and fall time and data valid time checks,
 and SMBus timeouts and block protocols. Later, for AXI4: AXI3 and AXI5 signals, the exclusive access
-monitor across transactions, and an AXI4 master and slave of this package.
+monitor across transactions, exclusive accesses in the slaves, and an AXI4 master of this package.
 
 New families follow :doc:`contributing/new_family`. Ideas such as MDIO or SPI are welcome as issues or
 pull requests.

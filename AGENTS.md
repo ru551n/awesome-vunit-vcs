@@ -2,9 +2,10 @@
 
 Instructions for AI coding agents working on awesome-vunit-vcs, a VUnit package of verification
 components: Ethernet (GMII, MII, RGMII, RMII, XGMII, AXI-Stream MAC client), a QSPI NOR flash with a
-QSPI master and protocol checker, I2C (master, target, monitor, protocol checker), an AXI4 and
-AXI4-Lite monitor and protocol checker, and property-based testing with Hypothesis inside a
-simulation. VHDL handles simulation timing; Python handles verification semantics.
+QSPI master and protocol checker, I2C (master, target, monitor, protocol checker), AXI4 and AXI4-Lite
+(monitor, protocol checker, and read and write slaves on a sparse memory), and property-based testing
+with Hypothesis inside a simulation. VHDL handles simulation timing; Python handles verification
+semantics.
 
 ## Environment
 

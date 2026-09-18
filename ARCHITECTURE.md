@@ -19,6 +19,7 @@ the models follow. User documentation lives at <https://awesome-vunit-vcs.readth
   - [The flash responder](#the-flash-responder)
   - [The I2C family](#the-i2c-family)
   - [The AXI4 family](#the-axi4-family)
+  - [The AXI4 read and write slaves](#the-axi4-read-and-write-slaves)
 - [Design decisions](#design-decisions)
 - [Performance](#performance)
 - [Known limitations](#known-limitations)
@@ -317,6 +318,46 @@ burst length, not WLAST or RLAST, ends a transaction, so a wrong LAST is one vio
 desynchronize everything after it. The tracker is shared by the monitor and the checker, which each run
 their own copy on their own records.
 
+### The AXI4 read and write slaves
+
+The slaves are responders, but unlike the flash they know a whole burst at its address handshake: the
+address, length, size and type fix which bytes every beat moves. So the bridge is called per burst, not
+per beat, and the per-beat work in VHDL is copying lanes.
+
+```text
+VHDL (vhdl/axi4)                                 Python (awesome_vunit_vcs.axi4)
+------------------------------------             -----------------------------------------------
+axi4_memory_t: a session of its own              Axi4MemoryBackend (vc of the memory session)
+  backdoor procedures ------------------------->   MemoryModel: data, permissions, expected
+                                                     values (4 SparseMemory stores), buffers
+axi4_read_slave (attached as a port)               Axi4Slave per port: burst lanes, permissions,
+  AR handshake: read_burst ------------------->      expected data, responses, statistics
+    <---- [reports, index, RRESP + lanes per beat]
+  drives R beats, stalls, latency, FIFO
+axi4_write_slave (attached as a port)
+  AW handshake: accept_write ----------------->    checks, statistics, burst queued per port
+  W beats collected in an integer_array_t
+  before BVALID: write_burst(lanes) ---------->    permissions, expected data, commit
+    <---- [reports, BRESP]
+```
+
+**One memory, many slaves.** Python sessions are namespaces of one interpreter, but a backend can only
+be reached through the session of its VC, and there is no registry of backends (no global state). So the
+memory has the session and the backend, and a slave attaches to it as a port: `attach` returns an index
+that every later call passes. Each port has its own report queue, fetched with `take_reports(port)`, so
+a slave's failures go to its own checker and the testbench's backdoor failures to the memory's. The
+backend is created on first use rather than in `new_axi4_memory`, because Python must not run while the
+design elaborates (GHDL cannot call a foreign function from a constant's initial value).
+
+**What stays in VHDL.** The handshakes, the address and write response FIFOs, the stall draws (with
+`ieee.math_real.uniform`, seeded by the handle's `seed`, one stream per process), the latency draws,
+WLAST checking and VUnit's well behaved check, which needs every cycle's VALID and READY. None of them
+needs Python, and a per-cycle random draw in Python would cost a bridge call per cycle.
+
+**Order of checks.** A read burst is checked and read at its AR handshake, so its data is the memory at
+that time. A write burst is accepted (counted, checked for 4 KB, burst type, width) at its AW handshake
+and checked and written in one call right before BVALID, as VUnit writes right before the response.
+
 ## Design decisions
 
 Investigated on 2026-09-14 against VUnit `feature/package-setup-hooks` (1ecac00),
@@ -386,7 +427,9 @@ instantiates when its handle has one. The line is sampled twice when both are us
 VUnit's `memory_t` is dense: every byte of the address space is allocated, with per-byte permissions
 and expectations. The flash content lives in Python as a sparse array with NOR semantics (programming
 only clears bits, erasing sets `0xFF`) and region protection, so a 16 MiB part filled with a pattern
-costs a few objects. A `memory_t` view would duplicate that state and would have to follow every
+costs a few objects. The sparse store itself (`common/sparse_memory.py`: materialized pages plus
+constant-value runs, O(1) fills) was extracted from `FlashArray` when the AXI4 slaves needed a RAM;
+`FlashArray` keeps program, erase and the written regions as a layer on top. A `memory_t` view would duplicate that state and would have to follow every
 program and erase. The preload, read-back and check procedures of the flash are its memory access API.
 
 ### One bridge call per byte for a responder
@@ -521,6 +564,24 @@ outstanding, because the specification does not order a read and a write that ov
 waits for the response. Bytes never written through the interface are not checked, so a memory
 initialized behind the bus causes no false reports. The memory keeps 16 values per byte for this.
 
+### AXI4 slaves: VUnit's memory features on the sparse store
+
+The slaves' memory has VUnit's `memory_t` API (buffers, permissions, expected data, words, integer
+arrays) so tests port with renames, but its state is four `SparseMemory` stores: content, permission,
+expected value and a has-expected flag. A permission for a gigabyte buffer is one run; checking expected
+data walks only the pages and runs that differ from the default (`SparseMemory.touched`). Unallocated
+bytes take `default_permissions`, so the same memory is a strict VUnit-like memory (`no_access`) or a
+plain RAM for image preload at any 64-bit address (`read_and_write`, the default). Failures are messages
+worded like VUnit's, one per access and rule rather than per byte, reported as check failures instead of
+VUnit's `failure` on the memory logger, so negative tests count them.
+
+### AXI4 slaves: SLVERR for what failed
+
+VUnit's slaves always respond OKAY. These respond SLVERR for a beat or write with a byte the
+permissions forbid and for bursts they do not serve (reserved AxBURST, a beat wider than the bus, an
+illegal WRAP), so a design under test sees the error it would see from a real slave. The check failure
+is reported either way.
+
 ### AXI4: the monitor gives its checker its bus
 
 A protocol checker passed to a monitor is instantiated on the monitor's ports, so its widths can only be
@@ -636,6 +697,36 @@ that again. Rerun it with:
 
 ```bash
 VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*axi4*"
+```
+
+### AXI4 read and write slaves
+
+`benchmarks/tb_axi4_slave_benchmark.vhd` writes 20,000 bursts at full throughput and reads each back,
+from VUnit's `axi_write_slave` and `axi_read_slave` on a `memory_t` and from `axi4_write_slave` and
+`axi4_read_slave` on an `axi4_memory_t`, with bursts of 1 and 16 beats of 32 bits. A write and a read
+cost three bridge calls (`accept_write`, `write_burst`, `read_burst`). Wall clock time per test, VUnit
+`-p 1`, two runs each, which agreed to 0.2 s.
+
+Measured on 2026-09-18 with GHDL 7.0.0-dev (6.0.0.r418.g753dfcf0b, mcode backend), NVC 1.23-devel
+(1.22.0.r66.gef5084a94, LLVM 21.1.8) and CPython 3.12 on a Linux workstation.
+
+| Configuration | NVC (s) | GHDL (s) |
+|---|---|---|
+| VUnit's slaves, 1 beat | 0.6 | 2.5 |
+| These slaves, 1 beat | 4.3 | 8.3 |
+| VUnit's slaves, 16 beats | 1.3 | (crashes: GHDL stack, `memory_t` of 1.3 MB) |
+| These slaves, 16 beats | 5.75 | 11.8 |
+| **Per write and read, 1 beat** | **185 µs** more | **290 µs** more |
+| Per additional beat | about 1 µs | about 2 µs |
+
+Of the 185 µs on NVC about 75 µs are Python (`Axi4Slave` and the memory, measured with `timeit` without
+a simulator: NumPy calls on arrays of a few elements dominate) and the rest the three bridge calls, about
+35 µs each. The cost is per burst: a 16-beat burst costs little more than a single beat, which is the
+point of fetching and committing whole bursts. With 2000 bursts NVC took 0.8 s instead of 0.2 s. Rerun it
+with:
+
+```bash
+VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*slave_benchmark*"
 ```
 
 ## Known limitations
@@ -791,6 +882,21 @@ VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*a
 - Recommendations that are not rules of the specification, such as READY within a fixed number of
   cycles, are only covered by `timeout_cycles`.
 - AXI3 (WID, 16-beat INCR limit, locked transfers) and the AXI5/ACE extensions are not modeled.
+
+### AXI4 read and write slaves
+
+- A read burst reads the memory at its AR handshake; a write completing between that handshake and the
+  read data is not seen, and permission failures of the whole burst are reported at the handshake.
+- A write burst is checked when its response is given, not beat by beat, and a later beat of a FIXED
+  burst to the same address wins, so only its value is checked against expected data.
+- No exclusive access monitor; AxLOCK, AxCACHE, AxPROT, AxQOS, AxREGION and the USER signals are not
+  ports. AXI3 WID is not supported (AXI3 slaves need in-order write data).
+- Each slave entity needs its own handle; a handle used by two entities is a failure on the logger of the
+  memory when the second attaches.
+- The read slave has no read data interleaving and returns bursts in order, as VUnit's does.
+- Addresses in messages are decimal like VUnit's; `base_address` of a buffer beyond 2 GiB needs
+  `wide_base_address`.
+- About 185 µs of host time per burst on NVC; see [Performance](#axi4-read-and-write-slaves).
 
 ## Specification references
 

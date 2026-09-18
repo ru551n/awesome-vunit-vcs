@@ -28,5 +28,7 @@ context axi4_context is
   use awesome_vunit_vcs.axi4_pkg.all;
   use awesome_vunit_vcs.axi4_protocol_checker_pkg.all;
   use awesome_vunit_vcs.axi4_monitor_pkg.all;
+  use awesome_vunit_vcs.axi4_memory_pkg.all;
+  use awesome_vunit_vcs.axi4_slave_pkg.all;
 
 end context axi4_context;

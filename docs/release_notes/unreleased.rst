@@ -22,6 +22,18 @@ The first release is being prepared. Nothing has been released yet.
   ``i2c_protocol_checker`` with the timing checks of each speed mode (``i2c_t_low``,
   ``i2c_t_su_dat`` and the others). ``i2c_context`` is the one context clause of an I2C testbench,
   and ``awesome_vunit_vcs.i2c`` has the device models, decoder and checks for plain Python.
+* AXI4: an ``axi4_monitor`` and an ``axi4_protocol_checker`` of AXI4 and AXI4-Lite interfaces,
+  strictly passive, next to any master and slave, VUnit's ``axi_write_slave``, ``axi_read_slave`` and
+  ``axi_lite_master`` included. Widths from ``new_axi4_bus`` (data 8 to 1024 bits, addresses up to 64,
+  IDs, USER signals), and optional signals left open take the defaults of the specification. The
+  monitor reconstructs transactions per ID with the address and byte lanes of every beat of FIXED,
+  INCR and WRAP bursts, and has pops, subscribers, ``check_axi4_transaction``, a shadow memory
+  scoreboard (``shadow_memory => true``) and statistics (``get_axi4_statistics``,
+  ``log_axi4_statistics`` with latency percentiles and histograms, bandwidth, outstanding transactions
+  and backpressure, per ID on request). The protocol checker has ``axi4_stable``, ``axi4_valid_drop``,
+  ``axi4_burst_4k``, ``axi4_wlast``, ``axi4_timeout`` and the other checks of ``axi4_check_t``.
+  ``axi4_context`` is the one context clause of an AXI4 testbench, and ``awesome_vunit_vcs.axi4``
+  has the burst arithmetic, monitor and checks for plain Python.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
 
 VHDL API

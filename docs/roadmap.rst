@@ -89,8 +89,16 @@ Other VC families
        of the timing of each speed mode. See :doc:`i2c/index`.
      - Done
 
-Later, for I2C: High-speed mode, Ultra Fast-mode, the rise and fall time and data valid time checks,
-and SMBus timeouts and block protocols.
+   * - AXI4
+     - A passive AXI4 and AXI4-Lite monitor (transactions per ID, FIXED, INCR and WRAP bursts, narrow
+       and unaligned transfers, a shadow memory scoreboard, and performance statistics with latency
+       percentiles, bandwidth, outstanding transactions and backpressure) and a protocol checker with
+       timeouts. See :doc:`axi4/index`.
+     - Done
 
-New families follow :doc:`contributing/new_family`. Ideas such as MDIO or AXI monitors are welcome as
-issues or pull requests.
+Later, for I2C: High-speed mode, Ultra Fast-mode, the rise and fall time and data valid time checks,
+and SMBus timeouts and block protocols. Later, for AXI4: AXI3 and AXI5 signals, the exclusive access
+monitor across transactions, and an AXI4 master and slave of this package.
+
+New families follow :doc:`contributing/new_family`. Ideas such as MDIO or SPI are welcome as issues or
+pull requests.

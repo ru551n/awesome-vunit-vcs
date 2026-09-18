@@ -8,7 +8,8 @@
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](https://github.com/ru551n/awesome-vunit-vcs#status)
 
 **Verification components for [VUnit](https://vunit.github.io/) that feel like VUnit's own:
-Ethernet, QSPI flash, I2C, and property-based testing with Hypothesis inside the simulation.**
+Ethernet, QSPI flash, I2C, AXI4 monitoring, and property-based testing with Hypothesis inside the
+simulation.**
 
 Connect a component to the pins of your design and it sends, receives and checks traffic for you. Your
 testbench stays in VHDL, and the components do the protocol work in Python behind the scenes.
@@ -25,7 +26,8 @@ testbench stays in VHDL, and the components do the protocol work in Python behin
   errors, control characters, inter-frame gaps and metavalues, each check switchable.
 - **Good and deliberately broken traffic.** Sources send bad FCS, short preambles, wrong SFDs, errors
   and short gaps as easily as clean frames.
-- **Scoreboards, statistics and Wireshark captures** with simulation timestamps.
+- **Scoreboards, statistics and Wireshark captures** with simulation timestamps, and AXI4 latency
+  percentiles, bandwidth and backpressure next to VUnit's own AXI components.
 - **Property-based testing in VHDL.** Hypothesis draws the stimulus, your testbench runs it through the
   design, and a failure shrinks to the smallest input that still fails.
 - **Python where it helps.** Build frames, model a flash or I2C device or write strategies in plain
@@ -40,6 +42,7 @@ testbench stays in VHDL, and the components do the protocol work in Python behin
 | | AXI-Stream MAC client, any width, with backpressure | source, sink, monitor, protocol checker |
 | **Flash** | QSPI NOR flash, x1, x2 and x4 lanes | flash responder, QSPI master, QSPI protocol checker |
 | **I2C** | Standard-mode, Fast-mode, Fast-mode Plus; 7- and 10-bit addresses; SMBus PEC | master, target with Python device models (registers, 24Cxx EEPROM, your own), monitor, protocol checker |
+| **AXI4** | AXI4 and AXI4-Lite, data 8 to 1024 bits, IDs, FIXED/INCR/WRAP bursts, narrow and unaligned transfers | monitor with shadow memory scoreboard and performance statistics, protocol checker |
 | **Property-based testing** | Any design | `property_pkg`: Hypothesis strategies, stateful tests, scores, lockup handling, replay |
 
 Every component is tested with GHDL and NVC in CI.

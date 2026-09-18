@@ -42,7 +42,7 @@ def _families() -> list[Path]:
 
 
 #: The documentation section of every component family, holding its VHDL and Python API pages
-SECTIONS = ("ethernet", "property_testing", "flash", "i2c", "common")
+SECTIONS = ("ethernet", "property_testing", "flash", "i2c", "axi4", "common")
 
 
 def _generated_includes() -> set[str]:
@@ -79,6 +79,7 @@ PUBLIC_MODULES = (
     "awesome_vunit_vcs.common.property",
     "awesome_vunit_vcs.flash",
     "awesome_vunit_vcs.i2c",
+    "awesome_vunit_vcs.axi4",
     "awesome_vunit_vcs.records",
     "awesome_vunit_vcs.gen_vhdl",
 )
@@ -158,6 +159,20 @@ def test_every_i2c_check_is_in_the_checks_table() -> None:
 
     table = (DOCS / "i2c" / "i2c_protocol_checker.rst").read_text(encoding="utf-8")
     missing = [check.value for check in I2cCheckId if f"``{check.value.lower()}``" not in table]
+    assert not missing
+
+
+def test_vhdl_axi4_checks_are_the_python_check_ids() -> None:
+    from awesome_vunit_vcs.axi4 import Axi4CheckId
+
+    assert _check_literals(VHDL / "axi4" / "axi4_pkg.vhd") == {check.value for check in Axi4CheckId}
+
+
+def test_every_axi4_check_is_in_the_checks_table() -> None:
+    from awesome_vunit_vcs.axi4 import Axi4CheckId
+
+    table = (DOCS / "axi4" / "axi4_protocol_checker.rst").read_text(encoding="utf-8")
+    missing = [check.value for check in Axi4CheckId if f"``{check.value.lower()}``" not in table]
     assert not missing
 
 
@@ -354,7 +369,7 @@ def test_every_example_is_in_the_cookbook() -> None:
     assert not missing, "Add these examples to the table in docs/cookbook/index.rst"
 
 
-_FAMILY_CONTEXT = re.compile(r"context\s+awesome_vunit_vcs\.(ethernet|flash|i2c|property)_context\b")
+_FAMILY_CONTEXT = re.compile(r"context\s+awesome_vunit_vcs\.(ethernet|flash|i2c|axi4|property)_context\b")
 _INCLUDED_CONTEXT = re.compile(
     r"context\s+(vunit_lib\.vunit_context|vunit_lib\.com_context|python_bridge\.python_context)\b"
 )

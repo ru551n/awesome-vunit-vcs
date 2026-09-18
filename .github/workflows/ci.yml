@@ -121,6 +121,8 @@ jobs:
         run: python examples/flash/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_flash"
       - name: Run examples/i2c
         run: python examples/i2c/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_i2c"
+      - name: Run examples/axi4
+        run: python examples/axi4/run.py -p 2 --output-path "$RUNNER_TEMP/vunit_out_examples_axi4"
       - name: Restore saved property failures
         uses: actions/cache/restore@v4
         with:

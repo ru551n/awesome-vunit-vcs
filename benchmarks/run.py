@@ -3,7 +3,8 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 """
-Bridge benchmarks of the GMII monitor and the I2C target and monitor.
+Bridge benchmarks of the GMII monitor, the I2C target and monitor, and the AXI4 monitor and
+protocol checker.
 
 Run one configuration at a time, so they do not compete for CPU, and collect
 the ``BENCHMARK`` lines::
@@ -52,6 +53,17 @@ i2c_configs = {
 }
 for name, generics in i2c_configs.items():
     i2c.add_config(name=name, generics={"config_name": name, **generics})
+
+axi4 = lib.test_bench("tb_axi4_benchmark")
+axi4_configs = {
+    "axi4_no_monitor": {"with_monitor": False},
+    "axi4_monitor": {},
+    "axi4_monitor_and_protocol_checker": {"with_protocol_checker": True},
+    "axi4_512_bit_no_monitor": {"data_length": 512, "with_monitor": False},
+    "axi4_512_bit_monitor": {"data_length": 512},
+}
+for name, generics in axi4_configs.items():
+    axi4.add_config(name=name, generics={"config_name": name, **generics})
 
 if __name__ == "__main__":
     vu.main()

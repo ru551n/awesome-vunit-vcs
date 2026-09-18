@@ -50,11 +50,13 @@ PUBLIC_MODULES = (
     "awesome_vunit_vcs.ethernet.lowlevel",
     "awesome_vunit_vcs.ethernet.traffic",
     "awesome_vunit_vcs.common.vunit_bridge",
+    "awesome_vunit_vcs.common.backend",
     "awesome_vunit_vcs.common.property",
     "awesome_vunit_vcs.records",
     "awesome_vunit_vcs.gen_vhdl",
     "awesome_vunit_vcs.flash",
     "awesome_vunit_vcs.i2c",
+    "awesome_vunit_vcs.axi4",
 )
 
 # -- Schemas ------------------------------------------------------------------

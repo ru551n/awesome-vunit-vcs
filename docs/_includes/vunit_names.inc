@@ -18,5 +18,10 @@
    * `OSVVM <https://github.com/OSVVM/OSVVM>`_: ``RandomPType``, which needs its own
      ``use osvvm.RandomPkg.RandomPType;``.
 
-   The family context clause (``ethernet_context``, ``flash_context``, ``i2c_context`` or
-   ``property_context``) makes the VUnit names visible.
+   * `Verification components <https://vunit.github.io/verification_components/user_guide.html>`_:
+     ``axi_write_slave``, ``axi_read_slave``, ``axi_lite_master``, ``new_axi_slave``, ``new_bus``,
+     ``write_bus``, ``check_bus``, ``new_memory``, ``allocate``, ``write_word`` and the constants
+     ``axi_burst_type_*`` and ``axi_resp_*``.
+
+   The family context clause (``ethernet_context``, ``flash_context``, ``i2c_context``,
+   ``axi4_context`` or ``property_context``) makes the VUnit names visible.

@@ -113,6 +113,12 @@ The examples
        by the testbench.
      - GHDL, NVC
      - ``python examples/flash/run.py --output-path ../vunit_out``
+   * - ``examples/axi4``
+     - An AXI4 monitor with a protocol checker and a shadow memory on an AXI4-Lite interface of VUnit's
+       bus master and AXI slaves, and on an AXI4 interface with IDs and bursts; statistics, and a
+       violation counted by the protocol checker.
+     - GHDL, NVC
+     - ``python examples/axi4/run.py --output-path ../vunit_out``
    * - ``examples/i2c``
      - An I2C master with a sensor modelled in Python, an EEPROM with acknowledge polling, SMBus PEC, a
        monitor with statistics, and timing violations counted by a protocol checker.

@@ -20,6 +20,7 @@ NEEDS = {"scapy_packets.py": "scapy", "property_based.py": "hypothesis"}
 
 def test_every_example_is_listed() -> None:
     assert sorted(path.name for path in EXAMPLES.glob("*.py")) == [
+        "axi4_bursts.py",
         "build_frames.py",
         "capture_frames.py",
         "check_frames.py",

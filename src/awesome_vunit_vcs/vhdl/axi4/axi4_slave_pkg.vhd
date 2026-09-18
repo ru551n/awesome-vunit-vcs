@@ -629,16 +629,21 @@ package body axi4_slave_pkg is
   end;
 
   impure function attach_axi4_slave (axi_slave : axi4_slave_t; is_write : boolean) return natural is
-  begin
 
-    return backend_call_integer(
-      memory_session(axi_slave.p_memory),
+    constant memory : axi4_memory_t := axi_slave.p_memory;
+    constant port_index : natural := backend_call_integer(
+      memory_session(memory),
       "attach",
       arg_text(full_name(axi_slave.p_id))
       & arg(data_length(axi_slave.p_bus))
       & arg(is_write)
       & arg(axi_slave.p_config.check_4kbyte_boundary)
     );
+  begin
+
+    -- A handle attached twice is a failure on the logger of the memory
+    log_memory_reports(memory, backend_call_integer(memory_session(memory), "num_reports"));
+    return port_index;
   end;
 
   procedure log_slave_reports (axi_slave : axi4_slave_t; port_index : natural; num_reports : natural) is

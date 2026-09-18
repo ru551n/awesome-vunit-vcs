@@ -649,9 +649,18 @@ class Axi4MemoryBackend(VcBackend):
     # -- slaves ----------------------------------------------------------------
 
     def attach(self, name: str | Sequence[int], data_width: int, is_write: bool, check_4kbyte_boundary: bool) -> int:
-        """Attach a slave. Returns the port the slave passes to the other calls."""
+        """
+        Attach a slave. Returns the port the slave passes to the other calls.
+
+        A second slave with the same name is a failure: two entities would share one handle and its actor.
+        """
         slave = Axi4Slave(self.memory, data_width, bool(is_write), bool(check_4kbyte_boundary))
-        self._ports.append(_SlavePort(decode_text(name), slave))
+        port_name = decode_text(name)
+        if any(port.name == port_name for port in self._ports):
+            self.reports.add(
+                Severity.FAILURE, f"Two AXI4 slaves use the handle of {port_name}; each slave needs a handle of its own"
+            )
+        self._ports.append(_SlavePort(port_name, slave))
         return len(self._ports) - 1
 
     def set_check_4kbyte_boundary(self, port: int, enabled: bool) -> None:

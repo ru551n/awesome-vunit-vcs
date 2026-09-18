@@ -183,3 +183,6 @@ def test_memory_backend_slaves_share_the_memory() -> None:
     assert backend.take_reports(reader) == ""
     assert "Metavalue in WDATA lane 1" in backend.take_reports(writer)
     assert backend.reset_slave(writer) == 0
+    # A second slave with the same handle
+    backend.attach("tb:read_slave", 32, False, True)
+    assert "each slave needs a handle of its own" in backend.take_reports()

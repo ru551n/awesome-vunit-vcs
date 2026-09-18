@@ -891,7 +891,8 @@ VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*s
   burst to the same address wins, so only its value is checked against expected data.
 - No exclusive access monitor; AxLOCK, AxCACHE, AxPROT, AxQOS, AxREGION and the USER signals are not
   ports. AXI3 WID is not supported (AXI3 slaves need in-order write data).
-- Each slave entity needs its own handle; attaching the same handle twice gives two ports with one actor.
+- Each slave entity needs its own handle; a handle used by two entities is a failure on the logger of the
+  memory when the second attaches.
 - The read slave has no read data interleaving and returns bursts in order, as VUnit's does.
 - Addresses in messages are decimal like VUnit's; `base_address` of a buffer beyond 2 GiB needs
   `wide_base_address`.

@@ -7,34 +7,37 @@
 -- Python backend; violations are check failures on the checker of the handle.
 
 library ieee;
-use ieee.std_logic_1164.all;
+  use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.com_context;
 
-use work.ethernet_vc_pkg.all;
-use work.gmii_pkg.all;
+  use work.ethernet_vc_pkg.all;
+  use work.gmii_pkg.all;
 
 entity gmii_protocol_checker is
   generic (
-    protocol_checker : gmii_protocol_checker_t
-  );
+    protocol_checker : gmii_protocol_checker_t);
   port (
     -- GTX_CLK or RX_CLK
-    clk : in std_ulogic;
+    clk : in  std_ulogic;
     -- TXD or RXD
-    data : in std_ulogic_vector(data_length(protocol_checker) - 1 downto 0);
+    data : in  std_ulogic_vector(data_length(protocol_checker) - 1 downto 0);
     -- TX_EN or RX_DV
-    dv : in std_ulogic;
+    dv : in  std_ulogic;
     -- TX_ER or RX_ER
-    er : in std_ulogic := '0'
+    er : in  std_ulogic := '0'
   );
 end entity;
 
 architecture a of gmii_protocol_checker is
+
 begin
+
   main : process
   begin
+
     monitor_symbol_interface(net, to_ethernet_vc(protocol_checker), clk, data, dv, er);
   end process;
+
 end architecture;

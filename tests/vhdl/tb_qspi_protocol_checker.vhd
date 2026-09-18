@@ -16,30 +16,27 @@ context awesome_vunit_vcs.flash_context;
 
 entity tb_qspi_protocol_checker is
   generic (
-    runner_cfg : string
-  );
+    runner_cfg : string);
 end entity;
 
 architecture tb of tb_qspi_protocol_checker is
+
   -- docs-start: protocol_checker_constructor
-  constant raw_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
-    id => get_id("tb_qspi_protocol_checker:raw_checker")
-  );
+  constant raw_checker : qspi_protocol_checker_t :=
+    new_qspi_protocol_checker(id => get_id("tb_qspi_protocol_checker:raw_checker"));
   -- docs-end: protocol_checker_constructor
-  constant no_deselect_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
-    t_shsl => 0 ns,
-    id => get_id("tb_qspi_protocol_checker:no_deselect_checker")
-  );
+  constant no_deselect_checker : qspi_protocol_checker_t :=
+    new_qspi_protocol_checker(t_shsl => 0 ns, id => get_id("tb_qspi_protocol_checker:no_deselect_checker"));
   signal raw_m2s : qspi_m2s_t := qspi_m2s_init;
 
   constant master : qspi_master_t := new_qspi_master(sck_period => 20 ns);
-  constant master_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
-    id => get_id("tb_qspi_protocol_checker:master_checker")
-  );
+  constant master_checker : qspi_protocol_checker_t :=
+    new_qspi_protocol_checker(id => get_id("tb_qspi_protocol_checker:master_checker"));
   signal master_m2s : qspi_m2s_t := qspi_m2s_init;
   signal master_s2m : qspi_s2m_t := qspi_s2m_init;
 
 begin
+
   -- docs-start: protocol_checker_instance
   raw_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
     generic map (
@@ -49,6 +46,7 @@ begin
       m2s => raw_m2s,
       s2m => qspi_s2m_init
     );
+
   -- docs-end: protocol_checker_instance
 
   no_deselect_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
@@ -79,6 +77,7 @@ begin
     );
 
   main : process
+
     variable count : natural;
     variable cmd : integer_array_t;
     variable data : integer_array_t;
@@ -87,7 +86,7 @@ begin
     -- change_offset after the rising edge; the defaults meet every rule with
     -- a margin. CS stays high for 5 ns before the frame, while the lanes are
     -- driven, and for deselect_after after it.
-    procedure send_frame(
+    procedure send_frame (
       high : delay_length := 10 ns;
       low : delay_length := 10 ns;
       slch : delay_length := 10 ns;
@@ -98,11 +97,13 @@ begin
       deselect_after : delay_length := 50 ns
     ) is
     begin
+
       raw_m2s.io <= (value => "0000", enable => "0001");
       wait for 5 ns;
       raw_m2s.cs_n <= '0';
       wait for slch;
       for beat in 1 to beats loop
+
         raw_m2s.sck <= '1';
         if beat = beats then
           wait for high;
@@ -121,6 +122,7 @@ begin
           wait for high + low - change_offset;
         end if;
       end loop;
+
       wait for chsh;
       raw_m2s.cs_n <= '1';
       raw_m2s.io <= qspi_drive_init;
@@ -128,13 +130,11 @@ begin
     end;
 
     -- Every count of protocol_checker is 0, except expected for violated
-    procedure check_counts(
-      protocol_checker : qspi_protocol_checker_t;
-      violated : qspi_check_t;
-      expected : natural
-    ) is
+    procedure check_counts (protocol_checker : qspi_protocol_checker_t; violated : qspi_check_t; expected : natural) is
     begin
+
       for rule in qspi_check_t loop
+
         get_check_count(net, protocol_checker, rule, count);
         if rule = violated then
           check_equal(count, expected, "violations of " & qspi_check_t'image(rule));
@@ -142,20 +142,25 @@ begin
           check_equal(count, 0, "violations of " & qspi_check_t'image(rule));
         end if;
       end loop;
+
     end;
 
-    procedure check_no_violations(protocol_checker : qspi_protocol_checker_t) is
+    procedure check_no_violations (protocol_checker : qspi_protocol_checker_t) is
     begin
+
       check_counts(protocol_checker, qspi_check_t'low, 0);
     end;
 
     -- One error on the logger of the raw checker, then clear it
     procedure check_one_error is
     begin
+
       check_equal(get_log_count(get_logger(raw_checker), error), 1, "errors logged");
       reset_log_count(get_logger(raw_checker), error);
     end;
+
   begin
+
     test_runner_setup(runner, runner_cfg);
     disable_stop(get_logger(raw_checker), error);
     -- It sees the violations of the raw bus too, which tests check on
@@ -163,6 +168,7 @@ begin
     disable_stop(get_logger(no_deselect_checker), error);
 
     while test_suite loop
+
       if run("test_clean_raw_frames_have_no_violations") then
         send_frame;
         send_frame;
@@ -228,7 +234,7 @@ begin
         unmock(get_logger(raw_checker));
         check_counts(raw_checker, qspi_cs_deselect, 1);
         reset_log_count(get_logger(raw_checker), error);
-        -- docs-end: protocol_checker_cs_deselect
+      -- docs-end: protocol_checker_cs_deselect
 
       elsif run("test_data_setup_violation") then
         send_frame;
@@ -259,7 +265,7 @@ begin
         send_frame(high => 3 ns, chsh => 1 ns);
         check_counts(raw_checker, qspi_cs_hold, 1);
         check_one_error;
-        -- docs-end: protocol_checker_disable
+      -- docs-end: protocol_checker_disable
 
       elsif run("test_zero_limit_disables_the_check") then
         send_frame(deselect_after => 20 ns);
@@ -290,6 +296,7 @@ begin
         cmd := new_byte_array((0 => 16#32#));
         data := new_byte_array((16#12#, 16#34#, 16#56#, 16#78#));
         for idx in 1 to 3 loop
+
           qspi_transfer(
             net,
             master,
@@ -300,6 +307,7 @@ begin
             dummy_cycles => 2
           );
         end loop;
+
         deallocate(cmd);
         deallocate(data);
         check_no_violations(master_checker);

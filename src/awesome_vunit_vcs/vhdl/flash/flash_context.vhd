@@ -10,6 +10,7 @@
 --   context awesome_vunit_vcs.flash_context;
 
 context flash_context is
+
   library ieee;
   use ieee.std_logic_1164.all;
 
@@ -31,4 +32,5 @@ context flash_context is
   use awesome_vunit_vcs.qspi_protocol_checker_pkg.all;
   use awesome_vunit_vcs.qspi_flash_cmd_pkg.all;
   use awesome_vunit_vcs.flash_pkg.all;
-end context;
+
+end context flash_context;

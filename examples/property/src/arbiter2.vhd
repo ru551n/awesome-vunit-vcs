@@ -9,28 +9,36 @@
 -- cancelling client's own grant has cleared, so both are held for a cycle.
 
 library ieee;
-use ieee.std_logic_1164.all;
+  use ieee.std_logic_1164.all;
 
 entity arbiter2 is
   generic (
-    inject_bug : boolean := false
-  );
+    inject_bug : boolean := false);
   port (
-    clk, rst : in std_ulogic;
-    request_a, request_b : in std_ulogic;
-    grant_a, grant_b : out std_ulogic
+    clk : in  std_ulogic;
+    rst : in  std_ulogic;
+    request_a : in  std_ulogic;
+    request_b : in  std_ulogic;
+    grant_a : out std_ulogic;
+    grant_b : out std_ulogic
   );
 end entity;
 
 architecture a of arbiter2 is
+
   signal held_a, held_b : std_ulogic := '0';
+
 begin
+
   grant_a <= held_a;
   grant_b <= held_b;
 
-  main : process(clk)
+  main : process (clk)
+
     variable next_a, next_b : std_ulogic;
+
   begin
+
     if rising_edge(clk) then
       if rst = '1' then
         held_a <= '0';
@@ -62,4 +70,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

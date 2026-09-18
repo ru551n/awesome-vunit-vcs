@@ -36,6 +36,7 @@ These are the checks CI runs. A pull request must pass all of them.
 ruff check .                                   # lint
 ruff format --check .                          # formatting
 mypy                                           # strict type checking
+vsg-rs --recursive src/awesome_vunit_vcs/vhdl tests/vhdl examples benchmarks -c vsg.yaml   # VHDL style, add --fix to format
 pytest                                         # Python unit tests
 VUNIT_SIMULATOR=ghdl python tests/vhdl/run.py --output-path ../vunit_out -p 2
 VUNIT_SIMULATOR=nvc python tests/vhdl/run.py --output-path ../vunit_out -p 2

@@ -1,0 +1,144 @@
+# VHDL style of the VUnit project (github.com/VUnit/vunit), as a VSG configuration.
+#
+# Derived with vsg-rs from VUnit's own VHDL (vunit/vhdl and examples/vhdl at commit bbbe9ca,
+# without the third-party OSVVM copy, 249 files): starting from VSG's defaults, every rule that
+# VUnit's code violates often was given the option value VUnit follows, or disabled when
+# VUnit follows no value of it consistently. The numbers below are the violations each default
+# caused in VUnit's code.
+#
+# Used by vsg-rs (and VSG):  vsg-rs -c vsg.yaml --recursive modules   (add --fix to format)
+rule:
+  # ---------------------------------------------------------------------------------------------
+  # Alignment
+  # ---------------------------------------------------------------------------------------------
+  group:
+    # VUnit does not align the ":" and ":=" of consecutive declarations, the "<=" of
+    # consecutive assignments, or trailing comments in columns; alignment rules would reflow
+    # most declarative regions.
+    alignment:
+      disable: true
+
+  # ---------------------------------------------------------------------------------------------
+  # Options that differ from VSG's defaults
+  # ---------------------------------------------------------------------------------------------
+  # Port modes are padded to the width of "out", not of "inout": `in  std_logic`,
+  # `out std_logic` (VSG pads to `in    `, `out   `).
+  port_007:
+    spaces_after: 2
+  port_008:
+    spaces_after: 1
+  port_009:
+    spaces_after: 1
+
+  # The closing ")" of a generic clause stays on the line of the last generic
+  # (101 violations with VSG's `new_line`, none with `same_line`).
+  generic_010:
+    action: same_line
+
+  # No blank line before `end` / `when` in these constructs; VUnit closes them directly
+  # (VSG requires or allows a blank line).
+  case_009:          # blank line above the `end case`            (57 -> 7)
+    style: no_blank_line
+  case_201:          # blank line above `when` in a case          (265 -> 21)
+    style: no_blank_line
+  loop_statement_202:  # blank line above the `end loop`          (640 -> 81)
+    style: no_blank_line
+  process_023:       # blank line above `end process`             (224 -> 18)
+    style: no_blank_line
+
+  # ---------------------------------------------------------------------------------------------
+  # Blank lines VUnit places freely (disabled: neither "require" nor "forbid" matches)
+  # ---------------------------------------------------------------------------------------------
+  architecture_018:  # blank line or comment above `end architecture`   (81)
+    disable: true
+  function_006:      # blank line or comment above `function`          (308)
+    disable: true
+  if_007:            # blank line above `elsif`                        (663)
+    disable: true
+  if_030:            # blank line after `end if`                       (49)
+    disable: true
+  if_031:            # blank line or comment above `if`                (734)
+    disable: true
+  library_007:       # blank line or comment above `use`               (122)
+    disable: true
+  loop_statement_200:  # blank line or comment above a loop            (464)
+    disable: true
+  package_012:       # blank line or comment above `end package`       (49)
+    disable: true
+  procedure_200:     # blank line or comment above `procedure`         (194)
+    disable: true
+  process_015:       # blank line or comment above `process`           (91)
+    disable: true
+  subprogram_body_202:  # blank line above `begin` of a subprogram     (995)
+    disable: true
+  subprogram_body_204:  # blank line above `end` of a subprogram       (1623)
+    disable: true
+  type_010:          # blank line or comment above `type`              (99)
+    disable: true
+
+  # ---------------------------------------------------------------------------------------------
+  # Layout VUnit writes differently
+  # ---------------------------------------------------------------------------------------------
+  assert_003:        # `report` of an assertion on its own line        (118)
+    disable: true
+  library_008:       # `use` clauses indented under `library`; VUnit keeps them at column 0 (1016)
+    disable: true
+  procedure_013:     # one parameter per line in procedure specifications; VUnit keeps the
+    disable: true    # first parameter on the line of the name        (1289)
+  whitespace_003:    # no space before `;`                             (781)
+    disable: true
+  whitespace_011:    # spaces around + - * / **; VUnit often writes `width-1` (657)
+    disable: true
+  length_001:        # line length; VUnit has lines up to 270 characters (384)
+    disable: true
+
+  # ---------------------------------------------------------------------------------------------
+  # Optional words VUnit leaves out
+  # ---------------------------------------------------------------------------------------------
+  architecture_010:  # `architecture` in `end architecture`            (39)
+    disable: true
+  architecture_024:  # architecture name after `end architecture`      (106)
+    disable: true
+  entity_019:        # entity name after `end entity`                  (100)
+    disable: true
+  function_018:      # `function` in the `end` of a function body      (865)
+    disable: true
+  function_020:      # function name in the `end` of a function body   (881)
+    disable: true
+  package_014:       # package name after `end package`                (67)
+    disable: true
+  package_body_003:  # package name after `end package body`           (56)
+    disable: true
+  procedure_012:     # `procedure` in the `end` of a procedure body    (737)
+    disable: true
+  procedure_014:     # procedure name in the `end` of a procedure body (822)
+    disable: true
+  process_012:       # `is` after `process (...)`                      (182)
+    disable: true
+  process_018:       # process label after `end process`               (200)
+    disable: true
+  record_type_definition_005:  # type name after `end record`          (80)
+    disable: true
+  if_002:            # parentheses around `if` conditions; VUnit omits them (1033)
+    disable: true
+
+  # ---------------------------------------------------------------------------------------------
+  # Language features VUnit uses
+  # ---------------------------------------------------------------------------------------------
+  instantiation_034:  # component instead of direct entity instantiation; VUnit instantiates
+    disable: true     # entities directly (`entity work.x`)           (56)
+  instantiation_036:  # architecture name in entity instantiations      (56)
+    disable: true
+  port_012:          # no default values on ports                      (69)
+    disable: true
+  signal_007:        # no default values on signals                    (198)
+    disable: true
+  variable_007:      # no default values on variables                  (324)
+    disable: true
+
+  # ---------------------------------------------------------------------------------------------
+  # awesome-vunit-vcs additions (the rest of this file is the VUnit profile of vhdl-ai-test)
+  # ---------------------------------------------------------------------------------------------
+  reserved_001:      # VHDL-2019 reserved words as names. The package is VHDL-2008 and follows
+    disable: true    # VUnit's API, whose bus masters take `variable reference : inout ...`;
+                     # renaming `reference` or the `limit` accessor would break named association

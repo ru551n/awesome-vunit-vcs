@@ -30,36 +30,36 @@
 -- of the model.
 
 library ieee;
-use ieee.std_logic_1164.all;
+  use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-use vunit_lib.integer_array_pkg.all;
-use vunit_lib.sync_pkg.all;
+  use vunit_lib.integer_array_pkg.all;
+  use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-use work.qspi_pkg.all;
-use work.flash_pkg.all;
-use work.qspi_protocol_checker_pkg.all;
-use work.vc_python_pkg.all;
+  use work.qspi_pkg.all;
+  use work.flash_pkg.all;
+  use work.qspi_protocol_checker_pkg.all;
+  use work.vc_python_pkg.all;
 
 entity flash is
   generic (
     -- Created with :vhdl:`flash_pkg.new_flash`
-    flash : flash_t
-  );
+    flash : flash_t);
   port (
     -- Clock, chip select and the IO drive of the controller
-    m2s : in qspi_m2s_t;
+    m2s : in  qspi_m2s_t;
     -- The IO drive of the device
     s2m : out qspi_s2m_t := qspi_s2m_init
   );
 end entity;
 
 architecture a of flash is
+
   constant logger : logger_t := get_logger(flash);
   constant checker : checker_t := get_checker(flash);
   -- A failure on the logger of the flash when another VC has the same id
@@ -81,8 +81,11 @@ architecture a of flash is
   -- Changed by main when a reset or timing switched off ends the busy period
   -- in the model
   signal busy_cancel : natural := 0;
+
 begin
+
   main : process
+
     variable msg : msg_t;
     variable reply_msg : msg_t;
     variable msg_type : msg_type_t;
@@ -95,8 +98,9 @@ begin
     variable clear_statistics : boolean;
     variable num_reports : natural;
 
-    procedure log_waiting_reports(count : natural) is
+    procedure log_waiting_reports (count : natural) is
     begin
+
       if count > 0 then
         log_reports(session, logger, checker);
       end if;
@@ -104,29 +108,37 @@ begin
 
     -- The fields of each message are popped in declaration order, since the
     -- evaluation order of the operands of an expression is not defined
-    impure function load_image_arguments(load_msg : msg_t) return arg_t is
+    impure function load_image_arguments (load_msg : msg_t) return arg_t is
+
       constant file_name : string := pop_string(load_msg);
       constant format : string := pop_string(load_msg);
       constant base_address : natural := pop(load_msg);
     begin
+
       return arg_text(file_name) & arg_text(format) & arg(base_address);
     end;
 
-    impure function set_timing_arguments(timing_msg : msg_t) return arg_t is
+    impure function set_timing_arguments (timing_msg : msg_t) return arg_t is
+
       constant name : string := pop_string(timing_msg);
       constant duration : time := pop_time(timing_msg);
     begin
+
       return arg_text(name) & arg_time(duration);
     end;
 
-    impure function address_length_value_arguments(fill_msg : msg_t) return arg_t is
+    impure function address_length_value_arguments (fill_msg : msg_t) return arg_t is
+
       constant fill_address : natural := pop(fill_msg);
       constant fill_bytes : natural := pop(fill_msg);
       constant fill_value : natural := pop(fill_msg);
     begin
+
       return arg(fill_address) & arg(fill_bytes) & arg(fill_value);
     end;
+
   begin
+
     create_backend(session, flash_backend_module, flash_backend_class, backend_arguments(flash));
     log_waiting_reports(backend_call_integer(session, "num_reports"));
     check_equal(
@@ -138,6 +150,7 @@ begin
     initialized <= true;
 
     loop
+
       receive(net, get_actor(flash), msg);
       msg_type := message_type(msg);
 
@@ -229,11 +242,11 @@ begin
         reply_msg := new_msg(get_flash_stat_reply_msg);
         push(reply_msg, value);
         reply(net, msg, reply_msg);
-
       else
         unexpected_msg_type(msg_type, flash);
       end if;
     end loop;
+
   end process;
 
   protocol_checker_gen : if protocol_checker(flash) /= null_qspi_protocol_checker generate
@@ -245,23 +258,28 @@ begin
         m2s => m2s,
         s2m => s2m
       );
-  end generate;
+
+  end generate protocol_checker_gen;
 
   busy_active <= busy_started /= busy_finished;
 
   busy_timer : process
   begin
+
     wait until busy_started /= busy_finished;
     -- The busy period ends after busy_request, or early when main cancels it.
     -- A busy period pins starts meanwhile restarts the wait with its time.
     loop
+
       wait on busy_started, busy_cancel for busy_request;
       exit when not busy_started'event;
     end loop;
+
     busy_finished <= busy_started;
   end process;
 
   pins : process
+
     variable directive : flash_directive_t;
     variable byte : std_ulogic_vector(7 downto 0);
     variable bits_since_byte : natural;
@@ -270,37 +288,44 @@ begin
     variable num_reports : natural;
 
     -- The busy time of the [hi, lo] halves cs_deassert returns, hi * 2**30 fs + lo fs
-    function busy_time_of(hi, lo : natural) return time is
+    function busy_time_of (hi, lo : natural) return time is
     begin
+
       return hi * 1073741824 fs + lo * 1 fs;
     end;
 
     -- The next directive. pass_now is the volatile flag of the previous
     -- directive: only a byte that depends on time (a status register) needs
     -- the time, so an array read does not pay for it.
-    impure function next_directive(byte_in : integer; pass_now : boolean) return flash_directive_t is
+    impure function next_directive (byte_in : integer; pass_now : boolean) return flash_directive_t is
     begin
+
       if pass_now then
         return decode_directive(backend_call_integer(session, "xfer", arg(byte_in) & arg_time(now)));
       end if;
       return decode_directive(backend_call_integer(session, "xfer", arg(byte_in)));
     end;
 
-    impure function sampled_lanes(lanes : lane_count_t) return std_ulogic_vector is
+    impure function sampled_lanes (lanes : lane_count_t) return std_ulogic_vector is
     begin
+
       return qspi_sample_beat(qspi_io_value(m2s, qspi_s2m_init), lanes, qspi_master_side);
     end;
 
     procedure release_io is
     begin
+
       s2m.io <= qspi_drive_init after output_delay_shqz(flash);
     end;
+
   begin
+
     if not initialized then
       wait until initialized;
     end if;
 
     loop
+
       release_io;
 
       if m2s.cs_n /= '0' then
@@ -311,27 +336,31 @@ begin
       directive := decode_directive(backend_call_integer(session, "cs_assert", arg_time(now)));
 
       while m2s.cs_n = '0' loop
+
         -- Dummy cycles are a prefix of the action, which is what lets the lane
         -- width change at the dummy boundary (0x6B) within one directive
         for cycle in 1 to directive.pre_dummy_cycles loop
+
           release_io;
           wait until rising_edge(m2s.sck) or m2s.cs_n /= '0';
           exit when m2s.cs_n /= '0';
         end loop;
+
         exit when m2s.cs_n /= '0';
 
         case directive.action is
           when receive =>
+
             release_io;
             byte := (others => '0');
             for beat in 0 to qspi_beats_per_byte(directive.lanes) - 1 loop
+
               wait until rising_edge(m2s.sck) or m2s.cs_n /= '0';
               exit when m2s.cs_n /= '0';
               if is_x(sampled_lanes(directive.lanes)) then
                 check_failed(
                   checker,
-                  "Metavalue " & to_string(sampled_lanes(directive.lanes)) & " sampled on the IOs at " &
-                  to_string(now)
+                  "Metavalue " & to_string(sampled_lanes(directive.lanes)) & " sampled on the IOs at " & to_string(now)
                 );
               end if;
               byte := qspi_byte_insert(
@@ -342,34 +371,34 @@ begin
               );
               bits_since_byte := (bits_since_byte + directive.lanes) mod 8;
             end loop;
+
             exit when m2s.cs_n /= '0';
             directive := next_directive(qspi_to_natural(byte), directive.is_volatile);
-
           when transmit =>
+
             byte := qspi_to_byte(directive.byte_out);
             for beat in 0 to qspi_beats_per_byte(directive.lanes) - 1 loop
+
               -- SPI mode 0: the device changes its output after SCK falls and
               -- the controller samples it on the next rising edge
               wait until falling_edge(m2s.sck) or m2s.cs_n /= '0';
               exit when m2s.cs_n /= '0';
-              s2m.io <= qspi_drive_beat(
-                data => byte,
-                lanes => directive.lanes,
-                beat => beat,
-                driver => qspi_slave_side
-              ) after output_delay_clqv(flash);
+              s2m.io <= qspi_drive_beat(data => byte, lanes => directive.lanes, beat => beat, driver => qspi_slave_side)
+                after output_delay_clqv(flash);
               wait until rising_edge(m2s.sck) or m2s.cs_n /= '0';
               exit when m2s.cs_n /= '0';
               bits_since_byte := (bits_since_byte + directive.lanes) mod 8;
             end loop;
+
             exit when m2s.cs_n /= '0';
             -- -1: the device clocked a byte out
             directive := next_directive(-1, directive.is_volatile);
-
           when ignore_rest =>
+
             release_io;
             wait until m2s.cs_n /= '0';
         end case;
+
       end loop;
 
       release_io;
@@ -390,5 +419,7 @@ begin
         busy_started <= busy_started + 1;
       end if;
     end loop;
+
   end process;
+
 end architecture;

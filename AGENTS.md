@@ -31,12 +31,13 @@ source .venv/bin/activate
 
 ## Checks
 
-CI (`.github/workflows/ci.yml`, `docs.yml`) runs all of these; every commit on `main` passes them.
+CI (`.github/workflows/ci.yml`, `docs.yml`, `vhdl-style.yml`) runs all of these; every commit on `main` passes them.
 
 ```bash
 ruff check .
 ruff format --check .
 mypy                                              # strict, src/awesome_vunit_vcs
+vsg-rs --recursive src/awesome_vunit_vcs/vhdl tests/vhdl examples benchmarks -c vsg.yaml   # VHDL style (vsg.yaml); --fix formats
 pytest                                            # Python unit tests
 VUNIT_SIMULATOR=nvc python tests/vhdl/run.py -p 2 --output-path out/tests   # and ghdl
 VUNIT_SIMULATOR=nvc python examples/quickstart/run.py -p 2 --output-path out/quickstart

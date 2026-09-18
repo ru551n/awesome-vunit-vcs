@@ -18,11 +18,11 @@ context awesome_vunit_vcs.flash_context;
 
 entity tb_flash_vci is
   generic (
-    runner_cfg : string
-  );
+    runner_cfg : string);
 end entity;
 
 architecture tb of tb_flash_vci is
+
   -- The first flash with a default id of this architecture, with a master
   constant default_flash : flash_t := new_flash;
   constant default_master : qspi_master_t := new_qspi_master(id => get_id("tb_flash_vci:default_master"));
@@ -42,17 +42,13 @@ architecture tb of tb_flash_vci is
   );
   signal custom_s2m : qspi_s2m_t := qspi_s2m_init;
 
-  constant ignoring_flash : flash_t := new_flash(
-    id => get_id("tb_flash_vci:ignoring_flash"),
-    unexpected_msg_type_policy => ignore
-  );
+  constant ignoring_flash : flash_t :=
+    new_flash(id => get_id("tb_flash_vci:ignoring_flash"), unexpected_msg_type_policy => ignore);
   signal ignoring_s2m : qspi_s2m_t := qspi_s2m_init;
 
   -- Flashes with a protocol checker, on buses the testbench drives
-  constant checked_flash : flash_t := new_flash(
-    protocol_checker => new_qspi_protocol_checker,
-    id => get_id("tb_flash_vci:checked_flash")
-  );
+  constant checked_flash : flash_t :=
+    new_flash(protocol_checker => new_qspi_protocol_checker, id => get_id("tb_flash_vci:checked_flash"));
   signal checked_m2s : qspi_m2s_t := qspi_m2s_init;
   signal checked_s2m : qspi_s2m_t := qspi_s2m_init;
 
@@ -61,13 +57,10 @@ architecture tb of tb_flash_vci is
   signal default_checked_s2m : qspi_s2m_t := qspi_s2m_init;
 
   -- Handles only: protocol checkers with explicit parts
-  constant kept_id_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
-    id => get_id("tb_flash_vci:kept_id_checker")
-  );
-  constant kept_id_flash : flash_t := new_flash(
-    protocol_checker => kept_id_checker,
-    id => get_id("tb_flash_vci:kept_id_flash")
-  );
+  constant kept_id_checker : qspi_protocol_checker_t :=
+    new_qspi_protocol_checker(id => get_id("tb_flash_vci:kept_id_checker"));
+  constant kept_id_flash : flash_t :=
+    new_flash(protocol_checker => kept_id_checker, id => get_id("tb_flash_vci:kept_id_flash"));
   constant kept_logger : logger_t := get_logger("tb_flash_vci:kept_logger");
   constant kept_logger_flash : flash_t := new_flash(
     protocol_checker => new_qspi_protocol_checker(t_shsl => 40 ns, logger => kept_logger),
@@ -79,45 +72,50 @@ architecture tb of tb_flash_vci is
   -- Two flashes with one id and actors of their own, instantiated only for
   -- test_a_duplicate_id_is_a_failure
   constant duplicate_id : id_t := get_id("tb_flash_vci:duplicate_flash");
-  constant duplicate_flash : flash_t := new_flash(
-    id => duplicate_id,
-    actor => new_actor("tb_flash_vci:duplicate_actor")
-  );
-  constant second_duplicate_flash : flash_t := new_flash(
-    id => duplicate_id,
-    actor => new_actor("tb_flash_vci:second_duplicate_actor")
-  );
+  constant duplicate_flash : flash_t :=
+    new_flash(id => duplicate_id, actor => new_actor("tb_flash_vci:duplicate_actor"));
+  constant second_duplicate_flash : flash_t :=
+    new_flash(id => duplicate_id, actor => new_actor("tb_flash_vci:second_duplicate_actor"));
   signal duplicate_s2m : qspi_s2m_t := qspi_s2m_init;
   signal second_duplicate_s2m : qspi_s2m_t := qspi_s2m_init;
 
   -- Whether text contains part, such as a test name in runner_cfg
-  function contains(text : string; part : string) return boolean is
+  function contains (text : string; part : string) return boolean is
   begin
+
     for idx in text'low to text'high - part'length + 1 loop
+
       if text(idx to idx + part'length - 1) = part then
         return true;
       end if;
     end loop;
+
     return false;
   end;
 
   -- Mock the failures of logger, during elaboration
-  impure function mock_failures(logger : logger_t) return boolean is
+  impure function mock_failures (logger : logger_t) return boolean is
   begin
+
     mock(logger, failure);
     return true;
   end;
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown flash message");
 
-  procedure check_arrays(got : integer_array_t; expected : integer_array_t; msg : string) is
+  procedure check_arrays (got : integer_array_t; expected : integer_array_t; msg : string) is
   begin
+
     check_equal(length(got), length(expected), msg & ": length");
     for idx in 0 to length(expected) - 1 loop
+
       check_equal(get(got, idx), get(expected, idx), msg & ": element " & to_string(idx));
     end loop;
+
   end;
+
 begin
+
   default_flash_inst : entity awesome_vunit_vcs.flash
     generic map (
       flash => default_flash
@@ -173,10 +171,11 @@ begin
     );
 
   duplicate_gen : if contains(runner_cfg, "test_a_duplicate_id_is_a_failure") generate
-    -- The second flash fails when it creates its Python session, while it is
-    -- elaborated, so the logger is mocked before
+  -- The second flash fails when it creates its Python session, while it is
+  -- elaborated, so the logger is mocked before
     constant mocked : boolean := mock_failures(get_logger(duplicate_flash));
   begin
+
     duplicate_flash_inst : entity awesome_vunit_vcs.flash
       generic map (
         flash => duplicate_flash
@@ -194,9 +193,11 @@ begin
         m2s => idle_m2s,
         s2m => second_duplicate_s2m
       );
-  end generate;
+
+  end generate duplicate_gen;
 
   main : process
+
     variable reference : flash_reference_t;
     variable got : integer_array_t;
     variable expected : integer_array_t;
@@ -206,9 +207,11 @@ begin
     variable start : time;
 
     -- A message of an unknown type, like the VCI tests of the Ethernet VCs
-    procedure check_unexpected_message(actor : actor_t; logger : logger_t; expect_failure : boolean) is
+    procedure check_unexpected_message (actor : actor_t; logger : logger_t; expect_failure : boolean) is
+
       variable request_msg : msg_t;
     begin
+
       mock(logger, error);
       request_msg := new_msg(unknown_msg_type);
       send(net, actor, request_msg);
@@ -225,7 +228,9 @@ begin
     -- violation for each protocol checker
     procedure deselect_too_briefly is
     begin
+
       for idx in 1 to 2 loop
+
         checked_m2s.cs_n <= '0';
         default_checked_m2s.cs_n <= '0';
         wait for 10 ns;
@@ -233,12 +238,16 @@ begin
         default_checked_m2s.cs_n <= '1';
         wait for 10 ns;
       end loop;
+
       wait for 50 ns;
     end;
+
   begin
+
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
+
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_flash))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_flash))), "flash", "name of its parent");
@@ -369,8 +378,8 @@ begin
           "logger of the child of a default id"
         );
         check(
-          get_actor(protocol_checker(checked_flash)) =
-          find(get_id(protocol_checker(checked_flash)), enable_deferred_creation => false),
+          get_actor(protocol_checker(checked_flash))
+          = find(get_id(protocol_checker(checked_flash)), enable_deferred_creation => false),
           "actor of the child"
         );
 

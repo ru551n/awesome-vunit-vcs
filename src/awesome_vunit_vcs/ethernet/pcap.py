@@ -98,7 +98,6 @@ class PcapNgWriter:
         self.path = os.fspath(path)
         self.options = options or CaptureOptions()
         self.frames_written = 0
-        self.frames_skipped = 0
         self._file: BinaryIO | None = open(self.path, "wb")  # noqa: SIM115 - closed by close()
         shb = struct.pack("<IHHq", _BYTE_ORDER_MAGIC, 1, 0, -1)
         shb += _option(_OPT_SHB_USERAPPL, b"awesome-vunit-vcs") + _option(_OPT_ENDOFOPT, b"")
@@ -118,10 +117,9 @@ class PcapNgWriter:
         self._file.flush()
 
     def on_frame(self, frame: EthernetFrame) -> None:
-        """Write a frame, or count it as skipped when the options exclude it or it has no SFD."""
+        """Write a frame, or skip it when the options exclude it or it has no SFD."""
         options = self.options
         if frame.mac is None or (not options.include_errored and not frame.is_good):
-            self.frames_skipped += 1
             return
 
         data = frame.mac.data

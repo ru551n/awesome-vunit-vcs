@@ -187,8 +187,7 @@ Breaking changes
   are ``PhyFrame.error_offsets``.
 * ``MacFrame``, ``EthernetFrame``, ``PhyFrame``, ``WireFrame``, ``EthernetMonitor``,
   ``EthernetConfig``, ``EthernetStatistics``, ``FcsMode``, ``build_wire_frame``, ``create_phy`` and
-  the other building blocks moved to ``awesome_vunit_vcs.ethernet.lowlevel``. Importing them from
-  ``awesome_vunit_vcs.ethernet`` still works in this release, with a ``DeprecationWarning``.
+  the other building blocks moved to ``awesome_vunit_vcs.ethernet.lowlevel``.
   ``EthernetConfig`` and ``EthernetStatistics`` are now named ``MonitorConfig`` and ``Statistics``.
 * ``MonitorBackend.statistics`` is a property; calling it still works.
 * ``traffic.parse_arguments`` is removed; ``call_packet_function`` and ``sequence`` take the

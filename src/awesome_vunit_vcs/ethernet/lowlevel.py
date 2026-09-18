@@ -6,9 +6,6 @@ of: the PHY frame and wire frame models, the MAC frame analysis, the
 publisher-based monitor, the protocol checker, the statistics accumulator
 and the PCAPNG writer. Use them to extend the pipeline; they are stable, but
 most tests only need ``awesome_vunit_vcs.ethernet``.
-
-The names were importable from ``awesome_vunit_vcs.ethernet`` before; that
-still works for one release, with a :class:`DeprecationWarning`.
 """
 
 from __future__ import annotations

@@ -31,6 +31,7 @@ entity axis_mac_protocol_checker is
 end entity;
 
 architecture a of axis_mac_protocol_checker is
+
 begin
 
   main : process

@@ -3,7 +3,8 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 """
-Bridge benchmark of the GMII monitor.
+Bridge benchmarks of the GMII monitor, the I2C target and monitor, the AXI4 monitor and
+protocol checker, and the AXI4 read and write slaves.
 
 Run one configuration at a time, so they do not compete for CPU, and collect
 the ``BENCHMARK`` lines::
@@ -43,6 +44,32 @@ for name, generics in configs.items():
 getters = lib.test_bench("tb_property_getters")
 for reads in (0, 50):
     getters.add_config(name=f"reads_{reads}", generics={"reads": reads})
+
+i2c = lib.test_bench("tb_i2c_benchmark")
+i2c_configs = {
+    "i2c_empty_bus": {"with_target": False},
+    "i2c_target": {},
+    "i2c_target_and_monitor": {"with_monitor": True},
+}
+for name, generics in i2c_configs.items():
+    i2c.add_config(name=name, generics={"config_name": name, **generics})
+
+axi4 = lib.test_bench("tb_axi4_benchmark")
+axi4_configs = {
+    "axi4_no_monitor": {"with_monitor": False},
+    "axi4_monitor": {},
+    "axi4_monitor_and_protocol_checker": {"with_protocol_checker": True},
+    "axi4_512_bit_no_monitor": {"data_length": 512, "with_monitor": False},
+    "axi4_512_bit_monitor": {"data_length": 512},
+}
+for name, generics in axi4_configs.items():
+    axi4.add_config(name=name, generics={"config_name": name, **generics})
+
+axi4_slaves = lib.test_bench("tb_axi4_slave_benchmark")
+for beats in (1, 16):
+    for vunit_slaves in (True, False):
+        name = f"axi4_{'vunit' if vunit_slaves else 'awesome'}_slaves_{beats}_beats"
+        axi4_slaves.add_config(name=name, generics={"config_name": name, "beats": beats, "vunit_slaves": vunit_slaves})
 
 if __name__ == "__main__":
     vu.main()

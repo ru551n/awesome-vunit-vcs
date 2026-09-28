@@ -30,9 +30,11 @@ entity rgmii_source is
 end entity;
 
 architecture a of rgmii_source is
+
   -- The symbol of a clock cycle, changing on the rising edges of clk
   signal octet : std_ulogic_vector(7 downto 0) := (others => '0');
   signal dv, er : std_ulogic := '0';
+
 begin
 
   main : process

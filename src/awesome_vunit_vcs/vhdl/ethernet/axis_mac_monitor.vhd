@@ -31,6 +31,7 @@ entity axis_mac_monitor is
 end entity;
 
 architecture a of axis_mac_monitor is
+
 begin
 
   main : process
@@ -62,6 +63,7 @@ begin
         tlast => tlast,
         tuser => tuser
       );
+
   end generate;
 
 end architecture;

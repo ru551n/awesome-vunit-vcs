@@ -27,12 +27,15 @@ entity packet_parser is
 end entity;
 
 architecture a of packet_parser is
+
   constant magic : std_ulogic_vector(7 downto 0) := x"A5";
   type state_t is (magic_byte, length_byte, flags_byte, payload, checksum_byte);
+
   signal state : state_t := magic_byte;
   signal running_sum : unsigned(7 downto 0) := (others => '0');
   signal payload_left : natural range 0 to 255 := 0;
   signal magic_ok, reserved_ok : boolean := true;
+
 begin
 
   main : process(clk)

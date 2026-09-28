@@ -40,6 +40,7 @@ context python_bridge.python_context;
 use work.vc_python_pkg.all;
 
 package property_pkg is
+
   -- A property under test. Create it with :vhdl:`property_pkg.new_property`.
   type property_t is record
     -- Private
@@ -197,6 +198,7 @@ package body property_pkg is
   procedure report_property_error(prop : property_t)is
     constant detail : string := backend_call_string(prop.p_session, "take_error");
   begin
+
     if detail /= "" then
       failure(prop.p_logger, detail);
     end if;
@@ -215,6 +217,7 @@ package body property_pkg is
   ) return property_t is
     variable result : property_t;
   begin
+
     result.p_id := id;
     if id = null_id then
       result.p_id := enumerate(get_id("property", parent => get_id("awesome_vunit_vcs")));
@@ -251,22 +254,26 @@ package body property_pkg is
 
   impure function get_id (prop : property_t) return id_t is
   begin
+
     return prop.p_id;
   end function;
 
   impure function get_logger (prop : property_t) return logger_t is
   begin
+
     return prop.p_logger;
   end function;
 
   impure function get_checker (prop : property_t) return checker_t is
   begin
+
     return prop.p_checker;
   end function;
 
   impure function next_example (prop : property_t) return boolean is
     constant more : boolean := backend_call_boolean(prop.p_session, "next");
   begin
+
     if not more then
       report_property_error(prop);
     end if;
@@ -275,16 +282,19 @@ package body property_pkg is
 
   impure function get_integer (prop : property_t; path : string := "") return integer is
   begin
+
     return backend_call_integer(prop.p_session, "integer", arg(path));
   end function;
 
   impure function get_boolean (prop : property_t; path : string := "") return boolean is
   begin
+
     return backend_call_boolean(prop.p_session, "boolean", arg(path));
   end function;
 
   impure function get_string (prop : property_t; path : string := "") return string is
   begin
+
     return backend_call_string(prop.p_session, "string", arg(path));
   end function;
 
@@ -296,9 +306,12 @@ package body property_pkg is
       backend_call_integer_array(prop.p_session, "vector", arg(path));
     variable result : integer_vector(0 to length(items) - 1);
   begin
+
     for idx in result'range loop
+
       result(idx) := get(items, idx);
     end loop;
+
     deallocate(items);
     return result;
   end function;
@@ -313,33 +326,40 @@ package body property_pkg is
     alias bits_normalized : string(1 to bits'length) is bits;
     variable result : std_ulogic_vector(length - 1 downto 0);
   begin
+
     for idx in bits_normalized'range loop
+
       if bits_normalized(idx) = '1' then
         result(length - idx) := '1';
       else
         result(length - idx) := '0';
       end if;
     end loop;
+
     return result;
   end function;
 
   impure function get_length (prop : property_t; path : string := "") return natural is
   begin
+
     return backend_call_integer(prop.p_session, "length", arg(path));
   end function;
 
   impure function has_field (prop : property_t; path : string) return boolean is
   begin
+
     return backend_call_boolean(prop.p_session, "has", arg(path));
   end function;
 
   impure function get_rule (prop : property_t) return string is
   begin
+
     return get_string(prop, "rule");
   end function;
 
   procedure report_step(prop : property_t; value : integer := 0)is
   begin
+
     backend_call(prop.p_session, "report", arg(true) & kwarg("value", value));
   end procedure;
 
@@ -349,6 +369,7 @@ package body property_pkg is
     items : natural
   ) return delay_length is
   begin
+
     return base + items * per_item;
   end function;
 
@@ -360,6 +381,7 @@ package body property_pkg is
     msg : string := ""
   )is
   begin
+
     backend_call(
       prop.p_session,
       "report",
@@ -372,27 +394,32 @@ package body property_pkg is
 
   procedure report_score(prop : property_t; name : string; value : real)is
   begin
+
     backend_call(prop.p_session, "score", arg(name) & arg(value));
   end procedure;
 
   impure function get_outcome (prop : property_t) return string is
   begin
+
     return backend_call_string(prop.p_session, "get_outcome");
   end function;
 
   impure function get_example_count (prop : property_t) return natural is
   begin
+
     return backend_call_integer(prop.p_session, "get_count");
   end function;
 
   impure function get_counterexample (prop : property_t) return string is
   begin
+
     return backend_call_string(prop.p_session, "counterexample");
   end function;
 
   procedure check_property(prop : property_t; msg : string := "")is
     constant summary : string := backend_call_string(prop.p_session, "summary");
   begin
+
     report_property_error(prop);
     if get_outcome(prop) = "error" then
       return; -- logged once as a failure when the property ended

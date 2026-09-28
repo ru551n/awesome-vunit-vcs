@@ -1,0 +1,41 @@
+name: VHDL style
+
+# Checks the VHDL against the house style in speja.yaml with speja
+# (https://github.com/ru551n/speja, formerly vsg-rs). On pull requests, layout findings are posted as
+# suggested changes and a summary comment; other findings are annotations on the changed
+# lines. To fix them locally:
+#
+#   pip install -e ".[dev]"
+#   speja $(git ls-files "*.vhd" ":!:tests/python/golden") -c speja.yaml --fix
+#
+# Only tracked VHDL is checked, and not the generated tests/python/golden (compared byte
+# for byte). A fresh checkout has no generated VHDL, so directories suffice here; locally,
+# git ls-files skips what the tests and examples generate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  speja:
+    name: speja
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Suggested changes and the summary comment
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ru551n/speja@v0.14.6
+        with:
+          args: --recursive src/awesome_vunit_vcs/vhdl tests/vhdl examples benchmarks -c speja.yaml

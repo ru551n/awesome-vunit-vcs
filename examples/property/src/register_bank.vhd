@@ -24,8 +24,11 @@ entity register_bank is
 end entity;
 
 architecture a of register_bank is
+
   type registers_t is array (0 to 7) of std_ulogic_vector(7 downto 0);
+
   signal registers : registers_t := (others => (others => '0'));
+
 begin
 
   read_data <= registers(to_integer(unsigned(address)));

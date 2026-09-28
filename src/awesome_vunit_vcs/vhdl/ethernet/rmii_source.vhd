@@ -32,6 +32,7 @@ entity rmii_source is
 end entity;
 
 architecture a of rmii_source is
+
 begin
 
   main : process

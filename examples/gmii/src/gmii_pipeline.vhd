@@ -28,10 +28,12 @@ entity gmii_pipeline is
 end entity;
 
 architecture a of gmii_pipeline is
+
   type data_vec_t is array (natural range <>) of std_ulogic_vector(7 downto 0);
 
   signal data_q : data_vec_t(1 to stages) := (others => (others => '0'));
   signal dv_q, er_q : std_ulogic_vector(1 to stages) := (others => '0');
+
 begin
 
   out_data <= data_q(stages);

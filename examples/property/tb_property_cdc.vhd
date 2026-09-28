@@ -28,12 +28,16 @@ end entity;
 -- docs-end: cdc-generic
 
 architecture tb of tb_property_cdc is
+
   signal src_clk, dst_clk : std_ulogic := '0';
   signal src_rst, dst_rst : std_ulogic := '1';
   signal src_event, dst_event : std_ulogic := '0';
-  signal src_period, dst_period, dst_phase : time := 10 ns;
+  signal src_period : time := 10 ns;
+  signal dst_period : time := 10 ns;
+  signal dst_phase : time := 10 ns;
   signal clk_enable : boolean := false;
   signal dst_count : natural := 0;
+
 begin
 
   -- docs-start: cdc-clocks
@@ -42,26 +46,34 @@ begin
   src_clk_gen : process
   begin
     loop
+
       wait until clk_enable;
       src_clk <= '0';
       while clk_enable loop
+
         wait for src_period / 2;
         src_clk <= not src_clk;
       end loop;
+
     end loop;
+
   end process;
 
   dst_clk_gen : process
   begin
     loop
+
       wait until clk_enable;
       wait for dst_phase;
       dst_clk <= '0';
       while clk_enable loop
+
         wait for dst_period / 2;
         dst_clk <= not dst_clk;
       end loop;
+
     end loop;
+
   end process;
 
   -- docs-end: cdc-clocks
@@ -79,8 +91,11 @@ begin
   end process;
 
   main : process
+
     variable prop : property_t;
-    variable expected, prev_cycle, cycle : natural;
+    variable expected : natural;
+    variable prev_cycle : natural;
+    variable cycle : natural;
     -- More than half of the largest period the strategy draws (20 ns)
     constant clock_stop_margin : time := 21 ns;
     -- The synchronizer's 3-cycle latency plus alignment slack between the domains
@@ -89,13 +104,16 @@ begin
     -- Hold src_event high for one source cycle
     procedure pulse_src is
     begin
+
       src_event <= '1';
       wait until rising_edge(src_clk);
       src_event <= '0';
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_clock_ratio_and_phase") then
         -- docs-start: cdc-property
         prop := new_property(
@@ -105,6 +123,7 @@ begin
           search_path => tb_path(runner_cfg) & "python"
         );
         while next_example(prop) loop
+
           clk_enable <= false;
           -- Longer than any half period the strategy draws, so both clock generators are
           -- parked at "wait until clk_enable" and the new example starts from a clean clock
@@ -129,26 +148,33 @@ begin
           expected := get_length(prop, "events");
           prev_cycle := 0;
           for idx in 0 to expected - 1 loop
+
             cycle := get_integer(prop, "events(" & integer'image(idx) & ")");
             -- The strategy already spaced consecutive events >= min_spacing source cycles apart
             for skip in prev_cycle + 1 to cycle loop
+
               wait until rising_edge(src_clk);
             end loop;
+
             pulse_src;
             prev_cycle := cycle;
           end loop;
 
           -- Let the last event reach the destination domain
           for settle in 1 to settle_dst_cycles loop
+
             wait until rising_edge(dst_clk);
           end loop;
+
           -- A lost event and a duplicated one are both wrong behavior
           report_example(prop, passed => dst_count = expected);
         end loop;
+
         check_property(prop);
         -- docs-end: cdc-property
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 

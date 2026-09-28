@@ -401,11 +401,13 @@ package body mii_pkg is
 
   impure function cfg_data_length (cfg : ethernet_cfg_t) return positive is
   begin
+
     return 4;
   end function;
 
   procedure check_link_rate(link_rate_mbps : positive)is
   begin
+
     check(
       mii_pkg_checker,
       link_rate_mbps = 10 or link_rate_mbps = 100,
@@ -424,6 +426,7 @@ package body mii_pkg is
     constant identity : ethernet_identity_t :=
       new_ethernet_identity("mii_source", id, logger, actor, checker);
   begin
+
     check_link_rate(link_rate_mbps);
     return (
       p_id => identity.p_id,
@@ -455,6 +458,7 @@ package body mii_pkg is
     constant identity : ethernet_identity_t :=
       new_ethernet_identity("mii_protocol_checker", id, logger, actor, checker);
   begin
+
     check_link_rate(link_rate_mbps);
     return (
       p_type => custom_ethernet_component,
@@ -492,6 +496,7 @@ package body mii_pkg is
     variable result : mii_protocol_checker_t := protocol_checker;
     variable identity : ethernet_identity_t;
   begin
+
     if protocol_checker.p_type = null_ethernet_component then
       return protocol_checker;
     elsif protocol_checker.p_type = default_ethernet_component then
@@ -558,6 +563,7 @@ package body mii_pkg is
       log_frames => log_frames
     );
   begin
+
     check_link_rate(link_rate_mbps);
     return (
       p_id => identity.p_id,
@@ -572,96 +578,115 @@ package body mii_pkg is
 
   impure function get_id (source : mii_source_t) return id_t is
   begin
+
     return source.p_id;
   end function;
 
   impure function get_id (monitor : mii_monitor_t) return id_t is
   begin
+
     return monitor.p_id;
   end function;
 
   impure function get_id (protocol_checker : mii_protocol_checker_t) return id_t is
   begin
+
     return protocol_checker.p_id;
   end function;
 
   impure function get_logger (source : mii_source_t) return logger_t is
   begin
+
     return source.p_logger;
   end function;
 
   impure function get_logger (monitor : mii_monitor_t) return logger_t is
   begin
+
     return monitor.p_logger;
   end function;
 
   impure function get_logger (protocol_checker : mii_protocol_checker_t) return logger_t is
   begin
+
     return protocol_checker.p_logger;
   end function;
 
   impure function get_actor (source : mii_source_t) return actor_t is
   begin
+
     return source.p_actor;
   end function;
 
   impure function get_actor (monitor : mii_monitor_t) return actor_t is
   begin
+
     return monitor.p_actor;
   end function;
 
   impure function get_actor (protocol_checker : mii_protocol_checker_t) return actor_t is
   begin
+
     return protocol_checker.p_actor;
   end function;
 
   impure function get_checker (source : mii_source_t) return checker_t is
   begin
+
     return source.p_checker;
   end function;
 
   impure function get_checker (monitor : mii_monitor_t) return checker_t is
   begin
+
     return monitor.p_checker;
   end function;
 
   impure function get_checker (protocol_checker : mii_protocol_checker_t) return checker_t is
   begin
+
     return protocol_checker.p_checker;
   end function;
 
   impure function as_sync (source : mii_source_t) return sync_handle_t is
   begin
+
     return source.p_actor;
   end function;
 
   impure function as_sync (monitor : mii_monitor_t) return sync_handle_t is
   begin
+
     return monitor.p_actor;
   end function;
 
   impure function as_sync (protocol_checker : mii_protocol_checker_t) return sync_handle_t is
   begin
+
     return protocol_checker.p_actor;
   end function;
 
   impure function as_stream (source : mii_source_t) return stream_master_t is
   begin
+
     return (p_actor => source.p_actor);
   end function;
 
   impure function as_stream (monitor : mii_monitor_t) return stream_slave_t is
   begin
+
     return (p_actor => monitor.p_actor);
   end function;
 
   impure function as_ethernet_source (source : mii_source_t) return ethernet_source_t is
   begin
+
     return (p_actor => source.p_actor, p_checker => source.p_checker);
   end function;
 
   impure function as_ethernet_monitor (monitor : mii_monitor_t) return ethernet_monitor_t is
   begin
+
     return (p_actor => monitor.p_actor, p_checker => monitor.p_checker);
   end function;
 
@@ -669,26 +694,31 @@ package body mii_pkg is
     protocol_checker : mii_protocol_checker_t
   ) return ethernet_protocol_checker_t is
   begin
+
     return (p_actor => protocol_checker.p_actor, p_checker => protocol_checker.p_checker);
   end function;
 
   function get_protocol_checker (monitor : mii_monitor_t) return mii_protocol_checker_t is
   begin
+
     return monitor.p_protocol_checker;
   end function;
 
   impure function data_length (source : mii_source_t) return positive is
   begin
+
     return cfg_data_length(source.p_cfg);
   end function;
 
   impure function data_length (monitor : mii_monitor_t) return positive is
   begin
+
     return cfg_data_length(monitor.p_cfg);
   end function;
 
   impure function data_length (protocol_checker : mii_protocol_checker_t) return positive is
   begin
+
     return cfg_data_length(protocol_checker.p_cfg);
   end function;
 
@@ -699,6 +729,7 @@ package body mii_pkg is
     options : ethernet_frame_options_t := default_frame_options
   )is
   begin
+
     push_ethernet_frame(net, as_ethernet_source(source), data, options);
   end procedure;
 
@@ -712,6 +743,7 @@ package body mii_pkg is
     options : ethernet_frame_options_t := default_frame_options
   )is
   begin
+
     push_ethernet_frame(
       net,
       as_ethernet_source(source),
@@ -731,6 +763,7 @@ package body mii_pkg is
     options : ethernet_frame_options_t := default_frame_options
   )is
   begin
+
     push_ethernet_packet(net, as_ethernet_source(source), function_name, arguments, options);
   end procedure;
 
@@ -743,6 +776,7 @@ package body mii_pkg is
     seed : string := ""
   )is
   begin
+
     push_ethernet_sequence(net, as_ethernet_source(source), function_name, arguments, count, seed);
   end procedure;
 
@@ -752,6 +786,7 @@ package body mii_pkg is
     variable reference : inout ethernet_reference_t
   )is
   begin
+
     pop_ethernet_frame(net, as_ethernet_monitor(monitor), reference);
   end procedure;
 
@@ -763,6 +798,7 @@ package body mii_pkg is
     variable fcs_ok : out boolean
   )is
   begin
+
     pop_ethernet_frame(net, as_ethernet_monitor(monitor), data, length, fcs_ok);
   end procedure;
 
@@ -773,6 +809,7 @@ package body mii_pkg is
     variable length : out natural
   )is
   begin
+
     pop_ethernet_frame(net, as_ethernet_monitor(monitor), data, length);
   end procedure;
 
@@ -784,6 +821,7 @@ package body mii_pkg is
     blocking : boolean := true
   )is
   begin
+
     check_ethernet_frame(net, as_ethernet_monitor(monitor), expected, msg, blocking);
   end procedure;
 
@@ -796,6 +834,7 @@ package body mii_pkg is
     seed : string := ""
   )is
   begin
+
     check_ethernet_sequence(
       net,
       as_ethernet_monitor(monitor),
@@ -812,6 +851,7 @@ package body mii_pkg is
     variable reference : inout ethernet_reference_t
   )is
   begin
+
     get_statistics(net, as_ethernet_monitor(monitor), reference);
   end procedure;
 
@@ -821,6 +861,7 @@ package body mii_pkg is
     variable statistics : out ethernet_statistics_t
   )is
   begin
+
     get_statistics(net, as_ethernet_monitor(monitor), statistics);
   end procedure;
 
@@ -830,6 +871,7 @@ package body mii_pkg is
     variable reference : inout ethernet_reference_t
   )is
   begin
+
     get_frame_count(net, as_ethernet_monitor(monitor), reference);
   end procedure;
 
@@ -839,6 +881,7 @@ package body mii_pkg is
     variable count : out natural
   )is
   begin
+
     get_frame_count(net, as_ethernet_monitor(monitor), count);
   end procedure;
 
@@ -848,6 +891,7 @@ package body mii_pkg is
     log_level : log_level_t := info
   )is
   begin
+
     log_statistics(net, as_ethernet_monitor(monitor), log_level);
   end procedure;
 
@@ -859,11 +903,13 @@ package body mii_pkg is
     include_errored : boolean := true
   )is
   begin
+
     start_capture(net, as_ethernet_monitor(monitor), file_name, include_fcs, include_errored);
   end procedure;
 
   procedure stop_capture(signal net : inout network_t; monitor : mii_monitor_t)is
   begin
+
     stop_capture(net, as_ethernet_monitor(monitor));
   end procedure;
 
@@ -874,6 +920,7 @@ package body mii_pkg is
     enabled : boolean := true
   )is
   begin
+
     set_check_enabled(net, as_ethernet_protocol_checker(protocol_checker), check, enabled);
   end procedure;
 
@@ -884,6 +931,7 @@ package body mii_pkg is
     variable reference : inout ethernet_reference_t
   )is
   begin
+
     get_check_count(net, as_ethernet_protocol_checker(protocol_checker), check, reference);
   end procedure;
 
@@ -894,6 +942,7 @@ package body mii_pkg is
     variable count : out natural
   )is
   begin
+
     get_check_count(net, as_ethernet_protocol_checker(protocol_checker), check, count);
   end procedure;
 
@@ -903,6 +952,7 @@ package body mii_pkg is
     procedure_name : string
   ) return boolean is
   begin
+
     if get_protocol_checker(monitor) = null_mii_protocol_checker then
       failure(
         get_logger(monitor),
@@ -922,6 +972,7 @@ package body mii_pkg is
     enabled : boolean := true
   )is
   begin
+
     if is_monitor_check(check) then
       set_check_enabled(net, as_ethernet_monitor(monitor), check, enabled);
     elsif has_protocol_checker(monitor, "set_check_enabled") then
@@ -936,6 +987,7 @@ package body mii_pkg is
     variable reference : inout ethernet_reference_t
   )is
   begin
+
     if is_monitor_check(check) then
       get_check_count(net, as_ethernet_monitor(monitor), check, reference);
     elsif has_protocol_checker(monitor, "get_check_count") then
@@ -950,6 +1002,7 @@ package body mii_pkg is
     variable count : out natural
   )is
   begin
+
     if is_monitor_check(check) then
       get_check_count(net, as_ethernet_monitor(monitor), check, count);
     elsif has_protocol_checker(monitor, "get_check_count") then
@@ -959,6 +1012,7 @@ package body mii_pkg is
 
   procedure reset(signal net : inout network_t; source : mii_source_t)is
   begin
+
     reset(net, as_ethernet_source(source));
   end procedure;
 
@@ -968,16 +1022,19 @@ package body mii_pkg is
     clear_statistics : boolean := false
   )is
   begin
+
     reset(net, as_ethernet_monitor(monitor), clear_statistics);
   end procedure;
 
   procedure reset(signal net : inout network_t; protocol_checker : mii_protocol_checker_t)is
   begin
+
     reset(net, as_ethernet_protocol_checker(protocol_checker));
   end procedure;
 
   impure function to_ethernet_vc (source : mii_source_t) return ethernet_vc_t is
   begin
+
     return (
       p_kind => source_vc,
       p_id => source.p_id,
@@ -991,6 +1048,7 @@ package body mii_pkg is
 
   impure function to_ethernet_vc (monitor : mii_monitor_t) return ethernet_vc_t is
   begin
+
     return (
       p_kind => monitor_vc,
       p_id => monitor.p_id,
@@ -1004,6 +1062,7 @@ package body mii_pkg is
 
   impure function to_ethernet_vc (protocol_checker : mii_protocol_checker_t) return ethernet_vc_t is
   begin
+
     return (
       p_kind => protocol_checker_vc,
       p_id => protocol_checker.p_id,

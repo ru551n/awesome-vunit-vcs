@@ -37,19 +37,27 @@ entity tb_property_axi_ready is
 end entity;
 
 architecture tb of tb_property_axi_ready is
+
   -- Room for the longest experiment the strategy draws
   constant max_cycles : positive := 16;
 
-  signal clk, rst, load_valid : std_ulogic := '0';
+  signal clk : std_ulogic := '0';
+  signal rst : std_ulogic := '0';
+  signal load_valid : std_ulogic := '0';
   signal load_data : std_ulogic_vector(7 downto 0) := (others => '0');
   signal tready_a, tready_b : std_ulogic := '0';
-  signal load_ready_a, load_ready_b, tvalid_a, tvalid_b : std_ulogic;
+  signal load_ready_a : std_ulogic;
+  signal load_ready_b : std_ulogic;
+  signal tvalid_a : std_ulogic;
+  signal tvalid_b : std_ulogic;
   signal tdata_a, tdata_b : std_ulogic_vector(7 downto 0);
+
 begin
 
   clk <= not clk after 5 ns;
 
   main : process
+
     type history_t is record
       cycles                     : natural;
       load_ready_a, load_ready_b : std_ulogic_vector(0 to max_cycles - 1);
@@ -67,6 +75,7 @@ begin
 
     impure function new_fork_property return property_t is
     begin
+
       return new_property(
         "axi_ready_strategies:ready_fork",
         seed => get_seed(runner_cfg),
@@ -79,10 +88,13 @@ begin
     function bits (value : std_ulogic_vector; cycles : natural) return string is
       variable result : string(1 to cycles);
     begin
+
       for cycle in 0 to cycles - 1 loop
+
         result(cycle + 1) := '1' when value(cycle) = '1' else
                              '0';
       end loop;
+
       return result;
     end function;
 
@@ -96,6 +108,7 @@ begin
       constant fork : natural := get_integer(prop, "fork");
       constant cycles : natural := maximum(fork + 1 + get_integer(prop, "window"), load_cycle + 3);
     begin
+
       -- Reset both copies together
       rst <= '1';
       load_valid <= '0';
@@ -107,6 +120,7 @@ begin
       -- Start from an empty history, so nothing of the previous example is compared
       history := (cycles => cycles, tdata_a | tdata_b => (others => -1), others => (others => '0'));
       for cycle in 0 to cycles - 1 loop
+
         -- The same load for both copies
         load_valid <= '1' when cycle = load_cycle else
                       '0';
@@ -133,8 +147,10 @@ begin
         history.tdata_b(cycle) := to_integer(unsigned(tdata_b)) when tvalid_b = '1' else
                                   -1;
       end loop;
+
       load_valid <= '0';
     end procedure;
+
     -- docs-end: experiment
 
     -- The histories are identical before the fork, and TVALID is low on both
@@ -142,7 +158,9 @@ begin
     impure function precondition_holds return boolean is
       constant fork : natural := get_integer(prop, "fork");
     begin
+
       for cycle in 0 to fork - 1 loop
+
         if history.load_ready_a(cycle) /= history.load_ready_b(cycle)
            or history.tvalid_a(cycle) /= history.tvalid_b(cycle)
            or history.handshake_a(cycle) /= history.handshake_b(cycle)
@@ -150,6 +168,7 @@ begin
           return false;
         end if;
       end loop;
+
       return history.tvalid_a(fork) = '0' and history.tvalid_b(fork) = '0';
     end function;
 
@@ -159,7 +178,9 @@ begin
       constant fork : natural := get_integer(prop, "fork");
       variable expected_tready_b : std_ulogic;
     begin
+
       for cycle in 0 to history.cycles - 1 loop
+
         check_equal(history.tready_a(cycle), '0', "TREADY A in cycle " & integer'image(cycle));
         expected_tready_b := '1' when cycle = fork else
                              '0';
@@ -169,6 +190,7 @@ begin
           "TREADY B in cycle " & integer'image(cycle)
         );
       end loop;
+
       check_equal(history.handshake_a(fork), '0', "No transfer on A in the fork cycle");
       check_equal(history.handshake_b(fork), '0', "No transfer on B in the fork cycle");
     end procedure;
@@ -176,13 +198,16 @@ begin
     -- The first cycle where the copies differ, or "none"
     impure function first_divergence return string is
     begin
+
       for cycle in 0 to history.cycles - 1 loop
+
         if history.tvalid_a(cycle) /= history.tvalid_b(cycle)
            or history.tdata_a(cycle) /= history.tdata_b(cycle)
            or history.handshake_a(cycle) /= history.handshake_b(cycle) then
           return integer'image(cycle);
         end if;
       end loop;
+
       return "none";
     end function;
 
@@ -190,6 +215,7 @@ begin
     impure function describe return string is
       constant cycles : natural := history.cycles;
     begin
+
       return "loaded data "
              & integer'image(get_integer(prop, "data"))
              & ", setup cycles "
@@ -214,9 +240,11 @@ begin
              & ", first divergence "
              & first_divergence;
     end function;
+
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       skipped := 0;
       prop := new_fork_property;
 
@@ -224,6 +252,7 @@ begin
         -- docs-start: tready-fork
         -- Generic check, no expected value: one cycle of TREADY must not change TVALID
         while next_example(prop) loop
+
           run_experiment;
           if not precondition_holds then
             skipped := skipped + 1;
@@ -236,6 +265,7 @@ begin
             report_example(prop, passed => passed, msg => describe);
           end if;
         end loop;
+
       -- docs-end: tready-fork
 
       elsif run("test_known_pending") then
@@ -243,6 +273,7 @@ begin
         -- Strong check: the testbench knows a word is pending, so TVALID must rise one
         -- cycle after the load on both copies, whatever TREADY does
         while next_example(prop) loop
+
           run_experiment;
           if not precondition_holds then
             skipped := skipped + 1;
@@ -251,12 +282,14 @@ begin
             check_stimulus;
             passed := true;
             for cycle in get_integer(prop, "idle") + 2 to history.cycles - 1 loop
+
               passed := passed
                         and history.tvalid_a(cycle) = '1'
                         and history.tvalid_b(cycle) = '1'
                         and history.tdata_a(cycle) = get_integer(prop, "data")
                         and history.tdata_b(cycle) = get_integer(prop, "data");
             end loop;
+
             check_equal(history.load_ready_a(get_integer(prop, "idle")), '1', "The load is taken");
             report_example(prop, passed => passed, msg => describe);
           end if;
@@ -268,6 +301,7 @@ begin
       check_equal(skipped, 0, "The strategy draws only causally clean experiments");
       check_property(prop);
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 

@@ -217,6 +217,13 @@ rule:
   whitespace_011:
     disable: true
 
+  # ---------------------------------------------------------------------------------------------
+  # awesome-vunit-vcs addition (the rest of this file is the vhdl-skills house style)
+  # ---------------------------------------------------------------------------------------------
+  reserved_001:      # VHDL-2019 reserved words as names. The package is VHDL-2008 and follows
+    disable: true    # VUnit's API, whose bus masters take `variable reference : inout ...`;
+                     # renaming `reference` or the `limit` accessor would break named association
+
 # `use` clauses are not indented under their `library` clause.
 indent:
   tokens:

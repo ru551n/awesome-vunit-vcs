@@ -22,19 +22,30 @@ entity tb_property_interleaving is
 end entity;
 
 architecture tb of tb_property_interleaving is
-  signal clk, rst, request_a, request_b, grant_a, grant_b : std_ulogic := '0';
+
+  signal clk : std_ulogic := '0';
+  signal rst : std_ulogic := '0';
+  signal request_a : std_ulogic := '0';
+  signal request_b : std_ulogic := '0';
+  signal grant_a : std_ulogic := '0';
+  signal grant_b : std_ulogic := '0';
+
 begin
 
   clk <= not clk after 5 ns;
 
   main : process
+
     variable prop : property_t;
     variable num_events : natural;
-    variable passed, held_a, held_b : boolean;
+    variable passed : boolean;
+    variable held_a : boolean;
+    variable held_b : boolean;
 
     -- The path of a field of event idx, "events(2).cycle"
     impure function event (idx : natural; name : string) return string is
     begin
+
       return "events(" & integer'image(idx) & ")." & name;
     end function;
 
@@ -44,8 +55,11 @@ begin
       variable result : line;
       variable first : boolean := true;
     begin
+
       for cycle in 0 to 7 loop
+
         for idx in 0 to num_events - 1 loop
+
           if get_integer(prop, event(idx, "cycle")) = cycle then
             if not first then
               write(result, string'(", "));
@@ -62,7 +76,9 @@ begin
             );
           end if;
         end loop;
+
       end loop;
+
       if result = null then
         return "";
       end if;
@@ -72,7 +88,9 @@ begin
     -- Apply cycle's events: a request goes high on "request", low on "cancel" or "release"
     procedure apply(cycle : natural)is
     begin
+
       for idx in 0 to num_events - 1 loop
+
         if get_integer(prop, event(idx, "cycle")) = cycle then
           if get_string(prop, event(idx, "actor")) = "A" then
             request_a <= '1' when get_string(prop, event(idx, "action")) = "request" else
@@ -83,11 +101,13 @@ begin
           end if;
         end if;
       end loop;
+
     end procedure;
 
     -- Fail the example, once, with the schedule and the failing cycle in the message
     procedure verify(ok : boolean; cycle : natural; text : string)is
     begin
+
       if passed and not ok then
         passed := false;
         report_example(
@@ -97,9 +117,11 @@ begin
         );
       end if;
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_interleaving") then
         -- docs-start: interleaving
         -- Requests, cancels and releases on overlapping cycles never violate mutual
@@ -112,6 +134,7 @@ begin
           search_path => tb_path(runner_cfg) & "python"
         );
         while next_example(prop) loop
+
           rst <= '1';
           request_a <= '0';
           request_b <= '0';
@@ -122,6 +145,7 @@ begin
           passed := true;
           num_events := get_length(prop, "events");
           for cycle in 0 to 7 loop
+
             apply(cycle);
             wait until rising_edge(clk);
             wait for 1 ns;
@@ -150,14 +174,17 @@ begin
             held_b := grant_b = '1';
             exit when not passed;
           end loop;
+
           if passed then
             report_example(prop, passed => true);
           end if;
         end loop;
+
         check_property(prop);
         -- docs-end: interleaving
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 

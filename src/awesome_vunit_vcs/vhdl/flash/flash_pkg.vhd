@@ -40,6 +40,7 @@ use work.vc_python_pkg.arg_text;
 use work.vc_python_pkg.kwarg_time;
 
 package flash_pkg is
+
   ---------------------------------------------------------------------------
   -- Handle
   ---------------------------------------------------------------------------
@@ -644,6 +645,7 @@ package body flash_pkg is
       p_unexpected_msg_type_policy => unexpected_msg_type_policy
     );
   begin
+
     if id = null_id then
       result.p_id := enumerate(get_id("flash", parent => get_id("awesome_vunit_vcs")));
     end if;
@@ -663,46 +665,55 @@ package body flash_pkg is
 
   impure function get_id (flash : flash_t) return id_t is
   begin
+
     return flash.p_id;
   end function;
 
   impure function get_logger (flash : flash_t) return logger_t is
   begin
+
     return flash.p_logger;
   end function;
 
   impure function get_actor (flash : flash_t) return actor_t is
   begin
+
     return flash.p_actor;
   end function;
 
   impure function get_checker (flash : flash_t) return checker_t is
   begin
+
     return flash.p_checker;
   end function;
 
   impure function as_sync (flash : flash_t) return sync_handle_t is
   begin
+
     return flash.p_actor;
   end function;
 
   function protocol_checker (flash : flash_t) return qspi_protocol_checker_t is
   begin
+
     return flash.p_protocol_checker;
   end function;
 
   function output_delay_clqv (flash : flash_t) return delay_length is
   begin
+
     return flash.p_t_clqv;
   end function;
 
   function output_delay_shqz (flash : flash_t) return delay_length is
   begin
+
     return flash.p_t_shqz;
   end function;
 
   procedure unexpected_msg_type(msg_type : msg_type_t; flash : flash_t)is
   begin
+
     if is_already_handled(msg_type) or flash.p_unexpected_msg_type_policy = ignore then
       null;
     else
@@ -721,10 +732,12 @@ package body flash_pkg is
       when four_only =>
         return 4;
     end case;
+
   end function;
 
   impure function backend_arguments (flash : flash_t) return arg_t is
   begin
+
     return arg_text(full_name(get_id(flash)))
            & kwarg("size_bytes", flash.p_size_bytes)
            & kwarg("page_bytes", flash.p_page_bytes)
@@ -754,6 +767,7 @@ package body flash_pkg is
   -- width bits of a non-negative integer, starting at shift
   function extract_field (packed : integer; shift : natural; width : natural) return natural is
   begin
+
     return (packed / (2 ** shift)) mod (2 ** width);
   end function;
 
@@ -763,6 +777,7 @@ package body flash_pkg is
     constant flags : natural := extract_field(packed, dir_flags_shift, dir_flags_width);
     constant num_bytes : natural := extract_field(packed, dir_num_bytes_shift, dir_num_bytes_width);
   begin
+
     assert packed >= 0 and packed <= dir_packed_max
       report "flash_pkg.decode_directive: packed directive "
              & integer'image(packed)
@@ -803,6 +818,7 @@ package body flash_pkg is
     -- and the caller keeps data. The component deallocates the copy.
     variable owned : integer_array_t := copy(data);
   begin
+
     push(msg, address);
     push_integer_array_t_ref(msg, owned);
     send(net, get_actor(flash), msg);
@@ -819,6 +835,7 @@ package body flash_pkg is
     variable bytes : integer_array_t :=
       new_1d(length => num_bytes, bit_width => 8, is_signed => false);
   begin
+
     assert data'length mod 8 = 0
       report procedure_name
              & ": vector length "
@@ -827,6 +844,7 @@ package body flash_pkg is
       severity failure;
 
     for idx in 0 to num_bytes - 1 loop
+
       set(bytes, idx, to_integer(unsigned(bits(8 * idx to 8 * idx + 7))));
     end loop;
 
@@ -841,6 +859,7 @@ package body flash_pkg is
   )is
     variable bytes : integer_array_t := to_byte_array(data, "flash_preload");
   begin
+
     flash_preload(net, flash, address, bytes);
     deallocate(bytes);
   end procedure;
@@ -854,6 +873,7 @@ package body flash_pkg is
   )is
     variable msg : msg_t := new_msg(fill_flash_content_msg);
   begin
+
     push(msg, address);
     push(msg, num_bytes);
     push(msg, value);
@@ -869,6 +889,7 @@ package body flash_pkg is
   )is
     variable msg : msg_t := new_msg(load_flash_image_msg);
   begin
+
     push_string(msg, file_name);
     push_string(msg, format);
     push(msg, base_address);
@@ -883,6 +904,7 @@ package body flash_pkg is
     variable reference : inout flash_reference_t
   )is
   begin
+
     reference := new_msg(read_flash_content_msg);
     push(reference, address);
     push(reference, num_bytes);
@@ -896,6 +918,7 @@ package body flash_pkg is
   )is
     variable reply_msg : msg_t;
   begin
+
     receive_reply(net, reference, reply_msg);
     data := pop_integer_array_t_ref(reply_msg);
     delete(reference);
@@ -911,6 +934,7 @@ package body flash_pkg is
   )is
     variable reference : flash_reference_t;
   begin
+
     flash_read_back(net, flash, address, num_bytes, reference);
     await_flash_read_back_reply(net, reference, data);
   end procedure;
@@ -925,6 +949,7 @@ package body flash_pkg is
     -- A copy, as in flash_preload
     variable owned : integer_array_t := copy(expected);
   begin
+
     push(msg, address);
     push_integer_array_t_ref(msg, owned);
     send(net, get_actor(flash), msg);
@@ -938,6 +963,7 @@ package body flash_pkg is
   )is
     variable bytes : integer_array_t := to_byte_array(expected, "flash_check_content");
   begin
+
     flash_check_content(net, flash, address, bytes);
     deallocate(bytes);
   end procedure;
@@ -951,6 +977,7 @@ package body flash_pkg is
   )is
     variable msg : msg_t := new_msg(check_flash_content_fill_msg);
   begin
+
     push(msg, address);
     push(msg, num_bytes);
     push(msg, value);
@@ -963,6 +990,7 @@ package body flash_pkg is
     variable reference : inout flash_reference_t
   )is
   begin
+
     reference := new_msg(get_flash_written_regions_msg);
     send(net, get_actor(flash), reference);
   end procedure;
@@ -974,6 +1002,7 @@ package body flash_pkg is
   )is
     variable reply_msg : msg_t;
   begin
+
     receive_reply(net, reference, reply_msg);
     regions := pop_integer_array_t_ref(reply_msg);
     delete(reference);
@@ -987,6 +1016,7 @@ package body flash_pkg is
   )is
     variable reference : flash_reference_t;
   begin
+
     flash_get_written_regions(net, flash, reference);
     await_flash_get_written_regions_reply(net, reference, regions);
   end procedure;
@@ -998,6 +1028,7 @@ package body flash_pkg is
   )is
     variable msg : msg_t := new_msg(set_flash_timing_enable_msg);
   begin
+
     push(msg, enable);
     send(net, get_actor(flash), msg);
   end procedure;
@@ -1010,6 +1041,7 @@ package body flash_pkg is
   )is
     variable msg : msg_t := new_msg(set_flash_timing_msg);
   begin
+
     push_string(msg, name);
     push_time(msg, duration);
     send(net, get_actor(flash), msg);
@@ -1024,6 +1056,7 @@ package body flash_pkg is
   )is
     variable msg : msg_t := new_msg(set_flash_protection_msg);
   begin
+
     push(msg, address);
     push(msg, num_bytes);
     push(msg, locked);
@@ -1038,6 +1071,7 @@ package body flash_pkg is
     variable request_msg : msg_t := new_msg(wait_until_flash_ready_msg);
     variable reply_msg : msg_t;
   begin
+
     -- A timeout is a check failure of com
     request(net, get_actor(flash), request_msg, reply_msg, timeout => timeout);
     delete(reply_msg);
@@ -1051,6 +1085,7 @@ package body flash_pkg is
     variable request_msg : msg_t := new_msg(reset_flash_msg);
     variable reply_msg : msg_t;
   begin
+
     push(request_msg, clear_statistics);
     -- Blocking, so the first stimulus of a test cannot race the reset
     request(net, get_actor(flash), request_msg, reply_msg);
@@ -1064,6 +1099,7 @@ package body flash_pkg is
     variable reference : inout flash_reference_t
   )is
   begin
+
     reference := new_msg(get_flash_stat_msg);
     push_string(reference, name);
     send(net, get_actor(flash), reference);
@@ -1076,6 +1112,7 @@ package body flash_pkg is
   )is
     variable reply_msg : msg_t;
   begin
+
     receive_reply(net, reference, reply_msg);
     value := pop_integer(reply_msg);
     delete(reference);
@@ -1090,6 +1127,7 @@ package body flash_pkg is
   )is
     variable reference : flash_reference_t;
   begin
+
     flash_get_stat(net, flash, name, reference);
     await_flash_get_stat_reply(net, reference, value);
   end procedure;
@@ -1097,6 +1135,7 @@ package body flash_pkg is
   -- Whether the flash has a protocol checker, after a check failure when not
   impure function has_protocol_checker (flash : flash_t) return boolean is
   begin
+
     if flash.p_protocol_checker = null_qspi_protocol_checker then
       check_failed(flash.p_checker, full_name(flash.p_id) & " has no protocol checker");
       return false;
@@ -1111,6 +1150,7 @@ package body flash_pkg is
     enabled : boolean := true
   )is
   begin
+
     if has_protocol_checker(flash) then
       set_check_enabled(net, flash.p_protocol_checker, check, enabled);
     end if;
@@ -1123,6 +1163,7 @@ package body flash_pkg is
     variable count : out natural
   )is
   begin
+
     if has_protocol_checker(flash) then
       get_check_count(net, flash.p_protocol_checker, check, count);
     else
@@ -1137,6 +1178,7 @@ package body flash_pkg is
     variable reference : inout qspi_protocol_checker_reference_t
   )is
   begin
+
     reference := null_msg;
     if has_protocol_checker(flash) then
       get_check_count(net, flash.p_protocol_checker, check, reference);

@@ -22,18 +22,25 @@ entity tb_property_lockup is
 end entity;
 
 architecture tb of tb_property_lockup is
+
   -- docs-start: sink-signals
-  signal clk, rst, valid, ready : std_ulogic := '0';
+  signal clk : std_ulogic := '0';
+  signal rst : std_ulogic := '0';
+  signal valid : std_ulogic := '0';
+  signal ready : std_ulogic := '0';
   signal data : std_ulogic_vector(7 downto 0) := (others => '0');
+
 -- docs-end: sink-signals
 begin
 
   clk <= not clk after 5 ns;
 
   main : process
+
     -- docs-start: property-variables
     variable prop : property_t;
     variable timed_out : boolean;
+
   -- docs-end: property-variables
   begin
     test_runner_setup(runner, runner_cfg);
@@ -45,8 +52,10 @@ begin
       search_path => tb_path(runner_cfg) & "python"
     );
     while next_example(prop) loop
+
       timed_out := false;
       for idx in 0 to get_length(prop) - 1 loop
+
         data <= std_ulogic_vector(
           to_unsigned(get_integer(prop, "(" & integer'image(idx) & ")"), 8)
         );
@@ -56,6 +65,7 @@ begin
         timed_out := ready /= '1';
         exit when timed_out;
       end loop;
+
       rst <= '1';
       wait until rising_edge(clk);
       rst <= '0';
@@ -67,6 +77,7 @@ begin
         recovered => ready = '1'
       );
     end loop;
+
     check_equal(get_outcome(prop), "failed");
     check_equal(get_counterexample(prop), "[255, 0]");
     -- docs-end: lockup

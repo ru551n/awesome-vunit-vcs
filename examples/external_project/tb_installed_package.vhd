@@ -21,18 +21,21 @@ entity tb_installed_package is
 end entity;
 
 architecture tb of tb_installed_package is
+
 begin
 
   main : process
+
     constant session : python_session_t := new_vc_session(get_id("tb_installed_package:backend"));
+
   begin
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
+
       if run("test_installed_python_backend_is_importable") then
         create_backend(session, "awesome_vunit_vcs.common.reports", "ReportQueue");
         check_equal(backend_call_integer(session, "__len__"), 0);
-
 
       elsif run("test_typed_arguments_round_trip") then
         create_backend(session, "builtins", "list", arg(integer_vector'(1, -2, 3)));

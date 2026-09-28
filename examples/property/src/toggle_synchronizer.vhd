@@ -30,9 +30,13 @@ entity toggle_synchronizer is
 end entity;
 
 architecture a of toggle_synchronizer is
+
   signal src_toggle : std_ulogic := '0';
   signal fed : std_ulogic;
-  signal dst_sync_0, dst_sync_1, dst_sync_2 : std_ulogic := '0';
+  signal dst_sync_0 : std_ulogic := '0';
+  signal dst_sync_1 : std_ulogic := '0';
+  signal dst_sync_2 : std_ulogic := '0';
+
 begin
 
   -- Source domain: the event pulse toggles a flag

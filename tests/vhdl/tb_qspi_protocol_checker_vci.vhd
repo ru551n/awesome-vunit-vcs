@@ -20,6 +20,7 @@ entity tb_qspi_protocol_checker_vci is
 end entity;
 
 architecture tb of tb_qspi_protocol_checker_vci is
+
   -- The first protocol checker with a default id of this architecture
   constant default_checker : qspi_protocol_checker_t := new_qspi_protocol_checker;
   signal default_m2s : qspi_m2s_t := qspi_m2s_init;
@@ -75,6 +76,7 @@ architecture tb of tb_qspi_protocol_checker_vci is
   constant after_adoption_checker : qspi_protocol_checker_t := new_qspi_protocol_checker;
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown qspi_protocol_checker message");
+
 begin
 
   default_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
@@ -105,6 +107,7 @@ begin
     );
 
   main : process
+
     variable reference : qspi_protocol_checker_reference_t;
     variable count : natural;
     variable reference_count : natural;
@@ -118,6 +121,7 @@ begin
     )is
       variable request_msg : msg_t;
     begin
+
       mock(logger, error);
       request_msg := new_msg(unknown_msg_type);
       send(net, actor, request_msg);
@@ -138,7 +142,9 @@ begin
     -- each checker
     procedure deselect_too_briefly is
     begin
+
       for idx in 1 to 2 loop
+
         default_m2s.cs_n <= '0';
         custom_m2s.cs_n <= '0';
         wait for 10 ns;
@@ -146,12 +152,15 @@ begin
         custom_m2s.cs_n <= '1';
         wait for 10 ns;
       end loop;
+
       wait for 50 ns;
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
+
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_checker))) >= 1, "the default id is enumerated");
         check_equal(
@@ -263,11 +272,13 @@ begin
         disable_stop(get_logger(default_checker), error);
         deselect_too_briefly;
         for rule in qspi_check_t loop
+
           get_check_count(net, default_checker, rule, count);
           get_check_count(net, default_checker, rule, reference);
           await_get_check_count_reply(net, reference, reference_count);
           check_equal(reference_count, count, "count of " & qspi_check_t'image(rule));
         end loop;
+
         get_check_count(net, default_checker, qspi_cs_deselect, count);
         check_equal(count, 1, "blocking qspi_cs_deselect count");
         reset_log_count(get_logger(default_checker), error);

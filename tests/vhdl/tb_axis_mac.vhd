@@ -20,7 +20,7 @@ library python_bridge;
 context python_bridge.python_context;
 
 library osvvm;
-use osvvm.RandomPkg.RandomPType;
+use osvvm.randompkg.randomptype;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
@@ -35,6 +35,7 @@ entity tb_axis_mac is
 end entity;
 
 architecture tb of tb_axis_mac is
+
   constant clk_period : time := 8 ns;
   signal clk : std_ulogic := '0';
 
@@ -57,11 +58,14 @@ architecture tb of tb_axis_mac is
   );
 
   type axis_mac_monitor_vec_t is array (natural range <>) of axis_mac_monitor_t;
+
   constant monitors : axis_mac_monitor_vec_t := (monitor, second_monitor);
 
   signal tdata : std_ulogic_vector(data_length(source) - 1 downto 0);
   signal tkeep : std_ulogic_vector(keep_length(source) - 1 downto 0);
-  signal tvalid, tready, tlast : std_ulogic;
+  signal tvalid : std_ulogic;
+  signal tready : std_ulogic;
+  signal tlast : std_ulogic;
   signal tuser : std_ulogic_vector(0 downto 0);
 
   -- A bus without FCS
@@ -84,18 +88,23 @@ architecture tb of tb_axis_mac is
   signal manual_tkeep : std_ulogic_vector(3 downto 0) := (others => '0');
   signal manual_tvalid, manual_tlast : std_ulogic := '0';
   signal manual_tready : std_ulogic := '1';
+
 begin
 
   clk <= not clk after clk_period / 2;
 
   main : process
-    variable rnd : RandomPType;
-    variable count, total, expected_count : natural;
+
+    variable rnd : randomptype;
+    variable count : natural;
+    variable total : natural;
+    variable expected_count : natural;
     variable statistics : ethernet_statistics_t;
 
     constant traffic_function : string := "awesome_vunit_vcs.ethernet.traffic:random_traffic";
     impure function traffic_arguments return arg_t is
     begin
+
       return kwarg("count", 40)
              & kwarg("malformations", "bad_fcs,runt,giant,phy_error")
              & kwarg("malformed_fraction", 0.3)
@@ -106,40 +115,51 @@ begin
     impure function frame_data (octets : positive; seed : natural := 0) return std_ulogic_vector is
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
+
       for idx in 0 to octets - 1 loop
+
         result(8 * idx to 8 * idx + 7) := std_ulogic_vector(
           to_unsigned((7 * idx + seed) mod 256, 8)
         );
       end loop;
+
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
     end function;
 
     procedure wait_until_idle is
     begin
+
       wait_until_idle(net, as_sync(source));
       wait_until_idle(net, as_sync(no_fcs_source));
       for idx in monitors'range loop
+
         wait_until_idle(net, as_sync(monitors(idx)));
         wait_until_idle(net, as_sync(get_protocol_checker(monitors(idx))));
       end loop;
+
       wait_until_idle(net, as_sync(no_fcs_monitor));
       wait_until_idle(net, as_sync(manual_checker));
     end procedure;
 
     procedure push_checked_frame(frame : std_ulogic_vector)is
     begin
+
       for idx in monitors'range loop
+
         check_ethernet_frame(net, monitors(idx), frame, blocking => false);
       end loop;
+
       push_ethernet_frame(net, source, frame);
     end procedure;
 
     procedure check_violations(check : ethernet_check_t; expected : natural)is
       variable violations : natural;
     begin
+
       wait_until_idle;
       for idx in monitors'range loop
+
         get_check_count(net, monitors(idx), check, violations);
         check_equal(
           violations,
@@ -153,6 +173,7 @@ begin
         );
         reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
       end loop;
+
     end procedure;
 
     -- One clock of the manually driven bus
@@ -163,6 +184,7 @@ begin
       ready : std_ulogic := '1'
     )is
     begin
+
       manual_tdata <= data;
       manual_tkeep <= keep;
       manual_tvalid <= valid;
@@ -173,6 +195,7 @@ begin
 
     procedure check_manual_violations(check : ethernet_check_t; expected : natural)is
     begin
+
       drive_manual(x"00000000", "0000", '0', '0');
       wait_until_idle;
       get_check_count(net, manual_checker, check, count);
@@ -184,6 +207,7 @@ begin
       );
       reset_log_count(get_logger(manual_checker), error);
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
@@ -191,18 +215,23 @@ begin
     call("sys.path.insert", arg(0), arg(tb_path(runner_cfg) & "python"));
 
     for idx in monitors'range loop
+
       disable_stop(get_logger(get_protocol_checker(monitors(idx))), error);
     end loop;
+
     disable_stop(get_logger(manual_checker), error);
     -- The manual frames are short and have no FCS; only the AXI-Stream rules are checked
     set_check_enabled(net, manual_checker, eth_fcs, false);
     set_check_enabled(net, manual_checker, eth_runt, false);
 
     while test_suite loop
+
       if run("test_frames_of_many_lengths") then
         for octets in 60 to 60 + 2 * bytes_per_beat loop
+
           push_checked_frame(frame_data(octets, seed => octets));
         end loop;
+
         push_checked_frame(frame_data(1514));
         check_violations(eth_keep, 0);
         get_statistics(net, monitor, statistics);
@@ -231,8 +260,10 @@ begin
 
       elsif run("test_randomized_traffic_with_backpressure") then
         for idx in 1 to 30 loop
+
           push_checked_frame(frame_data(rnd.RandInt(60, 600), seed => idx));
         end loop;
+
         check_violations(eth_stable, 0);
         get_statistics(net, monitor, statistics);
         check_equal(statistics.good_frames, 30, "Seed " & get_string_seed(runner_cfg));
@@ -281,15 +312,19 @@ begin
         push_ethernet_frame(net, source, frame_data(1500));
         wait until rising_edge(clk) and tvalid = '1' and tready = '1';
         for idx in 1 to 20 loop
+
           wait until rising_edge(clk);
         end loop;
+
         -- The source abandons the frame, then the monitors forget it
         reset(net, source);
         reset(net, sink);
         for idx in monitors'range loop
+
           reset(net, monitors(idx));
           reset(net, get_protocol_checker(monitors(idx)));
         end loop;
+
         wait_until_idle;
 
         push_checked_frame(frame_data(60));
@@ -301,6 +336,7 @@ begin
 
       elsif run("test_malformed_sequence_matches_the_oracle") then
         for idx in monitors'range loop
+
           check_ethernet_sequence(
             net,
             monitors(idx),
@@ -309,6 +345,7 @@ begin
             seed => get_string_seed(runner_cfg)
           );
         end loop;
+
         push_ethernet_sequence(
           net,
           source,
@@ -318,8 +355,10 @@ begin
         );
         wait_until_idle;
         for idx in monitors'range loop
+
           total := 0;
           for check_id in eth_preamble to eth_valid loop
+
             get_check_count(net, monitors(idx), check_id, count);
             expected_count := call_integer_w_arg(
               "vc.expected_violation_count",
@@ -337,6 +376,7 @@ begin
             );
             total := total + count;
           end loop;
+
           check(
             total > 0,
             "The sequence has malformed frames, seed " & get_string_seed(runner_cfg)

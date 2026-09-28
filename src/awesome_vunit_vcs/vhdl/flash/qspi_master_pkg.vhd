@@ -54,6 +54,7 @@ use work.qspi_pkg.all;
 use work.qspi_protocol_checker_pkg.all;
 
 package qspi_master_pkg is
+
   ---------------------------------------------------------------------------
   -- Handle
   ---------------------------------------------------------------------------
@@ -350,6 +351,7 @@ package body qspi_master_pkg is
       p_unexpected_msg_type_policy => unexpected_msg_type_policy
     );
   begin
+
     if id = null_id then
       result.p_id := enumerate(get_id("qspi_master", parent => get_id("awesome_vunit_vcs")));
     end if;
@@ -369,46 +371,55 @@ package body qspi_master_pkg is
 
   impure function get_id (qspi_master : qspi_master_t) return id_t is
   begin
+
     return qspi_master.p_id;
   end function;
 
   impure function get_actor (qspi_master : qspi_master_t) return actor_t is
   begin
+
     return qspi_master.p_actor;
   end function;
 
   impure function get_logger (qspi_master : qspi_master_t) return logger_t is
   begin
+
     return qspi_master.p_logger;
   end function;
 
   impure function get_checker (qspi_master : qspi_master_t) return checker_t is
   begin
+
     return qspi_master.p_checker;
   end function;
 
   impure function as_sync (qspi_master : qspi_master_t) return sync_handle_t is
   begin
+
     return qspi_master.p_actor;
   end function;
 
   function sck_period (qspi_master : qspi_master_t) return delay_length is
   begin
+
     return qspi_master.p_sck_period;
   end function;
 
   function cs_deselect_time (qspi_master : qspi_master_t) return delay_length is
   begin
+
     return qspi_master.p_cs_deselect_time;
   end function;
 
   function protocol_checker (qspi_master : qspi_master_t) return qspi_protocol_checker_t is
   begin
+
     return qspi_master.p_protocol_checker;
   end function;
 
   procedure unexpected_msg_type(msg_type : msg_type_t; qspi_master : qspi_master_t)is
   begin
+
     if is_already_handled(msg_type) or qspi_master.p_unexpected_msg_type_policy = ignore then
       null;
     else
@@ -420,9 +431,12 @@ package body qspi_master_pkg is
     variable result : integer_array_t :=
       new_1d(length => values'length, bit_width => 8, is_signed => false);
   begin
+
     for idx in 0 to values'length - 1 loop
+
       set(result, idx, values(values'low + idx));
     end loop;
+
     return result;
   end function;
 
@@ -433,6 +447,7 @@ package body qspi_master_pkg is
   procedure push_byte_phase(msg : msg_t; bytes : integer_array_t; lanes : lane_count_t)is
     variable count : natural := 0;
   begin
+
     if not is_null(bytes) then
       count := length(bytes);
     end if;
@@ -440,8 +455,10 @@ package body qspi_master_pkg is
     push_integer(msg, count);
     push_integer(msg, lanes);
     for index in 0 to count - 1 loop
+
       push_integer(msg, get(bytes, index));
     end loop;
+
   end procedure;
 
   procedure qspi_transfer(
@@ -460,6 +477,7 @@ package body qspi_master_pkg is
   )is
     alias request_msg : msg_t is reference;
   begin
+
     request_msg := new_msg(transfer_qspi_master_data_msg);
 
     push_byte_phase(request_msg, cmd, cmd_lanes);
@@ -480,6 +498,7 @@ package body qspi_master_pkg is
     alias request_msg : msg_t is reference;
     variable reply_msg : msg_t;
   begin
+
     receive_reply(net, request_msg, reply_msg);
 
     if not is_null(data) then
@@ -497,6 +516,7 @@ package body qspi_master_pkg is
   )is
     variable data : integer_array_t := null_integer_array;
   begin
+
     await_qspi_transfer_reply(net, reference, data);
     deallocate(data);
   end procedure;
@@ -517,6 +537,7 @@ package body qspi_master_pkg is
   )is
     variable reference : qspi_transfer_reference_t;
   begin
+
     qspi_transfer(
       net => net,
       qspi_master => qspi_master,
@@ -547,6 +568,7 @@ package body qspi_master_pkg is
   )is
     variable reference : qspi_transfer_reference_t;
   begin
+
     qspi_transfer(
       net => net,
       qspi_master => qspi_master,
@@ -570,6 +592,7 @@ package body qspi_master_pkg is
     variable request_msg : msg_t := new_msg(set_qspi_master_sck_period_msg);
     variable reply_msg : msg_t;
   begin
+
     push_time(request_msg, period);
     request(net, get_actor(qspi_master), request_msg, reply_msg);
     delete(reply_msg);
@@ -579,6 +602,7 @@ package body qspi_master_pkg is
     variable request_msg : msg_t := new_msg(reset_qspi_master_msg);
     variable reply_msg : msg_t;
   begin
+
     request(net, get_actor(qspi_master), request_msg, reply_msg);
     delete(reply_msg);
   end procedure;
@@ -586,6 +610,7 @@ package body qspi_master_pkg is
   -- Whether the master has a protocol checker, after a check failure when not
   impure function has_protocol_checker (qspi_master : qspi_master_t) return boolean is
   begin
+
     if qspi_master.p_protocol_checker = null_qspi_protocol_checker then
       check_failed(qspi_master.p_checker, full_name(qspi_master.p_id) & " has no protocol checker");
       return false;
@@ -600,6 +625,7 @@ package body qspi_master_pkg is
     enabled : boolean := true
   )is
   begin
+
     if has_protocol_checker(qspi_master) then
       set_check_enabled(net, qspi_master.p_protocol_checker, check, enabled);
     end if;
@@ -612,6 +638,7 @@ package body qspi_master_pkg is
     variable count : out natural
   )is
   begin
+
     if has_protocol_checker(qspi_master) then
       get_check_count(net, qspi_master.p_protocol_checker, check, count);
     else
@@ -626,6 +653,7 @@ package body qspi_master_pkg is
     variable reference : inout qspi_protocol_checker_reference_t
   )is
   begin
+
     reference := null_msg;
     if has_protocol_checker(qspi_master) then
       get_check_count(net, qspi_master.p_protocol_checker, check, reference);

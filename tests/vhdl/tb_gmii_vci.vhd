@@ -34,6 +34,7 @@ entity tb_gmii_vci is
 end entity;
 
 architecture tb of tb_gmii_vci is
+
   constant clk_period : time := 8 ns;
   signal clk_running : boolean := true;
   signal clk : std_ulogic := '0';
@@ -43,7 +44,10 @@ architecture tb of tb_gmii_vci is
   signal dv, er : std_ulogic;
   -- The lines of the other sources, observed by nobody
   signal second_data, ignoring_data : std_ulogic_vector(7 downto 0);
-  signal second_dv, second_er, ignoring_dv, ignoring_er : std_ulogic;
+  signal second_dv : std_ulogic;
+  signal second_er : std_ulogic;
+  signal ignoring_dv : std_ulogic;
+  signal ignoring_er : std_ulogic;
 
   constant source : gmii_source_t := new_gmii_source;
   constant second_source : gmii_source_t := new_gmii_source;
@@ -64,6 +68,7 @@ architecture tb of tb_gmii_vci is
     new_gmii_protocol_checker(unexpected_msg_type_policy => ignore);
 
   type gmii_protocol_checker_vec_t is array (natural range <>) of gmii_protocol_checker_t;
+
   -- Every protocol checker observing the line
   constant protocol_checkers : gmii_protocol_checker_vec_t := (
     get_protocol_checker(monitor),
@@ -74,12 +79,14 @@ architecture tb of tb_gmii_vci is
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown msg");
   constant subscriber : actor_t := new_actor("tb_gmii_vci:subscriber");
+
 begin
 
   clk <= not clk after clk_period / 2 when clk_running else
          clk;
 
   main : process
+
     variable msg : msg_t;
     variable reference : ethernet_reference_t;
     variable stream_reference : stream_reference_t;
@@ -102,25 +109,32 @@ begin
     impure function frame_data (octets : positive) return std_ulogic_vector is
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
+
       for idx in 0 to octets - 1 loop
+
         result(8 * idx to 8 * idx + 7) := std_ulogic_vector(to_unsigned(idx mod 256, 8));
       end loop;
+
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
     end function;
 
     procedure wait_until_idle is
     begin
+
       wait_until_idle(net, as_sync(source));
       wait_until_idle(net, as_sync(monitor));
       wait_until_idle(net, as_sync(default_monitor));
       for idx in protocol_checkers'range loop
+
         wait_until_idle(net, as_sync(protocol_checkers(idx)));
       end loop;
+
     end procedure;
 
     impure function starts_with (value, prefix : string) return boolean is
     begin
+
       return value'length >= prefix'length
              and value(value'left to value'left + prefix'length - 1) = prefix;
     end function;
@@ -133,6 +147,7 @@ begin
       vc_name : string
     )is
     begin
+
       check(
         starts_with(full_name(id), "awesome_vunit_vcs:" & vc_name & ":"),
         "Default id of " & vc_name & ": " & full_name(id)
@@ -149,6 +164,7 @@ begin
     )is
       variable request_msg : msg_t;
     begin
+
       mock(logger, error);
       request_msg := new_msg(unknown_msg_type);
       send(net, actor, request_msg);
@@ -163,15 +179,18 @@ begin
 
     procedure check_wait_for_time(actor : actor_t)is
     begin
+
       start := now;
       wait_for_time(net, actor, 37 * clk_period);
       wait_until_idle(net, actor);
       check_equal(now - start, 37 * clk_period, "wait_for_time of " & name(actor));
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
+
       if run("test_default_ids_are_enumerated_under_the_vc_name") then
         check_default_identity(
           get_id(source),
@@ -383,6 +402,7 @@ begin
         -- A pop pending before the frame arrives
         pop_stream(net, as_stream(default_monitor), stream_reference);
         for idx in 0 to 59 loop
+
           push_stream(
             net,
             as_stream(source),
@@ -390,10 +410,12 @@ begin
             last => idx = 59
           );
         end loop;
+
         await_pop_stream_reply(net, stream_reference, octet, last);
         check_equal(octet, frame_data(60)(0 to 7));
         check_false(last);
         for idx in 1 to 59 loop
+
           pop_stream(net, as_stream(default_monitor), octet, last);
           check_equal(octet, frame_data(60)(8 * idx to 8 * idx + 7), "Octet " & to_string(idx));
           check_equal(last, idx = 59, "last of octet " & to_string(idx));
@@ -412,8 +434,10 @@ begin
 
       elsif run("test_push_stream_without_last") then
         for idx in 0 to 2 loop
+
           push_stream(net, as_stream(source), x"55");
         end loop;
+
         mock(get_logger(source), error);
         wait_until_idle(net, as_sync(source));
         check_only_log(
@@ -479,6 +503,7 @@ begin
         push_ethernet_frame(net, source, frame_data(1500));
         wait until rising_edge(clk) and dv = '1';
         for idx in 1 to 100 loop
+
           wait until rising_edge(clk);
         end loop;
 
@@ -486,6 +511,7 @@ begin
         reset(net, monitor);
         reset(net, default_monitor);
         for idx in protocol_checkers'range loop
+
           reset(net, protocol_checkers(idx));
         end loop;
 
@@ -504,6 +530,7 @@ begin
         check_equal(statistics.good_frames, 1);
         check_equal(statistics.total_frames, 1);
         for idx in protocol_checkers'range loop
+
           check_equal(
             get_log_count(get_logger(protocol_checkers(idx)), error),
             0,
@@ -513,10 +540,12 @@ begin
 
       elsif run("test_reset_keeps_statistics_and_counts") then
         for idx in protocol_checkers'range loop
+
           if idx /= 1 then
             set_check_enabled(net, protocol_checkers(idx), eth_fcs, false);
           end if;
         end loop;
+
         disable_stop(get_logger(protocol_checker), error);
         push_ethernet_frame(net, source, frame_data(60), frame_options(fcs => fcs_bad));
         push_ethernet_frame(net, source, frame_data(60));

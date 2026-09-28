@@ -32,6 +32,7 @@ entity gmii_source is
 end entity;
 
 architecture a of gmii_source is
+
 begin
 
   main : process

@@ -30,6 +30,7 @@ entity xgmii_source is
 end entity;
 
 architecture a of xgmii_source is
+
 begin
 
   main : process

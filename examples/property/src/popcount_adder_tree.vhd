@@ -21,11 +21,15 @@ entity popcount_adder_tree is
 end entity;
 
 architecture a of popcount_adder_tree is
+
   signal counted : std_ulogic_vector(15 downto 0);
   type stage1_t is array (0 to 3) of unsigned(2 downto 0);
+
   signal stage1 : stage1_t;
   type stage2_t is array (0 to 1) of unsigned(3 downto 0);
+
   signal stage2 : stage2_t;
+
 begin
 
   counted <= data_in when not inject_bug else

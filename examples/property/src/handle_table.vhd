@@ -31,16 +31,21 @@ entity handle_table is
 end entity;
 
 architecture a of handle_table is
+
   type data_t is array (0 to 3) of std_ulogic_vector(7 downto 0);
+
   signal data : data_t := (others => (others => '0'));
   signal live : std_ulogic_vector(3 downto 0) := (others => '0');
+
 begin
 
   read_data <= data(to_integer(unsigned(handle)));
 
   main : process(clk)
+
     variable idx : natural range 0 to 4;
     variable slot_free : boolean;
+
   begin
     if rising_edge(clk) then
       if rst = '1' then
@@ -50,11 +55,13 @@ begin
       elsif allocate = '1' then
         idx := 4;
         for slot in 0 to 3 loop
+
           slot_free := live(slot) = '0';
           if slot_free and idx = 4 then
             idx := slot;
           end if;
         end loop;
+
         if idx = 4 then
           allocated <= '0';
         else
@@ -67,6 +74,7 @@ begin
         idx := to_integer(unsigned(handle));
         if inject_bug then
           for slot in 0 to 3 loop
+
             if live(slot) = '1' then
               idx := slot;
               exit;

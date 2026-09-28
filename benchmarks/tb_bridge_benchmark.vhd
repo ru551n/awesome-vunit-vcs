@@ -39,6 +39,7 @@ entity tb_bridge_benchmark is
 end entity;
 
 architecture tb of tb_bridge_benchmark is
+
   constant clk_period : time := 8 ns;
 
   signal clk : std_ulogic := '0';
@@ -47,6 +48,7 @@ architecture tb of tb_bridge_benchmark is
 
   impure function protocol_checker return gmii_protocol_checker_t is
   begin
+
     if with_protocol_checker then
       return default_gmii_protocol_checker;
     end if;
@@ -59,25 +61,31 @@ architecture tb of tb_bridge_benchmark is
     flush_at_frame_end => flush_at_frame_end,
     protocol_checker => protocol_checker
   );
+
 begin
 
   clk <= not clk after clk_period / 2;
 
   main : process
+
     constant timer : python_session_t := new_session("tb_bridge_benchmark:timer");
     variable frame : std_ulogic_vector(0 to 8 * frame_octets - 1);
     variable frames : natural;
+
   begin
     test_runner_setup(runner, runner_cfg);
 
     for idx in 0 to frame_octets - 1 loop
+
       frame(8 * idx to 8 * idx + 7) := std_ulogic_vector(to_unsigned(idx mod 256, 8));
     end loop;
 
     exec("import time" & LF & "start = time.perf_counter()", timer);
     for idx in 1 to num_frames loop
+
       push_ethernet_frame(net, source, frame);
     end loop;
+
     wait_until_idle(net, as_sync(source));
     if with_monitor then
       wait_until_idle(net, as_sync(monitor));
@@ -125,6 +133,7 @@ begin
         dv => dv,
         er => er
       );
+
   end generate;
 
 end architecture;

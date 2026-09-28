@@ -23,6 +23,7 @@ entity tb_property_bits is
 end entity;
 
 architecture tb of tb_property_bits is
+
   signal data_in : std_ulogic_vector(15 downto 0) := (others => '0');
   signal count_loop, count_tree : std_ulogic_vector(4 downto 0);
   signal opcode_in, opcode_out : std_ulogic_vector(3 downto 0) := (others => '0');
@@ -30,15 +31,18 @@ architecture tb of tb_property_bits is
   signal address_in, address_out : std_ulogic_vector(5 downto 0) := (others => '0');
   signal value_in, value_out : std_ulogic_vector(4 downto 0) := (others => '0');
   signal packed : std_ulogic_vector(15 downto 0);
+
 begin
 
   main : process
+
     variable prop : property_t;
     variable passed : boolean;
 
     -- A property from a strategy in python/bits_strategies.py, following VUnit's seed
     impure function new_example (strategy : string) return property_t is
     begin
+
       return new_property(
         "bits_strategies:" & strategy,
         seed => get_seed(runner_cfg),
@@ -46,9 +50,11 @@ begin
         search_path => tb_path(runner_cfg) & "python"
       );
     end function;
+
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_differential_popcount") then
         -- docs-start: differential_popcount
         -- Two independently written popcount implementations must agree, with no
@@ -56,6 +62,7 @@ begin
         -- MSB; Hypothesis finds and shrinks a minimal failing pattern.
         prop := new_example("differential_popcount");
         while next_example(prop) loop
+
           data_in <= get_unsigned(prop, "", 16);
           wait for 1 ns;
           report_example(
@@ -64,6 +71,7 @@ begin
             msg => "data_in=" & integer'image(to_integer(unsigned(data_in)))
           );
         end loop;
+
         check_property(prop);
       -- docs-end: differential_popcount
 
@@ -75,6 +83,7 @@ begin
         -- failure to a minimal record showing it.
         prop := new_example("roundtrip_pack");
         while next_example(prop) loop
+
           opcode_in <= std_ulogic_vector(to_unsigned(get_integer(prop, "opcode"), 4));
           flag_in <= '1' when get_integer(prop, "flag") = 1 else
                      '0';
@@ -107,10 +116,12 @@ begin
               & to_hstring(value_out)
           );
         end loop;
+
         check_property(prop);
       -- docs-end: roundtrip_pack
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 

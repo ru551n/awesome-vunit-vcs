@@ -34,6 +34,7 @@ entity rmii_monitor is
 end entity;
 
 architecture a of rmii_monitor is
+
 begin
 
   main : process
@@ -52,6 +53,7 @@ begin
         dv => dv,
         er => er
       );
+
   end generate;
 
 end architecture;

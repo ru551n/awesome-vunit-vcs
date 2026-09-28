@@ -43,6 +43,7 @@ use work.qspi_pkg.all;
 use work.qspi_master_pkg.all;
 
 package qspi_flash_cmd_pkg is
+
   ---------------------------------------------------------------------------
   -- Opcodes
   ---------------------------------------------------------------------------
@@ -71,6 +72,8 @@ package qspi_flash_cmd_pkg is
 
   -- Status registers 1, 2 and 3 have one opcode each, indexed by number.
   subtype qspi_flash_status_index_t is positive range 1 to 3;
+
+  -- Read and write status register opcodes, indexed by qspi_flash_status_index_t.
   constant qspi_flash_op_read_status : integer_vector(1 to 3) := (16#05#, 16#35#, 16#15#);
   constant qspi_flash_op_write_status : integer_vector(1 to 3) := (16#01#, 16#31#, 16#11#);
 
@@ -303,6 +306,7 @@ package body qspi_flash_cmd_pkg is
   impure function qspi_flash_opcode_bytes (opcode : natural) return integer_array_t is
     variable result : integer_array_t;
   begin
+
     result := new_1d(length => 1, bit_width => 8, is_signed => false);
     set(result, 0, opcode);
 
@@ -318,8 +322,10 @@ package body qspi_flash_cmd_pkg is
     variable result : integer_array_t;
     variable byte : natural;
   begin
+
     result := new_1d(length => num_bytes, bit_width => 8, is_signed => false);
     for index in 0 to num_bytes - 1 loop
+
       -- Most significant byte first.
       byte := to_integer(
         addr_value(8 * (num_bytes - index) - 1 downto 8 * (num_bytes - index - 1))
@@ -338,6 +344,7 @@ package body qspi_flash_cmd_pkg is
   ) return integer_array_t is
     variable result : integer_array_t;
   begin
+
     result := qspi_flash_address_bytes(addr, num_bytes);
     append(result, mode_byte);
 
@@ -362,6 +369,7 @@ package body qspi_flash_cmd_pkg is
   )is
     variable cmd : integer_array_t := qspi_flash_opcode_bytes(opcode);
   begin
+
     qspi_transfer(
       net => net,
       qspi_master => qspi_master,
@@ -389,6 +397,7 @@ package body qspi_flash_cmd_pkg is
   )is
     variable rd_data : integer_array_t := null_integer_array;
   begin
+
     run_command(
       net => net,
       qspi_master => qspi_master,
@@ -416,6 +425,7 @@ package body qspi_flash_cmd_pkg is
     data_lanes : lane_count_t := 1
   )is
   begin
+
     run_command(
       net => net,
       qspi_master => qspi_master,
@@ -444,6 +454,7 @@ package body qspi_flash_cmd_pkg is
   )is
     variable address : integer_array_t := qspi_flash_address_bytes(addr, addr_bytes);
   begin
+
     run_command(
       net => net,
       qspi_master => qspi_master,
@@ -475,6 +486,7 @@ package body qspi_flash_cmd_pkg is
   )is
     variable address : integer_array_t := qspi_flash_address_bytes(addr, addr_bytes);
   begin
+
     run_command(
       net => net,
       qspi_master => qspi_master,
@@ -505,6 +517,7 @@ package body qspi_flash_cmd_pkg is
   )is
     variable address : integer_array_t := qspi_flash_address_bytes(addr, addr_bytes);
   begin
+
     run_command(
       net => net,
       qspi_master => qspi_master,
@@ -537,6 +550,7 @@ package body qspi_flash_cmd_pkg is
   )is
     variable address : integer_array_t;
   begin
+
     if send_mode_byte then
       address := address_and_mode_bytes(addr, addr_bytes, mode_byte);
     else
@@ -567,6 +581,7 @@ package body qspi_flash_cmd_pkg is
     opcode_lanes : lane_count_t := 1
   )is
   begin
+
     run_opcode_only(net, qspi_master, qspi_flash_op_write_enable, opcode_lanes);
   end procedure;
 
@@ -584,6 +599,7 @@ package body qspi_flash_cmd_pkg is
     variable address : integer_array_t := qspi_flash_address_bytes(addr, addr_bytes);
     variable rd_data : integer_array_t := null_integer_array;
   begin
+
     run_command(
       net => net,
       qspi_master => qspi_master,
@@ -618,14 +634,17 @@ package body qspi_flash_cmd_pkg is
     variable bytes : integer_array_t :=
       new_1d(length => data'length / 8, bit_width => 8, is_signed => false);
   begin
+
     assert data'length mod 8 = 0
       report "qspi_flash_page_program: vector length "
              & integer'image(data'length)
              & " is not a whole number of bytes"
       severity failure;
     for idx in 0 to data'length / 8 - 1 loop
+
       set(bytes, idx, to_integer(unsigned(bits(8 * idx to 8 * idx + 7))));
     end loop;
+
     qspi_flash_page_program(
       net,
       qspi_master,
@@ -652,6 +671,7 @@ package body qspi_flash_cmd_pkg is
     variable address : integer_array_t := qspi_flash_address_bytes(addr, addr_bytes);
     variable rd_data : integer_array_t := null_integer_array;
   begin
+
     run_command(
       net => net,
       qspi_master => qspi_master,
@@ -680,6 +700,7 @@ package body qspi_flash_cmd_pkg is
     addr_lanes : lane_count_t := 1
   )is
   begin
+
     run_erase(
       net => net,
       qspi_master => qspi_master,
@@ -701,6 +722,7 @@ package body qspi_flash_cmd_pkg is
     addr_lanes : lane_count_t := 1
   )is
   begin
+
     run_erase(
       net => net,
       qspi_master => qspi_master,
@@ -718,6 +740,7 @@ package body qspi_flash_cmd_pkg is
     opcode_lanes : lane_count_t := 1
   )is
   begin
+
     run_opcode_only(net, qspi_master, qspi_flash_op_chip_erase, opcode_lanes);
   end procedure;
 
@@ -731,6 +754,7 @@ package body qspi_flash_cmd_pkg is
   )is
     variable data : integer_array_t := null_integer_array;
   begin
+
     run_command(
       net => net,
       qspi_master => qspi_master,
@@ -761,6 +785,7 @@ package body qspi_flash_cmd_pkg is
     variable wr_data : integer_array_t := new_1d(length => 1, bit_width => 8, is_signed => false);
     variable rd_data : integer_array_t := null_integer_array;
   begin
+
     set(wr_data, 0, value);
 
     run_command(
@@ -788,6 +813,7 @@ package body qspi_flash_cmd_pkg is
     opcode_lanes : lane_count_t := 1
   )is
   begin
+
     run_opcode_only(net, qspi_master, qspi_flash_op_enter_4byte, opcode_lanes);
   end procedure;
 
@@ -797,6 +823,7 @@ package body qspi_flash_cmd_pkg is
     opcode_lanes : lane_count_t := 1
   )is
   begin
+
     run_opcode_only(net, qspi_master, qspi_flash_op_exit_4byte, opcode_lanes);
   end procedure;
 
@@ -806,6 +833,7 @@ package body qspi_flash_cmd_pkg is
     opcode_lanes : lane_count_t := 1
   )is
   begin
+
     run_opcode_only(net, qspi_master, qspi_flash_op_enter_qpi, opcode_lanes);
   end procedure;
 
@@ -815,6 +843,7 @@ package body qspi_flash_cmd_pkg is
     opcode_lanes : lane_count_t := 4
   )is
   begin
+
     run_opcode_only(net, qspi_master, qspi_flash_op_exit_qpi, opcode_lanes);
   end procedure;
 

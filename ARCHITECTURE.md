@@ -17,6 +17,9 @@ the models follow. User documentation lives at <https://awesome-vunit-vcs.readth
 - [What belongs where, per interface](#what-belongs-where-per-interface)
 - [Active sources and responders](#active-sources-and-responders)
   - [The flash responder](#the-flash-responder)
+  - [The I2C family](#the-i2c-family)
+  - [The AXI4 family](#the-axi4-family)
+  - [The AXI4 read and write slaves](#the-axi4-read-and-write-slaves)
 - [Design decisions](#design-decisions)
 - [Performance](#performance)
 - [Known limitations](#known-limitations)
@@ -218,6 +221,143 @@ is a deadline, `now < deadline`, evaluated whenever it is read. The opcode table
 `flash_pkg` has the same table written by hand and compares `flash_layout_version` with
 `LAYOUT_VERSION` from the backend at time 0; a difference is a failure on the logger of the flash.
 
+### The I2C family
+
+I2C is the family where the split is at its sharpest: the four entities in `vhdl/i2c` know how to
+drive a line open drain and when to sample it, and nothing else. `awesome_vunit_vcs.i2c` decides what
+every edge means.
+
+```text
+VHDL (vhdl/i2c)                                  Python (awesome_vunit_vcs.i2c)
+------------------------------------             -----------------------------------------------
+i2c_monitor, i2c_protocol_checker                I2cMonitorBackend, I2cProtocolCheckerBackend
+  record a sample at every SCL/SDA change  ---->   BusDecoder: START, STOP, bits, metavalues
+  flush at a potential STOP and messages           TransferAssembler -> I2cTransfer, statistics
+  a sample of its own after t_stuck                I2cProtocolChecker: timing and bit checks
+i2c_master                                       I2cMasterBackend
+  receive a com message                    ---->   compile_transfer / compile_ops -> operations
+  clock the operations bit by bit          <----   one word per START, byte, bit group, STOP
+  results: ACK/NACK, bytes, lost, timeout  ---->   Program.result -> status, data, reports
+i2c_target                                       I2cTargetBackend
+  START / 8 bits in / ACK bit sampled      ---->   I2cTarget: address, 10-bit, general call,
+  drive ACK, stretch, shift a byte out     <----     NACK injection, PEC, stretch; device model
+```
+
+Lines are `std_logic` ports driven `'0'` or `'Z'`; the testbench pulls them up with `'H'` and every
+component reads them with `to_x01`. This is the one family whose ports are resolved, because several
+components drive the same wire.
+
+**Samples.** The monitor and the protocol checker record the word `scl | sda << 1 | meta_scl << 2 |
+meta_sda << 3` on every change of either line, event driven rather than per clock (I2C has no clock
+the testbench owns). They flush when SDA rises while SCL is high, which is where a STOP ends a
+transaction, and before handling a message. A line stuck low has no edges, so the protocol checker
+wakes up after `t_stuck` without a change and records the unchanged word; Python then sees the time
+and reports `I2C_STUCK_LOW` once per low period. When SCL and SDA change in the same sample, the
+decoder puts the SDA change in the low phase of SCL, so a simultaneous change is never a START or STOP.
+
+**The master** asks its backend for an operation list, one call per transfer, and returns one result
+per operation in a second call. An operation word is `value | kind << 8 | flag << 11 | bits << 12`
+(`kind` START, write, read, STOP or bit group; `flag` is "ACK this read" or "end with the STOP on a
+NACK"). The results are 0/1 for the acknowledge bit of a write, the byte of a read, -1 for an
+operation not executed, -2 for a lost arbitration and -3 for SCL held low longer than the stretch
+timeout. The timing comes from `master_timing` once, at time 0. Clock synchronization is the
+`wait until scl = '0' for t_high` of the high phase; arbitration is a 1 written that reads back as 0.
+A small process follows START and STOP so a START waits for a free bus and tBUF.
+
+**The target** calls its backend at a START, after the 8th bit of a byte it receives, after the
+acknowledge bit of a byte it transmitted, and at a STOP. Each call returns `[action, ack, byte_out,
+stretch_ps, num_reports]` as an `integer_array_t`, so no packed layout needs a version handshake. The
+main process, which serves the messages of the testbench, waits one delta cycle after receiving a
+message, so a STOP in the same time step reaches the model before a memory check that follows it.
+
+### The AXI4 family
+
+The AXI4 monitor and protocol checker are passive, so they follow the sample batch path of the Ethernet
+monitors rather than the responder path above; they sit here next to I2C because the split is the same:
+the VHDL knows when to sample and nothing else.
+
+```text
+VHDL (vhdl/axi4)                                 Python (awesome_vunit_vcs.axi4)
+------------------------------------             -----------------------------------------------
+axi4_monitor, axi4_protocol_checker              Axi4MonitorBackend, Axi4ProtocolCheckerBackend
+  at every rising ACLK edge:                       SampleDecoder: records -> Axi4Sample, control
+    control record: ARESETn or period changed      TransactionTracker: per-ID transactions,
+    per channel with VALID 1, a VALID change,        W before AW, beat addresses and byte lanes
+      or a metavalue on VALID/READY:        ---->  Axi4Monitor -> Axi4Transaction, scoreboards
+      header word + payload words                  Axi4PerformanceMonitor: counts, latencies
+  flush: batch full, messages, end of a            Axi4ProtocolChecker: channel rules, address
+    transaction with subscribers/pops,               rules, WLAST/RLAST/WSTRB, timeouts
+    tick every timeout_cycles (checker)
+  log the reports                           <----  reports
+```
+
+**Records.** A record is a header word (channel, VALID, READY, metavalue bits for VALID, READY and the
+payload, ARESETn and its metavalue bit) followed by the fields of the channel packed 32 bits to a word,
+first field in the least significant bits. A wide payload is several words with the same time (delta 0),
+as `vunit_bridge.py` documents for multi-lane samples: a 32-bit W beat is 3 words (header, then data,
+WSTRB, WLAST, WUSER and the lane metavalue mask in 41 bits), a 1024-bit one 42. The data channels carry
+one metavalue bit per byte lane, so Python can tell a metavalue on a lane that carries data from one on
+an unused lane, which the protocol allows; the data bits themselves are sent with metavalues as 0.
+Control records carry a change of ARESETn, a change of the clock period (measured by VHDL between rising
+edges, one payload word in ps), or a tick. Idle cycles, with VALID 0 on every channel, record nothing:
+their time is implied by the next record. A cycle with VALID falling is recorded, which is what
+`AXI4_VALID_DROP` needs; a cycle with VALID high and READY low is recorded, which is what
+`AXI4_STABLE`, `AXI4_TIMEOUT` and the backpressure statistics need.
+
+**Batches.** The monitor flushes when 4096 words are waiting, before it handles a message, and at a B
+handshake or a last R beat only while it has subscribers or pending pops, so publishing and pops are
+timely without costing a bridge call per transaction otherwise. VHDL may split a record across two
+batches; the decoder keeps the unfinished words. The protocol checker also records a tick and flushes
+every `timeout_cycles` clock cycles: a transaction that never completes produces no records, so without
+the tick it would only be reported at `test_runner_cleanup`, which a watchdog may never reach.
+
+**Transactions.** `TransactionTracker` keeps writes waiting for data in AW order, W beats that came
+before their AW in a buffer, writes waiting for B per ID, and reads per ID. W beats belong to the oldest
+write without all its data (AXI4 has no WID); B and R belong to the oldest transaction of their ID. The
+burst length, not WLAST or RLAST, ends a transaction, so a wrong LAST is one violation and does not
+desynchronize everything after it. The tracker is shared by the monitor and the checker, which each run
+their own copy on their own records.
+
+### The AXI4 read and write slaves
+
+The slaves are responders, but unlike the flash they know a whole burst at its address handshake: the
+address, length, size and type fix which bytes every beat moves. So the bridge is called per burst, not
+per beat, and the per-beat work in VHDL is copying lanes.
+
+```text
+VHDL (vhdl/axi4)                                 Python (awesome_vunit_vcs.axi4)
+------------------------------------             -----------------------------------------------
+axi4_memory_t: a session of its own              Axi4MemoryBackend (vc of the memory session)
+  backdoor procedures ------------------------->   MemoryModel: data, permissions, expected
+                                                     values (4 SparseMemory stores), buffers
+axi4_read_slave (attached as a port)               Axi4Slave per port: burst lanes, permissions,
+  AR handshake: read_burst ------------------->      expected data, responses, statistics
+    <---- [reports, index, RRESP + lanes per beat]
+  drives R beats, stalls, latency, FIFO
+axi4_write_slave (attached as a port)
+  AW handshake: accept_write ----------------->    checks, statistics, burst queued per port
+  W beats collected in an integer_array_t
+  before BVALID: write_burst(lanes) ---------->    permissions, expected data, commit
+    <---- [reports, BRESP]
+```
+
+**One memory, many slaves.** Python sessions are namespaces of one interpreter, but a backend can only
+be reached through the session of its VC, and there is no registry of backends (no global state). So the
+memory has the session and the backend, and a slave attaches to it as a port: `attach` returns an index
+that every later call passes. Each port has its own report queue, fetched with `take_reports(port)`, so
+a slave's failures go to its own checker and the testbench's backdoor failures to the memory's. The
+backend is created on first use rather than in `new_axi4_memory`, because Python must not run while the
+design elaborates (GHDL cannot call a foreign function from a constant's initial value).
+
+**What stays in VHDL.** The handshakes, the address and write response FIFOs, the stall draws (with
+`ieee.math_real.uniform`, seeded by the handle's `seed`, one stream per process), the latency draws,
+WLAST checking and VUnit's well behaved check, which needs every cycle's VALID and READY. None of them
+needs Python, and a per-cycle random draw in Python would cost a bridge call per cycle.
+
+**Order of checks.** A read burst is checked and read at its AR handshake, so its data is the memory at
+that time. A write burst is accepted (counted, checked for 4 KB, burst type, width) at its AW handshake
+and checked and written in one call right before BVALID, as VUnit writes right before the response.
+
 ## Design decisions
 
 Investigated on 2026-09-14 against VUnit `feature/package-setup-hooks` (1ecac00),
@@ -287,7 +427,9 @@ instantiates when its handle has one. The line is sampled twice when both are us
 VUnit's `memory_t` is dense: every byte of the address space is allocated, with per-byte permissions
 and expectations. The flash content lives in Python as a sparse array with NOR semantics (programming
 only clears bits, erasing sets `0xFF`) and region protection, so a 16 MiB part filled with a pattern
-costs a few objects. A `memory_t` view would duplicate that state and would have to follow every
+costs a few objects. The sparse store itself (`common/sparse_memory.py`: materialized pages plus
+constant-value runs, O(1) fills) was extracted from `FlashArray` when the AXI4 slaves needed a RAM;
+`FlashArray` keeps program, erase and the written regions as a layer on top. A `memory_t` view would duplicate that state and would have to follow every
 program and erase. The preload, read-back and check procedures of the flash are its memory access API.
 
 ### One bridge call per byte for a responder
@@ -354,6 +496,98 @@ A monitor records every clock with `tvalid` high, not only handshakes, so the de
 Frames start at the destination address: `MonitorConfig.has_preamble` turns off the preamble, SFD and
 gap handling of the Python core.
 
+### I2C: semantics in Python, a frontend in VHDL
+
+A controller or target written in VHDL would need its own state machine for START, repeated START,
+10-bit addressing, general call, acknowledge polling, PEC and malformed traffic, and a second copy of
+the same knowledge in the monitor and the checker. With the semantics in Python the four entities are
+edge engines, the transfer decoding and the checks are unit tested against hand-drawn waveforms, and
+a user's device model is a Python class. The price is a bridge call per byte in the target, which I2C
+can afford: a byte takes at least 9 µs at 1 MHz.
+
+### I2C master: an operation list instead of a call per byte
+
+The master knows the whole transfer before it starts, so Python compiles it once and VHDL runs it.
+The only decision that depends on the bus, stopping after a NACK, is a flag on the write operation
+rather than a bridge call per byte. `i2c_transfer` exposes the operation list as text (`"S 0xA0 B101
+P"`) so tests can send what `compile_transfer` never would.
+
+### I2C checks named and counted in Python
+
+The protocol checker has no VHDL timing code: every limit is a field of `BusLimits`, taken from the
+characteristics table of UM10204 per speed mode, and a violation is a report with the check ID,
+measured value, limit and time. `I2cCheckId` and `i2c_check_t` list the same checks, which
+`tests/python/test_docs.py` enforces. `I2C_SCOREBOARD` belongs to the monitor, and the monitor reports
+`I2C_METAVALUE` itself only when it has no protocol checker, so a metavalue is reported once.
+
+### I2C timing: what "0" means
+
+A time of 0 in a constructor means "the value of the speed mode", so tests change only what they
+need. A check that should not run is switched off with `set_check_enabled`, not given a limit of 0;
+the one exception is `t_hd_dat`, whose specification minimum is 0.
+
+### AXI4: records in VHDL, everything else in Python
+
+The request was a thin VHDL frontend with the difficult logic in Python, and the AXI4 rules are exactly
+the kind of logic that is easy to get wrong in VHDL: the address and byte lanes of every beat of FIXED,
+INCR and WRAP bursts, narrow and unaligned, per-ID matching with write data that may come first,
+exclusive access rules, latency percentiles. In Python each of them is a small function unit tested
+against hand-computed values from the formulas of the specification (`tests/python/test_axi4_core.py`),
+and the VHDL is two entities that share one recording procedure per channel.
+
+### AXI4: a record per channel with VALID, not a word per cycle
+
+Recording every cycle would make an idle interface as expensive as a busy one; recording only
+handshakes would lose stalls, dropped VALIDs and payload changes during a stall. Recording a channel when
+VALID is 1 or changed gives the checker everything it needs with the cost proportional to traffic, and
+the time of the idle cycles in between is implied. The clock period travels as a control record so that
+cycle counts (latencies, utilization, timeouts) need no configuration.
+
+### AXI4: checks that are not in the list
+
+`AXI4_ORDER` (same-ID response ordering) and `AXI4_WDATA_INTERLEAVE` were considered and left out: on
+the pins of AXI4 neither can be observed. Responses with the same ID are indistinguishable, so they are
+matched to the oldest transaction of their ID by definition, and without WID write data can only be
+attributed in AW order. A slave that answers same-ID transactions out of order, or a master that
+interleaves write data, shows up as `AXI4_RLAST`, `AXI4_WLAST` or `AXI4_WSTRB` violations or as shadow
+memory differences. AXI4-Lite needs no check of its own: its interface has no length, size, burst, lock
+or ID signals, which the decoder forces to their AXI4-Lite values, and an EXOKAY response is an
+`AXI4_EXCL` violation since a Lite access is never exclusive. Data widths other than 32 and 64 bits are
+rejected by `new_axi4_bus` for AXI4-Lite.
+
+### AXI4: the shadow memory takes writes at B and allows overlap
+
+A write takes effect at its B handshake, only for the bytes WSTRB selects, and only when it succeeded
+(OKAY for a normal write, EXOKAY for an exclusive one; a failed exclusive write leaves memory unchanged).
+A read may return, per byte, the value at its AR handshake or any value written while it was
+outstanding, because the specification does not order a read and a write that overlap unless the master
+waits for the response. Bytes never written through the interface are not checked, so a memory
+initialized behind the bus causes no false reports. The memory keeps 16 values per byte for this.
+
+### AXI4 slaves: VUnit's memory features on the sparse store
+
+The slaves' memory has VUnit's `memory_t` API (buffers, permissions, expected data, words, integer
+arrays) so tests port with renames, but its state is four `SparseMemory` stores: content, permission,
+expected value and a has-expected flag. A permission for a gigabyte buffer is one run; checking expected
+data walks only the pages and runs that differ from the default (`SparseMemory.touched`). Unallocated
+bytes take `default_permissions`, so the same memory is a strict VUnit-like memory (`no_access`) or a
+plain RAM for image preload at any 64-bit address (`read_and_write`, the default). Failures are messages
+worded like VUnit's, one per access and rule rather than per byte, reported as check failures instead of
+VUnit's `failure` on the memory logger, so negative tests count them.
+
+### AXI4 slaves: SLVERR for what failed
+
+VUnit's slaves always respond OKAY. These respond SLVERR for a beat or write with a byte the
+permissions forbid and for bursts they do not serve (reserved AxBURST, a beat wider than the bus, an
+illegal WRAP), so a design under test sees the error it would see from a real slave. The check failure
+is reported either way.
+
+### AXI4: the monitor gives its checker its bus
+
+A protocol checker passed to a monitor is instantiated on the monitor's ports, so its widths can only be
+the monitor's. `new_axi4_protocol_checker` therefore takes a bus with a default, and the monitor replaces
+it with its own, as it replaces the id. A standalone checker gets its bus explicitly.
+
 ## Performance
 
 ### Bridge benchmark
@@ -403,6 +637,97 @@ x1 read without a flash, 3.6 s and 3.7 s.
 - **Image-sized content goes through the preload and check procedures.** `flash_preload_fill` and
   `flash_load_image` cost one bridge call regardless of size, `flash_preload` and `flash_check_content`
   one array transfer.
+
+### I2C target and monitor
+
+A master reads 16 × 2048 bytes in Fast-mode Plus (32,768 bytes, 295 ms of simulated time), from an
+empty bus that reads 0xFF, from an `i2c_target` with the `"device"` model, and from that target with an
+`i2c_monitor` on the bus. The cost of the target per byte is (target - empty bus) / 32,768; it
+includes the VHDL process of the target following every edge as well as the bridge call. Wall clock
+time per test, VUnit `-p 1`, two runs each, which agreed to 0.1 s.
+
+Measured on 2026-09-18 with GHDL 7.0.0-dev (6.0.0.r418.g753dfcf0b, mcode backend), NVC 1.23-devel
+(1.22.0.r66.gef5084a94, LLVM 21.1.8) and CPython 3.12 on a Linux workstation.
+
+| Configuration | NVC (s) | GHDL (s) |
+|---|---|---|
+| Empty bus (master only) | 0.7 | 1.6 |
+| Target | 1.45 | 2.85 |
+| Target and monitor | 2.2 | 3.9 |
+| **Target, per byte** | **23 µs** | **38 µs** |
+| **Monitor, per byte** (about 27 samples) | 23 µs | 32 µs |
+
+The per-byte cost of the target is close to the flash responder's (14 to 31 µs), as expected for one
+bridge call per byte. It is 3 to 4 times the 9 µs a byte takes on a 1 MHz bus in simulated time, so
+the bridge never dominates a test that also simulates a design. Rerun it with:
+
+```bash
+VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*i2c*"
+```
+
+### AXI4 monitor and protocol checker
+
+`benchmarks/tb_axi4_benchmark.vhd` drives both sides of an AXI4 interface at full throughput: 5000
+writes and 5000 reads of 16 beats each (160,000 data beats in 170,000 clock cycles), observed by
+nothing, by a monitor, or by a monitor with its protocol checker. A 32-bit data beat is a record of 3
+words; a 512-bit one of 22. The cost per beat is (with - without) / 160,000. Wall clock time per test,
+VUnit `-p 1`, two runs each, which agreed to 0.1 s.
+
+Measured on 2026-09-18 with GHDL 7.0.0-dev (6.0.0.r418.g753dfcf0b, mcode backend), NVC 1.23-devel
+(1.22.0.r66.gef5084a94, LLVM 21.1.8) and CPython 3.12 on a Linux workstation.
+
+| Configuration | NVC (s) | GHDL (s) |
+|---|---|---|
+| 32-bit, nothing observing | 0.1 | 0.45 |
+| 32-bit, monitor | 1.5 | 2.7 |
+| 32-bit, monitor and protocol checker | 2.5 | 4.5 |
+| 512-bit, nothing observing | 0.1 | 0.9 |
+| 512-bit, monitor | 3.1 | 8.35 |
+| **Monitor, per 32-bit beat** | **9 µs** | **14 µs** |
+| Protocol checker, per 32-bit beat | 6 µs | 11 µs |
+| Monitor, per 512-bit beat | 19 µs | 47 µs |
+
+Per recorded word the monitor costs about 3 µs on NVC, several times the 0.5 µs per sample of the GMII
+monitor. The bridge is not what dominates: the batches are the same 4096 words, one call each. The
+difference is the Python work per record (decoding the fields, burst arithmetic, the tracker and the
+statistics) and, on GHDL, the VHDL loop that packs the payload bit by bit, which grows with the data
+width. A monitor on a busy 32-bit interface costs about as much as simulating a small design for the
+same cycles; the protocol checker, which runs its own tracker on its own records, costs two thirds of
+that again. Rerun it with:
+
+```bash
+VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*axi4*"
+```
+
+### AXI4 read and write slaves
+
+`benchmarks/tb_axi4_slave_benchmark.vhd` writes 20,000 bursts at full throughput and reads each back,
+from VUnit's `axi_write_slave` and `axi_read_slave` on a `memory_t` and from `axi4_write_slave` and
+`axi4_read_slave` on an `axi4_memory_t`, with bursts of 1 and 16 beats of 32 bits. A write and a read
+cost three bridge calls (`accept_write`, `write_burst`, `read_burst`). Wall clock time per test, VUnit
+`-p 1`, two runs each, which agreed to 0.2 s.
+
+Measured on 2026-09-18 with GHDL 7.0.0-dev (6.0.0.r418.g753dfcf0b, mcode backend), NVC 1.23-devel
+(1.22.0.r66.gef5084a94, LLVM 21.1.8) and CPython 3.12 on a Linux workstation.
+
+| Configuration | NVC (s) | GHDL (s) |
+|---|---|---|
+| VUnit's slaves, 1 beat | 0.6 | 2.5 |
+| These slaves, 1 beat | 4.3 | 8.3 |
+| VUnit's slaves, 16 beats | 1.3 | (crashes: GHDL stack, `memory_t` of 1.3 MB) |
+| These slaves, 16 beats | 5.75 | 11.8 |
+| **Per write and read, 1 beat** | **185 µs** more | **290 µs** more |
+| Per additional beat | about 1 µs | about 2 µs |
+
+Of the 185 µs on NVC about 75 µs are Python (`Axi4Slave` and the memory, measured with `timeit` without
+a simulator: NumPy calls on arrays of a few elements dominate) and the rest the three bridge calls, about
+35 µs each. The cost is per burst: a 16-beat burst costs little more than a single beat, which is the
+point of fetching and committing whole bursts. With 2000 bursts NVC took 0.8 s instead of 0.2 s. Rerun it
+with:
+
+```bash
+VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*slave_benchmark*"
+```
 
 ## Known limitations
 
@@ -499,7 +824,100 @@ x1 read without a flash, 3.6 s and 3.7 s.
   rules, so the output timing of the device (tCLQV, tSHQZ) and bus contention are not checked.
 - Times in messages are truncated to whole picoseconds.
 
+### I2C master
+
+- It stops driving at the bit where it loses arbitration instead of clocking out the rest of the byte.
+- Operation strings are limited by the simulator's stack for the text sent to Python: about 32,000
+  characters on GHDL (128 KiB `--max-stack-alloc`).
+- `reset` does not abort a transfer in progress; a transfer stuck on SCL ends after `stretch_timeout`.
+- High-speed mode (3.4 MHz), Ultra Fast-mode and SMBus timeouts are not modeled.
+- A write-read with 10-bit addressing repeats only the first address byte after the repeated START,
+  as the specification allows; a target that needs the full address again is not supported.
+
+### I2C target
+
+- One bridge call per byte and per START or STOP (see [I2C target and monitor](#i2c-target-and-monitor)).
+- It stretches SCL only before acknowledge bits, not before transmitting a byte.
+- With PEC, a read sends a fixed number of data bytes (`pec_read_bytes`) before the PEC, since the
+  target cannot know the length of the read; SMBus block reads with a count byte are not modeled.
+- A NACK injected into a byte of a write still hands the byte to the device model.
+- The general call is answered as a plain write to the model; its second byte (software reset,
+  address programming) is not interpreted.
+
+### I2C monitor
+
+- `stretch_time` is an estimate from the bus alone: low periods longer than 1.5 times their median.
+- A START or STOP right after the 8 bits of a byte takes the SCL edge of the condition as the
+  acknowledge bit; the protocol checker reports the byte as `I2C_ACK_SLOT`.
+- It keeps the last 1024 transfers for pops; older ones are dropped.
+- `wait_until_idle` does not wait for the end of a transaction.
+
+### I2C protocol checker
+
+- Only minimum times are checked. Rise and fall times, the data valid times tVD;DAT and tVD;ACK, spike
+  suppression and bus capacitance need analog edges, which the simulated lines do not have.
+- Sample times are rounded down to 1 ps.
+- `I2C_F_SCL` leaves out SCL periods across a START or STOP; tSU;STA and tHD;STA cover them.
+
+### AXI4 monitor
+
+- Latencies, utilization and timeouts count cycles as time / the latest measured clock period, so a
+  stopped or changing clock distorts them.
+- A write takes effect in the shadow memory at its B handshake: a slave that makes write data visible to
+  an overlapping read before the read's AR handshake but sends B after the read completes is reported.
+- The VHDL `axi4_transaction_t` has no USER signals and limits IDs to 31 bits and addresses to 64 bits.
+- It keeps the last 1024 transactions for pops; older ones are dropped.
+- `wait_until_idle` does not wait for outstanding transactions to complete.
+- Without a protocol checker it reports metavalues on VALID, READY, ARESETn and non-data payload fields,
+  but not on data byte lanes, which need the burst of the beat.
+
+### AXI4 protocol checker
+
+- Same-ID ordering and write data interleaving are not observable on AXI4 pins (see the design decision
+  above).
+- Violations are reported when records reach Python: at the latest after `timeout_cycles` cycles, before
+  a message, or when a batch is full. The message has the time of the violation.
+- The exclusive access monitor rules beyond the transaction itself (an exclusive write matching an
+  earlier exclusive read of the same ID) are not checked.
+- Recommendations that are not rules of the specification, such as READY within a fixed number of
+  cycles, are only covered by `timeout_cycles`.
+- AXI3 (WID, 16-beat INCR limit, locked transfers) and the AXI5/ACE extensions are not modeled.
+
+### AXI4 read and write slaves
+
+- A read burst reads the memory at its AR handshake; a write completing between that handshake and the
+  read data is not seen, and permission failures of the whole burst are reported at the handshake.
+- A write burst is checked when its response is given, not beat by beat, and a later beat of a FIXED
+  burst to the same address wins, so only its value is checked against expected data.
+- No exclusive access monitor; AxLOCK, AxCACHE, AxPROT, AxQOS, AxREGION and the USER signals are not
+  ports. AXI3 WID is not supported (AXI3 slaves need in-order write data).
+- Each slave entity needs its own handle; a handle used by two entities is a failure on the logger of the
+  memory when the second attaches.
+- The read slave has no read data interleaving and returns bursts in order, as VUnit's does.
+- Addresses in messages are decimal like VUnit's; `base_address` of a buffer beyond 2 GiB needs
+  `wide_base_address`.
+- About 185 µs of host time per burst on NVC; see [Performance](#axi4-read-and-write-slaves).
+
 ## Specification references
+
+- **I2C:** NXP UM10204, I2C-bus specification and user manual, Rev. 7.0 (2021-10-01): 3.1.4 (START and
+  STOP), 3.1.6 (acknowledge), 3.1.7 and 3.1.8 (clock synchronization and arbitration), 3.1.9 (clock
+  stretching), 3.1.10 and 3.1.11 (7-bit addressing, general call), 3.1.12 (reserved addresses, Table 4),
+  3.1.13 (10-bit addressing), and Table 10 (characteristics of the SDA and SCL bus lines for
+  Standard-mode, Fast-mode and Fast-mode Plus), from which `awesome_vunit_vcs.i2c.timing` takes its
+  limits.
+- **SMBus:** System Management Bus Specification 3.2, 6.4 (Packet Error Checking): CRC-8 with the
+  polynomial x^8 + x^2 + x + 1 over every byte of the transaction, address bytes included. The check
+  value of CRC-8/SMBUS over "123456789" is 0xF4.
+- **AXI4:** AMBA AXI and ACE Protocol Specification, ARM IHI 0022, AXI4 and AXI4-Lite. The chapters
+  on single interface requirements (clock and reset, the handshake process, transaction structure: burst
+  length, size and type, the transfer address and byte lane formulas, write strobes), transaction
+  attributes (AxCACHE), transaction identifiers and ordering, atomic accesses (exclusive access
+  restrictions and the EXOKAY response), and AXI4-Lite. `awesome_vunit_vcs.axi4.burst` implements the
+  address and byte lane formulas as the specification writes them (Start_Address, Aligned_Address,
+  Wrap_Boundary, Lower_Byte_Lane, Upper_Byte_Lane).
+- **24Cxx EEPROMs:** page writes that wrap within the page, a self-timed write cycle started by the STOP,
+  and acknowledge polling, as in the data sheets of the 24C02/24C04/24C16 families.
 
 - **MII:** IEEE 802.3 Clause 22 (nibble order, 2.5/25 MHz clocks); the trailing half octet as alignment
   error follows 4.2.4.2.1.

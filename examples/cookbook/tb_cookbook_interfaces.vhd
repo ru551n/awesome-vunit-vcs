@@ -20,6 +20,7 @@ entity tb_cookbook_interfaces is
 end entity;
 
 architecture tb of tb_cookbook_interfaces is
+
   constant frame : std_ulogic_vector
     := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
 
@@ -86,8 +87,11 @@ architecture tb of tb_cookbook_interfaces is
   signal axis_clk : std_ulogic := '0';
   signal tdata : std_ulogic_vector(data_length(axis_source) - 1 downto 0);
   signal tkeep : std_ulogic_vector(keep_length(axis_source) - 1 downto 0);
-  signal tvalid, tready, tlast : std_ulogic;
+  signal tvalid : std_ulogic;
+  signal tready : std_ulogic;
+  signal tlast : std_ulogic;
   signal tuser : std_ulogic_vector(user_length(axis_source) - 1 downto 0);
+
 -- docs-end: axis-mac-handles
 begin
 
@@ -102,6 +106,7 @@ begin
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_mii") then
         -- docs-start: mii-test
         check_ethernet_frame(net, mii_monitor, frame, blocking => false);
@@ -135,6 +140,7 @@ begin
         wait_until_idle(net, as_sync(axis_monitor));
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 
@@ -143,131 +149,135 @@ begin
   -- docs-start: mii-instances
   mii_source_inst : entity awesome_vunit_vcs.mii_source
     generic map (
-      mii_source
+      source => mii_source
     )
     port map (
-      mii_clk,
-      mii_data,
-      mii_dv,
-      mii_er
+      clk => mii_clk,
+      data => mii_data,
+      dv => mii_dv,
+      er => mii_er
     );
 
   mii_monitor_inst : entity awesome_vunit_vcs.mii_monitor
     generic map (
-      mii_monitor
+      monitor => mii_monitor
     )
     port map (
-      mii_clk,
-      mii_data,
-      mii_dv,
-      mii_er
+      clk => mii_clk,
+      data => mii_data,
+      dv => mii_dv,
+      er => mii_er
     );
+
   -- docs-end: mii-instances
 
   -- docs-start: rgmii-instances
   rgmii_source_inst : entity awesome_vunit_vcs.rgmii_source
     generic map (
-      rgmii_source
+      source => rgmii_source
     )
     port map (
-      rgmii_clk,
-      rgmii_data,
-      rgmii_ctl
+      clk => rgmii_clk,
+      data => rgmii_data,
+      ctl => rgmii_ctl
     );
 
   rgmii_monitor_inst : entity awesome_vunit_vcs.rgmii_monitor
     generic map (
-      rgmii_monitor
+      monitor => rgmii_monitor
     )
     port map (
-      rgmii_clk,
-      rgmii_data,
-      rgmii_ctl
+      clk => rgmii_clk,
+      data => rgmii_data,
+      ctl => rgmii_ctl
     );
+
   -- docs-end: rgmii-instances
 
   -- docs-start: rmii-instances
   rmii_source_inst : entity awesome_vunit_vcs.rmii_source
     generic map (
-      rmii_source
+      source => rmii_source
     )
     port map (
-      rmii_ref_clk,
-      rmii_data,
-      rmii_dv,
-      rmii_er
+      ref_clk => rmii_ref_clk,
+      data => rmii_data,
+      dv => rmii_dv,
+      er => rmii_er
     );
 
   rmii_monitor_inst : entity awesome_vunit_vcs.rmii_monitor
     generic map (
-      rmii_monitor
+      monitor => rmii_monitor
     )
     port map (
-      rmii_ref_clk,
-      rmii_data,
-      rmii_dv,
-      rmii_er
+      ref_clk => rmii_ref_clk,
+      data => rmii_data,
+      dv => rmii_dv,
+      er => rmii_er
     );
+
   -- docs-end: rmii-instances
 
   -- docs-start: xgmii-instances
   xgmii_source_inst : entity awesome_vunit_vcs.xgmii_source
     generic map (
-      xgmii_source
+      source => xgmii_source
     )
     port map (
-      xgmii_clk,
-      xgmii_data,
-      xgmii_ctrl
+      clk => xgmii_clk,
+      data => xgmii_data,
+      ctrl => xgmii_ctrl
     );
 
   xgmii_monitor_inst : entity awesome_vunit_vcs.xgmii_monitor
     generic map (
-      xgmii_monitor
+      monitor => xgmii_monitor
     )
     port map (
-      xgmii_clk,
-      xgmii_data,
-      xgmii_ctrl
+      clk => xgmii_clk,
+      data => xgmii_data,
+      ctrl => xgmii_ctrl
     );
+
   -- docs-end: xgmii-instances
 
   -- docs-start: axis-mac-instances
   axis_source_inst : entity awesome_vunit_vcs.axis_mac_source
     generic map (
-      axis_source
+      source => axis_source
     )
     port map (
-      axis_clk,
-      tdata,
-      tkeep,
-      tvalid,
-      tready,
-      tlast,
-      tuser
+      clk => axis_clk,
+      tdata => tdata,
+      tkeep => tkeep,
+      tvalid => tvalid,
+      tready => tready,
+      tlast => tlast,
+      tuser => tuser
     );
 
   axis_sink_inst : entity awesome_vunit_vcs.axis_mac_sink
     generic map (
-      axis_sink
+      sink => axis_sink
     )
     port map (
-      axis_clk,
-      tready
+      clk => axis_clk,
+      tready => tready
     );
 
   axis_monitor_inst : entity awesome_vunit_vcs.axis_mac_monitor
     generic map (
-      axis_monitor
+      monitor => axis_monitor
     )
     port map (
-      axis_clk,
-      tdata,
-      tkeep,
-      tvalid,
-      tready,
-      tlast,
-      tuser
+      clk => axis_clk,
+      tdata => tdata,
+      tkeep => tkeep,
+      tvalid => tvalid,
+      tready => tready,
+      tlast => tlast,
+      tuser => tuser
     );
 
   -- docs-end: axis-mac-instances

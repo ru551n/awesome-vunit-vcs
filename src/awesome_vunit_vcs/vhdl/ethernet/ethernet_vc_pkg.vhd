@@ -33,6 +33,7 @@ use work.vc_python_pkg.all;
 use work.xgmii_pkg.all;
 
 package ethernet_vc_pkg is
+
   -- The Python session of a VC, see :vhdl:`vc_python_pkg.new_vc_session`
   impure function new_vc_session (vc : ethernet_vc_t) return python_session_t;
 
@@ -195,11 +196,13 @@ package body ethernet_vc_pkg is
 
   impure function new_vc_session (vc : ethernet_vc_t) return python_session_t is
   begin
+
     return new_vc_session(vc.p_id, vc.p_logger);
   end function;
 
   procedure unexpected_msg_type(msg_type : msg_type_t; vc : ethernet_vc_t)is
   begin
+
     if is_already_handled(msg_type) or vc.p_unexpected_msg_type_policy = ignore then
       null;
     else
@@ -211,9 +214,12 @@ package body ethernet_vc_pkg is
     alias octets : std_ulogic_vector(0 to value'length - 1) is value;
     variable result : integer_vector(0 to value'length / 8 - 1);
   begin
+
     for idx in result'range loop
+
       result(idx) := to_integer(to_01(unsigned(octets(8 * idx to 8 * idx + 7))));
     end loop;
+
     return result;
   end function;
 
@@ -221,6 +227,7 @@ package body ethernet_vc_pkg is
   impure function phy_options (vc : ethernet_vc_t) return arg_t is
     constant cfg : ethernet_cfg_t := vc.p_cfg;
   begin
+
     if cfg.p_interface = axis then
       if vc.p_kind = source_vc then
         return kwarg("lanes", cfg.p_lanes)
@@ -243,6 +250,7 @@ package body ethernet_vc_pkg is
   -- cycles of its 50 MHz reference clock, every other interface 1
   function symbol_cycles (vc : ethernet_vc_t) return positive is
   begin
+
     if vc.p_cfg.p_interface = rmii and vc.p_cfg.p_link_rate_mbps = 10 then
       return 10;
     end if;
@@ -252,6 +260,7 @@ package body ethernet_vc_pkg is
   -- A limit of 0 disables it
   function max_limit (value : natural) return natural is
   begin
+
     if value = 0 then
       return integer'high;
     end if;
@@ -295,12 +304,14 @@ package body ethernet_vc_pkg is
           & kwarg("has_fcs", cfg.p_has_fcs)
         );
     end case;
+
   end procedure;
 
   impure function has_subscribers (actor : actor_t) return boolean is
     variable state : actor_state_t := get_actor_state(actor);
     variable result : boolean;
   begin
+
     result := state.subscribers /= null;
     if result then
       result := state.subscribers.all'length > 0;
@@ -345,6 +356,7 @@ package body ethernet_vc_pkg is
 
   procedure init_monitor(vc : ethernet_vc_t; variable state : inout monitor_state_t)is
   begin
+
     state.session := new_vc_session(vc);
     create_backend(vc, state.session);
     state.batch := new_sample_batch(
@@ -373,11 +385,13 @@ package body ethernet_vc_pkg is
 
   impure function pops_pending (state : monitor_state_t) return boolean is
   begin
+
     return state.has_pop_request or not is_empty(state.pop_requests);
   end function;
 
   impure function checks_pending (state : monitor_state_t) return boolean is
   begin
+
     return state.has_check_request or not is_empty(state.check_requests);
   end function;
 
@@ -385,6 +399,7 @@ package body ethernet_vc_pkg is
   procedure update_collecting(vc : ethernet_vc_t; variable state : inout monitor_state_t)is
     variable collecting : boolean := false;
   begin
+
     if vc.p_kind /= monitor_vc then
       return;
     end if;
@@ -411,14 +426,19 @@ package body ethernet_vc_pkg is
     impure function frame_data (first, num_octets : natural) return std_ulogic_vector is
       variable result : std_ulogic_vector(0 to 8 * num_octets - 1);
     begin
+
       for octet in 0 to num_octets - 1 loop
+
         result(8 * octet to 8 * octet + 7) := std_ulogic_vector(
           to_unsigned(get(values, first + octet), 8)
         );
       end loop;
+
       return result;
     end function;
+
   begin
+
     if not state.collecting then
       return;
     end if;
@@ -427,6 +447,7 @@ package body ethernet_vc_pkg is
       subscribed := has_subscribers(vc.p_actor);
     end if;
     while idx < length(values) loop
+
       octets := get(values, idx);
       fcs_ok := get(values, idx + 1) = 1;
       if subscribed then
@@ -445,6 +466,7 @@ package body ethernet_vc_pkg is
       end if;
       idx := idx + 2 + octets;
     end loop;
+
     deallocate(values);
   end procedure;
 
@@ -457,12 +479,18 @@ package body ethernet_vc_pkg is
     procedure load_stream_octets(frame : std_ulogic_vector)is
       constant values : integer_vector := to_octets(frame);
     begin
+
       for octet in values'range loop
+
         set(state.stream_octets, octet, values(octet));
       end loop;
+
     end procedure;
+
   begin
+
     loop
+
       if not state.has_pop_request then
         exit when is_empty(state.pop_requests);
         state.pop_request := pop(state.pop_requests);
@@ -505,6 +533,7 @@ package body ethernet_vc_pkg is
       end if;
       state.has_pop_request := false;
     end loop;
+
   end procedure;
 
   -- Answer the blocking checks of the expected frames the backend has compared
@@ -512,11 +541,13 @@ package body ethernet_vc_pkg is
     variable compared : natural;
     variable reply_msg : msg_t;
   begin
+
     if not checks_pending(state) then
       return;
     end if;
     compared := backend_call_integer(state.session, "compared_count");
     loop
+
       if not state.has_check_request then
         exit when is_empty(state.check_requests);
         state.check_request := pop(state.check_requests);
@@ -528,6 +559,7 @@ package body ethernet_vc_pkg is
       reply(net, state.check_request, reply_msg);
       state.has_check_request := false;
     end loop;
+
   end procedure;
 
   procedure serve_idle_requests(
@@ -537,14 +569,17 @@ package body ethernet_vc_pkg is
   )is
     variable request_msg, reply_msg : msg_t;
   begin
+
     if in_frame or pops_pending(state) or checks_pending(state) then
       return;
     end if;
     while not is_empty(state.idle_requests) loop
+
       request_msg := pop(state.idle_requests);
       reply_msg := new_msg(wait_until_idle_reply_msg);
       reply(net, request_msg, reply_msg);
     end loop;
+
   end procedure;
 
   -- Everything that waits on the backend being up to date
@@ -555,6 +590,7 @@ package body ethernet_vc_pkg is
     in_frame : boolean
   )is
   begin
+
     flush_samples(state.batch);
     take_frames(net, vc, state);
     serve_pops(net, state);
@@ -570,6 +606,7 @@ package body ethernet_vc_pkg is
     variable state : inout monitor_state_t
   )is
   begin
+
     update_collecting(vc, state);
     if vc.p_cfg.p_flush_at_frame_end
        or state.collecting
@@ -589,6 +626,7 @@ package body ethernet_vc_pkg is
   )is
     variable msg : msg_t;
   begin
+
     flush_samples(state.batch);
     if vc.p_kind = monitor_vc then
       if backend_call_integer(state.session, "reset", arg(clear_statistics)) > 0 then
@@ -599,9 +637,11 @@ package body ethernet_vc_pkg is
     end if;
 
     while not is_empty(state.frames) loop
+
       msg := pop(state.frames);
       delete(msg);
     end loop;
+
     if state.stream_length > 0 then
       deallocate(state.stream_octets);
       state.stream_length := 0;
@@ -613,6 +653,7 @@ package body ethernet_vc_pkg is
       state.has_pop_request := false;
     end if;
     while not is_empty(state.pop_requests) loop
+
       msg := pop(state.pop_requests);
       delete(msg);
     end loop;
@@ -624,11 +665,13 @@ package body ethernet_vc_pkg is
       state.has_check_request := false;
     end if;
     while not is_empty(state.check_requests) loop
+
       state.check_request := pop(state.check_requests);
       state.check_number := pop(state.check_numbers);
       msg := new_msg(check_ethernet_frame_reply_msg);
       reply(net, state.check_request, msg);
     end loop;
+
     state.expected_frames := 0;
 
     state.discard_frame := true;
@@ -657,6 +700,7 @@ package body ethernet_vc_pkg is
       constant include_fcs : boolean := pop(request_msg);
       constant include_errored : boolean := pop(request_msg);
     begin
+
       backend_call(
         state.session,
         "start_capture",
@@ -672,6 +716,7 @@ package body ethernet_vc_pkg is
       constant count : natural := pop(request_msg);
       constant seed : string := pop_string(request_msg);
     begin
+
       backend_call(state.session, "set_arguments", arguments);
       state.expected_frames := backend_call_integer(
         state.session,
@@ -685,6 +730,7 @@ package body ethernet_vc_pkg is
       constant text : string := pop_string(request_msg);
       constant blocking : boolean := pop(request_msg);
     begin
+
       state.expected_frames := backend_call_integer(
         state.session,
         "check_mac_octets",
@@ -695,7 +741,9 @@ package body ethernet_vc_pkg is
         push(state.check_numbers, state.expected_frames);
       end if;
     end procedure;
+
   begin
+
     flush_samples(state.batch);
 
     if msg_type = wait_until_idle_msg then
@@ -723,8 +771,10 @@ package body ethernet_vc_pkg is
       values := backend_call_integer_array(state.session, "statistics_values");
       reply_msg := new_msg(get_ethernet_statistics_reply_msg);
       for idx in 0 to length(values) - 1 loop
+
         push(reply_msg, get(values, idx));
       end loop;
+
       deallocate(values);
       reply(net, request_msg, reply_msg);
 
@@ -770,7 +820,6 @@ package body ethernet_vc_pkg is
         backend_call_integer(state.session, "check_count", arg(ethernet_check_t'image(check)))
       );
       reply(net, request_msg, reply_msg);
-
     else
       unexpected_msg_type(msg_type, vc);
     end if;
@@ -784,14 +833,18 @@ package body ethernet_vc_pkg is
   )is
     variable msg : msg_t;
   begin
+
     while now >= state.resume_time and has_message(vc.p_actor) loop
+
       receive(net, vc.p_actor, msg);
       handle_monitor_message(net, vc, state, in_frame, msg);
     end loop;
+
   end procedure;
 
   procedure finish_monitor(vc : ethernet_vc_t; variable state : inout monitor_state_t)is
   begin
+
     flush_samples(state.batch);
     if backend_call_integer(state.session, "finish") > 0 then
       log_reports(state.session, vc.p_logger, vc.p_checker);
@@ -807,6 +860,7 @@ package body ethernet_vc_pkg is
     signal er : in std_ulogic
   )is
     subtype sample_word_t is natural range 0 to 2 ** 12 - 1;
+
     constant valid_bit : sample_word_t := 2 ** 8;
     constant error_bit : sample_word_t := 2 ** 9;
     constant data_metavalue_bit : sample_word_t := 2 ** 10;
@@ -829,6 +883,7 @@ package body ethernet_vc_pkg is
     impure function sample_word return sample_word_t is
       variable result : sample_word_t := to_integer(to_01(unsigned(data)));
     begin
+
       if to_x01(dv) = '1' then
         result := result + valid_bit;
         if is_x(data) then
@@ -846,15 +901,19 @@ package body ethernet_vc_pkg is
 
     function is_valid (sample : sample_word_t) return boolean is
     begin
+
       return sample / valid_bit mod 2 = 1;
     end function;
+
   begin
+
     assert data'length <= 8
       report "At most 8 data bits per symbol"
       severity failure;
     init_monitor(vc, state);
 
     while not finished loop
+
       if state.resume_time > now then
         wait on clk, net, runner for state.resume_time - now;
       else
@@ -917,7 +976,9 @@ package body ethernet_vc_pkg is
     alias ctrl_bits : std_ulogic_vector(lanes - 1 downto 0) is ctrl;
 
     subtype sample_word_t is natural range 0 to 2 ** 12 - 1;
+
     type column_t is array (0 to lanes - 1) of sample_word_t;
+
     constant control_bit : sample_word_t := 2 ** 8;
     constant data_metavalue_bit : sample_word_t := 2 ** 10;
     constant control_metavalue_bit : sample_word_t := 2 ** 11;
@@ -933,7 +994,9 @@ package body ethernet_vc_pkg is
       variable lane_data : std_ulogic_vector(7 downto 0);
       variable result : column_t;
     begin
+
       for lane in result'range loop
+
         lane_data := data_bits(8 * lane + 7 downto 8 * lane);
         result(lane) := to_integer(to_01(unsigned(lane_data)));
         if to_x01(ctrl_bits(lane)) = '1' then
@@ -946,15 +1009,19 @@ package body ethernet_vc_pkg is
           result(lane) := result(lane) + control_metavalue_bit;
         end if;
       end loop;
+
       return result;
     end function;
+
   begin
+
     assert data'length = 8 * lanes
       report "XGMII data must have 8 bits per lane"
       severity failure;
     init_monitor(vc, state);
 
     while not finished loop
+
       if state.resume_time > now then
         wait on clk, net, runner for state.resume_time - now;
       else
@@ -970,6 +1037,7 @@ package body ethernet_vc_pkg is
           null;
         elsif column /= idle_column or column /= previous_column then
           for lane in column'range loop
+
             record_sample(state.batch, column(lane));
           end loop;
         end if;
@@ -1017,6 +1085,7 @@ package body ethernet_vc_pkg is
 
   procedure init_source(vc : ethernet_vc_t; variable state : inout source_state_t)is
   begin
+
     state.session := new_vc_session(vc);
     create_backend(vc, state.session);
     state.stream_octets := new_queue;
@@ -1035,6 +1104,7 @@ package body ethernet_vc_pkg is
     variable msg : inout msg_t
   )is
   begin
+
     if is_empty(state.pending) then
       receive(net, vc.p_actor, msg);
     else
@@ -1045,6 +1115,7 @@ package body ethernet_vc_pkg is
   procedure answer_reset(signal net : inout network_t; variable state : inout source_state_t)is
     variable reply_msg : msg_t := new_msg(reset_ethernet_source_reply_msg);
   begin
+
     reply(net, state.reset_request, reply_msg);
     state.has_reset := false;
   end procedure;
@@ -1054,7 +1125,9 @@ package body ethernet_vc_pkg is
   procedure drop_for_reset(signal net : inout network_t; variable state : inout source_state_t)is
     variable msg, reply_msg : msg_t;
   begin
+
     while not is_empty(state.pending) loop
+
       msg := pop(state.pending);
       if message_type(msg) = wait_until_idle_msg then
         reply_msg := new_msg(wait_until_idle_reply_msg);
@@ -1063,6 +1136,7 @@ package body ethernet_vc_pkg is
         delete(msg);
       end if;
     end loop;
+
     flush(state.stream_octets);
     state.stream_length := 0;
     state.sequence_active := false;
@@ -1077,7 +1151,9 @@ package body ethernet_vc_pkg is
   )is
     variable msg : msg_t;
   begin
+
     while has_message(vc.p_actor) loop
+
       receive(net, vc.p_actor, msg);
       if message_type(msg) = reset_ethernet_source_msg then
         drop_for_reset(net, state);
@@ -1090,6 +1166,7 @@ package body ethernet_vc_pkg is
         push(state.pending, msg);
       end if;
     end loop;
+
   end procedure;
 
   -- A call of the backend returning the sample words to transmit, kept until
@@ -1102,6 +1179,7 @@ package body ethernet_vc_pkg is
 
   procedure clear(variable call : inout symbols_call_t)is
   begin
+
     deallocate(call.method);
     deallocate(call.arg_name);
     deallocate(call.arg_value);
@@ -1109,6 +1187,7 @@ package body ethernet_vc_pkg is
 
   procedure set(variable call : inout symbols_call_t; method : string; args : arg_t := null_arg)is
   begin
+
     clear(call);
     call.method := new string'(method);
     call.arg_name := new string'(args.name);
@@ -1125,6 +1204,7 @@ package body ethernet_vc_pkg is
   )is
     variable result : integer_array_t;
   begin
+
     result := backend_call_integer_array(
       session,
       call.method.all,
@@ -1149,9 +1229,12 @@ package body ethernet_vc_pkg is
     impure function stream_octets return integer_vector is
       variable octets : integer_vector(0 to state.stream_length - 1);
     begin
+
       for idx in octets'range loop
+
         octets(idx) := pop(state.stream_octets);
       end loop;
+
       state.stream_length := 0;
       return octets;
     end function;
@@ -1160,6 +1243,7 @@ package body ethernet_vc_pkg is
       constant function_name : string := pop_string(msg);
       constant arguments : arg_t := pop_arg(msg);
     begin
+
       -- The arguments of the user's function are given separately, so they
       -- never collide with the transmission options
       backend_call(state.session, "set_arguments", arguments);
@@ -1172,6 +1256,7 @@ package body ethernet_vc_pkg is
       constant count : natural := pop(msg);
       constant seed : string := pop_string(msg);
     begin
+
       backend_call(state.session, "set_arguments", arguments);
       state.sequence_id := backend_call_integer(
         state.session,
@@ -1186,6 +1271,7 @@ package body ethernet_vc_pkg is
       constant octet : std_ulogic_vector := pop_std_ulogic_vector(msg);
       constant last : boolean := pop_boolean(msg);
     begin
+
       if octet'length /= 8 then
         check_failed(
           vc.p_checker,
@@ -1201,7 +1287,9 @@ package body ethernet_vc_pkg is
         set(symbols_call, "symbols", arg(stream_octets));
       end if;
     end procedure;
+
   begin
+
     clear(symbols_call);
 
     if msg_type = push_ethernet_frame_msg then
@@ -1237,6 +1325,7 @@ package body ethernet_vc_pkg is
   -- Whether a message transmits, so the line is not returned to idle before it
   function is_transmit_msg_type (msg_type : msg_type_t) return boolean is
   begin
+
     return msg_type = push_ethernet_frame_msg
            or msg_type = push_ethernet_packet_msg
            or msg_type = push_ethernet_sequence_msg
@@ -1267,7 +1356,9 @@ package body ethernet_vc_pkg is
     -- the clock is stopped
     procedure wait_for_edge is
     begin
+
       loop
+
         receive_during_transmit(net, vc, state);
         exit when state.has_reset;
         wait on clk, net until rising_edge(clk) or has_message(vc.p_actor);
@@ -1276,10 +1367,12 @@ package body ethernet_vc_pkg is
           exit;
         end if;
       end loop;
+
     end procedure;
 
     procedure drive_idle is
     begin
+
       data <= (data'range => '0');
       dv <= '0';
       er <= '0';
@@ -1289,14 +1382,18 @@ package body ethernet_vc_pkg is
     -- Deassert valid at once, which ends a frame in progress at a symbol boundary
     procedure abort_for_reset is
     begin
+
       drive_idle;
       clear(symbols_call);
       answer_reset(net, state);
     end procedure;
+
   begin
+
     init_source(vc, state);
 
     loop
+
       next_source_message(net, vc, state, msg);
       msg_type := message_type(msg);
 
@@ -1312,11 +1409,13 @@ package body ethernet_vc_pkg is
 
       -- A frame, or the batches of a sequence until it is exhausted
       while symbols_call.method /= null loop
+
         get_symbols(state.session, vc, symbols_call, symbols);
         if length(symbols) = 0 or not state.sequence_active then
           clear(symbols_call);
         end if;
         for idx in 0 to length(symbols) - 1 loop
+
           wait_for_edge;
           exit when state.has_reset;
           word := get(symbols, idx);
@@ -1327,16 +1426,20 @@ package body ethernet_vc_pkg is
           er <= '1' when word / 2 ** 9 mod 2 = 1 else
                 '0';
           for hold in 2 to cycles_per_symbol loop
+
             wait_for_edge;
             exit when state.has_reset;
           end loop;
+
           exit when state.has_reset;
         end loop;
+
         deallocate(symbols);
         if state.has_reset then
           abort_for_reset;
         end if;
       end loop;
+
       state.sequence_active := false;
 
       -- A frame without IFG is followed by the next frame if there is one
@@ -1351,6 +1454,7 @@ package body ethernet_vc_pkg is
 
       unexpected_msg_type(msg_type, vc);
     end loop;
+
   end procedure;
 
   procedure combine_double_edges(
@@ -1366,7 +1470,9 @@ package body ethernet_vc_pkg is
     variable low : std_ulogic_vector(data'length - 1 downto 0) := (others => '0');
     variable rising_ctl : std_ulogic := '0';
   begin
+
     loop
+
       wait on clk;
       if rising_edge(clk) then
         low := data;
@@ -1383,6 +1489,7 @@ package body ethernet_vc_pkg is
         er <= rising_ctl xor ctl;
       end if;
     end loop;
+
   end procedure;
 
   procedure split_double_edges(
@@ -1400,7 +1507,9 @@ package body ethernet_vc_pkg is
     variable symbol : std_ulogic_vector(octet'length - 1 downto 0) := (others => '0');
     variable symbol_dv, symbol_er : std_ulogic := '0';
   begin
+
     loop
+
       wait on clk;
       -- The rising edge half: the lower bits and valid
       if (rising_edge(clk) and edge_aligned) or (falling_edge(clk) and not edge_aligned) then
@@ -1419,6 +1528,7 @@ package body ethernet_vc_pkg is
         ctl <= symbol_dv xor symbol_er;
       end if;
     end loop;
+
   end procedure;
 
   procedure drive_column_interface(
@@ -1443,7 +1553,9 @@ package body ethernet_vc_pkg is
     -- the clock is stopped
     procedure wait_for_edge is
     begin
+
       loop
+
         receive_during_transmit(net, vc, state);
         exit when state.has_reset;
         wait on clk, net
@@ -1455,20 +1567,25 @@ package body ethernet_vc_pkg is
           exit;
         end if;
       end loop;
+
     end procedure;
 
     procedure drive_column(character : std_ulogic_vector(7 downto 0))is
       variable column_data : std_ulogic_vector(8 * lanes - 1 downto 0);
     begin
+
       for lane in 0 to lanes - 1 loop
+
         column_data(8 * lane + 7 downto 8 * lane) := character;
       end loop;
+
       data <= column_data;
       ctrl <= (ctrl'range => '1');
     end procedure;
 
     procedure drive_idle is
     begin
+
       drive_column(idle_character);
       idle := true;
     end procedure;
@@ -1476,6 +1593,7 @@ package body ethernet_vc_pkg is
     -- An Error column at once ends a frame in progress, Idle follows
     procedure abort_for_reset is
     begin
+
       drive_column(error_character);
       idle := false;
       clear(symbols_call);
@@ -1492,11 +1610,14 @@ package body ethernet_vc_pkg is
       variable column_data : std_ulogic_vector(8 * lanes - 1 downto 0);
       variable column_ctrl : std_ulogic_vector(lanes - 1 downto 0);
     begin
+
       for column in 0 to length(symbols) / lanes - 1 loop
+
         wait_for_edge;
         exit when state.has_reset;
         idle := true;
         for lane in 0 to lanes - 1 loop
+
           word := get(symbols, column * lanes + lane);
           column_data(8 * lane + 7 downto 8 * lane) := std_ulogic_vector(
             to_unsigned(word mod 2 ** 8, 8)
@@ -1507,6 +1628,7 @@ package body ethernet_vc_pkg is
             idle := false;
           end if;
         end loop;
+
         data <= column_data;
         ctrl <= column_ctrl;
       end loop;
@@ -1529,6 +1651,7 @@ package body ethernet_vc_pkg is
     procedure transmit(variable call : in symbols_call_t; variable transmitted : out boolean)is
       variable symbols : integer_array_t;
     begin
+
       get_symbols(state.session, vc, call, symbols);
       transmitted := length(symbols) > 0;
       drive(symbols);
@@ -1541,10 +1664,13 @@ package body ethernet_vc_pkg is
       alias control_bits : std_ulogic_vector(0 to column_control'length - 1) is column_control;
       variable control_values : integer_vector(control_bits'range);
     begin
+
       for idx in control_bits'range loop
+
         control_values(idx) := 1 when to_x01(control_bits(idx)) = '1' else
                                0;
       end loop;
+
       set(call, "column_symbols", arg(to_octets(column_data)) & arg(control_values));
     end procedure;
 
@@ -1553,9 +1679,12 @@ package body ethernet_vc_pkg is
       constant fault : xgmii_link_fault_t := xgmii_link_fault_t'val(integer'(pop(request_msg)));
       constant columns : positive := pop(request_msg);
     begin
+
       set(call, "ordered_set_symbols", arg(xgmii_link_fault_t'pos(fault) + 1) & arg(columns));
     end procedure;
+
   begin
+
     assert data'length = 8 * lanes
       report "XGMII data must have 8 bits per lane"
       severity failure;
@@ -1563,6 +1692,7 @@ package body ethernet_vc_pkg is
     drive_idle;
 
     loop
+
       next_source_message(net, vc, state, msg);
       msg_type := message_type(msg);
 
@@ -1602,18 +1732,22 @@ package body ethernet_vc_pkg is
           handle_sync_message(net, msg_type, msg);
           -- A frame, or the batches of a sequence until it is exhausted
           while symbols_call.method /= null loop
+
             transmit(symbols_call, transmitted);
             if not transmitted or not state.sequence_active then
               clear(symbols_call);
             end if;
           end loop;
+
           state.sequence_active := false;
         end if;
       end if;
 
       unexpected_msg_type(msg_type, vc);
     end loop;
+
   end procedure;
+
   procedure monitor_axis_interface(
     signal net : inout network_t;
     vc : ethernet_vc_t;
@@ -1631,7 +1765,9 @@ package body ethernet_vc_pkg is
     alias user_bits : std_ulogic_vector(tuser'length - 1 downto 0) is tuser;
 
     subtype sample_word_t is natural range 0 to 2 ** 16 - 1;
+
     type column_t is array (0 to lanes - 1) of sample_word_t;
+
     constant keep_bit : sample_word_t := 2 ** 8;
     constant user_bit : sample_word_t := 2 ** 9;
     constant data_metavalue_bit : sample_word_t := 2 ** 10;
@@ -1644,7 +1780,9 @@ package body ethernet_vc_pkg is
     variable column : column_t;
     variable previous_column : column_t := (others => 0);
     variable recorded : boolean := false;
-    variable valid, handshake, last : boolean;
+    variable valid : boolean;
+    variable handshake : boolean;
+    variable last : boolean;
     variable in_frame : boolean := false;
     variable finished : boolean := false;
 
@@ -1654,6 +1792,7 @@ package body ethernet_vc_pkg is
       variable result : column_t;
       variable sampled_valid : boolean;
     begin
+
       sampled_valid := to_x01(tvalid) = '1';
       if sampled_valid then
         control := control + valid_bit;
@@ -1673,6 +1812,7 @@ package body ethernet_vc_pkg is
         control := control + control_metavalue_bit;
       end if;
       for lane in result'range loop
+
         result(lane) := control;
         if sampled_valid then
           lane_data := data_bits(8 * lane + 7 downto 8 * lane);
@@ -1685,15 +1825,19 @@ package body ethernet_vc_pkg is
           end if;
         end if;
       end loop;
+
       return result;
     end function;
+
   begin
+
     assert tdata'length = 8 * lanes
       report "AXI-Stream tdata must have 8 bits per tkeep bit"
       severity failure;
     init_monitor(vc, state);
 
     while not finished loop
+
       if state.resume_time > now then
         wait on clk, net, runner for state.resume_time - now;
       else
@@ -1713,8 +1857,10 @@ package body ethernet_vc_pkg is
           end if;
         elsif valid or column /= previous_column or not recorded then
           for lane in column'range loop
+
             record_sample(state.batch, column(lane));
           end loop;
+
           recorded := true;
         end if;
 
@@ -1771,7 +1917,9 @@ package body ethernet_vc_pkg is
     -- the clock is stopped
     procedure wait_for_edge is
     begin
+
       loop
+
         receive_during_transmit(net, vc, state);
         exit when state.has_reset;
         wait on clk, net until rising_edge(clk) or has_message(vc.p_actor);
@@ -1780,10 +1928,12 @@ package body ethernet_vc_pkg is
           exit;
         end if;
       end loop;
+
     end procedure;
 
     procedure drive_idle is
     begin
+
       tdata <= (tdata'range => '0');
       tkeep <= (tkeep'range => '0');
       tvalid <= '0';
@@ -1795,6 +1945,7 @@ package body ethernet_vc_pkg is
     -- low for a clock edge, so monitors see the frame end before the next one
     procedure abort_for_reset is
     begin
+
       drive_idle;
       clear(symbols_call);
       answer_reset(net, state);
@@ -1807,10 +1958,12 @@ package body ethernet_vc_pkg is
     -- Drive one beat, or a clock with tvalid low, and wait until it is accepted
     procedure drive_column(column : natural)is
     begin
+
       word := get(symbols, column * lanes);
       valid := word / 2 ** 13 mod 2 = 1;
       if valid then
         for lane in 0 to lanes - 1 loop
+
           word := get(symbols, column * lanes + lane);
           column_data(8 * lane + 7 downto 8 * lane) := std_ulogic_vector(
             to_unsigned(word mod 2 ** 8, 8)
@@ -1818,6 +1971,7 @@ package body ethernet_vc_pkg is
           column_keep(lane) := '1' when word / 2 ** 8 mod 2 = 1 else
                                '0';
         end loop;
+
         word := get(symbols, column * lanes);
         column_user := (others => '0');
         column_user(0) := '1' when word / 2 ** 9 mod 2 = 1 else
@@ -1832,17 +1986,22 @@ package body ethernet_vc_pkg is
         drive_idle;
       end if;
       loop
+
         wait_for_edge;
         exit when state.has_reset or not valid or to_x01(tready) = '1';
       end loop;
+
     end procedure;
+
   begin
+
     assert tdata'length = 8 * lanes
       report "AXI-Stream tdata must have 8 bits per tkeep bit"
       severity failure;
     init_source(vc, state);
 
     loop
+
       next_source_message(net, vc, state, msg);
       msg_type := message_type(msg);
 
@@ -1858,14 +2017,17 @@ package body ethernet_vc_pkg is
 
       -- A frame, or the batches of a sequence until it is exhausted
       while symbols_call.method /= null loop
+
         get_symbols(state.session, vc, symbols_call, symbols);
         if length(symbols) = 0 or not state.sequence_active then
           clear(symbols_call);
         end if;
         for column in 0 to length(symbols) / lanes - 1 loop
+
           drive_column(column);
           exit when state.has_reset;
         end loop;
+
         deallocate(symbols);
         if state.has_reset then
           abort_for_reset;
@@ -1873,10 +2035,12 @@ package body ethernet_vc_pkg is
           drive_idle;
         end if;
       end loop;
+
       state.sequence_active := false;
 
       unexpected_msg_type(msg_type, vc);
     end loop;
+
   end procedure;
 
 end package body;

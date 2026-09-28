@@ -14,6 +14,7 @@ library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
 
 use work.example_records_pkg.all;
+
 -- docs-end: libraries
 
 entity tb_property_examples is
@@ -23,16 +24,25 @@ entity tb_property_examples is
 end entity;
 
 architecture tb of tb_property_examples is
-  signal clk, rst, subtract, write_enable : std_ulogic := '0';
-  signal a, b, write_data, read_data, buggy_read_data : std_ulogic_vector(7 downto 0) :=
-    (others => '0');
+
+  signal clk : std_ulogic := '0';
+  signal rst : std_ulogic := '0';
+  signal subtract : std_ulogic := '0';
+  signal write_enable : std_ulogic := '0';
+  signal a : std_ulogic_vector(7 downto 0) := (others => '0');
+  signal b : std_ulogic_vector(7 downto 0) := (others => '0');
+  signal write_data : std_ulogic_vector(7 downto 0) := (others => '0');
+  signal read_data : std_ulogic_vector(7 downto 0) := (others => '0');
+  signal buggy_read_data : std_ulogic_vector(7 downto 0) := (others => '0');
   signal address : std_ulogic_vector(2 downto 0) := (others => '0');
   signal y : std_ulogic_vector(8 downto 0);
+
 begin
 
   clk <= not clk after 5 ns;
 
   main : process
+
     variable prop : property_t;
     variable pair : pair_t;
     variable sum : std_ulogic_vector(8 downto 0);
@@ -43,6 +53,7 @@ begin
     -- A property from a strategy in python/strategies.py, following VUnit's seed
     impure function new_example (strategy : string) return property_t is
     begin
+
       return new_property(
         "strategies:" & strategy,
         seed => get_seed(runner_cfg),
@@ -50,42 +61,50 @@ begin
         search_path => tb_path(runner_cfg) & "python"
       );
     end function;
+
     -- docs-end: new-example-helper
 
     -- docs-start: apply-helper
     -- Put operands on the ALU and let it settle
     procedure apply(a_value, b_value : natural; subtract_value : std_ulogic := '0')is
     begin
+
       a <= std_ulogic_vector(to_unsigned(a_value, 8));
       b <= std_ulogic_vector(to_unsigned(b_value, 8));
       subtract <= subtract_value;
       wait for 1 ns;
     end procedure;
+
     -- docs-end: apply-helper
 
     -- docs-start: pulse-helper
     -- Hold a signal high for one clock cycle
     procedure pulse(signal value : out std_ulogic)is
     begin
+
       value <= '1';
       wait until rising_edge(clk);
       value <= '0';
     end procedure;
+
     -- docs-end: pulse-helper
 
     -- docs-start: item-helper
     -- The path of list element idx, "(2)", or of a field of it, "(2).name"
     impure function item (idx : natural; name : string := "") return string is
     begin
+
       if name = "" then
         return "(" & integer'image(idx) & ")";
       end if;
       return "(" & integer'image(idx) & ")." & name;
     end function;
+
   -- docs-end: item-helper
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_scalar") then
         -- docs-start: scalar
         -- Every octet minus itself is 0
@@ -96,9 +115,11 @@ begin
           search_path => tb_path(runner_cfg) & "python"
         );
         while next_example(prop) loop
+
           apply(get_integer(prop), get_integer(prop), subtract_value => '1');
           report_example(prop, passed => to_integer(unsigned(y)) = 0);
         end loop;
+
         check_property(prop);
       -- docs-end: scalar
 
@@ -107,19 +128,23 @@ begin
         -- The offset is added to every value of the list; without an offset, nothing is
         prop := new_example("composite");
         while next_example(prop) loop
+
           offset := 0;
           if has_field(prop, "offset") then
             offset := get_integer(prop, "offset");
           end if;
           passed := true;
           for idx in 0 to get_length(prop, "values") - 1 loop
+
             apply(get_integer(prop, "values" & item(idx)), offset);
             passed := passed
                       and to_integer(unsigned(y))
                           = get_integer(prop, "values" & item(idx)) + offset;
           end loop;
+
           report_example(prop, passed => passed);
         end loop;
+
       -- docs-end: composite
 
       elsif run("test_tagged_union") then
@@ -127,6 +152,7 @@ begin
         -- Each kind of operation, with fields of its own, gives its result
         prop := new_example("tagged_union");
         while next_example(prop) loop
+
           if get_string(prop, "kind") = "add" then
             apply(get_integer(prop, "a"), get_integer(prop, "b"));
             passed := to_integer(unsigned(y)) = get_integer(prop, "a") + get_integer(prop, "b");
@@ -136,6 +162,7 @@ begin
           end if;
           report_example(prop, passed => passed);
         end loop;
+
       -- docs-end: tagged_union
 
       elsif run("test_stateful") then
@@ -145,6 +172,7 @@ begin
         -- failure to the shortest sequence of steps showing it.
         prop := new_example("registers");
         while next_example(prop) loop
+
           if get_rule(prop) = "start" then
             pulse(rst);
           else
@@ -157,6 +185,7 @@ begin
           end if;
           report_step(prop, value => to_integer(unsigned(buggy_read_data)));
         end loop;
+
         -- docs-start: expect-failure
         -- The failure is expected here, so check the result instead of calling check_property
         check_equal(get_outcome(prop), "failed");
@@ -169,6 +198,7 @@ begin
         -- The operands of a record generated from a Python dataclass are added
         prop := new_example("pair");
         while next_example(prop) loop
+
           pair := get_pair(prop);
           apply(pair.a, pair.b);
           report_example(
@@ -177,6 +207,7 @@ begin
             msg => to_string(pair)
           );
         end loop;
+
       -- docs-end: generated_record
 
       elsif run("test_score") then
@@ -185,11 +216,13 @@ begin
         -- Hypothesis towards large sums, where the carry changes.
         prop := new_example("pair");
         while next_example(prop) loop
+
           pair := get_pair(prop);
           apply(pair.a, pair.b);
           report_score(prop, "sum", real(pair.a + pair.b));
           report_example(prop, passed => (y(8) = '1') = (pair.a + pair.b > 255));
         end loop;
+
       -- docs-end: score
 
       elsif run("test_metamorphic") then
@@ -197,12 +230,14 @@ begin
         -- Swapping the operands does not change the sum: no expected value needed
         prop := new_example("pair");
         while next_example(prop) loop
+
           pair := get_pair(prop);
           apply(pair.a, pair.b);
           sum := y;
           apply(pair.b, pair.a);
           report_example(prop, passed => y = sum);
         end loop;
+
       -- docs-end: metamorphic
 
       elsif run("test_timing") then
@@ -210,24 +245,32 @@ begin
         -- Writes read back whatever the idle cycles between them are
         prop := new_example("timed_writes");
         while next_example(prop) loop
+
           pulse(rst);
           for idx in 0 to get_length(prop, "data") - 1 loop
+
             for cycle in 1 to get_integer(prop, "idle" & item(idx)) loop
+
               wait until rising_edge(clk);
             end loop;
+
             address <= std_ulogic_vector(to_unsigned(idx, 3));
             write_data <= std_ulogic_vector(to_unsigned(get_integer(prop, "data" & item(idx)), 8));
             pulse(write_enable);
           end loop;
+
           passed := true;
           for idx in 0 to get_length(prop, "data") - 1 loop
+
             address <= std_ulogic_vector(to_unsigned(idx, 3));
             wait for 1 ns;
             passed := passed
                       and to_integer(unsigned(read_data)) = get_integer(prop, "data" & item(idx));
           end loop;
+
           report_example(prop, passed => passed);
         end loop;
+
       -- docs-end: timing
 
       elsif run("test_swarm") then
@@ -235,8 +278,10 @@ begin
         -- Additions and subtractions, with a random subset of them enabled per example
         prop := new_example("swarm");
         while next_example(prop) loop
+
           passed := true;
           for idx in 0 to get_length(prop) - 1 loop
+
             if get_string(prop, item(idx, "kind")) = "add" then
               apply(get_integer(prop, item(idx, "a")), get_integer(prop, item(idx, "b")));
               passed := passed
@@ -256,8 +301,10 @@ begin
                               mod 512;
             end if;
           end loop;
+
           report_example(prop, passed => passed);
         end loop;
+
       -- docs-end: swarm
 
       elsif run("test_expect_a_strategy_error") then
@@ -272,8 +319,10 @@ begin
           logger => get_logger("tb_property_examples:broken")
         );
         while next_example(prop) loop
+
           report_example(prop, passed => true);
         end loop;
+
         check_equal(get_outcome(prop), "error");
         check_equal(get_log_count(get_logger("tb_property_examples:broken"), failure), 1);
         reset_log_count(get_logger("tb_property_examples:broken"), failure);
@@ -285,6 +334,7 @@ begin
         check_property(prop);
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 

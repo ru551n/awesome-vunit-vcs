@@ -32,6 +32,7 @@ entity mii_source is
 end entity;
 
 architecture a of mii_source is
+
 begin
 
   main : process

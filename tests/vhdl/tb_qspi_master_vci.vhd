@@ -20,6 +20,7 @@ entity tb_qspi_master_vci is
 end entity;
 
 architecture tb of tb_qspi_master_vci is
+
   -- The first master with a default id of this architecture
   constant default_master : qspi_master_t := new_qspi_master;
   signal default_m2s : qspi_m2s_t := qspi_m2s_init;
@@ -109,6 +110,7 @@ begin
     );
 
   main : process
+
     variable cmd : integer_array_t;
     variable data : integer_array_t := null_integer_array;
     variable reference_data : integer_array_t := null_integer_array;
@@ -119,10 +121,12 @@ begin
     -- An idle bus, then two transfers of checked_master back to back
     procedure transfer_pair is
     begin
+
       wait for 1 ms;
       qspi_transfer(net, checked_master, cmd);
       qspi_transfer(net, checked_master, cmd);
     end procedure;
+
     variable count : natural;
     variable start : time;
 
@@ -134,6 +138,7 @@ begin
     )is
       variable request_msg : msg_t;
     begin
+
       mock(logger, error);
       request_msg := new_msg(unknown_msg_type);
       send(net, actor, request_msg);
@@ -145,11 +150,13 @@ begin
       end if;
       unmock(logger);
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
     cmd := new_byte_array((0 => 16#9F#));
 
     while test_suite loop
+
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_master))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_master))), "qspi_master", "name of its parent");
@@ -251,6 +258,7 @@ begin
         check_equal(length(data), 2, "blocking length");
         check_equal(length(reference_data), 2, "reference length");
         for idx in 0 to 1 loop
+
           check_equal(get(data, idx), 16#AA#, "blocking byte " & to_string(idx));
           check_equal(get(reference_data, idx), get(data, idx), "reference byte " & to_string(idx));
         end loop;
@@ -266,12 +274,16 @@ begin
         -- The first transfer is aborted before its first SCK edge, the others
         -- are dropped, and every caller gets its reply
         for idx in references'range loop
+
           qspi_transfer(net, default_master, cmd, references(idx));
         end loop;
+
         reset(net, default_master);
         for idx in references'range loop
+
           await_qspi_transfer_reply(net, references(idx));
         end loop;
+
         check(default_m2s.cs_n = '1', "CS high after the reset");
 
       elsif run("test_protocol_checker_is_a_child_of_the_master") then
@@ -293,10 +305,12 @@ begin
         disable_stop(get_logger(protocol_checker(checked_master)), error);
         disable_stop(get_logger(protocol_checker(default_checked_master)), error);
         for idx in 1 to 2 loop
+
           qspi_transfer(net, checked_master, cmd, reference);
           qspi_transfer(net, default_checked_master, cmd);
           await_qspi_transfer_reply(net, reference);
         end loop;
+
         check_equal(
           get_log_count(get_logger(protocol_checker(checked_master)), error),
           1,

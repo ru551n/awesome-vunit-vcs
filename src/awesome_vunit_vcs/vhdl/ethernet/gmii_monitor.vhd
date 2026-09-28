@@ -34,6 +34,7 @@ entity gmii_monitor is
 end entity;
 
 architecture a of gmii_monitor is
+
 begin
 
   main : process
@@ -52,6 +53,7 @@ begin
         dv => dv,
         er => er
       );
+
   end generate;
 
 end architecture;

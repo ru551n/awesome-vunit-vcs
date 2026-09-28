@@ -23,6 +23,7 @@ entity tb_flash_vci is
 end entity;
 
 architecture tb of tb_flash_vci is
+
   -- The first flash with a default id of this architecture, with a master
   constant default_flash : flash_t := new_flash;
   constant default_master : qspi_master_t :=
@@ -86,17 +87,21 @@ architecture tb of tb_flash_vci is
   -- Whether text contains part, such as a test name in runner_cfg
   function contains (text : string; part : string) return boolean is
   begin
+
     for idx in text'low to text'high - part'length + 1 loop
+
       if text(idx to idx + part'length - 1) = part then
         return true;
       end if;
     end loop;
+
     return false;
   end function;
 
   -- Mock the failures of logger, during elaboration
   impure function mock_failures (logger : logger_t) return boolean is
   begin
+
     mock(logger, failure);
     return true;
   end function;
@@ -105,11 +110,15 @@ architecture tb of tb_flash_vci is
 
   procedure check_arrays(got : integer_array_t; expected : integer_array_t; msg : string)is
   begin
+
     check_equal(length(got), length(expected), msg & ": length");
     for idx in 0 to length(expected) - 1 loop
+
       check_equal(get(got, idx), get(expected, idx), msg & ": element " & to_string(idx));
     end loop;
+
   end procedure;
+
 begin
 
   default_flash_inst : entity awesome_vunit_vcs.flash
@@ -189,9 +198,11 @@ begin
         m2s => idle_m2s,
         s2m => second_duplicate_s2m
       );
+
   end generate;
 
   main : process
+
     variable reference : flash_reference_t;
     variable got : integer_array_t;
     variable expected : integer_array_t;
@@ -208,6 +219,7 @@ begin
     )is
       variable request_msg : msg_t;
     begin
+
       mock(logger, error);
       request_msg := new_msg(unknown_msg_type);
       send(net, actor, request_msg);
@@ -224,7 +236,9 @@ begin
     -- violation for each protocol checker
     procedure deselect_too_briefly is
     begin
+
       for idx in 1 to 2 loop
+
         checked_m2s.cs_n <= '0';
         default_checked_m2s.cs_n <= '0';
         wait for 10 ns;
@@ -232,12 +246,15 @@ begin
         default_checked_m2s.cs_n <= '1';
         wait for 10 ns;
       end loop;
+
       wait for 50 ns;
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
+
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_flash))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_flash))), "flash", "name of its parent");

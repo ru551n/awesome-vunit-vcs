@@ -18,7 +18,9 @@ entity stalling_sink is
 end entity;
 
 architecture a of stalling_sink is
+
   signal stalled : std_ulogic := '0';
+
 begin
 
   ready <= not stalled;

@@ -30,8 +30,10 @@ entity axis_word_source is
 end entity;
 
 architecture a of axis_word_source is
+
   signal pending, tvalid : std_ulogic := '0';
   signal data : std_ulogic_vector(7 downto 0) := (others => '0');
+
 begin
 
   -- A new word is taken only when no word is pending

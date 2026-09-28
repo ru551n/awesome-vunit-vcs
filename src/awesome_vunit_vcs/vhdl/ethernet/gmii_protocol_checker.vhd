@@ -32,6 +32,7 @@ entity gmii_protocol_checker is
 end entity;
 
 architecture a of gmii_protocol_checker is
+
 begin
 
   main : process

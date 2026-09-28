@@ -29,9 +29,11 @@ entity axis_mac_sink is
 end entity;
 
 architecture a of axis_mac_sink is
+
 begin
 
   main : process
+
     variable ready_high_percent : natural := get_ready_high_percent(sink);
     variable seed1, seed2 : positive;
     variable random_value : real;
@@ -41,15 +43,18 @@ begin
 
     procedure set_seed(seed : natural)is
     begin
+
       seed1 := 1 + seed mod 2147483562;
       seed2 := 1 + (seed / 2147483562) mod 2147483398;
     end procedure;
+
   begin
     set_seed(get_ready_seed(sink));
     tready <= '1' when ready_high_percent >= 100 else
               '0';
 
     loop
+
       if resume_time > now then
         wait on clk, net for resume_time - now;
       else
@@ -71,6 +76,7 @@ begin
       -- Messages after wait_for_time wait until its delay has passed, while
       -- tready keeps following the pattern
       while now >= resume_time and has_message(get_actor(sink)) loop
+
         receive(net, get_actor(sink), msg);
         msg_type := message_type(msg);
 
@@ -97,7 +103,9 @@ begin
           check_failed(get_checker(sink), "Got unexpected message " & name(msg_type));
         end if;
       end loop;
+
     end loop;
+
   end process;
 
 end architecture;

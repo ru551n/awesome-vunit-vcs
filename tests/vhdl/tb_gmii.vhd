@@ -20,7 +20,7 @@ library python_bridge;
 context python_bridge.python_context;
 
 library osvvm;
-use osvvm.RandomPkg.RandomPType;
+use osvvm.randompkg.randomptype;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
@@ -32,6 +32,7 @@ entity tb_gmii is
 end entity;
 
 architecture tb of tb_gmii is
+
   constant clk_period : time := 8 ns;
 
   signal clk : std_ulogic := '0';
@@ -49,13 +50,16 @@ architecture tb of tb_gmii is
   );
 
   type gmii_monitor_vec_t is array (natural range <>) of gmii_monitor_t;
+
   constant monitors : gmii_monitor_vec_t := (monitor, second_monitor);
+
 begin
 
   clk <= not clk after clk_period / 2;
 
   main : process
-    variable rnd : RandomPType;
+
+    variable rnd : randomptype;
     variable count : natural;
     variable total, expected_count : natural;
 
@@ -63,6 +67,7 @@ begin
     constant traffic_function : string := "awesome_vunit_vcs.ethernet.traffic:random_traffic";
     impure function traffic_arguments return arg_t is
     begin
+
       return kwarg("count", 60)
              & kwarg(
                "malformations",
@@ -71,6 +76,7 @@ begin
              & kwarg("malformed_fraction", 0.3)
              & kwarg("interface", "gmii");
     end function;
+
     variable statistics : ethernet_statistics_t;
 
     -- Frame data from the destination address up to the FCS: addresses, the
@@ -78,30 +84,39 @@ begin
     impure function frame_data (octets : positive; seed : natural := 0) return std_ulogic_vector is
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
+
       for idx in 0 to octets - 1 loop
+
         result(8 * idx to 8 * idx + 7) := std_ulogic_vector(
           to_unsigned((7 * idx + seed) mod 256, 8)
         );
       end loop;
+
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
     end function;
 
     procedure wait_until_idle is
     begin
+
       wait_until_idle(net, as_sync(source));
       for idx in monitors'range loop
+
         wait_until_idle(net, as_sync(monitors(idx)));
         wait_until_idle(net, as_sync(get_protocol_checker(monitors(idx))));
       end loop;
+
     end procedure;
 
     -- Push a frame both monitors check that they receive unchanged
     procedure push_checked_frame(frame : std_ulogic_vector; ifg_octets : natural := 12)is
     begin
+
       for idx in monitors'range loop
+
         check_ethernet_frame(net, monitors(idx), frame, blocking => false);
       end loop;
+
       push_ethernet_frame(net, source, frame, frame_options(ifg_octets => ifg_octets));
     end procedure;
 
@@ -110,8 +125,10 @@ begin
     procedure check_violations(check : ethernet_check_t; expected : natural)is
       variable violations : natural;
     begin
+
       wait_until_idle;
       for idx in monitors'range loop
+
         get_check_count(net, monitors(idx), check, violations);
         check_equal(
           violations,
@@ -125,7 +142,9 @@ begin
         );
         reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
       end loop;
+
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
@@ -136,10 +155,12 @@ begin
     -- Errors are expected in some tests; they are counted by check_violations
     -- and any error left uncounted still fails the test at cleanup
     for idx in monitors'range loop
+
       disable_stop(get_logger(get_protocol_checker(monitors(idx))), error);
     end loop;
 
     while test_suite loop
+
       if run("test_minimum_size_frame") then
         push_checked_frame(frame_data(60));
         wait_until_idle;
@@ -157,8 +178,10 @@ begin
 
       elsif run("test_header_fields") then
         for idx in monitors'range loop
+
           check_ethernet_frame(net, monitors(idx), frame_data(60), blocking => false);
         end loop;
+
         push_ethernet_frame(
           net,
           source,
@@ -183,8 +206,10 @@ begin
 
       elsif run("test_fcs_pass") then
         for idx in 1 to 10 loop
+
           push_checked_frame(frame_data(rnd.RandInt(60, 1514), seed => idx));
         end loop;
+
         check_violations(eth_fcs, 0);
         get_statistics(net, monitor, statistics);
         check_equal(statistics.good_frames, 10);
@@ -217,8 +242,10 @@ begin
 
       elsif run("test_legal_ifg") then
         for idx in 1 to 3 loop
+
           push_checked_frame(frame_data(60, seed => idx), ifg_octets => 12);
         end loop;
+
         check_violations(eth_ifg, 0);
         get_statistics(net, monitor, statistics);
         check_equal(statistics.min_ifg_octets, 12);
@@ -232,10 +259,13 @@ begin
 
       elsif run("test_back_to_back_frames") then
         for idx in 1 to 5 loop
+
           push_checked_frame(frame_data(100, seed => idx), ifg_octets => 12);
         end loop;
+
         wait_until_idle;
         for idx in monitors'range loop
+
           get_frame_count(net, monitors(idx), count);
           check_equal(count, 5);
         end loop;
@@ -261,8 +291,10 @@ begin
       elsif run("test_pcap_export") then
         start_capture(net, monitor, output_path(runner_cfg) & "gmii.pcapng");
         for idx in 1 to 3 loop
+
           push_checked_frame(frame_data(60 + idx, seed => idx));
         end loop;
+
         wait_until_idle;
         stop_capture(net, monitor);
         wait_until_idle;
@@ -305,6 +337,7 @@ begin
         -- The same function, arguments and seed give the same frames on the
         -- source and the monitors
         for idx in monitors'range loop
+
           check_ethernet_sequence(
             net,
             monitors(idx),
@@ -314,6 +347,7 @@ begin
             seed => get_string_seed(runner_cfg)
           );
         end loop;
+
         push_ethernet_sequence(
           net,
           source,
@@ -332,6 +366,7 @@ begin
         -- The monitors expect the frames as they are received, and each protocol
         -- checker must find exactly the violations the Python oracle predicts
         for idx in monitors'range loop
+
           check_ethernet_sequence(
             net,
             monitors(idx),
@@ -340,6 +375,7 @@ begin
             seed => get_string_seed(runner_cfg)
           );
         end loop;
+
         push_ethernet_sequence(
           net,
           source,
@@ -349,8 +385,10 @@ begin
         );
         wait_until_idle;
         for idx in monitors'range loop
+
           total := 0;
           for check_id in eth_preamble to eth_link_fault loop
+
             get_check_count(net, monitors(idx), check_id, count);
             expected_count := call_integer_w_arg(
               "vc.expected_violation_count",
@@ -368,6 +406,7 @@ begin
             );
             total := total + count;
           end loop;
+
           check(
             total > 0,
             "The sequence has malformed frames, seed " & get_string_seed(runner_cfg)
@@ -383,11 +422,13 @@ begin
 
       elsif run("test_randomized_traffic") then
         for idx in 1 to 200 loop
+
           push_checked_frame(
             frame_data(rnd.RandInt(60, 1514), seed => idx),
             ifg_octets => rnd.RandInt(12, 40)
           );
         end loop;
+
         wait_until_idle;
         get_statistics(net, monitor, statistics);
         check_equal(statistics.good_frames, 200, "Seed " & get_string_seed(runner_cfg));

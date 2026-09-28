@@ -37,6 +37,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 package qspi_pkg is
+
   ---------------------------------------------------------------------------
   -- Pins
   ---------------------------------------------------------------------------
@@ -161,7 +162,9 @@ package body qspi_pkg is
   function qspi_io_value (m2s : qspi_m2s_t; s2m : qspi_s2m_t) return qspi_io_t is
     variable result : qspi_io_t := (others => 'Z');
   begin
+
     for lane in result'range loop
+
       if m2s.io.enable(lane) = '1' and s2m.io.enable(lane) = '1' then
         -- Bus contention. Deliberately visible rather than silently resolved.
         result(lane) := 'X';
@@ -177,11 +180,13 @@ package body qspi_pkg is
 
   function qspi_is_valid_lane_count (lanes : lane_count_t) return boolean is
   begin
+
     return lanes = 1 or lanes = 2 or lanes = 4;
   end function;
 
   function qspi_beats_per_byte (lanes : lane_count_t) return positive is
   begin
+
     assert qspi_is_valid_lane_count(lanes)
       report "QSPI lane count must be 1, 2 or 4, got " & integer'image(lanes)
       severity failure;
@@ -191,6 +196,7 @@ package body qspi_pkg is
 
   function qspi_lane_base (lanes : lane_count_t; driver : qspi_side_t) return natural is
   begin
+
     assert qspi_is_valid_lane_count(lanes)
       report "QSPI lane count must be 1, 2 or 4, got " & integer'image(lanes)
       severity failure;
@@ -206,6 +212,7 @@ package body qspi_pkg is
     constant base : natural := qspi_lane_base(lanes, driver);
     variable result : qspi_io_t := (others => '0');
   begin
+
     result(base + lanes - 1 downto base) := (others => '1');
 
     return result;
@@ -218,6 +225,7 @@ package body qspi_pkg is
   ) return std_ulogic_vector is
     constant high : natural := 7 - beat * lanes;
   begin
+
     assert beat < qspi_beats_per_byte(lanes)
       report "QSPI beat "
              & integer'image(beat)
@@ -238,6 +246,7 @@ package body qspi_pkg is
     constant high : natural := 7 - beat * lanes;
     variable result : std_ulogic_vector(7 downto 0) := data;
   begin
+
     assert beat < qspi_beats_per_byte(lanes)
       report "QSPI beat "
              & integer'image(beat)
@@ -266,6 +275,7 @@ package body qspi_pkg is
     constant base : natural := qspi_lane_base(lanes, driver);
     variable result : qspi_drive_t := qspi_drive_init;
   begin
+
     result.value(base + lanes - 1 downto base) := qspi_byte_beat(data, lanes, beat);
     result.enable := qspi_lane_mask(lanes, driver);
 
@@ -280,6 +290,7 @@ package body qspi_pkg is
     constant base : natural := qspi_lane_base(lanes, driver);
     variable result : std_ulogic_vector(lanes - 1 downto 0);
   begin
+
     result := io(base + lanes - 1 downto base);
 
     return result;
@@ -287,6 +298,7 @@ package body qspi_pkg is
 
   function qspi_to_byte (value : natural) return std_ulogic_vector is
   begin
+
     assert value < 256
       report "QSPI byte value " & integer'image(value) & " does not fit in 8 bits"
       severity failure;
@@ -301,7 +313,9 @@ package body qspi_pkg is
     variable normalized : std_ulogic_vector(data'length - 1 downto 0) := data;
     variable result : natural := 0;
   begin
+
     for index in normalized'high downto 0 loop
+
       result := 2 * result;
       if normalized(index) = '1' then
         result := result + 1;

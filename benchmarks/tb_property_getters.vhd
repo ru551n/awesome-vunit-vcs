@@ -20,12 +20,15 @@ entity tb_property_getters is
 end entity;
 
 architecture tb of tb_property_getters is
+
 begin
 
   main : process
+
     variable prop : property_t;
     variable total : natural;
     variable start : time;
+
   begin
     test_runner_setup(runner, runner_cfg);
     prop := new_property(
@@ -35,11 +38,15 @@ begin
       search_path => tb_path(runner_cfg) & "python"
     );
     while next_example(prop) loop
+
       for idx in 0 to reads - 1 loop
+
         total := total + get_integer(prop, "field_" & integer'image(idx));
       end loop;
+
       report_example(prop, passed => true);
     end loop;
+
     check_property(prop);
     info(
       "BENCHMARK getters reads="

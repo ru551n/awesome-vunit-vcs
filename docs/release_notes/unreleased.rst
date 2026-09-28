@@ -13,6 +13,37 @@ The first release is being prepared. Nothing has been released yet.
   VC with a JEDEC command layer, and a QSPI protocol checker VC for the pin timing of the master.
   Every flash VC has ``reset(net, handle)``; the master's aborts a transfer in progress. Bytes can be
   given as ``std_ulogic_vector`` literals such as ``x"DEADBEEF"``, or with ``new_byte_array``.
+* I2C: an ``i2c_master`` (Standard-mode, Fast-mode and Fast-mode Plus with every time replaceable,
+  7- and 10-bit addresses, writes, reads and write-reads with a repeated START, SMBus PEC, clock
+  stretching and synchronization, arbitration, and ``i2c_transfer`` for malformed traffic), an
+  ``i2c_target`` with Python device models (a register map, a 24Cxx EEPROM with page writes and
+  acknowledge polling, or a class of your own), clock stretching and NACK injection, an
+  ``i2c_monitor`` with pops, a scoreboard, subscribers and statistics, and an
+  ``i2c_protocol_checker`` with the timing checks of each speed mode (``i2c_t_low``,
+  ``i2c_t_su_dat`` and the others). ``i2c_context`` is the one context clause of an I2C testbench,
+  and ``awesome_vunit_vcs.i2c`` has the device models, decoder and checks for plain Python.
+* AXI4: an ``axi4_monitor`` and an ``axi4_protocol_checker`` of AXI4 and AXI4-Lite interfaces,
+  strictly passive, next to any master and slave, VUnit's ``axi_write_slave``, ``axi_read_slave`` and
+  ``axi_lite_master`` included. Widths from ``new_axi4_bus`` (data 8 to 1024 bits, addresses up to 64,
+  IDs, USER signals), and optional signals left open take the defaults of the specification. The
+  monitor reconstructs transactions per ID with the address and byte lanes of every beat of FIXED,
+  INCR and WRAP bursts, and has pops, subscribers, ``check_axi4_transaction``, a shadow memory
+  scoreboard (``shadow_memory => true``) and statistics (``get_axi4_statistics``,
+  ``log_axi4_statistics`` with latency percentiles and histograms, bandwidth, outstanding transactions
+  and backpressure, per ID on request). The protocol checker has ``axi4_stable``, ``axi4_valid_drop``,
+  ``axi4_burst_4k``, ``axi4_wlast``, ``axi4_timeout`` and the other checks of ``axi4_check_t``.
+  ``axi4_context`` is the one context clause of an AXI4 testbench, and ``awesome_vunit_vcs.axi4``
+  has the burst arithmetic, monitor and checks for plain Python.
+* AXI4: ``axi4_read_slave`` and ``axi4_write_slave``, with the generics, ports and procedures of VUnit's
+  ``axi_read_slave`` and ``axi_write_slave`` (``new_axi4_slave``, the FIFO depths, stall
+  probabilities, response latency, 4 KB and well behaved checks, ``get_statistics``), plus WRAP
+  bursts, AXI3, SLVERR on permission failures, ``aresetn``, ``reset``, ``wait_until_idle`` and
+  ``wait_for_time``. They share an ``axi4_memory_t``: VUnit's ``memory_t`` (buffers, permissions,
+  expected data, words, ``integer_array_t``) on a sparse 64-bit address space, with ``fill`` and
+  ``load_image`` of the flash family's image formats. ``awesome_vunit_vcs.axi4`` has the
+  ``MemoryModel`` and ``Axi4Slave`` for plain Python.
+* Common: ``awesome_vunit_vcs.common.sparse_memory.SparseMemory``, the sparse byte store of the flash
+  array, now shared with the AXI4 memory.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
 
 VHDL API
@@ -156,8 +187,7 @@ Breaking changes
   are ``PhyFrame.error_offsets``.
 * ``MacFrame``, ``EthernetFrame``, ``PhyFrame``, ``WireFrame``, ``EthernetMonitor``,
   ``EthernetConfig``, ``EthernetStatistics``, ``FcsMode``, ``build_wire_frame``, ``create_phy`` and
-  the other building blocks moved to ``awesome_vunit_vcs.ethernet.lowlevel``. Importing them from
-  ``awesome_vunit_vcs.ethernet`` still works in this release, with a ``DeprecationWarning``.
+  the other building blocks moved to ``awesome_vunit_vcs.ethernet.lowlevel``.
   ``EthernetConfig`` and ``EthernetStatistics`` are now named ``MonitorConfig`` and ``Statistics``.
 * ``MonitorBackend.statistics`` is a property; calling it still works.
 * ``traffic.parse_arguments`` is removed; ``call_packet_function`` and ``sequence`` take the

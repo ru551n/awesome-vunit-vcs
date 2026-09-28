@@ -26,14 +26,18 @@ entity arbiter2 is
 end entity;
 
 architecture a of arbiter2 is
+
   signal held_a, held_b : std_ulogic := '0';
+
 begin
 
   grant_a <= held_a;
   grant_b <= held_b;
 
   main : process(clk)
+
     variable next_a, next_b : std_ulogic;
+
   begin
     if rising_edge(clk) then
       if rst = '1' then

@@ -18,6 +18,7 @@ entity alu is
 end entity;
 
 architecture a of alu is
+
 begin
 
   y <= std_ulogic_vector(resize(unsigned(a), 9) - unsigned(b)) when subtract = '1' else

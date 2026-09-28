@@ -16,17 +16,22 @@ entity popcount_loop is
 end entity;
 
 architecture a of popcount_loop is
+
 begin
 
   main : process(data_in)
+
     variable acc : natural range 0 to 16;
+
   begin
     acc := 0;
     for idx in data_in'range loop
+
       if data_in(idx) = '1' then
         acc := acc + 1;
       end if;
     end loop;
+
     count <= std_ulogic_vector(to_unsigned(acc, 5));
   end process;
 

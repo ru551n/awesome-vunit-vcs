@@ -32,24 +32,31 @@ entity boot_reader is
 end entity;
 
 architecture a of boot_reader is
+
   constant controller : qspi_master_t := new_qspi_master;
+
 begin
 
   boot : process
+
     variable data : integer_array_t := null_integer_array;
     variable image_bytes : natural := 0;
+
   begin
     wait until rst_n = '1';
 
     qspi_flash_fast_read(net, controller, 0, 4, data);
     for idx in 0 to 3 loop
+
       image_bytes := 256 * image_bytes + get(data, idx);
     end loop;
 
     qspi_flash_fast_read(net, controller, 0, image_bytes, data);
     for idx in 0 to image_bytes - 1 loop
+
       ram(8 * idx to 8 * idx + 7) <= qspi_to_byte(get(data, idx));
     end loop;
+
     deallocate(data);
 
     boot_done <= '1';

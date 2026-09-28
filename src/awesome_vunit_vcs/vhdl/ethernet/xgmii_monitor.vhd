@@ -32,6 +32,7 @@ entity xgmii_monitor is
 end entity;
 
 architecture a of xgmii_monitor is
+
 begin
 
   main : process
@@ -49,6 +50,7 @@ begin
         data => data,
         ctrl => ctrl
       );
+
   end generate;
 
 end architecture;

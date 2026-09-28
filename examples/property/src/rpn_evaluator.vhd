@@ -29,16 +29,21 @@ entity rpn_evaluator is
 end entity;
 
 architecture a of rpn_evaluator is
+
   type stack_t is array (0 to 7) of unsigned(7 downto 0);
+
   signal stack : stack_t := (others => (others => '0'));
   signal sp : natural range 0 to 8 := 0;
+
 begin
 
   result <= std_ulogic_vector(stack(sp - 1)) when sp > 0 else
             (others => '0');
 
   main : process(clk)
+
     variable a, b : unsigned(7 downto 0);
+
   begin
     if rising_edge(clk) then
       if rst = '1' then

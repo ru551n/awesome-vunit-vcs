@@ -32,12 +32,14 @@ entity rgmii_monitor is
 end entity;
 
 architecture a of rgmii_monitor is
+
   -- The clock edge aligned data is sampled on, a quarter period late
   signal sample_clk : std_ulogic := '0';
   -- The symbols of both clock edges, changing on the falling sampling edges
   signal symbol_clk : std_ulogic := '0';
   signal octet : std_ulogic_vector(7 downto 0) := (others => '0');
   signal dv, er : std_ulogic := '0';
+
 begin
 
   -- Without a delay the line is sampled on clk itself: a copy of clk would
@@ -49,6 +51,7 @@ begin
     begin
       combine_double_edges(to_ethernet_vc(monitor), clk, data, ctl, octet, dv, er);
     end process;
+
   else generate
     sample_clk <= transport clk after get_sample_delay(monitor);
     symbol_clk <= not sample_clk;
@@ -57,6 +60,7 @@ begin
     begin
       combine_double_edges(to_ethernet_vc(monitor), sample_clk, data, ctl, octet, dv, er);
     end process;
+
   end generate;
 
   main : process
@@ -74,6 +78,7 @@ begin
         data => data,
         ctl => ctl
       );
+
   end generate;
 
 end architecture;

@@ -65,9 +65,11 @@ entity qspi_master is
 end entity;
 
 architecture a of qspi_master is
+
 begin
 
   main : process
+
     constant actor : actor_t := get_actor(qspi_master);
     constant logger : logger_t := get_logger(qspi_master);
     constant checker : checker_t := get_checker(qspi_master);
@@ -94,7 +96,9 @@ begin
     procedure receive_during_transfer is
       variable msg : msg_t;
     begin
+
       while not has_reset and has_message(actor) loop
+
         receive(net, actor, msg);
         if message_type(msg) = reset_qspi_master_msg then
           reset_request := msg;
@@ -103,17 +107,21 @@ begin
           push(pending, msg);
         end if;
       end loop;
+
     end procedure;
 
     -- Wait for duration, or until a reset request arrives
     procedure wait_unless_reset(duration : delay_length)is
       constant deadline : time := now + duration;
     begin
+
       receive_during_transfer;
       while not has_reset and now < deadline loop
+
         wait on net for deadline - now;
         receive_during_transfer;
       end loop;
+
     end procedure;
 
     -- One SCK cycle. sample is the resolved bus immediately before the
@@ -123,6 +131,7 @@ begin
     -- low.
     procedure sck_cycle(variable sample : out qspi_io_t)is
     begin
+
       sample := qspi_io_value(m2s, s2m);
       wait_unless_reset(period / 2);
       if has_reset then
@@ -138,6 +147,7 @@ begin
       variable byte : std_ulogic_vector(7 downto 0);
       variable sample : qspi_io_t;
     begin
+
       if is_null(bytes) or length(bytes) = 0 or has_reset then
         return;
       end if;
@@ -154,19 +164,24 @@ begin
       );
 
       for index in 0 to length(bytes) - 1 loop
+
         byte := qspi_to_byte(get(bytes, index));
         for beat in 0 to qspi_beats_per_byte(lanes) - 1 loop
+
           m2s.io <= qspi_drive_beat(byte, lanes, beat, qspi_master_side);
           sck_cycle(sample);
           exit when has_reset;
         end loop;
+
         exit when has_reset;
       end loop;
+
     end procedure;
 
     procedure dummy_phase(cycles : natural)is
       variable sample : qspi_io_t;
     begin
+
       if cycles = 0 or has_reset then
         return;
       end if;
@@ -177,9 +192,11 @@ begin
       -- ends the last write beat, so the whole dummy phase is a turnaround.
       m2s.io.enable <= (others => '0');
       for cycle in 1 to cycles loop
+
         sck_cycle(sample);
         exit when has_reset;
       end loop;
+
     end procedure;
 
     procedure read_phase(bytes : integer_array_t; lanes : lane_count_t)is
@@ -187,6 +204,7 @@ begin
       variable sample : qspi_io_t;
       variable slice : std_ulogic_vector(lanes - 1 downto 0);
     begin
+
       bytes_read := 0;
       if length(bytes) = 0 or has_reset then
         return;
@@ -204,8 +222,10 @@ begin
       m2s.io.enable <= (others => '0');
 
       for index in 0 to length(bytes) - 1 loop
+
         byte := (others => '0');
         for beat in 0 to qspi_beats_per_byte(lanes) - 1 loop
+
           sck_cycle(sample);
           exit when has_reset;
           slice := qspi_sample_beat(sample, lanes, qspi_slave_side);
@@ -222,10 +242,12 @@ begin
           );
           byte := qspi_byte_insert(byte, lanes, beat, to_x01(slice));
         end loop;
+
         exit when has_reset;
         set(bytes, index, qspi_to_natural(byte));
         bytes_read := index + 1;
       end loop;
+
     end procedure;
 
     -- One complete transaction, CS framing included.
@@ -241,6 +263,7 @@ begin
       read_lanes : lane_count_t
     )is
     begin
+
       m2s.cs_n <= '0';
 
       write_phase(cmd, cmd_lanes, "command");
@@ -274,10 +297,12 @@ begin
       variable phase_lanes : lane_count_t;
       variable phase_bytes : integer_array_t;
     begin
+
       count := pop_integer(msg);
       phase_lanes := pop_integer(msg);
       phase_bytes := new_1d(length => count, bit_width => 8, is_signed => false);
       for index in 0 to count - 1 loop
+
         set(phase_bytes, index, pop_integer(msg));
       end loop;
 
@@ -293,7 +318,9 @@ begin
       variable no_data : integer_array_t;
       variable num_dropped : natural := 0;
     begin
+
       while not is_empty(pending) loop
+
         msg := pop(pending);
         if message_type(msg) = transfer_qspi_master_data_msg then
           no_data := new_1d(length => 0, bit_width => 8, is_signed => false);
@@ -305,7 +332,9 @@ begin
           push(kept, msg);
         end if;
       end loop;
+
       while not is_empty(kept) loop
+
         msg := pop(kept);
         push(pending, msg);
       end loop;
@@ -321,11 +350,19 @@ begin
     variable msg, reply_msg : msg_t;
     variable msg_type : msg_type_t;
 
-    variable cmd, addr, wr_data, rd_data : integer_array_t;
-    variable cmd_lanes, addr_lanes, wr_lanes, read_lanes : lane_count_t;
+    variable cmd : integer_array_t;
+    variable addr : integer_array_t;
+    variable wr_data : integer_array_t;
+    variable rd_data : integer_array_t;
+    variable cmd_lanes : lane_count_t;
+    variable addr_lanes : lane_count_t;
+    variable wr_lanes : lane_count_t;
+    variable read_lanes : lane_count_t;
     variable dummy_cycles, num_read_bytes : natural;
+
   begin
     loop
+
       if is_empty(pending) then
         receive(net, actor, msg);
       else
@@ -393,7 +430,6 @@ begin
         debug(logger, "SCK period set to " & to_string(period));
         reply_msg := new_msg(set_qspi_master_sck_period_reply_msg);
         reply(net, msg, reply_msg);
-
       else
         unexpected_msg_type(msg_type, qspi_master);
       end if;
@@ -402,6 +438,7 @@ begin
         finish_reset;
       end if;
     end loop;
+
   end process;
 
   protocol_checker_gen : if protocol_checker(qspi_master) /= null_qspi_protocol_checker generate
@@ -413,6 +450,7 @@ begin
         m2s => m2s,
         s2m => s2m
       );
+
   end generate;
 
 end architecture;

@@ -35,6 +35,7 @@ library python_bridge;
 context python_bridge.python_context;
 
 package vc_python_pkg is
+
   -- The Python session of a VC, identified by the id of the VC. Two VCs with the same id would
   -- share their Python state, so a second session for an id is a failure on logger, or on the
   -- logger of the id when logger is null_logger.
@@ -91,9 +92,15 @@ package vc_python_pkg is
   procedure push_arg(msg : msg_t; value : arg_t);
   impure function pop_arg (msg : msg_t) return arg_t;
 
-  -- Fetch the reports waiting in the backend and log them: errors as check
-  -- failures on checker, the others on logger at their level
-  procedure log_reports(session : python_session_t; logger : logger_t; checker : checker_t);
+  -- Fetch the reports waiting in the backend, ``vc.take_reports(args)``, and
+  -- log them: errors as check failures on checker, the others on logger at
+  -- their level
+  procedure log_reports(
+    session : python_session_t;
+    logger : logger_t;
+    checker : checker_t;
+    args : arg_t := null_arg
+  );
 
   -- The samples a passive VC recorded and has not sent to its backend yet,
   -- created with :vhdl:`vc_python_pkg.new_sample_batch`
@@ -149,6 +156,7 @@ package body vc_python_pkg is
   ) return python_session_t is
     constant name : string := full_name(id);
   begin
+
     if has_key(vc_sessions, name) then
       if logger = null_logger then
         failure(
@@ -173,6 +181,7 @@ package body vc_python_pkg is
     args : arg_t := null_arg
   )is
   begin
+
     -- Module and class are names, not data; the arguments are the bridge's typed call
     exec("from " & module_name & " import " & class_name, session);
     exec("vc = " & to_call_str(class_name, args), session);
@@ -180,6 +189,7 @@ package body vc_python_pkg is
 
   procedure backend_call(session : python_session_t; method : string; args : arg_t := null_arg)is
   begin
+
     call("vc." & method, args, session => session);
   end procedure;
 
@@ -189,6 +199,7 @@ package body vc_python_pkg is
     args : arg_t := null_arg
   ) return integer is
   begin
+
     return call_integer_w_arg("vc." & method, args, session => session);
   end function;
 
@@ -198,6 +209,7 @@ package body vc_python_pkg is
     args : arg_t := null_arg
   ) return boolean is
   begin
+
     return call_boolean("vc." & method, args, session => session);
   end function;
 
@@ -207,6 +219,7 @@ package body vc_python_pkg is
     args : arg_t := null_arg
   ) return string is
   begin
+
     return call_string("vc." & method, args, session => session);
   end function;
 
@@ -216,6 +229,7 @@ package body vc_python_pkg is
     args : arg_t := null_arg
   ) return integer_array_t is
   begin
+
     return call_integer_array("vc." & method, args, session => session);
   end function;
 
@@ -223,16 +237,19 @@ package body vc_python_pkg is
     constant hi : natural := value / time_split;
     constant lo : natural := (value - hi * time_split) / 1 fs;
   begin
+
     return (hi, lo);
   end function;
 
   function arg_time (value : time) return arg_t is
   begin
+
     return arg(time_halves(value));
   end function;
 
   function kwarg_time (name : string; value : time) return arg_t is
   begin
+
     return kwarg(name, time_halves(value));
   end function;
 
@@ -240,24 +257,30 @@ package body vc_python_pkg is
     alias normalized : string(1 to value'length) is value;
     variable result : integer_vector(1 to value'length);
   begin
+
     for idx in normalized'range loop
+
       result(idx) := character'pos(normalized(idx));
     end loop;
+
     return result;
   end function;
 
   function arg_text (value : string) return arg_t is
   begin
+
     return arg(character_codes(value));
   end function;
 
   function kwarg_text (name : string; value : string) return arg_t is
   begin
+
     return kwarg(name, character_codes(value));
   end function;
 
   procedure push_arg(msg : msg_t; value : arg_t)is
   begin
+
     push_string(msg, value.name);
     push_string(msg, value.value);
   end procedure;
@@ -266,20 +289,30 @@ package body vc_python_pkg is
     constant name : string := pop_string(msg);
     constant value : string := pop_string(msg);
   begin
+
     return (name => name, value => value);
   end function;
 
-  procedure log_reports(session : python_session_t; logger : logger_t; checker : checker_t)is
-    constant reports : string := backend_call_string(session, "take_reports");
+  procedure log_reports(
+    session : python_session_t;
+    logger : logger_t;
+    checker : checker_t;
+    args : arg_t := null_arg
+  )is
+    constant reports : string := backend_call_string(session, "take_reports", args);
     alias text : string(1 to reports'length) is reports;
     variable first : positive := 1;
     variable last : natural;
   begin
+
     while first <= text'length loop
+
       last := first;
       while last <= text'length and text(last) /= record_separator loop
+
         last := last + 1;
       end loop;
+
       -- text(first) is the severity code, text(first + 1) the field separator
       if last - first >= 2 and text(first + 1) = field_separator then
 
@@ -295,11 +328,13 @@ package body vc_python_pkg is
           when others =>
             debug(logger, text(first + 2 to last - 1));
         end case;
+
       else
         failure(logger, "Malformed report from the Python backend: " & text(first to last - 1));
       end if;
       first := last + 1;
     end loop;
+
   end procedure;
 
   impure function new_sample_batch (
@@ -310,6 +345,7 @@ package body vc_python_pkg is
     delta_unit : time := 1 ps
   ) return sample_batch_t is
   begin
+
     assert delta_unit > 0 fs and delta_unit <= 1 us
       report "The delta unit of a sample batch must be in (0 fs, 1 us]"
       severity failure;
@@ -327,12 +363,14 @@ package body vc_python_pkg is
 
   impure function num_samples (batch : sample_batch_t) return natural is
   begin
+
     return length(batch.p_samples) / 2;
   end function;
 
   procedure record_sample(variable batch : inout sample_batch_t; word : integer)is
     variable delta : natural;
   begin
+
     if num_samples(batch) > 0 and now - batch.p_last_time > batch.p_delta_unit * integer'high then
       flush_samples(batch);
     end if;
@@ -357,6 +395,7 @@ package body vc_python_pkg is
   procedure flush_samples(variable batch : inout sample_batch_t)is
     variable num_reports : natural;
   begin
+
     if num_samples(batch) = 0 then
       return;
     end if;

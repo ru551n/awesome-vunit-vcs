@@ -5,6 +5,7 @@
 -- docs-start: context
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
+
 -- docs-end: context
 
 -- One test case per common construct. A GMII source sends frames through a
@@ -17,10 +18,14 @@ entity tb_cookbook is
 end entity;
 
 architecture tb of tb_cookbook is
+
   -- docs-start: signals
   signal clk : std_ulogic := '0';
   signal in_data, out_data : std_ulogic_vector(7 downto 0) := (others => '0');
-  signal in_dv, in_er, out_dv, out_er : std_ulogic := '0';
+  signal in_dv : std_ulogic := '0';
+  signal in_er : std_ulogic := '0';
+  signal out_dv : std_ulogic := '0';
+  signal out_er : std_ulogic := '0';
   -- docs-end: signals
 
   -- docs-start: handles
@@ -34,12 +39,14 @@ architecture tb of tb_cookbook is
   -- A 60 octet frame: destination, source, EtherType and a payload of ones
   constant frame : std_ulogic_vector
     := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
+
 -- docs-end: frame
 begin
 
   clk <= not clk after 4 ns;
 
   main : process
+
     -- docs-start: variables
     variable statistics : ethernet_statistics_t;
     variable count : natural;
@@ -53,14 +60,17 @@ begin
     -- docs-start: wait-helper
     procedure wait_until_idle is
     begin
+
       wait_until_idle(net, as_sync(source));
       wait_until_idle(net, as_sync(monitor));
     end procedure;
+
   -- docs-end: wait-helper
   begin
     -- docs-start: test-structure
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_send_and_check_a_frame") then
         -- docs-end: test-structure
         -- docs-start: send-frame
@@ -208,12 +218,14 @@ begin
         -- docs-start: reference-model
         import_module_from_file(tb_path(runner_cfg) & "python/cookbook_model.py", "cookbook_model");
         for idx in frame_sizes'range loop
+
           push_ethernet_frame(
             net,
             source,
             frame(0 to 111) & (0 to 8 * (frame_sizes(idx) - 14) - 1 => '1')
           );
         end loop;
+
         wait_until_idle;
         get_statistics(net, monitor, statistics);
         -- The Python model predicts what the monitor must count
@@ -253,6 +265,7 @@ begin
       -- docs-end: reset
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 
@@ -261,13 +274,13 @@ begin
   -- docs-start: instances
   source_inst : entity awesome_vunit_vcs.gmii_source
     generic map (
-      source
+      source => source
     )
     port map (
-      clk,
-      in_data,
-      in_dv,
-      in_er
+      clk => clk,
+      data => in_data,
+      dv => in_dv,
+      er => in_er
     );
 
   -- The design under test: one register stage
@@ -277,13 +290,13 @@ begin
 
   monitor_inst : entity awesome_vunit_vcs.gmii_monitor
     generic map (
-      monitor
+      monitor => monitor
     )
     port map (
-      clk,
-      out_data,
-      out_dv,
-      out_er
+      clk => clk,
+      data => out_data,
+      dv => out_dv,
+      er => out_er
     );
 
   -- docs-end: instances

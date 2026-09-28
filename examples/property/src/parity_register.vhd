@@ -30,9 +30,11 @@ entity parity_register is
 end entity;
 
 architecture a of parity_register is
+
   signal stored_data : std_ulogic_vector(7 downto 0) := (others => '0');
   signal stored_parity : std_ulogic := '0';
   signal computed_parity : std_ulogic;
+
 begin
 
   main : process(clk)

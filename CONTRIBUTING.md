@@ -36,6 +36,7 @@ These are the checks CI runs. A pull request must pass all of them.
 ruff check .                                   # lint
 ruff format --check .                          # formatting
 mypy                                           # strict type checking
+speja $(git ls-files "*.vhd" ":!:tests/python/golden") -c speja.yaml   # VHDL style, add --fix to format
 pytest                                         # Python unit tests
 VUNIT_SIMULATOR=ghdl python tests/vhdl/run.py --output-path ../vunit_out -p 2
 VUNIT_SIMULATOR=nvc python tests/vhdl/run.py --output-path ../vunit_out -p 2

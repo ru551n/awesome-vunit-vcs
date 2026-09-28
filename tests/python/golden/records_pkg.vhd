@@ -12,86 +12,83 @@ package records_pkg is
 
   -- One lane.
   type lane_t is record
-    index   : integer range 0 to 7;
+    index : integer range 0 to 7;
     enabled : boolean;
   end record;
 
   -- Read the example at ``path`` of a property into a :vhdl:`records_pkg.lane_t`.
-  impure function get_lane (prop : property_t; path : string := "") return lane_t;
+  impure function get_lane(prop : property_t; path : string := "") return lane_t;
   -- The value as text, equal to vhdl_image of the Python value.
-  impure function to_string (value : lane_t) return string;
+  impure function to_string(value : lane_t) return string;
 
   type link_modes_array_t is array (0 to 2) of mode_t;
   type link_lanes_array_t is array (0 to 3) of lane_t;
 
   -- Every supported field type.
   type link_t is record
-    lanes_used     : integer range 1 to 8;
-    name           : string(1 to 6);
-    name_length    : natural range 0 to 6;
-    color          : string(1 to 5);
-    color_length   : natural range 0 to 5;
-    payload        : integer_vector(0 to 11);
+    lanes_used : integer range 1 to 8;
+    name : string(1 to 6);
+    name_length : natural range 0 to 6;
+    color : string(1 to 5);
+    color_length : natural range 0 to 5;
+    payload : integer_vector(0 to 11);
     payload_length : natural range 0 to 12;
-    offsets        : integer_vector(0 to 4);
+    offsets : integer_vector(0 to 4);
     offsets_length : natural range 0 to 5;
-    modes          : link_modes_array_t;
-    modes_length   : natural range 0 to 3;
-    lanes          : link_lanes_array_t;
-    lanes_length   : natural range 0 to 4;
-    mode           : mode_t;
-    primary        : lane_t;
-    vlan           : integer range 1 to 4094;
-    has_vlan       : boolean;
-    backup         : lane_t;
-    has_backup     : boolean;
+    modes : link_modes_array_t;
+    modes_length : natural range 0 to 3;
+    lanes : link_lanes_array_t;
+    lanes_length : natural range 0 to 4;
+    mode : mode_t;
+    primary : lane_t;
+    vlan : integer range 1 to 4094;
+    has_vlan : boolean;
+    backup : lane_t;
+    has_backup : boolean;
   end record;
 
   -- Read the example at ``path`` of a property into a :vhdl:`records_pkg.link_t`.
-  impure function get_link (prop : property_t; path : string := "") return link_t;
+  impure function get_link(prop : property_t; path : string := "") return link_t;
   -- The value as text, equal to vhdl_image of the Python value.
-  impure function to_string (value : link_t) return string;
+  impure function to_string(value : link_t) return string;
 
 end package;
 
 package body records_pkg is
-
-  function p_field (path, name : string) return string is
+  function p_field(path, name : string) return string is
   begin
     if path = "" then
       return name;
     end if;
     return path & "." & name;
-  end function;
+  end;
 
-  function p_item (path : string; idx : natural) return string is
+  function p_item(path : string; idx : natural) return string is
   begin
     return path & "(" & integer'image(idx) & ")";
-  end function;
+  end;
 
-  procedure p_copy(value : string; variable target : inout string; variable length : out natural)is
+  procedure p_copy(value : string; variable target : inout string; variable length : out natural) is
     alias normalized : string(1 to value'length) is value;
   begin
     for idx in normalized'range loop
       target(target'left + idx - 1) := normalized(idx);
     end loop;
     length := value'length;
-  end procedure;
+  end;
 
   procedure p_copy(
-    value : integer_vector;
-    variable target : inout integer_vector;
-    variable length : out natural
-  )is
+    value : integer_vector; variable target : inout integer_vector; variable length : out natural
+  ) is
     alias normalized : integer_vector(0 to value'length - 1) is value;
   begin
     for idx in normalized'range loop
       target(target'left + idx) := normalized(idx);
     end loop;
     length := value'length;
-  end procedure;
+  end;
 
-  impure function p_image (value : integer_vector; length : natural) return string is
+  impure function p_image(value : integer_vector; length : natural) return string is
     variable text : line;
   begin
     write(text, string'("("));
@@ -103,17 +100,17 @@ package body records_pkg is
     end loop;
     write(text, string'(")"));
     return text.all;
-  end function;
+  end;
 
-  impure function get_lane (prop : property_t; path : string := "") return lane_t is
+  impure function get_lane(prop : property_t; path : string := "") return lane_t is
     variable result : lane_t;
   begin
     result.index := get_integer(prop, p_field(path, "index"));
     result.enabled := get_boolean(prop, p_field(path, "enabled"));
     return result;
-  end function;
+  end;
 
-  impure function to_string (value : lane_t) return string is
+  impure function to_string(value : lane_t) return string is
     variable text : line;
   begin
     write(text, string'("("));
@@ -123,24 +120,16 @@ package body records_pkg is
     write(text, boolean'image(value.enabled));
     write(text, string'(")"));
     return text.all;
-  end function;
+  end;
 
-  impure function get_link (prop : property_t; path : string := "") return link_t is
+  impure function get_link(prop : property_t; path : string := "") return link_t is
     variable result : link_t;
   begin
     result.lanes_used := get_integer(prop, p_field(path, "lanes_used"));
     p_copy(get_string(prop, p_field(path, "name")), result.name, result.name_length);
     p_copy(get_string(prop, p_field(path, "color")), result.color, result.color_length);
-    p_copy(
-      get_integer_vector(prop, p_field(path, "payload")),
-      result.payload,
-      result.payload_length
-    );
-    p_copy(
-      get_integer_vector(prop, p_field(path, "offsets")),
-      result.offsets,
-      result.offsets_length
-    );
+    p_copy(get_integer_vector(prop, p_field(path, "payload")), result.payload, result.payload_length);
+    p_copy(get_integer_vector(prop, p_field(path, "offsets")), result.offsets, result.offsets_length);
     result.modes_length := get_length(prop, p_field(path, "modes"));
     for idx in 0 to result.modes_length - 1 loop
       result.modes(idx) := mode_t'value(get_string(prop, p_item(p_field(path, "modes"), idx)));
@@ -160,9 +149,9 @@ package body records_pkg is
       result.backup := get_lane(prop, p_field(path, "backup"));
     end if;
     return result;
-  end function;
+  end;
 
-  impure function to_string (value : link_t) return string is
+  impure function to_string(value : link_t) return string is
     variable text : line;
   begin
     write(text, string'("("));
@@ -212,6 +201,6 @@ package body records_pkg is
     end if;
     write(text, string'(")"));
     return text.all;
-  end function;
+  end;
 
 end package body;

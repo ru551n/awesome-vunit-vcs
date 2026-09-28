@@ -31,6 +31,7 @@ entity axis_mac_source is
 end entity;
 
 architecture a of axis_mac_source is
+
 begin
 
   main : process

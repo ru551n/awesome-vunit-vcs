@@ -21,22 +21,34 @@ entity tb_property_fifo is
 end entity;
 
 architecture tb of tb_property_fifo is
-  signal clk, rst, push, pop, full, empty : std_ulogic := '0';
+
+  signal clk : std_ulogic := '0';
+  signal rst : std_ulogic := '0';
+  signal push : std_ulogic := '0';
+  signal pop : std_ulogic := '0';
+  signal full : std_ulogic := '0';
+  signal empty : std_ulogic := '0';
   signal data_in, data_out : std_ulogic_vector(7 downto 0) := (others => '0');
   signal count : std_ulogic_vector(3 downto 0);
+
 begin
 
   clk <= not clk after 5 ns;
 
   main : process
+
     variable prop : property_t;
     -- The reference model: the words in the FIFO, oldest first
     variable model : integer_vector(0 to 7);
     variable fill, max_fill : natural;
-    variable push_now, pop_now, passed : boolean;
+    variable push_now : boolean;
+    variable pop_now : boolean;
+    variable passed : boolean;
+
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_occupancy_targeting") then
         -- docs-start: fifo
         -- Every pop returns the oldest word and count matches the model. The score
@@ -48,6 +60,7 @@ begin
           search_path => tb_path(runner_cfg) & "python"
         );
         while next_example(prop) loop
+
           rst <= '1';
           wait until rising_edge(clk);
           rst <= '0';
@@ -55,6 +68,7 @@ begin
           max_fill := 0;
           passed := true;
           for idx in 0 to get_length(prop) - 1 loop
+
             push_now := get_string(prop, "(" & integer'image(idx) & ")") /= "pop";
             pop_now := get_string(prop, "(" & integer'image(idx) & ")") /= "push";
             push <= '1' when push_now else
@@ -79,13 +93,16 @@ begin
             passed := passed and to_integer(unsigned(count)) = fill;
             max_fill := maximum(max_fill, fill);
           end loop;
+
           report_score(prop, "occupancy", real(max_fill));
           report_example(prop, passed => passed);
         end loop;
+
         check_property(prop);
         -- docs-end: fifo
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 

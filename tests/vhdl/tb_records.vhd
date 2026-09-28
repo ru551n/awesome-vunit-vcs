@@ -22,15 +22,19 @@ entity tb_records is
 end entity;
 
 architecture tb of tb_records is
+
 begin
 
   main : process
+
     variable prop : property_t;
     variable link : link_t;
     variable lane : lane_t;
+
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_generated_records_read_every_field_type") then
         prop := new_property(
           "record_types:links",
@@ -39,6 +43,7 @@ begin
           search_path => tb_path(runner_cfg) & "python"
         );
         while next_example(prop) loop
+
           link := get_link(prop, "value");
           report_example(
             prop,
@@ -46,6 +51,7 @@ begin
             msg => to_string(link)
           );
         end loop;
+
         check_property(prop);
 
       elsif run("test_generated_record_at_the_top_of_the_example") then
@@ -56,6 +62,7 @@ begin
           search_path => tb_path(runner_cfg) & "python"
         );
         while next_example(prop) loop
+
           lane := get_lane(prop);
           report_example(
             prop,
@@ -64,9 +71,11 @@ begin
               and lane.enabled = get_boolean(prop, "enabled")
           );
         end loop;
+
         check_property(prop);
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 

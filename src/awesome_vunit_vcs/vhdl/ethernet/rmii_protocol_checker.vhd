@@ -32,6 +32,7 @@ entity rmii_protocol_checker is
 end entity;
 
 architecture a of rmii_protocol_checker is
+
 begin
 
   main : process

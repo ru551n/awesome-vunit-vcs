@@ -11,6 +11,7 @@
 -- docs-start: context
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.flash_context;
+
 -- docs-end: context
 
 entity tb_flash_examples is
@@ -20,6 +21,7 @@ entity tb_flash_examples is
 end entity;
 
 architecture tb of tb_flash_examples is
+
   -- docs-start: boot-handles
   -- The flash the design boots from, with a protocol checker for the design's pin timing
   constant boot_flash : flash_t := new_flash(protocol_checker => new_qspi_protocol_checker);
@@ -65,19 +67,25 @@ architecture tb of tb_flash_examples is
   signal rtl_m2s : qspi_m2s_t := qspi_m2s_init;
   signal rtl_s2m : qspi_s2m_t := qspi_s2m_init;
   signal rtl_data : std_ulogic_vector(0 to 8 * 4 - 1);
+
 -- docs-end: rtl-handles
 begin
 
   main : process
+
     -- docs-start: variables
     variable regions, got : integer_array_t := null_integer_array;
-    variable cmd, addr, wr_data : integer_array_t := null_integer_array;
+    variable cmd : integer_array_t := null_integer_array;
+    variable addr : integer_array_t := null_integer_array;
+    variable wr_data : integer_array_t := null_integer_array;
     variable count : natural;
     variable reference : qspi_transfer_reference_t;
+
   -- docs-end: variables
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_boot_from_an_image") then
         -- docs-start: boot-test
         flash_load_image(net, boot_flash, tb_path(runner_cfg) & "flash_boot_image.hex");
@@ -215,8 +223,10 @@ begin
         qspi_flash_read_id(net, master, wr_data);
         check_equal(length(got), 3);
         for idx in 0 to 2 loop
+
           check_equal(get(got, idx), get(wr_data, idx), "ID byte " & to_string(idx));
         end loop;
+
         deallocate(got);
         deallocate(wr_data);
       -- docs-end: read-transfer
@@ -259,6 +269,7 @@ begin
       -- docs-end: rtl-boot-test
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 
@@ -283,6 +294,7 @@ begin
       ram => ram,
       boot_done => boot_done
     );
+
   -- docs-end: boot-instances
 
   -- docs-start: master-instances
@@ -303,6 +315,7 @@ begin
       m2s => master_m2s,
       s2m => master_s2m
     );
+
   -- docs-end: master-instances
 
   hasty_master_inst : entity awesome_vunit_vcs.qspi_master
@@ -341,6 +354,7 @@ begin
       m2s => keep_wel_m2s,
       s2m => keep_wel_s2m
     );
+
   -- docs-end: keep-wel-instances
 
   -- docs-start: rtl-instances

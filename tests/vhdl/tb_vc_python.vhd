@@ -24,12 +24,15 @@ entity tb_vc_python is
 end entity;
 
 architecture tb of tb_vc_python is
+
   constant receiver : actor_t := new_actor("tb_vc_python:receiver");
   constant arguments_msg : msg_type_t := new_msg_type("tb_vc_python arguments");
   signal received : boolean := false;
+
 begin
 
   main : process
+
     constant session : python_session_t := new_vc_session(get_id("tb_vc_python:backend"));
 
     -- The arguments are built from variables that are gone before the receiver uses them
@@ -38,16 +41,19 @@ begin
       variable text : line := new string'("it's ""quoted"" \ here" & LF & "and on a new line");
       variable msg : msg_t := new_msg(arguments_msg);
     begin
+
       push_arg(msg, arg("plain") & kwarg("port", port_number) & kwarg_text("message", text.all));
       deallocate(text);
       port_number := 0;
       send(net, receiver, msg);
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
     exec("import builtins", session);
 
     while test_suite loop
+
       if run("test_backend_calls_with_typed_arguments") then
         create_backend(session, "collections", "Counter", kwarg("a", 2) & kwarg("b", 3));
         check_equal(backend_call_integer(session, "total"), 5);
@@ -95,8 +101,10 @@ begin
   end process;
 
   receiving : process
+
     constant session : python_session_t := new_vc_session(get_id("tb_vc_python:receiver_backend"));
     variable msg : msg_t;
+
   begin
     receive(net, receiver, msg);
     exec("from awesome_vunit_vcs.common.vunit_bridge import decode_text", session);

@@ -28,9 +28,11 @@ entity spi_boot_reader is
 end entity;
 
 architecture a of spi_boot_reader is
+
   -- READ (0x03) followed by the 24-bit address 0, sent most significant bit first
   constant command : std_ulogic_vector(0 to 31) := x"03000000";
   signal bit_index : natural range 0 to command'length + 8 * num_bytes := 0;
+
 begin
 
   main : process(clk)

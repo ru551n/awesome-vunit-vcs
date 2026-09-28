@@ -29,11 +29,14 @@ entity fifo8 is
 end entity;
 
 architecture a of fifo8 is
+
   type memory_t is array (0 to 7) of std_ulogic_vector(7 downto 0);
+
   signal memory : memory_t := (others => (others => '0'));
   signal wr_ptr, rd_ptr : natural range 0 to 7 := 0;
   signal fill : natural range 0 to 8 := 0;
   signal is_full, is_empty : std_ulogic;
+
 begin
 
   is_full <= '1' when fill = 8 else

@@ -18,6 +18,7 @@ entity field_packer is
 end entity;
 
 architecture a of field_packer is
+
 begin
 
   packed <= opcode & flag & address & value;
@@ -42,6 +43,7 @@ entity field_unpacker is
 end entity;
 
 architecture a of field_unpacker is
+
 begin
 
   opcode <= packed(15 downto 12);

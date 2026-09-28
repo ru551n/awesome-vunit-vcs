@@ -21,26 +21,37 @@ entity tb_property_resources is
 end entity;
 
 architecture tb of tb_property_resources is
-  signal clk, rst, allocate, release_handle, write_enable, allocated : std_ulogic := '0';
+
+  signal clk : std_ulogic := '0';
+  signal rst : std_ulogic := '0';
+  signal allocate : std_ulogic := '0';
+  signal release_handle : std_ulogic := '0';
+  signal write_enable : std_ulogic := '0';
+  signal allocated : std_ulogic := '0';
   signal handle, allocated_handle : std_ulogic_vector(1 downto 0) := (others => '0');
   signal write_data, read_data : std_ulogic_vector(7 downto 0) := (others => '0');
+
 begin
 
   clk <= not clk after 5 ns;
 
   main : process
+
     variable prop : property_t;
 
     -- Hold a signal high for one clock cycle
     procedure pulse(signal value : out std_ulogic)is
     begin
+
       value <= '1';
       wait until rising_edge(clk);
       value <= '0';
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_resources") then
         -- docs-start: resources
         prop := new_property(
@@ -50,6 +61,7 @@ begin
           search_path => tb_path(runner_cfg) & "python"
         );
         while next_example(prop) loop
+
           if get_rule(prop) = "start" then
             pulse(rst);
             report_step(prop, value => 0);
@@ -76,10 +88,12 @@ begin
             report_step(prop, value => 0);
           end if;
         end loop;
+
         check_property(prop);
         -- docs-end: resources
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 

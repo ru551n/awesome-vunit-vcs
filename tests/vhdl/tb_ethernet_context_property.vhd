@@ -14,10 +14,13 @@ entity tb_ethernet_context_property is
 end entity;
 
 architecture tb of tb_ethernet_context_property is
+
 begin
 
   main : process
+
     variable prop : property_t;
+
   begin
     test_runner_setup(runner, runner_cfg);
     prop := new_property(
@@ -29,8 +32,10 @@ begin
       search_path => tb_path(runner_cfg) & "python"
     );
     while next_example(prop) loop
+
       report_example(prop, passed => get_length(prop) <= 4);
     end loop;
+
     check_property(prop);
     test_runner_cleanup(runner);
   end process;

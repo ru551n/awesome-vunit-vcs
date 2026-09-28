@@ -21,25 +21,37 @@ entity tb_property_corruption is
 end entity;
 
 architecture tb of tb_property_corruption is
+
   signal clk, rst : std_ulogic := '0';
 
-  signal pr_write_enable, pr_corrupt_enable, pr_error : std_ulogic := '0';
-  signal pr_data_in, pr_flip_data, pr_data_out : std_ulogic_vector(7 downto 0) := (others => '0');
+  signal pr_write_enable : std_ulogic := '0';
+  signal pr_corrupt_enable : std_ulogic := '0';
+  signal pr_error : std_ulogic := '0';
+  signal pr_data_in : std_ulogic_vector(7 downto 0) := (others => '0');
+  signal pr_flip_data : std_ulogic_vector(7 downto 0) := (others => '0');
+  signal pr_data_out : std_ulogic_vector(7 downto 0) := (others => '0');
   signal pr_flip_parity : std_ulogic := '0';
 
-  signal pp_valid, pp_accepted, pp_rejected : std_ulogic := '0';
+  signal pp_valid : std_ulogic := '0';
+  signal pp_accepted : std_ulogic := '0';
+  signal pp_rejected : std_ulogic := '0';
   signal pp_data : std_ulogic_vector(7 downto 0) := (others => '0');
+
 begin
 
   clk <= not clk after 5 ns;
 
   main : process
+
     variable prop : property_t;
-    variable passed, timed_out, has_fault : boolean;
+    variable passed : boolean;
+    variable timed_out : boolean;
+    variable has_fault : boolean;
 
     -- A property from a strategy in python/corruption_strategies.py, following VUnit's seed
     impure function new_example (strategy : string) return property_t is
     begin
+
       return new_property(
         "corruption_strategies:" & strategy,
         seed => get_seed(runner_cfg),
@@ -51,6 +63,7 @@ begin
     -- Hold a signal high for one clock cycle
     procedure pulse(signal value : out std_ulogic)is
     begin
+
       value <= '1';
       wait until rising_edge(clk);
       value <= '0';
@@ -59,11 +72,14 @@ begin
     -- The path of list element idx, "(2)"
     impure function item (idx : natural) return string is
     begin
+
       return "(" & integer'image(idx) & ")";
     end function;
+
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
+
       if run("test_fault_injection") then
         -- docs-start: fault_injection
         -- A stored byte plus its parity bit; with no fault the register reads back
@@ -71,6 +87,7 @@ begin
         -- as an error. Hypothesis shrinks data, fault kind and fault position.
         prop := new_example("fault_injection");
         while next_example(prop) loop
+
           pulse(rst);
           pr_data_in <= get_unsigned(prop, "data", 8);
           pulse(pr_write_enable);
@@ -96,6 +113,7 @@ begin
           end if;
           report_example(prop, passed => passed);
         end loop;
+
         check_property(prop);
       -- docs-end: fault_injection
 
@@ -106,11 +124,14 @@ begin
         -- mutation (down to "none" versus one specific kind).
         prop := new_example("mutated_packet");
         while next_example(prop) loop
+
           pulse(rst);
           for idx in 0 to get_length(prop, "packet") - 1 loop
+
             pp_data <= get_unsigned(prop, "packet" & item(idx), 8);
             pulse(pp_valid);
           end loop;
+
           wait until (pp_accepted = '1' or pp_rejected = '1')
             for example_budget(20 ns, 10 ns, get_length(prop, "packet"));
           timed_out := pp_accepted /= '1' and pp_rejected /= '1';
@@ -123,10 +144,12 @@ begin
           -- packet that times out is a lockup
           report_example(prop, passed => passed, timed_out => timed_out and not passed);
         end loop;
+
         check_property(prop);
       -- docs-end: invalid_packet_mutation
       end if;
     end loop;
+
     test_runner_cleanup(runner);
   end process;
 

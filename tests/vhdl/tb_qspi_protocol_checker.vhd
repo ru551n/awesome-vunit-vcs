@@ -21,6 +21,7 @@ entity tb_qspi_protocol_checker is
 end entity;
 
 architecture tb of tb_qspi_protocol_checker is
+
   -- docs-start: protocol_checker_constructor
   constant raw_checker : qspi_protocol_checker_t :=
     new_qspi_protocol_checker(id => get_id("tb_qspi_protocol_checker:raw_checker"));
@@ -48,6 +49,7 @@ begin
       m2s => raw_m2s,
       s2m => qspi_s2m_init
     );
+
   -- docs-end: protocol_checker_instance
 
   no_deselect_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
@@ -78,6 +80,7 @@ begin
     );
 
   main : process
+
     variable count : natural;
     variable cmd : integer_array_t;
     variable data : integer_array_t;
@@ -97,11 +100,13 @@ begin
       deselect_after : delay_length := 50 ns
     )is
     begin
+
       raw_m2s.io <= (value => "0000", enable => "0001");
       wait for 5 ns;
       raw_m2s.cs_n <= '0';
       wait for slch;
       for beat in 1 to beats loop
+
         raw_m2s.sck <= '1';
         if beat = beats then
           wait for high;
@@ -120,6 +125,7 @@ begin
           wait for high + low - change_offset;
         end if;
       end loop;
+
       wait for chsh;
       raw_m2s.cs_n <= '1';
       raw_m2s.io <= qspi_drive_init;
@@ -133,7 +139,9 @@ begin
       expected : natural
     )is
     begin
+
       for rule in qspi_check_t loop
+
         get_check_count(net, protocol_checker, rule, count);
         if rule = violated then
           check_equal(count, expected, "violations of " & qspi_check_t'image(rule));
@@ -141,19 +149,23 @@ begin
           check_equal(count, 0, "violations of " & qspi_check_t'image(rule));
         end if;
       end loop;
+
     end procedure;
 
     procedure check_no_violations(protocol_checker : qspi_protocol_checker_t)is
     begin
+
       check_counts(protocol_checker, qspi_check_t'low, 0);
     end procedure;
 
     -- One error on the logger of the raw checker, then clear it
     procedure check_one_error is
     begin
+
       check_equal(get_log_count(get_logger(raw_checker), error), 1, "errors logged");
       reset_log_count(get_logger(raw_checker), error);
     end procedure;
+
   begin
     test_runner_setup(runner, runner_cfg);
     disable_stop(get_logger(raw_checker), error);
@@ -162,6 +174,7 @@ begin
     disable_stop(get_logger(no_deselect_checker), error);
 
     while test_suite loop
+
       if run("test_clean_raw_frames_have_no_violations") then
         send_frame;
         send_frame;
@@ -293,6 +306,7 @@ begin
         cmd := new_byte_array((0 => 16#32#));
         data := new_byte_array((16#12#, 16#34#, 16#56#, 16#78#));
         for idx in 1 to 3 loop
+
           qspi_transfer(
             net,
             master,
@@ -303,6 +317,7 @@ begin
             dummy_cycles => 2
           );
         end loop;
+
         deallocate(cmd);
         deallocate(data);
         check_no_violations(master_checker);

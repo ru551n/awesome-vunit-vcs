@@ -22,7 +22,9 @@ entity property_lockup_dut is
 end entity;
 
 architecture a of property_lockup_dut is
+
   signal high_seen, locked : boolean := false;
+
 begin
 
   ready <= '0' when locked or rst = '1' else

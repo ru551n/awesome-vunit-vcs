@@ -51,13 +51,16 @@ architecture tb of tb_bridge_benchmark is
       return default_gmii_protocol_checker;
     end if;
     return null_gmii_protocol_checker;
-  end;
+  end function;
 
   constant source : gmii_source_t := new_gmii_source;
   constant monitor : gmii_monitor_t := new_gmii_monitor(
-    batch_length => batch_length, flush_at_frame_end => flush_at_frame_end, protocol_checker => protocol_checker
+    batch_length => batch_length,
+    flush_at_frame_end => flush_at_frame_end,
+    protocol_checker => protocol_checker
   );
 begin
+
   clk <= not clk after clk_period / 2;
 
   main : process
@@ -85,8 +88,14 @@ begin
       check_equal(frames, num_frames);
     end if;
     info(
-      "BENCHMARK " & config_name & " frames=" & to_string(num_frames) & " octets=" & to_string(frame_octets) &
-      " seconds=" & eval_string("f'{time.perf_counter() - start:.4f}'", timer)
+      "BENCHMARK "
+      & config_name
+      & " frames="
+      & to_string(num_frames)
+      & " octets="
+      & to_string(frame_octets)
+      & " seconds="
+      & eval_string("f'{time.perf_counter() - start:.4f}'", timer)
     );
 
     test_runner_cleanup(runner);
@@ -117,4 +126,5 @@ begin
         er => er
       );
   end generate;
+
 end architecture;

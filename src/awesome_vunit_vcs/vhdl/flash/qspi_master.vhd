@@ -66,6 +66,7 @@ end entity;
 
 architecture a of qspi_master is
 begin
+
   main : process
     constant actor : actor_t := get_actor(qspi_master);
     constant logger : logger_t := get_logger(qspi_master);
@@ -102,10 +103,10 @@ begin
           push(pending, msg);
         end if;
       end loop;
-    end;
+    end procedure;
 
     -- Wait for duration, or until a reset request arrives
-    procedure wait_unless_reset(duration : delay_length) is
+    procedure wait_unless_reset(duration : delay_length)is
       constant deadline : time := now + duration;
     begin
       receive_during_transfer;
@@ -113,14 +114,14 @@ begin
         wait on net for deadline - now;
         receive_during_transfer;
       end loop;
-    end;
+    end procedure;
 
     -- One SCK cycle. sample is the resolved bus immediately before the
     -- rising edge, which is what the far end presented for this beat. The
     -- high half is period - period / 2, so a period of an odd number of
     -- simulator resolution units is exact. A reset ends the cycle with SCK
     -- low.
-    procedure sck_cycle(variable sample : out qspi_io_t) is
+    procedure sck_cycle(variable sample : out qspi_io_t)is
     begin
       sample := qspi_io_value(m2s, s2m);
       wait_unless_reset(period / 2);
@@ -131,9 +132,9 @@ begin
       m2s.sck <= '1';
       wait_unless_reset(period - period / 2);
       m2s.sck <= '0';
-    end;
+    end procedure;
 
-    procedure write_phase(bytes : integer_array_t; lanes : lane_count_t; phase_name : string) is
+    procedure write_phase(bytes : integer_array_t; lanes : lane_count_t; phase_name : string)is
       variable byte : std_ulogic_vector(7 downto 0);
       variable sample : qspi_io_t;
     begin
@@ -143,8 +144,13 @@ begin
 
       debug(
         logger,
-        "Sending " & integer'image(length(bytes)) & " " & phase_name & " byte(s) on " & integer'image(lanes) &
-        " lane(s)"
+        "Sending "
+        & integer'image(length(bytes))
+        & " "
+        & phase_name
+        & " byte(s) on "
+        & integer'image(lanes)
+        & " lane(s)"
       );
 
       for index in 0 to length(bytes) - 1 loop
@@ -156,9 +162,9 @@ begin
         end loop;
         exit when has_reset;
       end loop;
-    end;
+    end procedure;
 
-    procedure dummy_phase(cycles : natural) is
+    procedure dummy_phase(cycles : natural)is
       variable sample : qspi_io_t;
     begin
       if cycles = 0 or has_reset then
@@ -174,9 +180,9 @@ begin
         sck_cycle(sample);
         exit when has_reset;
       end loop;
-    end;
+    end procedure;
 
-    procedure read_phase(bytes : integer_array_t; lanes : lane_count_t) is
+    procedure read_phase(bytes : integer_array_t; lanes : lane_count_t)is
       variable byte : std_ulogic_vector(7 downto 0);
       variable sample : qspi_io_t;
       variable slice : std_ulogic_vector(lanes - 1 downto 0);
@@ -188,7 +194,11 @@ begin
 
       debug(
         logger,
-        "Receiving " & integer'image(length(bytes)) & " byte(s) on " & integer'image(lanes) & " lane(s)"
+        "Receiving "
+        & integer'image(length(bytes))
+        & " byte(s) on "
+        & integer'image(lanes)
+        & " lane(s)"
       );
 
       m2s.io.enable <= (others => '0');
@@ -202,8 +212,13 @@ begin
           check_false(
             checker,
             is_x(slice),
-            "Read byte " & integer'image(index) & " beat " & integer'image(beat) & ": the far end drove " &
-            to_string(slice) & " on the data lanes"
+            "Read byte "
+            & integer'image(index)
+            & " beat "
+            & integer'image(beat)
+            & ": the far end drove "
+            & to_string(slice)
+            & " on the data lanes"
           );
           byte := qspi_byte_insert(byte, lanes, beat, to_x01(slice));
         end loop;
@@ -211,7 +226,7 @@ begin
         set(bytes, index, qspi_to_natural(byte));
         bytes_read := index + 1;
       end loop;
-    end;
+    end procedure;
 
     -- One complete transaction, CS framing included.
     procedure run_transfer(
@@ -224,7 +239,7 @@ begin
       dummy_cycles : natural;
       rd_data : integer_array_t;
       read_lanes : lane_count_t
-    ) is
+    )is
     begin
       m2s.cs_n <= '0';
 
@@ -247,10 +262,14 @@ begin
       -- default 20 ns bus speed -- a real bug, found by the flash VC's own
       -- protocol checker, and invisible on the wire until something checked it.
       wait for maximum(period, deselect_time);
-    end;
+    end procedure;
 
     -- Pop one byte phase, in the order qspi_master_pkg pushed it.
-    procedure pop_byte_phase(msg : msg_t; variable bytes : out integer_array_t; variable lanes : out lane_count_t) is
+    procedure pop_byte_phase(
+      msg : msg_t;
+      variable bytes : out integer_array_t;
+      variable lanes : out lane_count_t
+    )is
       variable count : natural;
       variable phase_lanes : lane_count_t;
       variable phase_bytes : integer_array_t;
@@ -264,7 +283,7 @@ begin
 
       bytes := phase_bytes;
       lanes := phase_lanes;
-    end;
+    end procedure;
 
     -- Finish a reset: answer the transfers queued before it with no data, keep
     -- the other messages for after it, and acknowledge the reset.
@@ -297,7 +316,7 @@ begin
       reply_msg := new_msg(reset_qspi_master_reply_msg);
       reply(net, reset_request, reply_msg);
       has_reset := false;
-    end;
+    end procedure;
 
     variable msg, reply_msg : msg_t;
     variable msg_type : msg_type_t;
@@ -354,8 +373,11 @@ begin
         if has_reset then
           info(
             logger,
-            "Reset aborted a transfer after " & integer'image(bytes_read) & " of " & integer'image(num_read_bytes) &
-            " read byte(s)"
+            "Reset aborted a transfer after "
+            & integer'image(bytes_read)
+            & " of "
+            & integer'image(num_read_bytes)
+            & " read byte(s)"
           );
           reshape(rd_data, bytes_read);
         end if;
@@ -392,4 +414,5 @@ begin
         s2m => s2m
       );
   end generate;
+
 end architecture;

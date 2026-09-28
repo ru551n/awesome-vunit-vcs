@@ -15,11 +15,14 @@ use awesome_vunit_vcs.vc_python_pkg.all;
 -- its Python modules, imported by the embedded interpreter. Neither is
 -- located through a path.
 entity tb_installed_package is
-  generic (runner_cfg : string);
+  generic (
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_installed_package is
 begin
+
   main : process
     constant session : python_session_t := new_vc_session(get_id("tb_installed_package:backend"));
   begin
@@ -38,7 +41,12 @@ begin
         check_true(backend_call_boolean(session, "__contains__", arg(-2)));
 
         -- Free text keeps its quotes and backslashes
-        create_backend(session, "awesome_vunit_vcs.common.vunit_bridge", "decode_text", arg_text("quote "" ' and backslash \"));
+        create_backend(
+          session,
+          "awesome_vunit_vcs.common.vunit_bridge",
+          "decode_text",
+          arg_text("quote "" ' and backslash \")
+        );
         check_equal(backend_call_string(session, "__str__"), "quote "" ' and backslash \");
       end if;
     end loop;
@@ -47,4 +55,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 10 ms);
+
 end architecture;

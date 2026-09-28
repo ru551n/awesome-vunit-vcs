@@ -14,7 +14,9 @@ library awesome_vunit_vcs;
 use awesome_vunit_vcs.qspi_pkg.all;
 
 entity spi_boot_reader is
-  generic (num_bytes : positive := 4);
+  generic (
+    num_bytes : positive := 4
+  );
   port (
     clk : in std_ulogic;
     rst_n : in std_ulogic;
@@ -30,7 +32,8 @@ architecture a of spi_boot_reader is
   constant command : std_ulogic_vector(0 to 31) := x"03000000";
   signal bit_index : natural range 0 to command'length + 8 * num_bytes := 0;
 begin
-  main : process (clk)
+
+  main : process(clk)
   begin
     if rising_edge(clk) then
       if rst_n = '0' then
@@ -66,5 +69,6 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;
 -- docs-end: spi-boot-reader

@@ -63,19 +63,19 @@ package qspi_master_pkg is
   -- qspi_master entity and the first argument of the procedures below.
   type qspi_master_t is record
     -- Private. Use the accessors below.
-    p_sck_period : delay_length;
+    p_sck_period                 : delay_length;
     -- Minimum CS-high time between two transactions. A real device specifies
     -- this as tSHSL and ignores a command that arrives too soon after the
     -- previous one, so a master that deselects for less than tSHSL is a bug
     -- even though nothing on the bus looks wrong. It is NOT derived from the
     -- SCK period: tSHSL is a property of the device, not of the bus speed, and
     -- tying the two makes a fast bus silently violate a slow part.
-    p_cs_deselect_time : delay_length;
-    p_protocol_checker : qspi_protocol_checker_t;
-    p_id : id_t;
-    p_logger : logger_t;
-    p_actor : actor_t;
-    p_checker : checker_t;
+    p_cs_deselect_time           : delay_length;
+    p_protocol_checker           : qspi_protocol_checker_t;
+    p_id                         : id_t;
+    p_logger                     : logger_t;
+    p_actor                      : actor_t;
+    p_checker                    : checker_t;
     p_unexpected_msg_type_policy : unexpected_msg_type_policy_t;
   end record;
 
@@ -113,7 +113,7 @@ package qspi_master_pkg is
   -- the checker to a checker on the logger. ``unexpected_msg_type_policy``
   -- says whether a message of an unknown type is a failure (``fail``) or
   -- ignored (``ignore``).
-  impure function new_qspi_master(
+  impure function new_qspi_master (
     sck_period : delay_length := qspi_default_sck_period;
     cs_deselect_time : delay_length := qspi_default_cs_deselect_time;
     protocol_checker : qspi_protocol_checker_t := null_qspi_protocol_checker;
@@ -126,23 +126,23 @@ package qspi_master_pkg is
 
   -- The id, actor, logger and checker of the master, and its handle for
   -- wait_until_idle and wait_for_time of sync_pkg
-  impure function get_id(qspi_master : qspi_master_t) return id_t;
-  impure function get_actor(qspi_master : qspi_master_t) return actor_t;
-  impure function get_logger(qspi_master : qspi_master_t) return logger_t;
-  impure function get_checker(qspi_master : qspi_master_t) return checker_t;
-  impure function as_sync(qspi_master : qspi_master_t) return sync_handle_t;
+  impure function get_id (qspi_master : qspi_master_t) return id_t;
+  impure function get_actor (qspi_master : qspi_master_t) return actor_t;
+  impure function get_logger (qspi_master : qspi_master_t) return logger_t;
+  impure function get_checker (qspi_master : qspi_master_t) return checker_t;
+  impure function as_sync (qspi_master : qspi_master_t) return sync_handle_t;
 
   -- The SCK period the VC starts out with. The value actually in force can be
   -- changed at run time with set_sck_period below and is then owned by the
   -- VC process, so this accessor reports the initial value only.
-  function sck_period(qspi_master : qspi_master_t) return delay_length;
+  function sck_period (qspi_master : qspi_master_t) return delay_length;
 
   -- The configured minimum CS-high time between transactions
-  function cs_deselect_time(qspi_master : qspi_master_t) return delay_length;
+  function cs_deselect_time (qspi_master : qspi_master_t) return delay_length;
 
   -- The protocol checker the master instantiates, with its final id, or
   -- :vhdl:`qspi_protocol_checker_pkg.null_qspi_protocol_checker`
-  function protocol_checker(qspi_master : qspi_master_t) return qspi_protocol_checker_t;
+  function protocol_checker (qspi_master : qspi_master_t) return qspi_protocol_checker_t;
 
   -- Handle a message type no handler took, following the unexpected message
   -- type policy of the handle like vc_pkg.unexpected_msg_type of VUnit: a
@@ -157,7 +157,7 @@ package qspi_master_pkg is
   -- A new byte array of values, one byte per element, for the phases of
   -- qspi_transfer and the data of the flash procedures, for example
   -- new_byte_array((16#DE#, 16#AD#)). The caller owns the result.
-  impure function new_byte_array(values : integer_vector) return integer_array_t;
+  impure function new_byte_array (values : integer_vector) return integer_array_t;
 
   ---------------------------------------------------------------------------
   -- Transactions
@@ -299,10 +299,7 @@ package qspi_master_pkg is
   -- it aborted and dropped on its logger at level info. Other requests queued
   -- before the reset, such as set_sck_period, are handled after it. A reset of
   -- an idle master returns at once.
-  procedure reset(
-    signal net : inout network_t;
-    qspi_master : qspi_master_t
-  );
+  procedure reset(signal net : inout network_t; qspi_master : qspi_master_t);
 
   ---------------------------------------------------------------------------
   -- Message types, for the VC implementation
@@ -310,11 +307,12 @@ package qspi_master_pkg is
 
   -- The message types the procedures above send to the component
   constant transfer_qspi_master_data_msg : msg_type_t := new_msg_type("transfer qspi master data");
-  constant transfer_qspi_master_data_reply_msg : msg_type_t := new_msg_type("transfer qspi master data reply");
-  constant set_qspi_master_sck_period_msg : msg_type_t := new_msg_type("set qspi master sck period");
-  constant set_qspi_master_sck_period_reply_msg : msg_type_t := new_msg_type(
-    "set qspi master sck period reply"
-  );
+  constant transfer_qspi_master_data_reply_msg : msg_type_t :=
+    new_msg_type("transfer qspi master data reply");
+  constant set_qspi_master_sck_period_msg : msg_type_t :=
+    new_msg_type("set qspi master sck period");
+  constant set_qspi_master_sck_period_reply_msg : msg_type_t :=
+    new_msg_type("set qspi master sck period reply");
   constant reset_qspi_master_msg : msg_type_t := new_msg_type("reset qspi master");
   constant reset_qspi_master_reply_msg : msg_type_t := new_msg_type("reset qspi master reply");
 
@@ -326,10 +324,12 @@ package qspi_master_pkg is
   -- id that already has an actor.
   constant qspi_master_pkg_logger : logger_t := get_logger("awesome_vunit_vcs:qspi_master_pkg");
   constant qspi_master_pkg_checker : checker_t := new_checker(qspi_master_pkg_logger);
+
 end package;
 
 package body qspi_master_pkg is
-  impure function new_qspi_master(
+
+  impure function new_qspi_master (
     sck_period : delay_length := qspi_default_sck_period;
     cs_deselect_time : delay_length := qspi_default_cs_deselect_time;
     protocol_checker : qspi_protocol_checker_t := null_qspi_protocol_checker;
@@ -365,71 +365,72 @@ package body qspi_master_pkg is
     result.p_protocol_checker := get_valid_protocol_checker(protocol_checker, result.p_id);
 
     return result;
-  end;
+  end function;
 
-  impure function get_id(qspi_master : qspi_master_t) return id_t is
+  impure function get_id (qspi_master : qspi_master_t) return id_t is
   begin
     return qspi_master.p_id;
-  end;
+  end function;
 
-  impure function get_actor(qspi_master : qspi_master_t) return actor_t is
+  impure function get_actor (qspi_master : qspi_master_t) return actor_t is
   begin
     return qspi_master.p_actor;
-  end;
+  end function;
 
-  impure function get_logger(qspi_master : qspi_master_t) return logger_t is
+  impure function get_logger (qspi_master : qspi_master_t) return logger_t is
   begin
     return qspi_master.p_logger;
-  end;
+  end function;
 
-  impure function get_checker(qspi_master : qspi_master_t) return checker_t is
+  impure function get_checker (qspi_master : qspi_master_t) return checker_t is
   begin
     return qspi_master.p_checker;
-  end;
+  end function;
 
-  impure function as_sync(qspi_master : qspi_master_t) return sync_handle_t is
+  impure function as_sync (qspi_master : qspi_master_t) return sync_handle_t is
   begin
     return qspi_master.p_actor;
-  end;
+  end function;
 
-  function sck_period(qspi_master : qspi_master_t) return delay_length is
+  function sck_period (qspi_master : qspi_master_t) return delay_length is
   begin
     return qspi_master.p_sck_period;
-  end;
+  end function;
 
-  function cs_deselect_time(qspi_master : qspi_master_t) return delay_length is
+  function cs_deselect_time (qspi_master : qspi_master_t) return delay_length is
   begin
     return qspi_master.p_cs_deselect_time;
-  end;
+  end function;
 
-  function protocol_checker(qspi_master : qspi_master_t) return qspi_protocol_checker_t is
+  function protocol_checker (qspi_master : qspi_master_t) return qspi_protocol_checker_t is
   begin
     return qspi_master.p_protocol_checker;
-  end;
+  end function;
 
-  procedure unexpected_msg_type(msg_type : msg_type_t; qspi_master : qspi_master_t) is
+  procedure unexpected_msg_type(msg_type : msg_type_t; qspi_master : qspi_master_t)is
   begin
     if is_already_handled(msg_type) or qspi_master.p_unexpected_msg_type_policy = ignore then
       null;
     else
       check_failed(qspi_master.p_checker, "Got unexpected message " & name(msg_type));
     end if;
-  end;
+  end procedure;
 
-  impure function new_byte_array(values : integer_vector) return integer_array_t is
-    variable result : integer_array_t := new_1d(length => values'length, bit_width => 8, is_signed => false);
+  impure function new_byte_array (values : integer_vector) return integer_array_t is
+    variable result : integer_array_t :=
+      new_1d(length => values'length, bit_width => 8, is_signed => false);
   begin
     for idx in 0 to values'length - 1 loop
       set(result, idx, values(values'low + idx));
     end loop;
     return result;
-  end;
+  end function;
 
   -- Bytes go into the message one integer at a time rather than by reference:
   -- pushing an integer_array_t would hand ownership of the caller's array to
   -- the VC, and a caller that composes a command from a constant array would
   -- then lose it on the first call.
-  procedure push_byte_phase(msg : msg_t; bytes : integer_array_t; lanes : lane_count_t) is
+  procedure push_byte_phase(msg : msg_t; bytes : integer_array_t; lanes : lane_count_t)is
     variable count : natural := 0;
   begin
     if not is_null(bytes) then
@@ -441,7 +442,7 @@ package body qspi_master_pkg is
     for index in 0 to count - 1 loop
       push_integer(msg, get(bytes, index));
     end loop;
-  end;
+  end procedure;
 
   procedure qspi_transfer(
     signal net : inout network_t;
@@ -456,7 +457,7 @@ package body qspi_master_pkg is
     dummy_cycles : natural := 0;
     num_read_bytes : natural := 0;
     read_lanes : lane_count_t := 1
-  ) is
+  )is
     alias request_msg : msg_t is reference;
   begin
     request_msg := new_msg(transfer_qspi_master_data_msg);
@@ -469,13 +470,13 @@ package body qspi_master_pkg is
     push_integer(request_msg, read_lanes);
 
     send(net, get_actor(qspi_master), request_msg);
-  end;
+  end procedure;
 
   procedure await_qspi_transfer_reply(
     signal net : inout network_t;
     variable reference : inout qspi_transfer_reference_t;
     variable data : inout integer_array_t
-  ) is
+  )is
     alias request_msg : msg_t is reference;
     variable reply_msg : msg_t;
   begin
@@ -488,17 +489,17 @@ package body qspi_master_pkg is
 
     delete(request_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
   procedure await_qspi_transfer_reply(
     signal net : inout network_t;
     variable reference : inout qspi_transfer_reference_t
-  ) is
+  )is
     variable data : integer_array_t := null_integer_array;
   begin
     await_qspi_transfer_reply(net, reference, data);
     deallocate(data);
-  end;
+  end procedure;
 
   procedure qspi_transfer(
     signal net : inout network_t;
@@ -513,7 +514,7 @@ package body qspi_master_pkg is
     dummy_cycles : natural := 0;
     num_read_bytes : natural := 0;
     read_lanes : lane_count_t := 1
-  ) is
+  )is
     variable reference : qspi_transfer_reference_t;
   begin
     qspi_transfer(
@@ -531,7 +532,7 @@ package body qspi_master_pkg is
       read_lanes => read_lanes
     );
     await_qspi_transfer_reply(net, reference, data);
-  end;
+  end procedure;
 
   procedure qspi_transfer(
     signal net : inout network_t;
@@ -543,7 +544,7 @@ package body qspi_master_pkg is
     wr_data : integer_array_t := null_integer_array;
     wr_lanes : lane_count_t := 1;
     dummy_cycles : natural := 0
-  ) is
+  )is
     variable reference : qspi_transfer_reference_t;
   begin
     qspi_transfer(
@@ -559,78 +560,76 @@ package body qspi_master_pkg is
       dummy_cycles => dummy_cycles
     );
     await_qspi_transfer_reply(net, reference);
-  end;
+  end procedure;
 
   procedure set_sck_period(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
     period : delay_length
-  ) is
+  )is
     variable request_msg : msg_t := new_msg(set_qspi_master_sck_period_msg);
     variable reply_msg : msg_t;
   begin
     push_time(request_msg, period);
     request(net, get_actor(qspi_master), request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure reset(
-    signal net : inout network_t;
-    qspi_master : qspi_master_t
-  ) is
+  procedure reset(signal net : inout network_t; qspi_master : qspi_master_t)is
     variable request_msg : msg_t := new_msg(reset_qspi_master_msg);
     variable reply_msg : msg_t;
   begin
     request(net, get_actor(qspi_master), request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
   -- Whether the master has a protocol checker, after a check failure when not
-  impure function has_protocol_checker(qspi_master : qspi_master_t) return boolean is
+  impure function has_protocol_checker (qspi_master : qspi_master_t) return boolean is
   begin
     if qspi_master.p_protocol_checker = null_qspi_protocol_checker then
       check_failed(qspi_master.p_checker, full_name(qspi_master.p_id) & " has no protocol checker");
       return false;
     end if;
     return true;
-  end;
+  end function;
 
   procedure set_check_enabled(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
     check : qspi_check_t;
     enabled : boolean := true
-  ) is
+  )is
   begin
     if has_protocol_checker(qspi_master) then
       set_check_enabled(net, qspi_master.p_protocol_checker, check, enabled);
     end if;
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
     check : qspi_check_t;
     variable count : out natural
-  ) is
+  )is
   begin
     if has_protocol_checker(qspi_master) then
       get_check_count(net, qspi_master.p_protocol_checker, check, count);
     else
       count := 0;
     end if;
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     qspi_master : qspi_master_t;
     check : qspi_check_t;
     variable reference : inout qspi_protocol_checker_reference_t
-  ) is
+  )is
   begin
     reference := null_msg;
     if has_protocol_checker(qspi_master) then
       get_check_count(net, qspi_master.p_protocol_checker, check, reference);
     end if;
-  end;
+  end procedure;
+
 end package body;

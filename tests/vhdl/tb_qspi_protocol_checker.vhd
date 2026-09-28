@@ -22,9 +22,8 @@ end entity;
 
 architecture tb of tb_qspi_protocol_checker is
   -- docs-start: protocol_checker_constructor
-  constant raw_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
-    id => get_id("tb_qspi_protocol_checker:raw_checker")
-  );
+  constant raw_checker : qspi_protocol_checker_t :=
+    new_qspi_protocol_checker(id => get_id("tb_qspi_protocol_checker:raw_checker"));
   -- docs-end: protocol_checker_constructor
   constant no_deselect_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
     t_shsl => 0 ns,
@@ -33,13 +32,13 @@ architecture tb of tb_qspi_protocol_checker is
   signal raw_m2s : qspi_m2s_t := qspi_m2s_init;
 
   constant master : qspi_master_t := new_qspi_master(sck_period => 20 ns);
-  constant master_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
-    id => get_id("tb_qspi_protocol_checker:master_checker")
-  );
+  constant master_checker : qspi_protocol_checker_t :=
+    new_qspi_protocol_checker(id => get_id("tb_qspi_protocol_checker:master_checker"));
   signal master_m2s : qspi_m2s_t := qspi_m2s_init;
   signal master_s2m : qspi_s2m_t := qspi_s2m_init;
 
 begin
+
   -- docs-start: protocol_checker_instance
   raw_checker_inst : entity awesome_vunit_vcs.qspi_protocol_checker
     generic map (
@@ -96,7 +95,7 @@ begin
       beats : positive := 2;
       toggled_lane : natural := 0;
       deselect_after : delay_length := 50 ns
-    ) is
+    )is
     begin
       raw_m2s.io <= (value => "0000", enable => "0001");
       wait for 5 ns;
@@ -125,14 +124,14 @@ begin
       raw_m2s.cs_n <= '1';
       raw_m2s.io <= qspi_drive_init;
       wait for deselect_after;
-    end;
+    end procedure;
 
     -- Every count of protocol_checker is 0, except expected for violated
     procedure check_counts(
       protocol_checker : qspi_protocol_checker_t;
       violated : qspi_check_t;
       expected : natural
-    ) is
+    )is
     begin
       for rule in qspi_check_t loop
         get_check_count(net, protocol_checker, rule, count);
@@ -142,19 +141,19 @@ begin
           check_equal(count, 0, "violations of " & qspi_check_t'image(rule));
         end if;
       end loop;
-    end;
+    end procedure;
 
-    procedure check_no_violations(protocol_checker : qspi_protocol_checker_t) is
+    procedure check_no_violations(protocol_checker : qspi_protocol_checker_t)is
     begin
       check_counts(protocol_checker, qspi_check_t'low, 0);
-    end;
+    end procedure;
 
     -- One error on the logger of the raw checker, then clear it
     procedure check_one_error is
     begin
       check_equal(get_log_count(get_logger(raw_checker), error), 1, "errors logged");
       reset_log_count(get_logger(raw_checker), error);
-    end;
+    end procedure;
   begin
     test_runner_setup(runner, runner_cfg);
     disable_stop(get_logger(raw_checker), error);
@@ -212,7 +211,11 @@ begin
         -- the falling edge after it only 2 ns
         send_frame(chsh => 2 ns);
         check_no_violations(raw_checker);
-        check_equal(get_log_count(get_logger(raw_checker), error), 0, "errors of a compliant CS hold");
+        check_equal(
+          get_log_count(get_logger(raw_checker), error),
+          0,
+          "errors of a compliant CS hold"
+        );
 
       elsif run("test_cs_deselect_violation") then
         -- docs-start: protocol_checker_cs_deselect
@@ -228,7 +231,7 @@ begin
         unmock(get_logger(raw_checker));
         check_counts(raw_checker, qspi_cs_deselect, 1);
         reset_log_count(get_logger(raw_checker), error);
-        -- docs-end: protocol_checker_cs_deselect
+      -- docs-end: protocol_checker_cs_deselect
 
       elsif run("test_data_setup_violation") then
         send_frame;
@@ -259,7 +262,7 @@ begin
         send_frame(high => 3 ns, chsh => 1 ns);
         check_counts(raw_checker, qspi_cs_hold, 1);
         check_one_error;
-        -- docs-end: protocol_checker_disable
+      -- docs-end: protocol_checker_disable
 
       elsif run("test_zero_limit_disables_the_check") then
         send_frame(deselect_after => 20 ns);
@@ -312,4 +315,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 10 ms);
+
 end architecture;

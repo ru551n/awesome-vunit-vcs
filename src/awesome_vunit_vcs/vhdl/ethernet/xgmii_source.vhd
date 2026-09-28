@@ -31,8 +31,10 @@ end entity;
 
 architecture a of xgmii_source is
 begin
+
   main : process
   begin
     drive_column_interface(net, to_ethernet_vc(source), clk, data, ctrl);
   end process;
+
 end architecture;

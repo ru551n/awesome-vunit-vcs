@@ -33,8 +33,10 @@ end entity;
 
 architecture a of gmii_source is
 begin
+
   main : process
   begin
     drive_symbol_interface(net, to_ethernet_vc(source), clk, data, dv, er);
   end process;
+
 end architecture;

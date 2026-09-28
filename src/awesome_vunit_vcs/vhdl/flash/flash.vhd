@@ -82,6 +82,7 @@ architecture a of flash is
   -- in the model
   signal busy_cancel : natural := 0;
 begin
+
   main : process
     variable msg : msg_t;
     variable reply_msg : msg_t;
@@ -95,37 +96,37 @@ begin
     variable clear_statistics : boolean;
     variable num_reports : natural;
 
-    procedure log_waiting_reports(count : natural) is
+    procedure log_waiting_reports(count : natural)is
     begin
       if count > 0 then
         log_reports(session, logger, checker);
       end if;
-    end;
+    end procedure;
 
     -- The fields of each message are popped in declaration order, since the
     -- evaluation order of the operands of an expression is not defined
-    impure function load_image_arguments(load_msg : msg_t) return arg_t is
+    impure function load_image_arguments (load_msg : msg_t) return arg_t is
       constant file_name : string := pop_string(load_msg);
       constant format : string := pop_string(load_msg);
       constant base_address : natural := pop(load_msg);
     begin
       return arg_text(file_name) & arg_text(format) & arg(base_address);
-    end;
+    end function;
 
-    impure function set_timing_arguments(timing_msg : msg_t) return arg_t is
+    impure function set_timing_arguments (timing_msg : msg_t) return arg_t is
       constant name : string := pop_string(timing_msg);
       constant duration : time := pop_time(timing_msg);
     begin
       return arg_text(name) & arg_time(duration);
-    end;
+    end function;
 
-    impure function address_length_value_arguments(fill_msg : msg_t) return arg_t is
+    impure function address_length_value_arguments (fill_msg : msg_t) return arg_t is
       constant fill_address : natural := pop(fill_msg);
       constant fill_bytes : natural := pop(fill_msg);
       constant fill_value : natural := pop(fill_msg);
     begin
       return arg(fill_address) & arg(fill_bytes) & arg(fill_value);
-    end;
+    end function;
   begin
     create_backend(session, flash_backend_module, flash_backend_class, backend_arguments(flash));
     log_waiting_reports(backend_call_integer(session, "num_reports"));
@@ -151,7 +152,9 @@ begin
         log_waiting_reports(num_reports);
 
       elsif msg_type = fill_flash_content_msg then
-        log_waiting_reports(backend_call_integer(session, "preload_fill", address_length_value_arguments(msg)));
+        log_waiting_reports(
+          backend_call_integer(session, "preload_fill", address_length_value_arguments(msg))
+        );
 
       elsif msg_type = load_flash_image_msg then
         log_waiting_reports(backend_call_integer(session, "load_image", load_image_arguments(msg)));
@@ -174,7 +177,9 @@ begin
         log_waiting_reports(num_reports);
 
       elsif msg_type = check_flash_content_fill_msg then
-        log_waiting_reports(backend_call_integer(session, "check_content_fill", address_length_value_arguments(msg)));
+        log_waiting_reports(
+          backend_call_integer(session, "check_content_fill", address_length_value_arguments(msg))
+        );
 
       elsif msg_type = get_flash_written_regions_msg then
         data := backend_call_integer_array(session, "written_regions");
@@ -201,7 +206,11 @@ begin
         num_bytes := pop(msg);
         locked := pop(msg);
         log_waiting_reports(
-          backend_call_integer(session, "set_protection", arg(address) & arg(num_bytes) & arg(locked))
+          backend_call_integer(
+            session,
+            "set_protection",
+            arg(address) & arg(num_bytes) & arg(locked)
+          )
         );
 
       elsif msg_type = wait_until_flash_ready_msg then
@@ -224,7 +233,11 @@ begin
         reply(net, msg, reply_msg);
 
       elsif msg_type = get_flash_stat_msg then
-        value := backend_call_integer(session, "get_stat", arg_text(pop_string(msg)) & arg_time(now));
+        value := backend_call_integer(
+          session,
+          "get_stat",
+          arg_text(pop_string(msg)) & arg_time(now)
+        );
         log_waiting_reports(backend_call_integer(session, "num_reports"));
         reply_msg := new_msg(get_flash_stat_reply_msg);
         push(reply_msg, value);
@@ -270,31 +283,36 @@ begin
     variable num_reports : natural;
 
     -- The busy time of the [hi, lo] halves cs_deassert returns, hi * 2**30 fs + lo fs
-    function busy_time_of(hi, lo : natural) return time is
+    function busy_time_of (hi, lo : natural) return time is
     begin
       return hi * 1073741824 fs + lo * 1 fs;
-    end;
+    end function;
 
     -- The next directive. pass_now is the volatile flag of the previous
     -- directive: only a byte that depends on time (a status register) needs
     -- the time, so an array read does not pay for it.
-    impure function next_directive(byte_in : integer; pass_now : boolean) return flash_directive_t is
+    impure function next_directive (
+      byte_in : integer;
+      pass_now : boolean
+    ) return flash_directive_t is
     begin
       if pass_now then
-        return decode_directive(backend_call_integer(session, "xfer", arg(byte_in) & arg_time(now)));
+        return decode_directive(
+          backend_call_integer(session, "xfer", arg(byte_in) & arg_time(now))
+        );
       end if;
       return decode_directive(backend_call_integer(session, "xfer", arg(byte_in)));
-    end;
+    end function;
 
-    impure function sampled_lanes(lanes : lane_count_t) return std_ulogic_vector is
+    impure function sampled_lanes (lanes : lane_count_t) return std_ulogic_vector is
     begin
       return qspi_sample_beat(qspi_io_value(m2s, qspi_s2m_init), lanes, qspi_master_side);
-    end;
+    end function;
 
     procedure release_io is
     begin
       s2m.io <= qspi_drive_init after output_delay_shqz(flash);
-    end;
+    end procedure;
   begin
     if not initialized then
       wait until initialized;
@@ -330,8 +348,10 @@ begin
               if is_x(sampled_lanes(directive.lanes)) then
                 check_failed(
                   checker,
-                  "Metavalue " & to_string(sampled_lanes(directive.lanes)) & " sampled on the IOs at " &
-                  to_string(now)
+                  "Metavalue "
+                  & to_string(sampled_lanes(directive.lanes))
+                  & " sampled on the IOs at "
+                  & to_string(now)
                 );
               end if;
               byte := qspi_byte_insert(
@@ -357,7 +377,8 @@ begin
                 lanes => directive.lanes,
                 beat => beat,
                 driver => qspi_slave_side
-              ) after output_delay_clqv(flash);
+              )
+                after output_delay_clqv(flash);
               wait until rising_edge(m2s.sck) or m2s.cs_n /= '0';
               exit when m2s.cs_n /= '0';
               bits_since_byte := (bits_since_byte + directive.lanes) mod 8;
@@ -376,7 +397,11 @@ begin
 
       -- The trailing bits matter: a real part aborts a page program or status
       -- write whose clock count is not a multiple of 8
-      busy_values := backend_call_integer_array(session, "cs_deassert", arg(bits_since_byte) & arg_time(now));
+      busy_values := backend_call_integer_array(
+        session,
+        "cs_deassert",
+        arg(bits_since_byte) & arg_time(now)
+      );
       busy_time := busy_time_of(get(busy_values, 0), get(busy_values, 1));
       num_reports := get(busy_values, 2);
       deallocate(busy_values);
@@ -391,4 +416,5 @@ begin
       end if;
     end loop;
   end process;
+
 end architecture;

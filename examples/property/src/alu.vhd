@@ -10,7 +10,8 @@ use ieee.numeric_std.all;
 
 entity alu is
   port (
-    a, b : in std_ulogic_vector(7 downto 0);
+    a : in std_ulogic_vector(7 downto 0);
+    b : in std_ulogic_vector(7 downto 0);
     subtract : in std_ulogic;
     y : out std_ulogic_vector(8 downto 0)
   );
@@ -18,6 +19,8 @@ end entity;
 
 architecture a of alu is
 begin
-  y <= std_ulogic_vector(resize(unsigned(a), 9) - unsigned(b)) when subtract = '1'
-    else std_ulogic_vector(resize(unsigned(a), 9) + unsigned(b));
+
+  y <= std_ulogic_vector(resize(unsigned(a), 9) - unsigned(b)) when subtract = '1' else
+       std_ulogic_vector(resize(unsigned(a), 9) + unsigned(b));
+
 end architecture;

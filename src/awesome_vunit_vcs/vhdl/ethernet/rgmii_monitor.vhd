@@ -39,6 +39,7 @@ architecture a of rgmii_monitor is
   signal octet : std_ulogic_vector(7 downto 0) := (others => '0');
   signal dv, er : std_ulogic := '0';
 begin
+
   -- Without a delay the line is sampled on clk itself: a copy of clk would
   -- change a delta cycle later and see data that changed on the clock edge
   combine_gen : if get_sample_delay(monitor) = 0 ns generate
@@ -74,4 +75,5 @@ begin
         ctl => ctl
       );
   end generate;
+
 end architecture;

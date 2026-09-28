@@ -9,7 +9,9 @@ use ieee.std_logic_1164.all;
 
 entity stalling_sink is
   port (
-    clk, rst, valid : in std_ulogic;
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    valid : in std_ulogic;
     data : in std_ulogic_vector(7 downto 0);
     ready : out std_ulogic
   );
@@ -18,6 +20,7 @@ end entity;
 architecture a of stalling_sink is
   signal stalled : std_ulogic := '0';
 begin
+
   ready <= not stalled;
 
   main : process(clk)
@@ -30,4 +33,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

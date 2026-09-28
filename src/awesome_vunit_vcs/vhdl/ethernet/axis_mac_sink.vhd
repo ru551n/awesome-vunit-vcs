@@ -30,6 +30,7 @@ end entity;
 
 architecture a of axis_mac_sink is
 begin
+
   main : process
     variable ready_high_percent : natural := get_ready_high_percent(sink);
     variable seed1, seed2 : positive;
@@ -38,14 +39,15 @@ begin
     variable msg, reply_msg : msg_t;
     variable msg_type : msg_type_t;
 
-    procedure set_seed(seed : natural) is
+    procedure set_seed(seed : natural)is
     begin
       seed1 := 1 + seed mod 2147483562;
       seed2 := 1 + (seed / 2147483562) mod 2147483398;
-    end;
+    end procedure;
   begin
     set_seed(get_ready_seed(sink));
-    tready <= '1' when ready_high_percent >= 100 else '0';
+    tready <= '1' when ready_high_percent >= 100 else
+              '0';
 
     loop
       if resume_time > now then
@@ -61,7 +63,8 @@ begin
           tready <= '0';
         else
           uniform(seed1, seed2, random_value);
-          tready <= '1' when random_value * 100.0 < real(ready_high_percent) else '0';
+          tready <= '1' when random_value * 100.0 < real(ready_high_percent) else
+                    '0';
         end if;
       end if;
 
@@ -96,4 +99,5 @@ begin
       end loop;
     end loop;
   end process;
+
 end architecture;

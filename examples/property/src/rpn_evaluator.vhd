@@ -16,7 +16,9 @@ entity rpn_evaluator is
     inject_bug : boolean := false
   );
   port (
-    clk, rst, push : in std_ulogic;
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    push : in std_ulogic;
     -- "00" const, "01" add, "10" subtract, "11" negate
     op : in std_ulogic_vector(1 downto 0);
     -- The value to push for const, don't-care otherwise
@@ -31,7 +33,9 @@ architecture a of rpn_evaluator is
   signal stack : stack_t := (others => (others => '0'));
   signal sp : natural range 0 to 8 := 0;
 begin
-  result <= std_ulogic_vector(stack(sp - 1)) when sp > 0 else (others => '0');
+
+  result <= std_ulogic_vector(stack(sp - 1)) when sp > 0 else
+            (others => '0');
 
   main : process(clk)
     variable a, b : unsigned(7 downto 0);
@@ -61,4 +65,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

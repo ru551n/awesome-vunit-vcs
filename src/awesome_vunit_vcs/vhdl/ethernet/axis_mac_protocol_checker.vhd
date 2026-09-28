@@ -32,8 +32,20 @@ end entity;
 
 architecture a of axis_mac_protocol_checker is
 begin
+
   main : process
   begin
-    monitor_axis_interface(net, to_ethernet_vc(protocol_checker), clk, tdata, tkeep, tvalid, tready, tlast, tuser);
+    monitor_axis_interface(
+      net,
+      to_ethernet_vc(protocol_checker),
+      clk,
+      tdata,
+      tkeep,
+      tvalid,
+      tready,
+      tlast,
+      tuser
+    );
   end process;
+
 end architecture;

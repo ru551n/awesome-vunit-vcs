@@ -19,8 +19,12 @@ context awesome_vunit_vcs.property_context;
 
 -- docs-start: cdc-generic
 entity tb_property_cdc is
-  generic (runner_cfg : string; inject_bug : boolean := false);
+  generic (
+    runner_cfg : string;
+    inject_bug : boolean := false
+  );
 end entity;
+
 -- docs-end: cdc-generic
 
 architecture tb of tb_property_cdc is
@@ -31,6 +35,7 @@ architecture tb of tb_property_cdc is
   signal clk_enable : boolean := false;
   signal dst_count : natural := 0;
 begin
+
   -- docs-start: cdc-clocks
   -- A clock process per domain, its period (and the destination's phase) taken
   -- from a signal set for each example; stopped cleanly between examples
@@ -87,14 +92,18 @@ begin
       src_event <= '1';
       wait until rising_edge(src_clk);
       src_event <= '0';
-    end;
+    end procedure;
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
       if run("test_clock_ratio_and_phase") then
         -- docs-start: cdc-property
-        prop := new_property("cdc_strategies:toggle_sync", seed => get_seed(runner_cfg),
-          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
+        prop := new_property(
+          "cdc_strategies:toggle_sync",
+          seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg),
+          search_path => tb_path(runner_cfg) & "python"
+        );
         while next_example(prop) loop
           clk_enable <= false;
           -- Longer than any half period the strategy draws, so both clock generators are
@@ -144,9 +153,16 @@ begin
   end process;
 
   dut_inst : entity work.toggle_synchronizer
-    generic map (inject_bug => inject_bug)
+    generic map (
+      inject_bug => inject_bug
+    )
     port map (
-      src_clk => src_clk, src_rst => src_rst, src_event => src_event,
-      dst_clk => dst_clk, dst_rst => dst_rst, dst_event => dst_event
+      src_clk => src_clk,
+      src_rst => src_rst,
+      src_event => src_event,
+      dst_clk => dst_clk,
+      dst_rst => dst_rst,
+      dst_event => dst_event
     );
+
 end architecture;

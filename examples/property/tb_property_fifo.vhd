@@ -14,7 +14,10 @@ library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
 
 entity tb_property_fifo is
-  generic (runner_cfg : string; inject_bug : boolean := false);
+  generic (
+    runner_cfg : string;
+    inject_bug : boolean := false
+  );
 end entity;
 
 architecture tb of tb_property_fifo is
@@ -22,6 +25,7 @@ architecture tb of tb_property_fifo is
   signal data_in, data_out : std_ulogic_vector(7 downto 0) := (others => '0');
   signal count : std_ulogic_vector(3 downto 0);
 begin
+
   clk <= not clk after 5 ns;
 
   main : process
@@ -37,8 +41,12 @@ begin
         -- docs-start: fifo
         -- Every pop returns the oldest word and count matches the model. The score
         -- rewards examples that fill the FIFO, so full-FIFO corner cases come up often.
-        prop := new_property("fifo_strategies:fifo_operations", seed => get_seed(runner_cfg),
-          output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
+        prop := new_property(
+          "fifo_strategies:fifo_operations",
+          seed => get_seed(runner_cfg),
+          output_path => output_path(runner_cfg),
+          search_path => tb_path(runner_cfg) & "python"
+        );
         while next_example(prop) loop
           rst <= '1';
           wait until rising_edge(clk);
@@ -49,8 +57,10 @@ begin
           for idx in 0 to get_length(prop) - 1 loop
             push_now := get_string(prop, "(" & integer'image(idx) & ")") /= "pop";
             pop_now := get_string(prop, "(" & integer'image(idx) & ")") /= "push";
-            push <= '1' when push_now else '0';
-            pop <= '1' when pop_now else '0';
+            push <= '1' when push_now else
+                    '0';
+            pop <= '1' when pop_now else
+                   '0';
             data_in <= std_ulogic_vector(to_unsigned(idx, 8));
             if pop_now and fill > 0 then
               passed := passed and to_integer(unsigned(data_out)) = model(0);
@@ -80,9 +90,19 @@ begin
   end process;
 
   dut_inst : entity work.fifo8
-    generic map (inject_bug => inject_bug)
+    generic map (
+      inject_bug => inject_bug
+    )
     port map (
-      clk => clk, rst => rst, push => push, pop => pop, data_in => data_in, data_out => data_out,
-      full => full, empty => empty, count => count
+      clk => clk,
+      rst => rst,
+      push => push,
+      pop => pop,
+      data_in => data_in,
+      data_out => data_out,
+      full => full,
+      empty => empty,
+      count => count
     );
+
 end architecture;

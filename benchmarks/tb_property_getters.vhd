@@ -21,14 +21,19 @@ end entity;
 
 architecture tb of tb_property_getters is
 begin
+
   main : process
     variable prop : property_t;
     variable total : natural;
     variable start : time;
   begin
     test_runner_setup(runner, runner_cfg);
-    prop := new_property("property_benchmark:fields", max_examples => 200, seed => "benchmark",
-      search_path => tb_path(runner_cfg) & "python");
+    prop := new_property(
+      "property_benchmark:fields",
+      max_examples => 200,
+      seed => "benchmark",
+      search_path => tb_path(runner_cfg) & "python"
+    );
     while next_example(prop) loop
       for idx in 0 to reads - 1 loop
         total := total + get_integer(prop, "field_" & integer'image(idx));
@@ -36,7 +41,13 @@ begin
       report_example(prop, passed => true);
     end loop;
     check_property(prop);
-    info("BENCHMARK getters reads=" & integer'image(reads) & " examples=" & integer'image(get_example_count(prop)));
+    info(
+      "BENCHMARK getters reads="
+      & integer'image(reads)
+      & " examples="
+      & integer'image(get_example_count(prop))
+    );
     test_runner_cleanup(runner);
   end process;
+
 end architecture;

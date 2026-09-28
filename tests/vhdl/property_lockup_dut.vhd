@@ -24,7 +24,9 @@ end entity;
 architecture a of property_lockup_dut is
   signal high_seen, locked : boolean := false;
 begin
-  ready <= '0' when locked or rst = '1' else '1';
+
+  ready <= '0' when locked or rst = '1' else
+           '1';
 
   main : process(clk)
   begin
@@ -40,4 +42,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

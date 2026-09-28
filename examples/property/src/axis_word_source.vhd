@@ -16,7 +16,8 @@ entity axis_word_source is
     inject_bug : boolean := false
   );
   port (
-    clk, rst : in std_ulogic;
+    clk : in std_ulogic;
+    rst : in std_ulogic;
     -- The load interface: a word is taken when load_valid and load_ready are high
     load_valid : in std_ulogic;
     load_data : in std_ulogic_vector(7 downto 0);
@@ -32,6 +33,7 @@ architecture a of axis_word_source is
   signal pending, tvalid : std_ulogic := '0';
   signal data : std_ulogic_vector(7 downto 0) := (others => '0');
 begin
+
   -- A new word is taken only when no word is pending
   load_ready <= not pending;
   m_axis_tvalid <= tvalid;
@@ -65,4 +67,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

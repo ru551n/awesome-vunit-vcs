@@ -53,7 +53,7 @@ architecture a of qspi_protocol_checker is
   -- A time in ns with up to three decimals ("7.519 ns"). to_string of a time
   -- uses the resolution of the simulator, which differs between simulators
   -- and is not the unit of a datasheet.
-  function ns_image(value : delay_length) return string is
+  function ns_image (value : delay_length) return string is
     constant value_ps : natural := value / 1 ps;
     constant whole : natural := value_ps / 1000;
     constant fraction : natural := value_ps mod 1000;
@@ -71,12 +71,12 @@ architecture a of qspi_protocol_checker is
       return integer'image(whole) & "." & digits(1 to 2) & " ns";
     end if;
     return integer'image(whole) & "." & digits & " ns";
-  end;
+  end function;
 
   -- The message is only built on a violation: measured can be seconds (an
   -- erase between two commands), which does not fit an integer of
   -- picoseconds, but a violation is below a limit of nanoseconds
-  procedure check_min(measured : time; check : qspi_check_t; what : string) is
+  procedure check_min(measured : time; check : qspi_check_t; what : string)is
     constant minimum : delay_length := limit(protocol_checker, check);
     constant idx : natural := qspi_check_t'pos(check);
   begin
@@ -84,12 +84,19 @@ architecture a of qspi_protocol_checker is
       set(counts, idx, get(counts, idx) + 1);
       check_failed(
         checker,
-        upper(qspi_check_t'image(check)) & ": " & what & " " & ns_image(measured) & " is shorter than the " &
-        ns_image(minimum) & " minimum"
+        upper(qspi_check_t'image(check))
+        & ": "
+        & what
+        & " "
+        & ns_image(measured)
+        & " is shorter than the "
+        & ns_image(minimum)
+        & " minimum"
       );
     end if;
-  end;
+  end procedure;
 begin
+
   main : process
     variable msg : msg_t;
     variable reply_msg : msg_t;
@@ -250,7 +257,8 @@ begin
       if m2s.io'event then
         hold_broken := false;
         for lane in qspi_io_t'range loop
-          if m2s.io.value(lane) /= last_drive.value(lane) or m2s.io.enable(lane) /= last_drive.enable(lane) then
+          if m2s.io.value(lane) /= last_drive.value(lane)
+             or m2s.io.enable(lane) /= last_drive.enable(lane) then
             lane_change_time(lane) := now;
             -- Releasing a driven lane early breaks the hold time like
             -- changing it
@@ -266,4 +274,5 @@ begin
       end if;
     end loop;
   end process;
+
 end architecture;

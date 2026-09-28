@@ -25,7 +25,8 @@ end entity;
 architecture tb of tb_flash_vci is
   -- The first flash with a default id of this architecture, with a master
   constant default_flash : flash_t := new_flash;
-  constant default_master : qspi_master_t := new_qspi_master(id => get_id("tb_flash_vci:default_master"));
+  constant default_master : qspi_master_t :=
+    new_qspi_master(id => get_id("tb_flash_vci:default_master"));
   signal default_m2s : qspi_m2s_t := qspi_m2s_init;
   signal default_s2m : qspi_s2m_t := qspi_s2m_init;
 
@@ -42,10 +43,8 @@ architecture tb of tb_flash_vci is
   );
   signal custom_s2m : qspi_s2m_t := qspi_s2m_init;
 
-  constant ignoring_flash : flash_t := new_flash(
-    id => get_id("tb_flash_vci:ignoring_flash"),
-    unexpected_msg_type_policy => ignore
-  );
+  constant ignoring_flash : flash_t :=
+    new_flash(id => get_id("tb_flash_vci:ignoring_flash"), unexpected_msg_type_policy => ignore);
   signal ignoring_s2m : qspi_s2m_t := qspi_s2m_init;
 
   -- Flashes with a protocol checker, on buses the testbench drives
@@ -56,18 +55,16 @@ architecture tb of tb_flash_vci is
   signal checked_m2s : qspi_m2s_t := qspi_m2s_init;
   signal checked_s2m : qspi_s2m_t := qspi_s2m_init;
 
-  constant default_checked_flash : flash_t := new_flash(protocol_checker => new_qspi_protocol_checker);
+  constant default_checked_flash : flash_t :=
+    new_flash(protocol_checker => new_qspi_protocol_checker);
   signal default_checked_m2s : qspi_m2s_t := qspi_m2s_init;
   signal default_checked_s2m : qspi_s2m_t := qspi_s2m_init;
 
   -- Handles only: protocol checkers with explicit parts
-  constant kept_id_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
-    id => get_id("tb_flash_vci:kept_id_checker")
-  );
-  constant kept_id_flash : flash_t := new_flash(
-    protocol_checker => kept_id_checker,
-    id => get_id("tb_flash_vci:kept_id_flash")
-  );
+  constant kept_id_checker : qspi_protocol_checker_t :=
+    new_qspi_protocol_checker(id => get_id("tb_flash_vci:kept_id_checker"));
+  constant kept_id_flash : flash_t :=
+    new_flash(protocol_checker => kept_id_checker, id => get_id("tb_flash_vci:kept_id_flash"));
   constant kept_logger : logger_t := get_logger("tb_flash_vci:kept_logger");
   constant kept_logger_flash : flash_t := new_flash(
     protocol_checker => new_qspi_protocol_checker(t_shsl => 40 ns, logger => kept_logger),
@@ -79,19 +76,15 @@ architecture tb of tb_flash_vci is
   -- Two flashes with one id and actors of their own, instantiated only for
   -- test_a_duplicate_id_is_a_failure
   constant duplicate_id : id_t := get_id("tb_flash_vci:duplicate_flash");
-  constant duplicate_flash : flash_t := new_flash(
-    id => duplicate_id,
-    actor => new_actor("tb_flash_vci:duplicate_actor")
-  );
-  constant second_duplicate_flash : flash_t := new_flash(
-    id => duplicate_id,
-    actor => new_actor("tb_flash_vci:second_duplicate_actor")
-  );
+  constant duplicate_flash : flash_t :=
+    new_flash(id => duplicate_id, actor => new_actor("tb_flash_vci:duplicate_actor"));
+  constant second_duplicate_flash : flash_t :=
+    new_flash(id => duplicate_id, actor => new_actor("tb_flash_vci:second_duplicate_actor"));
   signal duplicate_s2m : qspi_s2m_t := qspi_s2m_init;
   signal second_duplicate_s2m : qspi_s2m_t := qspi_s2m_init;
 
   -- Whether text contains part, such as a test name in runner_cfg
-  function contains(text : string; part : string) return boolean is
+  function contains (text : string; part : string) return boolean is
   begin
     for idx in text'low to text'high - part'length + 1 loop
       if text(idx to idx + part'length - 1) = part then
@@ -99,25 +92,26 @@ architecture tb of tb_flash_vci is
       end if;
     end loop;
     return false;
-  end;
+  end function;
 
   -- Mock the failures of logger, during elaboration
-  impure function mock_failures(logger : logger_t) return boolean is
+  impure function mock_failures (logger : logger_t) return boolean is
   begin
     mock(logger, failure);
     return true;
-  end;
+  end function;
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown flash message");
 
-  procedure check_arrays(got : integer_array_t; expected : integer_array_t; msg : string) is
+  procedure check_arrays(got : integer_array_t; expected : integer_array_t; msg : string)is
   begin
     check_equal(length(got), length(expected), msg & ": length");
     for idx in 0 to length(expected) - 1 loop
       check_equal(get(got, idx), get(expected, idx), msg & ": element " & to_string(idx));
     end loop;
-  end;
+  end procedure;
 begin
+
   default_flash_inst : entity awesome_vunit_vcs.flash
     generic map (
       flash => default_flash
@@ -173,10 +167,11 @@ begin
     );
 
   duplicate_gen : if contains(runner_cfg, "test_a_duplicate_id_is_a_failure") generate
-    -- The second flash fails when it creates its Python session, while it is
-    -- elaborated, so the logger is mocked before
+  -- The second flash fails when it creates its Python session, while it is
+  -- elaborated, so the logger is mocked before
     constant mocked : boolean := mock_failures(get_logger(duplicate_flash));
   begin
+
     duplicate_flash_inst : entity awesome_vunit_vcs.flash
       generic map (
         flash => duplicate_flash
@@ -206,7 +201,11 @@ begin
     variable start : time;
 
     -- A message of an unknown type, like the VCI tests of the Ethernet VCs
-    procedure check_unexpected_message(actor : actor_t; logger : logger_t; expect_failure : boolean) is
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
       mock(logger, error);
@@ -219,7 +218,7 @@ begin
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
 
     -- Two empty commands 10 ns apart on both driven buses: one tSHSL
     -- violation for each protocol checker
@@ -234,7 +233,7 @@ begin
         wait for 10 ns;
       end loop;
       wait for 50 ns;
-    end;
+    end procedure;
   begin
     test_runner_setup(runner, runner_cfg);
 
@@ -242,8 +241,14 @@ begin
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_flash))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_flash))), "flash", "name of its parent");
-        check(get_parent(get_parent(get_id(default_flash))) = get_id("awesome_vunit_vcs"), "grandparent");
-        check(get_id(default_checked_flash) /= get_id(default_flash), "a second default id differs");
+        check(
+          get_parent(get_parent(get_id(default_flash))) = get_id("awesome_vunit_vcs"),
+          "grandparent"
+        );
+        check(
+          get_id(default_checked_flash) /= get_id(default_flash),
+          "a second default id differs"
+        );
         check(
           get_parent(get_id(default_checked_flash)) = get_parent(get_id(default_flash)),
           "a second default id has the same parent"
@@ -251,21 +256,39 @@ begin
 
       elsif run("test_default_logger_actor_and_checker_are_used") then
         check(get_logger(default_flash) = get_logger(get_id(default_flash)), "logger of the id");
-        check(get_actor(default_flash) = find(get_id(default_flash), enable_deferred_creation => false), "actor");
+        check(
+          get_actor(default_flash) = find(get_id(default_flash), enable_deferred_creation => false),
+          "actor"
+        );
         check(as_sync(default_flash) = get_actor(default_flash), "as_sync");
-        check(get_logger(get_checker(default_flash)) = get_logger(default_flash), "checker on the logger");
+        check(
+          get_logger(get_checker(default_flash)) = get_logger(default_flash),
+          "checker on the logger"
+        );
         check(protocol_checker(default_flash) = null_qspi_protocol_checker, "no protocol checker");
 
         disable_stop(get_logger(default_flash), error);
         flash_check_content(net, default_flash, 16#000100#, new_byte_array((0 => 16#00#)));
         wait_until_idle(net, as_sync(default_flash));
-        check_equal(get_log_count(get_logger(default_flash), error), 1, "mismatch on the default logger");
+        check_equal(
+          get_log_count(get_logger(default_flash), error),
+          1,
+          "mismatch on the default logger"
+        );
         reset_log_count(get_logger(default_flash), error);
 
       elsif run("test_explicit_id_is_used") then
         check(get_id(explicit_flash) = get_id("tb_flash_vci:explicit_flash"), "id");
-        check_equal(get_full_name(get_logger(explicit_flash)), full_name(get_id(explicit_flash)), "logger name");
-        check(get_actor(explicit_flash) = find(get_id(explicit_flash), enable_deferred_creation => false), "actor");
+        check_equal(
+          get_full_name(get_logger(explicit_flash)),
+          full_name(get_id(explicit_flash)),
+          "logger name"
+        );
+        check(
+          get_actor(explicit_flash)
+          = find(get_id(explicit_flash), enable_deferred_creation => false),
+          "actor"
+        );
 
       elsif run("test_custom_logger_actor_and_checker_are_used") then
         check(get_logger(custom_flash) = custom_logger, "logger");
@@ -277,17 +300,29 @@ begin
         flash_check_content(net, custom_flash, 16#000100#, new_byte_array((0 => 16#00#)));
         -- The flash serves the actor that was passed
         wait_until_idle(net, custom_actor);
-        check_equal(get_log_count(get_logger(custom_checker), error), 1, "mismatch on the custom checker");
+        check_equal(
+          get_log_count(get_logger(custom_checker), error),
+          1,
+          "mismatch on the custom checker"
+        );
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         reset_log_count(get_logger(custom_checker), error);
 
       elsif run("test_unexpected_message_is_a_check_failure") then
-        check_unexpected_message(get_actor(default_flash), get_logger(default_flash), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_flash),
+          get_logger(default_flash),
+          expect_failure => true
+        );
         -- On the checker of the flash, not on its logger
         check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_flash), get_logger(ignoring_flash), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_flash),
+          get_logger(ignoring_flash),
+          expect_failure => false
+        );
         flash_get_stat(net, ignoring_flash, "program_count", value);
         check_equal(value, 0, "the flash answers after the unexpected message");
 
@@ -296,7 +331,9 @@ begin
         wait_until_idle(net, as_sync(default_flash));
         wait_until_idle(net, as_sync(default_checked_flash));
         exec("vc.tb_marker = 'first'", new_session(get_id(default_flash)));
-        check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(default_checked_flash))));
+        check_false(
+          eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(default_checked_flash)))
+        );
 
       elsif run("test_a_duplicate_id_is_a_failure") then
         check(get_actor(duplicate_flash) /= get_actor(second_duplicate_flash), "distinct actors");
@@ -353,9 +390,13 @@ begin
         check_equal(value, 0, "wip after a reset");
 
       elsif run("test_protocol_checker_is_a_child_of_the_flash") then
-        check(get_parent(get_id(protocol_checker(checked_flash))) = get_id(checked_flash), "parent id");
         check(
-          get_parent(get_id(protocol_checker(default_checked_flash))) = get_id(default_checked_flash),
+          get_parent(get_id(protocol_checker(checked_flash))) = get_id(checked_flash),
+          "parent id"
+        );
+        check(
+          get_parent(get_id(protocol_checker(default_checked_flash)))
+          = get_id(default_checked_flash),
           "parent of the child of a default id"
         );
         check_equal(
@@ -369,15 +410,19 @@ begin
           "logger of the child of a default id"
         );
         check(
-          get_actor(protocol_checker(checked_flash)) =
-          find(get_id(protocol_checker(checked_flash)), enable_deferred_creation => false),
+          get_actor(protocol_checker(checked_flash))
+          = find(get_id(protocol_checker(checked_flash)), enable_deferred_creation => false),
           "actor of the child"
         );
 
         disable_stop(get_logger(protocol_checker(checked_flash)), error);
         disable_stop(get_logger(protocol_checker(default_checked_flash)), error);
         deselect_too_briefly;
-        check_equal(get_log_count(get_logger(protocol_checker(checked_flash)), error), 1, "violation on the child");
+        check_equal(
+          get_log_count(get_logger(protocol_checker(checked_flash)), error),
+          1,
+          "violation on the child"
+        );
         check_equal(
           get_log_count(get_logger(protocol_checker(default_checked_flash)), error),
           1,
@@ -410,32 +455,57 @@ begin
         deselect_too_briefly;
         get_check_count(net, checked_flash, qspi_cs_deselect, count);
         check_equal(count, 2, "switched on again through the flash");
-        check_equal(get_log_count(get_logger(protocol_checker(checked_flash)), error), 2, "violations logged");
+        check_equal(
+          get_log_count(get_logger(protocol_checker(checked_flash)), error),
+          2,
+          "violations logged"
+        );
         reset_log_count(get_logger(protocol_checker(checked_flash)), error);
         reset_log_count(get_logger(protocol_checker(default_checked_flash)), error);
 
       elsif run("test_check_procedures_of_a_flash_without_protocol_checker_fail") then
         mock(get_logger(explicit_flash), error);
         set_check_enabled(net, explicit_flash, qspi_cs_deselect, false);
-        check_log(get_logger(explicit_flash), "tb_flash_vci:explicit_flash has no protocol checker", error);
+        check_log(
+          get_logger(explicit_flash),
+          "tb_flash_vci:explicit_flash has no protocol checker",
+          error
+        );
         count := 1;
         get_check_count(net, explicit_flash, qspi_cs_deselect, count);
-        check_log(get_logger(explicit_flash), "tb_flash_vci:explicit_flash has no protocol checker", error);
+        check_log(
+          get_logger(explicit_flash),
+          "tb_flash_vci:explicit_flash has no protocol checker",
+          error
+        );
         check_equal(count, 0, "blocking count without a protocol checker");
         get_check_count(net, explicit_flash, qspi_cs_deselect, reference);
-        check_only_log(get_logger(explicit_flash), "tb_flash_vci:explicit_flash has no protocol checker", error);
+        check_only_log(
+          get_logger(explicit_flash),
+          "tb_flash_vci:explicit_flash has no protocol checker",
+          error
+        );
         check(reference = null_msg, "no reference without a protocol checker");
         unmock(get_logger(explicit_flash));
 
       elsif run("test_explicit_protocol_checker_parts_are_kept") then
-        check(protocol_checker(kept_id_flash) = kept_id_checker, "a checker with an explicit id is kept");
+        check(
+          protocol_checker(kept_id_flash) = kept_id_checker,
+          "a checker with an explicit id is kept"
+        );
 
         check(
           get_parent(get_id(protocol_checker(kept_logger_flash))) = get_id(kept_logger_flash),
           "a checker without an explicit id becomes a child"
         );
-        check(get_logger(protocol_checker(kept_logger_flash)) = kept_logger, "explicit logger kept");
-        check(get_logger(get_checker(protocol_checker(kept_logger_flash))) = kept_logger, "checker on it");
+        check(
+          get_logger(protocol_checker(kept_logger_flash)) = kept_logger,
+          "explicit logger kept"
+        );
+        check(
+          get_logger(get_checker(protocol_checker(kept_logger_flash))) = kept_logger,
+          "checker on it"
+        );
         check_equal(t_shsl(protocol_checker(kept_logger_flash)), 40 ns, "limits kept");
       end if;
     end loop;
@@ -444,4 +514,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 20 ms);
+
 end architecture;

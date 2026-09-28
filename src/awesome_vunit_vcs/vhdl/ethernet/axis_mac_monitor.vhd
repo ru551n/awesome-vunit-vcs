@@ -32,9 +32,20 @@ end entity;
 
 architecture a of axis_mac_monitor is
 begin
+
   main : process
   begin
-    monitor_axis_interface(net, to_ethernet_vc(monitor), clk, tdata, tkeep, tvalid, tready, tlast, tuser);
+    monitor_axis_interface(
+      net,
+      to_ethernet_vc(monitor),
+      clk,
+      tdata,
+      tkeep,
+      tvalid,
+      tready,
+      tlast,
+      tuser
+    );
   end process;
 
   protocol_checker_gen : if get_protocol_checker(monitor) /= null_axis_mac_protocol_checker generate
@@ -52,4 +63,5 @@ begin
         tuser => tuser
       );
   end generate;
+
 end architecture;

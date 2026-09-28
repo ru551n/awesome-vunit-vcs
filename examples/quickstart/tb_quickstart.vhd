@@ -7,7 +7,9 @@ library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
 
 entity tb_quickstart is
-  generic (runner_cfg : string);
+  generic (
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_quickstart is
@@ -16,8 +18,10 @@ architecture tb of tb_quickstart is
   signal in_dv, in_er, out_dv, out_er : std_ulogic := '0';
 
   constant source : gmii_source_t := new_gmii_source;
-  constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+  constant monitor : gmii_monitor_t :=
+    new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
 begin
+
   clk <= not clk after 4 ns;
 
   main : process
@@ -41,8 +45,15 @@ begin
   end process;
 
   source_inst : entity awesome_vunit_vcs.gmii_source
-    generic map (source)
-    port map (clk, in_data, in_dv, in_er);
+    generic map (
+      source
+    )
+    port map (
+      clk,
+      in_data,
+      in_dv,
+      in_er
+    );
 
   -- The design under test: one register stage
   out_data <= in_data when rising_edge(clk);
@@ -50,7 +61,15 @@ begin
   out_er <= in_er when rising_edge(clk);
 
   monitor_inst : entity awesome_vunit_vcs.gmii_monitor
-    generic map (monitor)
-    port map (clk, out_data, out_dv, out_er);
+    generic map (
+      monitor
+    )
+    port map (
+      clk,
+      out_data,
+      out_dv,
+      out_er
+    );
+
 end architecture;
 -- docs-end: testbench

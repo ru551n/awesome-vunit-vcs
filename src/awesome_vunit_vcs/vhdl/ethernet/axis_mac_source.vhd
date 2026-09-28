@@ -32,8 +32,20 @@ end entity;
 
 architecture a of axis_mac_source is
 begin
+
   main : process
   begin
-    drive_axis_interface(net, to_ethernet_vc(source), clk, tdata, tkeep, tvalid, tready, tlast, tuser);
+    drive_axis_interface(
+      net,
+      to_ethernet_vc(source),
+      clk,
+      tdata,
+      tkeep,
+      tvalid,
+      tready,
+      tlast,
+      tuser
+    );
   end process;
+
 end architecture;

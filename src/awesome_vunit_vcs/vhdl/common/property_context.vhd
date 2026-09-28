@@ -12,6 +12,7 @@
 -- The family contexts, ethernet_context and flash_context, include the same.
 
 context property_context is
+
   library ieee;
   use ieee.std_logic_1164.all;
 
@@ -24,4 +25,5 @@ context property_context is
   library awesome_vunit_vcs;
   use awesome_vunit_vcs.vc_python_pkg.all;
   use awesome_vunit_vcs.property_pkg.all;
-end context;
+
+end context property_context;

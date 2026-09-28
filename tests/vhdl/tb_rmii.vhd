@@ -56,24 +56,37 @@ architecture tb of tb_rmii is
   signal raw_dv : std_ulogic := '0';
 
   constant source : rmii_source_t := new_rmii_source(link_rate_mbps => link_rate_mbps);
-  constant toggle_source : rmii_source_t := new_rmii_source(link_rate_mbps => link_rate_mbps, crs_dv_toggle_octets => 3);
+  constant toggle_source : rmii_source_t :=
+    new_rmii_source(link_rate_mbps => link_rate_mbps, crs_dv_toggle_octets => 3);
   constant monitor : rmii_monitor_t := new_rmii_monitor(
-    link_rate_mbps => link_rate_mbps, protocol_checker => default_rmii_protocol_checker,
+    link_rate_mbps => link_rate_mbps,
+    protocol_checker => default_rmii_protocol_checker,
     id => get_id("tb_rmii:monitor")
   );
   constant second_monitor : rmii_monitor_t := new_rmii_monitor(
-    link_rate_mbps => link_rate_mbps, protocol_checker => default_rmii_protocol_checker,
+    link_rate_mbps => link_rate_mbps,
+    protocol_checker => default_rmii_protocol_checker,
     id => get_id("tb_rmii:second_monitor")
   );
 
   type rmii_monitor_vec_t is array (natural range <>) of rmii_monitor_t;
   constant monitors : rmii_monitor_vec_t := (monitor, second_monitor);
 begin
+
   clk <= not clk after clk_period / 2;
 
-  with driver select data <= source_data when source_driver, toggle_data when toggle_driver, raw_data when raw_driver;
-  with driver select dv <= source_dv when source_driver, toggle_dv when toggle_driver, raw_dv when raw_driver;
-  with driver select er <= source_er when source_driver, toggle_er when toggle_driver, '0' when raw_driver;
+  with driver select data <=
+    source_data when source_driver,
+    toggle_data when toggle_driver,
+    raw_data when raw_driver;
+  with driver select dv <=
+    source_dv when source_driver,
+    toggle_dv when toggle_driver,
+    raw_dv when raw_driver;
+  with driver select er <=
+    source_er when source_driver,
+    toggle_er when toggle_driver,
+    '0' when raw_driver;
 
   main : process
     constant stimulus : python_session_t := new_session("tb_rmii:stimulus");
@@ -89,20 +102,26 @@ begin
     constant traffic_function : string := "awesome_vunit_vcs.ethernet.traffic:random_traffic";
     impure function traffic_arguments return arg_t is
     begin
-      return
-        kwarg("count", 60) & kwarg("malformations", "bad_fcs,short_preamble,long_preamble,runt,giant,phy_error,short_ifg") &
-        kwarg("malformed_fraction", 0.3) & kwarg("interface", "rmii");
-    end;
+      return kwarg("count", 60)
+             & kwarg(
+               "malformations",
+               "bad_fcs,short_preamble,long_preamble,runt,giant,phy_error,short_ifg"
+             )
+             & kwarg("malformed_fraction", 0.3)
+             & kwarg("interface", "rmii");
+    end function;
 
-    impure function frame_data(octets : positive; seed : natural := 0) return std_ulogic_vector is
+    impure function frame_data (octets : positive; seed : natural := 0) return std_ulogic_vector is
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
       for idx in 0 to octets - 1 loop
-        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(to_unsigned((7 * idx + seed) mod 256, 8));
+        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(
+          to_unsigned((7 * idx + seed) mod 256, 8)
+        );
       end loop;
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
-    end;
+    end function;
 
     procedure wait_until_idle is
     begin
@@ -112,62 +131,83 @@ begin
         wait_until_idle(net, as_sync(monitors(idx)));
         wait_until_idle(net, as_sync(get_protocol_checker(monitors(idx))));
       end loop;
-    end;
+    end procedure;
 
-    procedure push_checked_frame(frame : std_ulogic_vector; ifg_octets : natural := 12) is
+    procedure push_checked_frame(frame : std_ulogic_vector; ifg_octets : natural := 12)is
     begin
       for idx in monitors'range loop
         check_ethernet_frame(net, monitors(idx), frame, blocking => false);
       end loop;
       push_ethernet_frame(net, source, frame, frame_options(ifg_octets => ifg_octets));
-    end;
+    end procedure;
 
     -- Check that each monitor found exactly expected violations of check. When
     -- errors is given, the monitor logged that many errors in total, otherwise
     -- the violations were the only errors logged.
-    procedure check_violations(check : ethernet_check_t; expected : natural; errors : integer := -1) is
+    procedure check_violations(
+      check : ethernet_check_t;
+      expected : natural;
+      errors : integer := -1
+    )is
       variable violations : natural;
     begin
       wait_until_idle;
       for idx in monitors'range loop
         get_check_count(net, monitors(idx), check, violations);
         check_equal(
-          violations, expected, "Violations of " & ethernet_check_t'image(check) & " on monitor " & to_string(idx)
+          violations,
+          expected,
+          "Violations of " & ethernet_check_t'image(check) & " on monitor " & to_string(idx)
         );
         if errors < 0 then
-          check_equal(get_log_count(get_logger(get_protocol_checker(monitors(idx))), error), expected, "Errors on monitor " & to_string(idx));
+          check_equal(
+            get_log_count(get_logger(get_protocol_checker(monitors(idx))), error),
+            expected,
+            "Errors on monitor " & to_string(idx)
+          );
           reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
         end if;
       end loop;
-    end;
+    end procedure;
 
-    procedure check_errors(expected : natural) is
+    procedure check_errors(expected : natural)is
     begin
       for idx in monitors'range loop
-        check_equal(get_log_count(get_logger(get_protocol_checker(monitors(idx))), error), expected, "Errors on monitor " & to_string(idx));
+        check_equal(
+          get_log_count(get_logger(get_protocol_checker(monitors(idx))), error),
+          expected,
+          "Errors on monitor " & to_string(idx)
+        );
         reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
       end loop;
-    end;
+    end procedure;
 
     -- The dibits on the wire of a 60 octet frame with a good FCS, built with
     -- zlib as an independent reference: zeros 00 dibits, the preamble and SFD
     -- dibits, the frame least significant dibit first, then extra
-    impure function wire_dibits(zeros : natural; extra : string := "") return integer_array_t is
+    impure function wire_dibits (zeros : natural; extra : string := "") return integer_array_t is
     begin
       exec(
-        "import struct, zlib" & LF &
-        "import numpy as np" & LF &
-        "frame = bytes.fromhex('02000000000102000000000288b5') + bytes(range(46))" & LF &
-        "wire = bytes([0x55] * 7 + [0xD5]) + frame + struct.pack('<I', zlib.crc32(frame))" & LF &
-        "dibits = [0] * " & integer'image(zeros) &
-        " + [(octet >> shift) & 3 for octet in wire for shift in (0, 2, 4, 6)] + [" & extra & "]",
+        "import struct, zlib"
+        & LF
+        & "import numpy as np"
+        & LF
+        & "frame = bytes.fromhex('02000000000102000000000288b5') + bytes(range(46))"
+        & LF
+        & "wire = bytes([0x55] * 7 + [0xD5]) + frame + struct.pack('<I', zlib.crc32(frame))"
+        & LF
+        & "dibits = [0] * "
+        & integer'image(zeros)
+        & " + [(octet >> shift) & 3 for octet in wire for shift in (0, 2, 4, 6)] + ["
+        & extra
+        & "]",
         stimulus
       );
       return eval_integer_array("np.array(dibits, dtype=np.int32)", stimulus);
-    end;
+    end function;
 
     -- Drive dibits with CRS_DV asserted instead of a source, followed by 12 idle octets
-    procedure drive_dibits(dibit_array : integer_array_t) is
+    procedure drive_dibits(dibit_array : integer_array_t)is
     begin
       wait_until_idle;
       driver <= raw_driver;
@@ -185,7 +225,7 @@ begin
         wait until rising_edge(clk);
       end loop;
       driver <= source_driver;
-    end;
+    end procedure;
   begin
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
@@ -305,35 +345,60 @@ begin
       elsif run("test_malformed_sequence_matches_the_oracle") then
         for idx in monitors'range loop
           check_ethernet_sequence(
-            net, monitors(idx), traffic_function, traffic_arguments, seed => get_string_seed(runner_cfg)
+            net,
+            monitors(idx),
+            traffic_function,
+            traffic_arguments,
+            seed => get_string_seed(runner_cfg)
           );
         end loop;
-        push_ethernet_sequence(net, source, traffic_function, traffic_arguments, seed => get_string_seed(runner_cfg));
+        push_ethernet_sequence(
+          net,
+          source,
+          traffic_function,
+          traffic_arguments,
+          seed => get_string_seed(runner_cfg)
+        );
         wait_until_idle;
         for idx in monitors'range loop
           total := 0;
           for check_id in eth_preamble to eth_link_fault loop
             get_check_count(net, monitors(idx), check_id, count);
             expected_count := call_integer_w_arg(
-              "vc.expected_violation_count", arg(ethernet_check_t'image(check_id)),
+              "vc.expected_violation_count",
+              arg(ethernet_check_t'image(check_id)),
               session => new_session(get_id(monitors(idx)))
             );
             check_equal(
-              count, expected_count,
-              ethernet_check_t'image(check_id) & " on monitor " & to_string(idx) & ", seed " &
-              get_string_seed(runner_cfg)
+              count,
+              expected_count,
+              ethernet_check_t'image(check_id)
+              & " on monitor "
+              & to_string(idx)
+              & ", seed "
+              & get_string_seed(runner_cfg)
             );
             total := total + count;
           end loop;
-          check(total > 0, "The sequence has malformed frames, seed " & get_string_seed(runner_cfg));
+          check(
+            total > 0,
+            "The sequence has malformed frames, seed " & get_string_seed(runner_cfg)
+          );
           check_equal(get_log_count(get_logger(get_protocol_checker(monitors(idx))), error), total);
           reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
-          check_equal(get_log_count(get_logger(monitors(idx)), error), 0, "Scoreboard errors on monitor " & to_string(idx));
+          check_equal(
+            get_log_count(get_logger(monitors(idx)), error),
+            0,
+            "Scoreboard errors on monitor " & to_string(idx)
+          );
         end loop;
 
       elsif run("test_randomized_traffic") then
         for idx in 1 to 50 loop
-          push_checked_frame(frame_data(rnd.RandInt(60, 1514), seed => idx), ifg_octets => rnd.RandInt(12, 40));
+          push_checked_frame(
+            frame_data(rnd.RandInt(60, 1514), seed => idx),
+            ifg_octets => rnd.RandInt(12, 40)
+          );
         end loop;
         wait_until_idle;
         get_statistics(net, monitor, statistics);
@@ -391,4 +456,5 @@ begin
       dv => dv,
       er => er
     );
+
 end architecture;

@@ -34,6 +34,7 @@ architecture a of rgmii_source is
   signal octet : std_ulogic_vector(7 downto 0) := (others => '0');
   signal dv, er : std_ulogic := '0';
 begin
+
   main : process
   begin
     drive_symbol_interface(net, to_ethernet_vc(source), clk, octet, dv, er);
@@ -43,4 +44,5 @@ begin
   begin
     split_double_edges(to_ethernet_vc(source), clk, octet, dv, er, data, ctl);
   end process;
+
 end architecture;

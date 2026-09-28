@@ -31,8 +31,10 @@ end entity;
 
 architecture a of xgmii_protocol_checker is
 begin
+
   main : process
   begin
     monitor_column_interface(net, to_ethernet_vc(protocol_checker), clk, data, ctrl);
   end process;
+
 end architecture;

@@ -18,7 +18,9 @@ library awesome_vunit_vcs;
 use awesome_vunit_vcs.vc_python_pkg.all;
 
 entity tb_vc_python is
-  generic (runner_cfg : string);
+  generic (
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_vc_python is
@@ -26,6 +28,7 @@ architecture tb of tb_vc_python is
   constant arguments_msg : msg_type_t := new_msg_type("tb_vc_python arguments");
   signal received : boolean := false;
 begin
+
   main : process
     constant session : python_session_t := new_vc_session(get_id("tb_vc_python:backend"));
 
@@ -39,7 +42,7 @@ begin
       deallocate(text);
       port_number := 0;
       send(net, receiver, msg);
-    end;
+    end procedure;
   begin
     test_runner_setup(runner, runner_cfg);
     exec("import builtins", session);
@@ -55,15 +58,30 @@ begin
 
       elsif run("test_text_arguments_keep_every_character") then
         create_backend(
-          session, "awesome_vunit_vcs.common.vunit_bridge", "decode_text",
+          session,
+          "awesome_vunit_vcs.common.vunit_bridge",
+          "decode_text",
           arg_text("quote "" apostrophe ' backslash \ tab" & HT & "end")
         );
-        check_equal(backend_call_string(session, "__str__"), "quote "" apostrophe ' backslash \ tab" & HT & "end");
+        check_equal(
+          backend_call_string(session, "__str__"),
+          "quote "" apostrophe ' backslash \ tab" & HT & "end"
+        );
 
       elsif run("test_time_arguments_of_any_size") then
-        create_backend(session, "awesome_vunit_vcs.common.vunit_bridge", "decode_time_fs", arg_time(123456789 ns));
+        create_backend(
+          session,
+          "awesome_vunit_vcs.common.vunit_bridge",
+          "decode_time_fs",
+          arg_time(123456789 ns)
+        );
         check_equal(backend_call_string(session, "__str__"), "123456789000000");
-        create_backend(session, "awesome_vunit_vcs.common.vunit_bridge", "decode_time_fs", arg_time(1 fs));
+        create_backend(
+          session,
+          "awesome_vunit_vcs.common.vunit_bridge",
+          "decode_time_fs",
+          arg_time(1 fs)
+        );
         check_equal(backend_call_integer(session, "__int__"), 1);
 
       elsif run("test_arguments_carried_to_another_process") then
@@ -83,9 +101,11 @@ begin
     receive(net, receiver, msg);
     exec("from awesome_vunit_vcs.common.vunit_bridge import decode_text", session);
     exec(
-      "def collect(name, port, message):" & LF &
-      "    return f'{name}|{port}|{decode_text(message)}'" & LF &
-      "vc = type('Receiver', (), {'collect': staticmethod(collect)})",
+      "def collect(name, port, message):"
+      & LF
+      & "    return f'{name}|{port}|{decode_text(message)}'"
+      & LF
+      & "vc = type('Receiver', (), {'collect': staticmethod(collect)})",
       session
     );
     check_equal(
@@ -97,4 +117,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 10 ms);
+
 end architecture;

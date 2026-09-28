@@ -33,6 +33,7 @@ architecture a of gmii_pipeline is
   signal data_q : data_vec_t(1 to stages) := (others => (others => '0'));
   signal dv_q, er_q : std_ulogic_vector(1 to stages) := (others => '0');
 begin
+
   out_data <= data_q(stages);
   out_dv <= dv_q(stages);
   out_er <= er_q(stages);
@@ -45,4 +46,5 @@ begin
       er_q <= in_er & er_q(1 to stages - 1);
     end if;
   end process;
+
 end architecture;

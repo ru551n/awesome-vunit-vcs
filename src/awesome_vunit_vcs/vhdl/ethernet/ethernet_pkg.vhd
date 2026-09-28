@@ -67,7 +67,7 @@ package ethernet_pkg is
   -- True for the checks a monitor runs itself, ``eth_scoreboard`` and
   -- ``eth_user``. The other checks are protocol checks, run by a protocol
   -- checker.
-  function is_monitor_check(check : ethernet_check_t) return boolean;
+  function is_monitor_check (check : ethernet_check_t) return boolean;
 
   -- What a source appends to the frame data:
   --
@@ -79,19 +79,19 @@ package ethernet_pkg is
   -- Statistics of a monitor. Octet counts saturate at ``integer'high`` and a
   -- minimum or maximum without a value is -1.
   type ethernet_statistics_t is record
-    total_frames : natural;
-    good_frames : natural;
-    bad_frames : natural;
-    wire_octets : natural;
-    payload_octets : natural;
-    fcs_errors : natural;
+    total_frames     : natural;
+    good_frames      : natural;
+    bad_frames       : natural;
+    wire_octets      : natural;
+    payload_octets   : natural;
+    fcs_errors       : natural;
     phy_error_frames : natural;
-    runts : natural;
-    giants : natural;
+    runts            : natural;
+    giants           : natural;
     min_frame_octets : integer;
     max_frame_octets : integer;
-    min_ifg_octets : integer;
-    max_ifg_octets : integer;
+    min_ifg_octets   : integer;
+    max_ifg_octets   : integer;
   end record;
 
   ---------------------------------------------------------------------------
@@ -106,21 +106,21 @@ package ethernet_pkg is
   -- The Ethernet source VCI: transmits frames
   type ethernet_source_t is record
     -- Private
-    p_actor : actor_t;
+    p_actor   : actor_t;
     p_checker : checker_t;
   end record;
 
   -- The Ethernet monitor VCI: receives frames
   type ethernet_monitor_t is record
     -- Private
-    p_actor : actor_t;
+    p_actor   : actor_t;
     p_checker : checker_t;
   end record;
 
   -- The Ethernet protocol checker VCI: checks the traffic of an interface
   type ethernet_protocol_checker_t is record
     -- Private
-    p_actor : actor_t;
+    p_actor   : actor_t;
     p_checker : checker_t;
   end record;
 
@@ -137,18 +137,18 @@ package ethernet_pkg is
   -- :vhdl:`ethernet_pkg.frame_options`
   type ethernet_frame_options_t is record
     -- Private
-    p_fcs : ethernet_fcs_mode_t;
-    p_pad : boolean;
-    p_preamble_octets : natural;
-    p_sfd : std_ulogic_vector(7 downto 0);
-    p_ifg_octets : natural;
+    p_fcs               : ethernet_fcs_mode_t;
+    p_pad               : boolean;
+    p_preamble_octets   : natural;
+    p_sfd               : std_ulogic_vector(7 downto 0);
+    p_ifg_octets        : natural;
     p_num_error_offsets : natural;
-    p_error_offsets : integer_vector(0 to max_error_offsets - 1);
+    p_error_offsets     : integer_vector(0 to max_error_offsets - 1);
   end record;
 
   -- The options of a frame the standard allows: correct FCS, padding to the
   -- minimum frame size, 7 preamble octets, the SFD 0xD5 and 12 IFG octets
-  impure function frame_options(
+  impure function frame_options (
     fcs : ethernet_fcs_mode_t := fcs_append;
     pad : boolean := true;
     preamble_octets : natural := 7;
@@ -244,10 +244,7 @@ package ethernet_pkg is
   -- transmits an Error column, then Idle) and forgets octets pushed with
   -- push_stream without last. Dropped wait_until_idle requests are answered.
   -- Returns also when the clock of the interface has stopped.
-  procedure reset(
-    signal net : inout network_t;
-    source : ethernet_source_t
-  );
+  procedure reset(signal net : inout network_t; source : ethernet_source_t);
 
   ---------------------------------------------------------------------------
   -- Monitor
@@ -406,10 +403,7 @@ package ethernet_pkg is
 
   -- Close all captures of the monitor. Captures are also closed when the
   -- simulation ends.
-  procedure stop_capture(
-    signal net : inout network_t;
-    monitor : ethernet_monitor_t
-  );
+  procedure stop_capture(signal net : inout network_t; monitor : ethernet_monitor_t);
 
   -- Blocking: recover a monitor. Forgets a frame in progress and ignores the
   -- rest of it on the line, the frames kept for pops, and the expected frames
@@ -487,10 +481,7 @@ package ethernet_pkg is
 
   -- Blocking: recover a protocol checker. Forgets a frame in progress and
   -- ignores the rest of it on the line; the check counts are kept.
-  procedure reset(
-    signal net : inout network_t;
-    protocol_checker : ethernet_protocol_checker_t
-  );
+  procedure reset(signal net : inout network_t; protocol_checker : ethernet_protocol_checker_t);
 
   -- Message types of the Ethernet VCIs. A request with a reply has a
   -- ``*_reply_msg`` type for the reply. A monitor publishes
@@ -501,27 +492,34 @@ package ethernet_pkg is
   constant pop_ethernet_frame_msg : msg_type_t := new_msg_type("pop ethernet frame");
   constant pop_ethernet_frame_reply_msg : msg_type_t := new_msg_type("pop ethernet frame reply");
   constant check_ethernet_frame_msg : msg_type_t := new_msg_type("check ethernet frame");
-  constant check_ethernet_frame_reply_msg : msg_type_t := new_msg_type("check ethernet frame reply");
+  constant check_ethernet_frame_reply_msg : msg_type_t :=
+    new_msg_type("check ethernet frame reply");
   constant check_ethernet_sequence_msg : msg_type_t := new_msg_type("check ethernet sequence");
   constant get_ethernet_statistics_msg : msg_type_t := new_msg_type("get ethernet statistics");
-  constant get_ethernet_statistics_reply_msg : msg_type_t := new_msg_type("get ethernet statistics reply");
+  constant get_ethernet_statistics_reply_msg : msg_type_t :=
+    new_msg_type("get ethernet statistics reply");
   constant get_ethernet_frame_count_msg : msg_type_t := new_msg_type("get ethernet frame count");
-  constant get_ethernet_frame_count_reply_msg : msg_type_t := new_msg_type("get ethernet frame count reply");
+  constant get_ethernet_frame_count_reply_msg : msg_type_t :=
+    new_msg_type("get ethernet frame count reply");
   constant log_ethernet_statistics_msg : msg_type_t := new_msg_type("log ethernet statistics");
   constant start_ethernet_capture_msg : msg_type_t := new_msg_type("start ethernet capture");
   constant stop_ethernet_capture_msg : msg_type_t := new_msg_type("stop ethernet capture");
-  constant set_ethernet_check_enabled_msg : msg_type_t := new_msg_type("set ethernet check enabled");
+  constant set_ethernet_check_enabled_msg : msg_type_t :=
+    new_msg_type("set ethernet check enabled");
   constant get_ethernet_check_count_msg : msg_type_t := new_msg_type("get ethernet check count");
-  constant get_ethernet_check_count_reply_msg : msg_type_t := new_msg_type("get ethernet check count reply");
+  constant get_ethernet_check_count_reply_msg : msg_type_t :=
+    new_msg_type("get ethernet check count reply");
   constant ethernet_frame_msg : msg_type_t := new_msg_type("ethernet frame");
   constant reset_ethernet_source_msg : msg_type_t := new_msg_type("reset ethernet source");
-  constant reset_ethernet_source_reply_msg : msg_type_t := new_msg_type("reset ethernet source reply");
+  constant reset_ethernet_source_reply_msg : msg_type_t :=
+    new_msg_type("reset ethernet source reply");
   constant reset_ethernet_monitor_msg : msg_type_t := new_msg_type("reset ethernet monitor");
-  constant reset_ethernet_monitor_reply_msg : msg_type_t := new_msg_type("reset ethernet monitor reply");
-  constant reset_ethernet_protocol_checker_msg : msg_type_t := new_msg_type("reset ethernet protocol checker");
-  constant reset_ethernet_protocol_checker_reply_msg : msg_type_t := new_msg_type(
-    "reset ethernet protocol checker reply"
-  );
+  constant reset_ethernet_monitor_reply_msg : msg_type_t :=
+    new_msg_type("reset ethernet monitor reply");
+  constant reset_ethernet_protocol_checker_msg : msg_type_t :=
+    new_msg_type("reset ethernet protocol checker");
+  constant reset_ethernet_protocol_checker_reply_msg : msg_type_t :=
+    new_msg_type("reset ethernet protocol checker reply");
 
   ---------------------------------------------------------------------------
   -- Private
@@ -538,32 +536,36 @@ package ethernet_pkg is
 
   -- Private: whether a sub-VC handle, such as the protocol checker of a
   -- monitor, is absent, to be created by the parent VC, or created by the user
-  type ethernet_component_type_t is (null_ethernet_component, default_ethernet_component, custom_ethernet_component);
+  type ethernet_component_type_t is (
+    null_ethernet_component,
+    default_ethernet_component,
+    custom_ethernet_component
+  );
 
   -- Private: the configuration of an Ethernet VC. A VC uses the fields that
   -- apply to its kind and interface.
   type ethernet_cfg_t is record
-    p_interface : ethernet_interface_t;
-    p_link_rate_mbps : positive;
-    p_lanes : positive;
-    p_both_edges : boolean;
-    p_allow_lane4_start : boolean;
-    p_deficit_idle : boolean;
-    p_edge_aligned : boolean;
+    p_interface            : ethernet_interface_t;
+    p_link_rate_mbps       : positive;
+    p_lanes                : positive;
+    p_both_edges           : boolean;
+    p_allow_lane4_start    : boolean;
+    p_deficit_idle         : boolean;
+    p_edge_aligned         : boolean;
     p_crs_dv_toggle_octets : natural;
-    p_min_preamble_octets : natural;
-    p_max_preamble_octets : natural;
-    p_min_frame_octets : natural;
-    p_max_frame_octets : natural;
-    p_min_ifg_octets : natural;
-    p_has_fcs : boolean;
-    p_batch_length : positive;
-    p_flush_at_frame_end : boolean;
-    p_delta_unit : time;
-    p_log_frames : boolean;
-    p_user_length : positive;
-    p_valid_low_percent : natural;
-    p_seed : natural;
+    p_min_preamble_octets  : natural;
+    p_max_preamble_octets  : natural;
+    p_min_frame_octets     : natural;
+    p_max_frame_octets     : natural;
+    p_min_ifg_octets       : natural;
+    p_has_fcs              : boolean;
+    p_batch_length         : positive;
+    p_flush_at_frame_end   : boolean;
+    p_delta_unit           : time;
+    p_log_frames           : boolean;
+    p_user_length          : positive;
+    p_valid_low_percent    : natural;
+    p_seed                 : natural;
   end record;
 
   -- Private: the configuration of null handles
@@ -592,7 +594,7 @@ package ethernet_pkg is
   );
 
   -- Private: create a configuration
-  impure function new_ethernet_cfg(
+  impure function new_ethernet_cfg (
     interface : ethernet_interface_t;
     link_rate_mbps : positive;
     lanes : positive := 1;
@@ -619,12 +621,12 @@ package ethernet_pkg is
   -- Private: the id, logger, actor and checker of a VC, and which of them the
   -- user gave
   type ethernet_identity_t is record
-    p_id : id_t;
-    p_logger : logger_t;
-    p_actor : actor_t;
-    p_checker : checker_t;
-    p_explicit_logger : boolean;
-    p_explicit_actor : boolean;
+    p_id               : id_t;
+    p_logger           : logger_t;
+    p_actor            : actor_t;
+    p_checker          : checker_t;
+    p_explicit_logger  : boolean;
+    p_explicit_actor   : boolean;
     p_explicit_checker : boolean;
   end record;
 
@@ -633,7 +635,7 @@ package ethernet_pkg is
   -- instances from 1. A null logger becomes the logger of the id, a null actor
   -- a new actor of the id, which must not have an actor already, and a null
   -- checker a new checker reporting to the logger.
-  impure function new_ethernet_identity(
+  impure function new_ethernet_identity (
     vc_name : string;
     id : id_t;
     logger : logger_t;
@@ -644,7 +646,7 @@ package ethernet_pkg is
   -- Private: the identity of a sub-VC of the VC with id parent, such as its
   -- protocol checker. Its id is <parent>:<name>; the logger, actor and checker
   -- derive from that id unless the user gave them.
-  impure function inherit_ethernet_identity(
+  impure function inherit_ethernet_identity (
     identity : ethernet_identity_t;
     name : string;
     parent : id_t
@@ -652,26 +654,28 @@ package ethernet_pkg is
 
   -- Private: the VC an entity implements, independent of the PHY handle types
   type ethernet_vc_t is record
-    p_kind : ethernet_vc_kind_t;
-    p_id : id_t;
-    p_logger : logger_t;
-    p_actor : actor_t;
-    p_checker : checker_t;
+    p_kind                       : ethernet_vc_kind_t;
+    p_id                         : id_t;
+    p_logger                     : logger_t;
+    p_actor                      : actor_t;
+    p_checker                    : checker_t;
     p_unexpected_msg_type_policy : unexpected_msg_type_policy_t;
-    p_cfg : ethernet_cfg_t;
+    p_cfg                        : ethernet_cfg_t;
   end record;
 
   -- Private: the frame transmission options of a push message, as keyword
   -- arguments of the Python backend
-  impure function pop_transmit_options(msg : msg_t) return arg_t;
+  impure function pop_transmit_options (msg : msg_t) return arg_t;
+
 end package;
 
 package body ethernet_pkg is
+
   -- Reports errors of the constructors, like vc_pkg_checker of VUnit
   constant ethernet_pkg_logger : logger_t := get_logger("awesome_vunit_vcs:ethernet_pkg");
   constant ethernet_pkg_checker : checker_t := new_checker(ethernet_pkg_logger);
 
-  impure function new_ethernet_cfg(
+  impure function new_ethernet_cfg (
     interface : ethernet_interface_t;
     link_rate_mbps : positive;
     lanes : positive := 1;
@@ -718,20 +722,20 @@ package body ethernet_pkg is
       p_valid_low_percent => valid_low_percent,
       p_seed => seed
     );
-  end;
+  end function;
 
   -- The actor of a VC with a derived identity: a new actor for id, which must
   -- not have one (vc_pkg.vhd, create_std_cfg)
-  impure function new_vc_actor(id : id_t) return actor_t is
+  impure function new_vc_actor (id : id_t) return actor_t is
   begin
     if find(id, enable_deferred_creation => false) /= null_actor then
       check_failed(ethernet_pkg_checker, "An actor already exists for " & full_name(id) & ".");
       return null_actor;
     end if;
     return new_actor(id);
-  end;
+  end function;
 
-  impure function resolve_identity(
+  impure function resolve_identity (
     id : id_t;
     logger : logger_t;
     actor : actor_t;
@@ -762,9 +766,9 @@ package body ethernet_pkg is
       result.p_checker := new_checker(result.p_logger);
     end if;
     return result;
-  end;
+  end function;
 
-  impure function new_ethernet_identity(
+  impure function new_ethernet_identity (
     vc_name : string;
     id : id_t;
     logger : logger_t;
@@ -777,14 +781,17 @@ package body ethernet_pkg is
       instance_id := enumerate(get_id(vc_name, parent => get_id("awesome_vunit_vcs")));
     end if;
     return resolve_identity(
-      instance_id, logger, actor, checker,
+      instance_id,
+      logger,
+      actor,
+      checker,
       explicit_logger => logger /= null_logger,
       explicit_actor => actor /= null_actor,
       explicit_checker => checker /= null_checker
     );
-  end;
+  end function;
 
-  impure function inherit_ethernet_identity(
+  impure function inherit_ethernet_identity (
     identity : ethernet_identity_t;
     name : string;
     parent : id_t
@@ -792,20 +799,25 @@ package body ethernet_pkg is
   begin
     return resolve_identity(
       get_id(name, parent => parent),
-      identity.p_logger, identity.p_actor, identity.p_checker,
-      identity.p_explicit_logger, identity.p_explicit_actor, identity.p_explicit_checker
+      identity.p_logger,
+      identity.p_actor,
+      identity.p_checker,
+      identity.p_explicit_logger,
+      identity.p_explicit_actor,
+      identity.p_explicit_checker
     );
-  end;
+  end function;
 
-  procedure check_whole_octets(checker : checker_t; data : std_ulogic_vector) is
+  procedure check_whole_octets(checker : checker_t; data : std_ulogic_vector)is
   begin
     check(
-      checker, data'length mod 8 = 0,
+      checker,
+      data'length mod 8 = 0,
       "Frame data must be whole octets, got " & integer'image(data'length) & " bits"
     );
-  end;
+  end procedure;
 
-  impure function frame_options(
+  impure function frame_options (
     fcs : ethernet_fcs_mode_t := fcs_append;
     pad : boolean := true;
     preamble_octets : natural := 7;
@@ -827,8 +839,10 @@ package body ethernet_pkg is
     if error_offsets'length > max_error_offsets then
       failure(
         ethernet_pkg_logger,
-        "A frame has at most " & integer'image(max_error_offsets) & " error offsets, got " &
-        integer'image(error_offsets'length)
+        "A frame has at most "
+        & integer'image(max_error_offsets)
+        & " error offsets, got "
+        & integer'image(error_offsets'length)
       );
       return result;
     end if;
@@ -837,9 +851,9 @@ package body ethernet_pkg is
       result.p_error_offsets(idx) := offsets(idx);
     end loop;
     return result;
-  end;
+  end function;
 
-  procedure push_transmit_options(msg : msg_t; options : ethernet_frame_options_t) is
+  procedure push_transmit_options(msg : msg_t; options : ethernet_frame_options_t)is
   begin
     push(msg, ethernet_fcs_mode_t'pos(options.p_fcs));
     push(msg, options.p_pad);
@@ -850,9 +864,9 @@ package body ethernet_pkg is
     for idx in 0 to options.p_num_error_offsets - 1 loop
       push(msg, options.p_error_offsets(idx));
     end loop;
-  end;
+  end procedure;
 
-  impure function pop_transmit_options(msg : msg_t) return arg_t is
+  impure function pop_transmit_options (msg : msg_t) return arg_t is
     constant fcs : ethernet_fcs_mode_t := ethernet_fcs_mode_t'val(integer'(pop(msg)));
     constant pad : boolean := pop(msg);
     constant preamble_octets : natural := pop(msg);
@@ -866,28 +880,27 @@ package body ethernet_pkg is
       error_offsets(idx) := pop(msg);
     end loop;
 
-    return
-      kwarg("fcs", fcs_image(fcs_image'left + 4 to fcs_image'right)) &
-      kwarg("pad", pad) &
-      kwarg("preamble_octets", preamble_octets) &
-      kwarg("sfd", to_integer(unsigned(sfd))) &
-      kwarg("ifg_octets", ifg_octets) &
-      kwarg("error_offsets", error_offsets);
-  end;
+    return kwarg("fcs", fcs_image(fcs_image'left + 4 to fcs_image'right))
+           & kwarg("pad", pad)
+           & kwarg("preamble_octets", preamble_octets)
+           & kwarg("sfd", to_integer(unsigned(sfd)))
+           & kwarg("ifg_octets", ifg_octets)
+           & kwarg("error_offsets", error_offsets);
+  end function;
 
   procedure push_ethernet_frame(
     signal net : inout network_t;
     source : ethernet_source_t;
     data : std_ulogic_vector;
     options : ethernet_frame_options_t := default_frame_options
-  ) is
+  )is
     variable msg : msg_t := new_msg(push_ethernet_frame_msg);
   begin
     check_whole_octets(source.p_checker, data);
     push(msg, data);
     push_transmit_options(msg, options);
     send(net, source.p_actor, msg);
-  end;
+  end procedure;
 
   procedure push_ethernet_frame(
     signal net : inout network_t;
@@ -897,16 +910,21 @@ package body ethernet_pkg is
     ethertype : std_ulogic_vector;
     payload : std_ulogic_vector;
     options : ethernet_frame_options_t := default_frame_options
-  ) is
+  )is
   begin
     check(
-      source.p_checker, destination'length = 48 and source_address'length = 48 and ethertype'length = 16,
-      "The destination and source addresses are 48 bits and the EtherType 16 bits, got " &
-      integer'image(destination'length) & ", " & integer'image(source_address'length) & " and " &
-      integer'image(ethertype'length) & " bits"
+      source.p_checker,
+      destination'length = 48 and source_address'length = 48 and ethertype'length = 16,
+      "The destination and source addresses are 48 bits and the EtherType 16 bits, got "
+      & integer'image(destination'length)
+      & ", "
+      & integer'image(source_address'length)
+      & " and "
+      & integer'image(ethertype'length)
+      & " bits"
     );
     push_ethernet_frame(net, source, destination & source_address & ethertype & payload, options);
-  end;
+  end procedure;
 
   procedure push_ethernet_packet(
     signal net : inout network_t;
@@ -914,14 +932,14 @@ package body ethernet_pkg is
     function_name : string;
     arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
-  ) is
+  )is
     variable msg : msg_t := new_msg(push_ethernet_packet_msg);
   begin
     push(msg, function_name);
     push_arg(msg, arguments);
     push_transmit_options(msg, options);
     send(net, source.p_actor, msg);
-  end;
+  end procedure;
 
   procedure push_ethernet_sequence(
     signal net : inout network_t;
@@ -930,7 +948,7 @@ package body ethernet_pkg is
     arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
-  ) is
+  )is
     variable msg : msg_t := new_msg(push_ethernet_sequence_msg);
   begin
     push(msg, function_name);
@@ -938,7 +956,7 @@ package body ethernet_pkg is
     push(msg, count);
     push(msg, seed);
     send(net, source.p_actor, msg);
-  end;
+  end procedure;
 
   procedure check_ethernet_sequence(
     signal net : inout network_t;
@@ -947,7 +965,7 @@ package body ethernet_pkg is
     arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
-  ) is
+  )is
     variable msg : msg_t := new_msg(check_ethernet_sequence_msg);
   begin
     push(msg, function_name);
@@ -955,24 +973,24 @@ package body ethernet_pkg is
     push(msg, count);
     push(msg, seed);
     send(net, monitor.p_actor, msg);
-  end;
+  end procedure;
 
   procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     reference := new_msg(pop_ethernet_frame_msg);
     send(net, monitor.p_actor, reference);
-  end;
+  end procedure;
 
   procedure pop_ethernet_frame(
     msg : msg_t;
     variable data : out std_ulogic_vector;
     variable length : out natural;
     variable fcs_ok : out boolean
-  ) is
+  )is
     constant octets : natural := pop(msg);
     constant frame_fcs_ok : boolean := pop(msg);
     constant frame : std_ulogic_vector := pop_std_ulogic_vector(msg);
@@ -981,7 +999,11 @@ package body ethernet_pkg is
     if 8 * octets > data'length then
       failure(
         ethernet_pkg_logger,
-        "A frame of " & integer'image(octets) & " octets does not fit in " & integer'image(data'length) & " bits"
+        "A frame of "
+        & integer'image(octets)
+        & " octets does not fit in "
+        & integer'image(data'length)
+        & " bits"
       );
       length := 0;
       fcs_ok := false;
@@ -992,7 +1014,7 @@ package body ethernet_pkg is
     end if;
     length := octets;
     fcs_ok := frame_fcs_ok;
-  end;
+  end procedure;
 
   procedure await_pop_ethernet_frame_reply(
     signal net : inout network_t;
@@ -1000,25 +1022,25 @@ package body ethernet_pkg is
     variable data : out std_ulogic_vector;
     variable length : out natural;
     variable fcs_ok : out boolean
-  ) is
+  )is
     variable reply_msg : msg_t;
   begin
     receive_reply(net, reference, reply_msg);
     pop_ethernet_frame(reply_msg, data, length, fcs_ok);
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
   procedure await_pop_ethernet_frame_reply(
     signal net : inout network_t;
     variable reference : inout ethernet_reference_t;
     variable data : out std_ulogic_vector;
     variable length : out natural
-  ) is
+  )is
     variable fcs_ok : boolean;
   begin
     await_pop_ethernet_frame_reply(net, reference, data, length, fcs_ok);
-  end;
+  end procedure;
 
   procedure pop_ethernet_frame(
     signal net : inout network_t;
@@ -1026,23 +1048,23 @@ package body ethernet_pkg is
     variable data : out std_ulogic_vector;
     variable length : out natural;
     variable fcs_ok : out boolean
-  ) is
+  )is
     variable reference : ethernet_reference_t;
   begin
     pop_ethernet_frame(net, monitor, reference);
     await_pop_ethernet_frame_reply(net, reference, data, length, fcs_ok);
-  end;
+  end procedure;
 
   procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     variable data : out std_ulogic_vector;
     variable length : out natural
-  ) is
+  )is
     variable fcs_ok : boolean;
   begin
     pop_ethernet_frame(net, monitor, data, length, fcs_ok);
-  end;
+  end procedure;
 
   procedure check_ethernet_frame(
     signal net : inout network_t;
@@ -1050,7 +1072,7 @@ package body ethernet_pkg is
     expected : std_ulogic_vector;
     msg : string := "";
     blocking : boolean := true
-  ) is
+  )is
     variable request_msg : msg_t := new_msg(check_ethernet_frame_msg);
     variable reply_msg : msg_t;
   begin
@@ -1064,23 +1086,23 @@ package body ethernet_pkg is
     else
       send(net, monitor.p_actor, request_msg);
     end if;
-  end;
+  end procedure;
 
   procedure get_statistics(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     reference := new_msg(get_ethernet_statistics_msg);
     send(net, monitor.p_actor, reference);
-  end;
+  end procedure;
 
   procedure await_get_statistics_reply(
     signal net : inout network_t;
     variable reference : inout ethernet_reference_t;
     variable statistics : out ethernet_statistics_t
-  ) is
+  )is
     variable reply_msg : msg_t;
   begin
     receive_reply(net, reference, reply_msg);
@@ -1099,72 +1121,72 @@ package body ethernet_pkg is
     statistics.max_ifg_octets := pop(reply_msg);
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
   procedure get_statistics(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     variable statistics : out ethernet_statistics_t
-  ) is
+  )is
     variable reference : ethernet_reference_t;
   begin
     get_statistics(net, monitor, reference);
     await_get_statistics_reply(net, reference, statistics);
-  end;
+  end procedure;
 
   procedure await_integer_reply(
     signal net : inout network_t;
     variable reference : inout ethernet_reference_t;
     variable value : out natural
-  ) is
+  )is
     variable reply_msg : msg_t;
   begin
     receive_reply(net, reference, reply_msg);
     value := pop(reply_msg);
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
   procedure get_frame_count(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     reference := new_msg(get_ethernet_frame_count_msg);
     send(net, monitor.p_actor, reference);
-  end;
+  end procedure;
 
   procedure await_get_frame_count_reply(
     signal net : inout network_t;
     variable reference : inout ethernet_reference_t;
     variable count : out natural
-  ) is
+  )is
   begin
     await_integer_reply(net, reference, count);
-  end;
+  end procedure;
 
   procedure get_frame_count(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     variable count : out natural
-  ) is
+  )is
     variable reference : ethernet_reference_t;
   begin
     get_frame_count(net, monitor, reference);
     await_get_frame_count_reply(net, reference, count);
-  end;
+  end procedure;
 
   procedure log_statistics(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     log_level : log_level_t := info
-  ) is
+  )is
     variable msg : msg_t := new_msg(log_ethernet_statistics_msg);
   begin
     push(msg, log_level_t'pos(log_level));
     send(net, monitor.p_actor, msg);
-  end;
+  end procedure;
 
   procedure start_capture(
     signal net : inout network_t;
@@ -1172,96 +1194,98 @@ package body ethernet_pkg is
     file_name : string;
     include_fcs : boolean := true;
     include_errored : boolean := true
-  ) is
+  )is
     variable msg : msg_t := new_msg(start_ethernet_capture_msg);
   begin
     push(msg, file_name);
     push(msg, include_fcs);
     push(msg, include_errored);
     send(net, monitor.p_actor, msg);
-  end;
+  end procedure;
 
-  procedure stop_capture(
-    signal net : inout network_t;
-    monitor : ethernet_monitor_t
-  ) is
+  procedure stop_capture(signal net : inout network_t; monitor : ethernet_monitor_t)is
     variable msg : msg_t := new_msg(stop_ethernet_capture_msg);
   begin
     send(net, monitor.p_actor, msg);
-  end;
+  end procedure;
 
   procedure set_check_enabled(
     signal net : inout network_t;
     protocol_checker : ethernet_protocol_checker_t;
     check : ethernet_check_t;
     enabled : boolean := true
-  ) is
+  )is
     variable msg : msg_t := new_msg(set_ethernet_check_enabled_msg);
   begin
     push(msg, ethernet_check_t'pos(check));
     push(msg, enabled);
     send(net, protocol_checker.p_actor, msg);
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : ethernet_protocol_checker_t;
     check : ethernet_check_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     reference := new_msg(get_ethernet_check_count_msg);
     push(reference, ethernet_check_t'pos(check));
     send(net, protocol_checker.p_actor, reference);
-  end;
+  end procedure;
 
   procedure await_get_check_count_reply(
     signal net : inout network_t;
     variable reference : inout ethernet_reference_t;
     variable count : out natural
-  ) is
+  )is
   begin
     await_integer_reply(net, reference, count);
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : ethernet_protocol_checker_t;
     check : ethernet_check_t;
     variable count : out natural
-  ) is
+  )is
     variable reference : ethernet_reference_t;
   begin
     get_check_count(net, protocol_checker, check, reference);
     await_get_check_count_reply(net, reference, count);
-  end;
+  end procedure;
 
-  function is_monitor_check(check : ethernet_check_t) return boolean is
+  function is_monitor_check (check : ethernet_check_t) return boolean is
   begin
     return check = eth_scoreboard or check = eth_user;
-  end;
+  end function;
 
   -- Fails when a monitor is asked about a protocol check
-  impure function is_monitor_check(monitor : ethernet_monitor_t; check : ethernet_check_t; procedure_name : string)
-    return boolean is
+  impure function is_monitor_check (
+    monitor : ethernet_monitor_t;
+    check : ethernet_check_t;
+    procedure_name : string
+  ) return boolean is
   begin
     if not is_monitor_check(check) then
       failure(
         get_logger(monitor.p_checker),
-        procedure_name & " of a monitor handles eth_scoreboard and eth_user; " &
-        ethernet_check_t'image(check) & " is a protocol check, use the protocol checker"
+        procedure_name
+        & " of a monitor handles eth_scoreboard and eth_user; "
+        & ethernet_check_t'image(check)
+        & " is a protocol check, use the protocol checker"
       );
       return false;
     end if;
     return true;
-  end;
+  end function;
 
   procedure set_check_enabled(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     check : ethernet_check_t;
     enabled : boolean := true
-  ) is
+  )is
     variable msg : msg_t;
   begin
     if is_monitor_check(monitor, check, "set_check_enabled") then
@@ -1270,28 +1294,28 @@ package body ethernet_pkg is
       push(msg, enabled);
       send(net, monitor.p_actor, msg);
     end if;
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     check : ethernet_check_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     if is_monitor_check(monitor, check, "get_check_count") then
       reference := new_msg(get_ethernet_check_count_msg);
       push(reference, ethernet_check_t'pos(check));
       send(net, monitor.p_actor, reference);
     end if;
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     check : ethernet_check_t;
     variable count : out natural
-  ) is
+  )is
     variable reference : ethernet_reference_t;
   begin
     count := 0;
@@ -1299,41 +1323,40 @@ package body ethernet_pkg is
       get_check_count(net, monitor, check, reference);
       await_get_check_count_reply(net, reference, count);
     end if;
-  end;
+  end procedure;
 
-  procedure request_without_reply_data(signal net : inout network_t; actor : actor_t; variable msg : inout msg_t) is
+  procedure request_without_reply_data(
+    signal net : inout network_t;
+    actor : actor_t;
+    variable msg : inout msg_t
+  )is
     variable reply_msg : msg_t;
   begin
     request(net, actor, msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure reset(
-    signal net : inout network_t;
-    source : ethernet_source_t
-  ) is
+  procedure reset(signal net : inout network_t; source : ethernet_source_t)is
     variable msg : msg_t := new_msg(reset_ethernet_source_msg);
   begin
     request_without_reply_data(net, source.p_actor, msg);
-  end;
+  end procedure;
 
   procedure reset(
     signal net : inout network_t;
     monitor : ethernet_monitor_t;
     clear_statistics : boolean := false
-  ) is
+  )is
     variable msg : msg_t := new_msg(reset_ethernet_monitor_msg);
   begin
     push(msg, clear_statistics);
     request_without_reply_data(net, monitor.p_actor, msg);
-  end;
+  end procedure;
 
-  procedure reset(
-    signal net : inout network_t;
-    protocol_checker : ethernet_protocol_checker_t
-  ) is
+  procedure reset(signal net : inout network_t; protocol_checker : ethernet_protocol_checker_t)is
     variable msg : msg_t := new_msg(reset_ethernet_protocol_checker_msg);
   begin
     request_without_reply_data(net, protocol_checker.p_actor, msg);
-  end;
+  end procedure;
+
 end package body;

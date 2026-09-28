@@ -46,31 +46,38 @@ architecture tb of tb_rgmii_vci is
 
   constant source : rgmii_source_t := new_rgmii_source;
   constant second_source : rgmii_source_t := new_rgmii_source;
-  constant ignoring_source : rgmii_source_t := new_rgmii_source(unexpected_msg_type_policy => ignore);
+  constant ignoring_source : rgmii_source_t :=
+    new_rgmii_source(unexpected_msg_type_policy => ignore);
 
   constant monitor : rgmii_monitor_t := new_rgmii_monitor(
-    protocol_checker => default_rgmii_protocol_checker, id => get_id("tb_rgmii_vci:monitor")
+    protocol_checker => default_rgmii_protocol_checker,
+    id => get_id("tb_rgmii_vci:monitor")
   );
   constant default_monitor : rgmii_monitor_t := new_rgmii_monitor;
   constant second_default_monitor : rgmii_monitor_t := new_rgmii_monitor;
-  constant ignoring_monitor : rgmii_monitor_t := new_rgmii_monitor(unexpected_msg_type_policy => ignore);
+  constant ignoring_monitor : rgmii_monitor_t :=
+    new_rgmii_monitor(unexpected_msg_type_policy => ignore);
 
   constant protocol_checker : rgmii_protocol_checker_t := new_rgmii_protocol_checker;
   constant second_protocol_checker : rgmii_protocol_checker_t := new_rgmii_protocol_checker;
-  constant ignoring_protocol_checker : rgmii_protocol_checker_t := new_rgmii_protocol_checker(
-    unexpected_msg_type_policy => ignore
-  );
+  constant ignoring_protocol_checker : rgmii_protocol_checker_t :=
+    new_rgmii_protocol_checker(unexpected_msg_type_policy => ignore);
 
   type rgmii_protocol_checker_vec_t is array (natural range <>) of rgmii_protocol_checker_t;
   -- Every protocol checker observing the line
   constant protocol_checkers : rgmii_protocol_checker_vec_t := (
-    get_protocol_checker(monitor), protocol_checker, second_protocol_checker, ignoring_protocol_checker
+    get_protocol_checker(monitor),
+    protocol_checker,
+    second_protocol_checker,
+    ignoring_protocol_checker
   );
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown msg");
   constant subscriber : actor_t := new_actor("tb_rgmii_vci:subscriber");
 begin
-  clk <= not clk after clk_period / 2 when clk_running else clk;
+
+  clk <= not clk after clk_period / 2 when clk_running else
+         clk;
 
   main : process
     variable msg : msg_t;
@@ -91,7 +98,7 @@ begin
     variable custom_monitor : rgmii_monitor_t;
 
     -- Frame data from the destination address up to the FCS
-    impure function frame_data(octets : positive) return std_ulogic_vector is
+    impure function frame_data (octets : positive) return std_ulogic_vector is
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
       for idx in 0 to octets - 1 loop
@@ -99,7 +106,7 @@ begin
       end loop;
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
-    end;
+    end function;
 
     procedure wait_until_idle is
     begin
@@ -109,22 +116,36 @@ begin
       for idx in protocol_checkers'range loop
         wait_until_idle(net, as_sync(protocol_checkers(idx)));
       end loop;
-    end;
+    end procedure;
 
-    impure function starts_with(value, prefix : string) return boolean is
+    impure function starts_with (value, prefix : string) return boolean is
     begin
-      return value'length >= prefix'length and value(value'left to value'left + prefix'length - 1) = prefix;
-    end;
+      return value'length >= prefix'length
+             and value(value'left to value'left + prefix'length - 1) = prefix;
+    end function;
 
-    procedure check_default_identity(id : id_t; logger : logger_t; actor : actor_t; checker : checker_t; vc_name : string) is
+    procedure check_default_identity(
+      id : id_t;
+      logger : logger_t;
+      actor : actor_t;
+      checker : checker_t;
+      vc_name : string
+    )is
     begin
-      check(starts_with(full_name(id), "awesome_vunit_vcs:" & vc_name & ":"), "Default id of " & vc_name & ": " & full_name(id));
+      check(
+        starts_with(full_name(id), "awesome_vunit_vcs:" & vc_name & ":"),
+        "Default id of " & vc_name & ": " & full_name(id)
+      );
       check_equal(get_full_name(logger), full_name(id), "Logger of " & vc_name);
       check(find(id, enable_deferred_creation => false) = actor, "Actor of " & vc_name);
       check(get_logger(checker) = logger, "Checker of " & vc_name);
-    end;
+    end procedure;
 
-    procedure check_unexpected_message(actor : actor_t; logger : logger_t; expect_failure : boolean) is
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
       mock(logger, error);
@@ -137,30 +158,40 @@ begin
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
 
-    procedure check_wait_for_time(actor : actor_t) is
+    procedure check_wait_for_time(actor : actor_t)is
     begin
       start := now;
       wait_for_time(net, actor, 37 * clk_period);
       wait_until_idle(net, actor);
       check_equal(now - start, 37 * clk_period, "wait_for_time of " & name(actor));
-    end;
+    end procedure;
   begin
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
       if run("test_default_ids_are_enumerated_under_the_vc_name") then
         check_default_identity(
-          get_id(source), get_logger(source), get_actor(source), get_checker(source), "rgmii_source"
+          get_id(source),
+          get_logger(source),
+          get_actor(source),
+          get_checker(source),
+          "rgmii_source"
         );
         check_default_identity(
-          get_id(default_monitor), get_logger(default_monitor), get_actor(default_monitor),
-          get_checker(default_monitor), "rgmii_monitor"
+          get_id(default_monitor),
+          get_logger(default_monitor),
+          get_actor(default_monitor),
+          get_checker(default_monitor),
+          "rgmii_monitor"
         );
         check_default_identity(
-          get_id(protocol_checker), get_logger(protocol_checker), get_actor(protocol_checker),
-          get_checker(protocol_checker), "rgmii_protocol_checker"
+          get_id(protocol_checker),
+          get_logger(protocol_checker),
+          get_actor(protocol_checker),
+          get_checker(protocol_checker),
+          "rgmii_protocol_checker"
         );
         check(get_id(source) /= get_id(second_source));
         check(get_id(default_monitor) /= get_id(second_default_monitor));
@@ -173,40 +204,62 @@ begin
         check(get_logger(get_checker(monitor)) = get_logger(monitor));
 
       elsif run("test_protocol_checker_is_a_child_of_its_monitor") then
-        check_equal(full_name(get_id(get_protocol_checker(monitor))), "tb_rgmii_vci:monitor:protocol_checker");
-        check_equal(get_full_name(get_logger(get_protocol_checker(monitor))), "tb_rgmii_vci:monitor:protocol_checker");
-        check(get_id(get_actor(get_protocol_checker(monitor))) = get_id(get_protocol_checker(monitor)));
+        check_equal(
+          full_name(get_id(get_protocol_checker(monitor))),
+          "tb_rgmii_vci:monitor:protocol_checker"
+        );
+        check_equal(
+          get_full_name(get_logger(get_protocol_checker(monitor))),
+          "tb_rgmii_vci:monitor:protocol_checker"
+        );
+        check(
+          get_id(get_actor(get_protocol_checker(monitor))) = get_id(get_protocol_checker(monitor))
+        );
         check(get_protocol_checker(default_monitor) = null_rgmii_protocol_checker);
 
       elsif run("test_explicit_logger_actor_and_checker_are_kept") then
         custom_logger := get_logger("tb_rgmii_vci:custom");
         custom_actor := new_actor("tb_rgmii_vci:custom actor");
         custom_checker := new_checker("tb_rgmii_vci:custom checker");
-        custom_source := new_rgmii_source(logger => custom_logger, actor => custom_actor, checker => custom_checker);
+        custom_source := new_rgmii_source(
+          logger => custom_logger,
+          actor => custom_actor,
+          checker => custom_checker
+        );
         check(get_logger(custom_source) = custom_logger);
         check(get_actor(custom_source) = custom_actor);
         check(get_checker(custom_source) = custom_checker);
 
         -- A protocol checker keeps the logger it was given when a monitor adopts it
-        custom_monitor := new_rgmii_monitor(protocol_checker => new_rgmii_protocol_checker(logger => custom_logger));
+        custom_monitor := new_rgmii_monitor(
+          protocol_checker => new_rgmii_protocol_checker(logger => custom_logger)
+        );
         check(get_logger(get_protocol_checker(custom_monitor)) = custom_logger);
         check_equal(
-          full_name(get_id(get_protocol_checker(custom_monitor))), full_name(get_id(custom_monitor)) & ":protocol_checker"
+          full_name(get_id(get_protocol_checker(custom_monitor))),
+          full_name(get_id(custom_monitor)) & ":protocol_checker"
         );
 
       elsif run("test_default_instances_have_independent_backends") then
         exec("vc.tb_marker = 'first'", new_session(get_id(default_monitor)));
-        check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_default_monitor))));
+        check_false(
+          eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_default_monitor)))
+        );
         exec("vc.tb_marker = 'first'", new_session(get_id(source)));
         check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_source))));
         exec("vc.tb_marker = 'first'", new_session(get_id(protocol_checker)));
-        check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_protocol_checker))));
+        check_false(
+          eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_protocol_checker)))
+        );
 
       elsif run("test_monitor_serves_the_checks_it_owns") then
         -- eth_scoreboard and eth_user belong to the monitor and need no protocol checker
         set_check_enabled(net, default_monitor, eth_user, false);
         get_check_count(net, default_monitor, eth_user, count);
-        exec("vc.error('ETH_USER', 'not counted while disabled')", new_session(get_id(default_monitor)));
+        exec(
+          "vc.error('ETH_USER', 'not counted while disabled')",
+          new_session(get_id(default_monitor))
+        );
         get_check_count(net, default_monitor, eth_user, count);
         check_equal(count, 0, "eth_user while disabled");
         set_check_enabled(net, default_monitor, eth_user);
@@ -215,14 +268,32 @@ begin
 
       elsif run("test_unexpected_message_is_a_check_failure") then
         check_unexpected_message(get_actor(source), get_logger(source), expect_failure => true);
-        check_unexpected_message(get_actor(default_monitor), get_logger(default_monitor), expect_failure => true);
-        check_unexpected_message(get_actor(protocol_checker), get_logger(protocol_checker), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_monitor),
+          get_logger(default_monitor),
+          expect_failure => true
+        );
+        check_unexpected_message(
+          get_actor(protocol_checker),
+          get_logger(protocol_checker),
+          expect_failure => true
+        );
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_source), get_logger(ignoring_source), expect_failure => false);
-        check_unexpected_message(get_actor(ignoring_monitor), get_logger(ignoring_monitor), expect_failure => false);
         check_unexpected_message(
-          get_actor(ignoring_protocol_checker), get_logger(ignoring_protocol_checker), expect_failure => false
+          get_actor(ignoring_source),
+          get_logger(ignoring_source),
+          expect_failure => false
+        );
+        check_unexpected_message(
+          get_actor(ignoring_monitor),
+          get_logger(ignoring_monitor),
+          expect_failure => false
+        );
+        check_unexpected_message(
+          get_actor(ignoring_protocol_checker),
+          get_logger(ignoring_protocol_checker),
+          expect_failure => false
         );
 
       elsif run("test_wait_for_time") then
@@ -234,7 +305,12 @@ begin
         -- A pop pending before the frame arrives
         pop_stream(net, as_stream(default_monitor), stream_reference);
         for idx in 0 to 59 loop
-          push_stream(net, as_stream(source), frame_data(60)(8 * idx to 8 * idx + 7), last => idx = 59);
+          push_stream(
+            net,
+            as_stream(source),
+            frame_data(60)(8 * idx to 8 * idx + 7),
+            last => idx = 59
+          );
         end loop;
         await_pop_stream_reply(net, stream_reference, octet, last);
         check_equal(octet, frame_data(60)(0 to 7));
@@ -249,7 +325,11 @@ begin
         mock(get_logger(source), error);
         push_stream(net, as_stream(source), std_logic_vector'("0101010"), last => true);
         wait_until_idle(net, as_sync(source));
-        check_only_log(get_logger(source), "push_stream data of an Ethernet source is one octet, got 7 bits", error);
+        check_only_log(
+          get_logger(source),
+          "push_stream data of an Ethernet source is one octet, got 7 bits",
+          error
+        );
         unmock(get_logger(source));
 
       elsif run("test_push_stream_without_last") then
@@ -258,7 +338,11 @@ begin
         end loop;
         mock(get_logger(source), error);
         wait_until_idle(net, as_sync(source));
-        check_only_log(get_logger(source), "3 octets were pushed with push_stream without last", error);
+        check_only_log(
+          get_logger(source),
+          "3 octets were pushed with push_stream without last",
+          error
+        );
         unmock(get_logger(source));
 
       elsif run("test_monitor_publishes_frames") then
@@ -340,7 +424,11 @@ begin
         check_equal(statistics.good_frames, 1);
         check_equal(statistics.total_frames, 1);
         for idx in protocol_checkers'range loop
-          check_equal(get_log_count(get_logger(protocol_checkers(idx)), error), 0, "Errors of protocol checker " & to_string(idx));
+          check_equal(
+            get_log_count(get_logger(protocol_checkers(idx)), error),
+            0,
+            "Errors of protocol checker " & to_string(idx)
+          );
         end loop;
 
       elsif run("test_reset_keeps_statistics_and_counts") then

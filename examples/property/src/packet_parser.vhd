@@ -17,9 +17,12 @@ entity packet_parser is
     inject_bug : boolean := false
   );
   port (
-    clk, rst, valid : in std_ulogic;
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    valid : in std_ulogic;
     data : in std_ulogic_vector(7 downto 0);
-    accepted, rejected : out std_ulogic
+    accepted : out std_ulogic;
+    rejected : out std_ulogic
   );
 end entity;
 
@@ -31,6 +34,7 @@ architecture a of packet_parser is
   signal payload_left : natural range 0 to 255 := 0;
   signal magic_ok, reserved_ok : boolean := true;
 begin
+
   main : process(clk)
   begin
     if rising_edge(clk) then
@@ -41,6 +45,7 @@ begin
         running_sum <= (others => '0');
       elsif valid = '1' then
         running_sum <= running_sum + unsigned(data);
+
         case state is
           when magic_byte =>
             magic_ok <= data = magic;
@@ -72,4 +77,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

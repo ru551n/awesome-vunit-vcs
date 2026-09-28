@@ -33,6 +33,7 @@ end entity;
 
 architecture a of xgmii_monitor is
 begin
+
   main : process
   begin
     monitor_column_interface(net, to_ethernet_vc(monitor), clk, data, ctrl);
@@ -49,4 +50,5 @@ begin
         ctrl => ctrl
       );
   end generate;
+
 end architecture;

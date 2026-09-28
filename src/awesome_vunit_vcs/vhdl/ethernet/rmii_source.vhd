@@ -33,8 +33,10 @@ end entity;
 
 architecture a of rmii_source is
 begin
+
   main : process
   begin
     drive_symbol_interface(net, to_ethernet_vc(source), ref_clk, data, dv, er);
   end process;
+
 end architecture;

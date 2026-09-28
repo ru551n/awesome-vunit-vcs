@@ -14,7 +14,10 @@ library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
 
 entity tb_property_corruption is
-  generic (runner_cfg : string; inject_bug : boolean := false);
+  generic (
+    runner_cfg : string;
+    inject_bug : boolean := false
+  );
 end entity;
 
 architecture tb of tb_property_corruption is
@@ -27,6 +30,7 @@ architecture tb of tb_property_corruption is
   signal pp_valid, pp_accepted, pp_rejected : std_ulogic := '0';
   signal pp_data : std_ulogic_vector(7 downto 0) := (others => '0');
 begin
+
   clk <= not clk after 5 ns;
 
   main : process
@@ -34,25 +38,29 @@ begin
     variable passed, timed_out, has_fault : boolean;
 
     -- A property from a strategy in python/corruption_strategies.py, following VUnit's seed
-    impure function new_example(strategy : string) return property_t is
+    impure function new_example (strategy : string) return property_t is
     begin
-      return new_property("corruption_strategies:" & strategy, seed => get_seed(runner_cfg),
-        output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
-    end;
+      return new_property(
+        "corruption_strategies:" & strategy,
+        seed => get_seed(runner_cfg),
+        output_path => output_path(runner_cfg),
+        search_path => tb_path(runner_cfg) & "python"
+      );
+    end function;
 
     -- Hold a signal high for one clock cycle
-    procedure pulse(signal value : out std_ulogic) is
+    procedure pulse(signal value : out std_ulogic)is
     begin
       value <= '1';
       wait until rising_edge(clk);
       value <= '0';
-    end;
+    end procedure;
 
     -- The path of list element idx, "(2)"
-    impure function item(idx : natural) return string is
+    impure function item (idx : natural) return string is
     begin
       return "(" & integer'image(idx) & ")";
-    end;
+    end function;
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
@@ -70,7 +78,9 @@ begin
           has_fault := has_field(prop, "fault");
           if has_fault then
             if get_string(prop, "fault.kind") = "flip_data" then
-              pr_flip_data <= std_ulogic_vector(shift_left(to_unsigned(1, 8), get_integer(prop, "fault.position")));
+              pr_flip_data <= std_ulogic_vector(
+                shift_left(to_unsigned(1, 8), get_integer(prop, "fault.position"))
+              );
               pr_flip_parity <= '0';
             else
               pr_flip_data <= (others => '0');
@@ -87,7 +97,7 @@ begin
           report_example(prop, passed => passed);
         end loop;
         check_property(prop);
-        -- docs-end: fault_injection
+      -- docs-end: fault_injection
 
       elsif run("test_invalid_packet_mutation") then
         -- docs-start: invalid_packet_mutation
@@ -114,21 +124,39 @@ begin
           report_example(prop, passed => passed, timed_out => timed_out and not passed);
         end loop;
         check_property(prop);
-        -- docs-end: invalid_packet_mutation
+      -- docs-end: invalid_packet_mutation
       end if;
     end loop;
     test_runner_cleanup(runner);
   end process;
 
   parity_register_inst : entity work.parity_register
-    generic map (inject_bug => inject_bug)
+    generic map (
+      inject_bug => inject_bug
+    )
     port map (
-      clk => clk, rst => rst, write_enable => pr_write_enable, corrupt_enable => pr_corrupt_enable,
-      data_in => pr_data_in, flip_data => pr_flip_data, flip_parity => pr_flip_parity,
-      data_out => pr_data_out, error => pr_error
+      clk => clk,
+      rst => rst,
+      write_enable => pr_write_enable,
+      corrupt_enable => pr_corrupt_enable,
+      data_in => pr_data_in,
+      flip_data => pr_flip_data,
+      flip_parity => pr_flip_parity,
+      data_out => pr_data_out,
+      error => pr_error
     );
 
   packet_parser_inst : entity work.packet_parser
-    generic map (inject_bug => inject_bug)
-    port map (clk => clk, rst => rst, valid => pp_valid, data => pp_data, accepted => pp_accepted, rejected => pp_rejected);
+    generic map (
+      inject_bug => inject_bug
+    )
+    port map (
+      clk => clk,
+      rst => rst,
+      valid => pp_valid,
+      data => pp_data,
+      accepted => pp_accepted,
+      rejected => pp_rejected
+    );
+
 end architecture;

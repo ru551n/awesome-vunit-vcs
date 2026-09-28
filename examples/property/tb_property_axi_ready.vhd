@@ -46,17 +46,18 @@ architecture tb of tb_property_axi_ready is
   signal load_ready_a, load_ready_b, tvalid_a, tvalid_b : std_ulogic;
   signal tdata_a, tdata_b : std_ulogic_vector(7 downto 0);
 begin
+
   clk <= not clk after 5 ns;
 
   main : process
     type history_t is record
-      cycles : natural;
+      cycles                     : natural;
       load_ready_a, load_ready_b : std_ulogic_vector(0 to max_cycles - 1);
-      tready_a, tready_b : std_ulogic_vector(0 to max_cycles - 1);
-      tvalid_a, tvalid_b : std_ulogic_vector(0 to max_cycles - 1);
-      handshake_a, handshake_b : std_ulogic_vector(0 to max_cycles - 1);
+      tready_a, tready_b         : std_ulogic_vector(0 to max_cycles - 1);
+      tvalid_a, tvalid_b         : std_ulogic_vector(0 to max_cycles - 1);
+      handshake_a, handshake_b   : std_ulogic_vector(0 to max_cycles - 1);
       -- TDATA when TVALID is high, -1 when it is low
-      tdata_a, tdata_b : integer_vector(0 to max_cycles - 1);
+      tdata_a, tdata_b           : integer_vector(0 to max_cycles - 1);
     end record;
 
     variable prop : property_t;
@@ -66,19 +67,24 @@ begin
 
     impure function new_fork_property return property_t is
     begin
-      return new_property("axi_ready_strategies:ready_fork", seed => get_seed(runner_cfg),
-        output_path => output_path(runner_cfg), search_path => tb_path(runner_cfg) & "python");
-    end;
+      return new_property(
+        "axi_ready_strategies:ready_fork",
+        seed => get_seed(runner_cfg),
+        output_path => output_path(runner_cfg),
+        search_path => tb_path(runner_cfg) & "python"
+      );
+    end function;
 
     -- The first bits of a history as text, for example "0110"
-    function bits(value : std_ulogic_vector; cycles : natural) return string is
+    function bits (value : std_ulogic_vector; cycles : natural) return string is
       variable result : string(1 to cycles);
     begin
       for cycle in 0 to cycles - 1 loop
-        result(cycle + 1) := '1' when value(cycle) = '1' else '0';
+        result(cycle + 1) := '1' when value(cycle) = '1' else
+                             '0';
       end loop;
       return result;
-    end;
+    end function;
 
     -- docs-start: experiment
     -- Run one experiment and record, cycle by cycle, what both copies saw at each
@@ -102,12 +108,14 @@ begin
       history := (cycles => cycles, tdata_a | tdata_b => (others => -1), others => (others => '0'));
       for cycle in 0 to cycles - 1 loop
         -- The same load for both copies
-        load_valid <= '1' when cycle = load_cycle else '0';
+        load_valid <= '1' when cycle = load_cycle else
+                      '0';
         load_data <= std_ulogic_vector(to_unsigned(data, 8));
         -- docs-start: fork
         -- TREADY: low on both copies, except high on copy B in the fork cycle
         tready_a <= '0';
-        tready_b <= '1' when cycle = fork else '0';
+        tready_b <= '1' when cycle = fork else
+                    '0';
         -- docs-end: fork
         wait until rising_edge(clk);
 
@@ -120,11 +128,13 @@ begin
         history.tvalid_b(cycle) := tvalid_b;
         history.handshake_a(cycle) := tvalid_a and tready_a;
         history.handshake_b(cycle) := tvalid_b and tready_b;
-        history.tdata_a(cycle) := to_integer(unsigned(tdata_a)) when tvalid_a = '1' else -1;
-        history.tdata_b(cycle) := to_integer(unsigned(tdata_b)) when tvalid_b = '1' else -1;
+        history.tdata_a(cycle) := to_integer(unsigned(tdata_a)) when tvalid_a = '1' else
+                                  -1;
+        history.tdata_b(cycle) := to_integer(unsigned(tdata_b)) when tvalid_b = '1' else
+                                  -1;
       end loop;
       load_valid <= '0';
-    end;
+    end procedure;
     -- docs-end: experiment
 
     -- The histories are identical before the fork, and TVALID is low on both
@@ -133,15 +143,15 @@ begin
       constant fork : natural := get_integer(prop, "fork");
     begin
       for cycle in 0 to fork - 1 loop
-        if history.load_ready_a(cycle) /= history.load_ready_b(cycle) or
-          history.tvalid_a(cycle) /= history.tvalid_b(cycle) or
-          history.handshake_a(cycle) /= history.handshake_b(cycle) or
-          history.tdata_a(cycle) /= history.tdata_b(cycle) then
+        if history.load_ready_a(cycle) /= history.load_ready_b(cycle)
+           or history.tvalid_a(cycle) /= history.tvalid_b(cycle)
+           or history.handshake_a(cycle) /= history.handshake_b(cycle)
+           or history.tdata_a(cycle) /= history.tdata_b(cycle) then
           return false;
         end if;
       end loop;
       return history.tvalid_a(fork) = '0' and history.tvalid_b(fork) = '0';
-    end;
+    end function;
 
     -- The stimulus is what the experiment says it is: TREADY differs in the fork
     -- cycle only, and no transfer happens in the fork cycle
@@ -151,39 +161,59 @@ begin
     begin
       for cycle in 0 to history.cycles - 1 loop
         check_equal(history.tready_a(cycle), '0', "TREADY A in cycle " & integer'image(cycle));
-        expected_tready_b := '1' when cycle = fork else '0';
-        check_equal(history.tready_b(cycle), expected_tready_b, "TREADY B in cycle " & integer'image(cycle));
+        expected_tready_b := '1' when cycle = fork else
+                             '0';
+        check_equal(
+          history.tready_b(cycle),
+          expected_tready_b,
+          "TREADY B in cycle " & integer'image(cycle)
+        );
       end loop;
       check_equal(history.handshake_a(fork), '0', "No transfer on A in the fork cycle");
       check_equal(history.handshake_b(fork), '0', "No transfer on B in the fork cycle");
-    end;
+    end procedure;
 
     -- The first cycle where the copies differ, or "none"
     impure function first_divergence return string is
     begin
       for cycle in 0 to history.cycles - 1 loop
-        if history.tvalid_a(cycle) /= history.tvalid_b(cycle) or
-          history.tdata_a(cycle) /= history.tdata_b(cycle) or
-          history.handshake_a(cycle) /= history.handshake_b(cycle) then
+        if history.tvalid_a(cycle) /= history.tvalid_b(cycle)
+           or history.tdata_a(cycle) /= history.tdata_b(cycle)
+           or history.handshake_a(cycle) /= history.handshake_b(cycle) then
           return integer'image(cycle);
         end if;
       end loop;
       return "none";
-    end;
+    end function;
 
     -- Everything recorded, for the failure message
     impure function describe return string is
       constant cycles : natural := history.cycles;
     begin
-      return "loaded data " & integer'image(get_integer(prop, "data")) &
-        ", setup cycles " & integer'image(get_integer(prop, "idle")) &
-        ", fork cycle " & integer'image(get_integer(prop, "fork")) &
-        " (" & get_string(prop, "case") & ")" &
-        ", READY_A " & bits(history.tready_a, cycles) & ", READY_B " & bits(history.tready_b, cycles) &
-        ", VALID_A " & bits(history.tvalid_a, cycles) & ", VALID_B " & bits(history.tvalid_b, cycles) &
-        ", handshakes A " & bits(history.handshake_a, cycles) & " B " & bits(history.handshake_b, cycles) &
-        ", first divergence " & first_divergence;
-    end;
+      return "loaded data "
+             & integer'image(get_integer(prop, "data"))
+             & ", setup cycles "
+             & integer'image(get_integer(prop, "idle"))
+             & ", fork cycle "
+             & integer'image(get_integer(prop, "fork"))
+             & " ("
+             & get_string(prop, "case")
+             & ")"
+             & ", READY_A "
+             & bits(history.tready_a, cycles)
+             & ", READY_B "
+             & bits(history.tready_b, cycles)
+             & ", VALID_A "
+             & bits(history.tvalid_a, cycles)
+             & ", VALID_B "
+             & bits(history.tvalid_b, cycles)
+             & ", handshakes A "
+             & bits(history.handshake_a, cycles)
+             & " B "
+             & bits(history.handshake_b, cycles)
+             & ", first divergence "
+             & first_divergence;
+    end function;
   begin
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
@@ -200,12 +230,13 @@ begin
             report_example(prop, passed => true, msg => "precondition not met: skipped");
           else
             check_stimulus;
-            passed := history.tvalid_a = history.tvalid_b and history.tdata_a = history.tdata_b and
-              history.handshake_a = history.handshake_b;
+            passed := history.tvalid_a = history.tvalid_b
+                      and history.tdata_a = history.tdata_b
+                      and history.handshake_a = history.handshake_b;
             report_example(prop, passed => passed, msg => describe);
           end if;
         end loop;
-        -- docs-end: tready-fork
+      -- docs-end: tready-fork
 
       elsif run("test_known_pending") then
         -- docs-start: known-pending
@@ -220,14 +251,17 @@ begin
             check_stimulus;
             passed := true;
             for cycle in get_integer(prop, "idle") + 2 to history.cycles - 1 loop
-              passed := passed and history.tvalid_a(cycle) = '1' and history.tvalid_b(cycle) = '1' and
-                history.tdata_a(cycle) = get_integer(prop, "data") and history.tdata_b(cycle) = get_integer(prop, "data");
+              passed := passed
+                        and history.tvalid_a(cycle) = '1'
+                        and history.tvalid_b(cycle) = '1'
+                        and history.tdata_a(cycle) = get_integer(prop, "data")
+                        and history.tdata_b(cycle) = get_integer(prop, "data");
             end loop;
             check_equal(history.load_ready_a(get_integer(prop, "idle")), '1', "The load is taken");
             report_example(prop, passed => passed, msg => describe);
           end if;
         end loop;
-        -- docs-end: known-pending
+      -- docs-end: known-pending
       end if;
 
       info("Examples skipped because the precondition did not hold: " & integer'image(skipped));
@@ -238,16 +272,33 @@ begin
   end process;
 
   source_a_inst : entity work.axis_word_source
-    generic map (inject_bug => inject_bug)
+    generic map (
+      inject_bug => inject_bug
+    )
     port map (
-      clk => clk, rst => rst, load_valid => load_valid, load_data => load_data, load_ready => load_ready_a,
-      m_axis_tvalid => tvalid_a, m_axis_tready => tready_a, m_axis_tdata => tdata_a
+      clk => clk,
+      rst => rst,
+      load_valid => load_valid,
+      load_data => load_data,
+      load_ready => load_ready_a,
+      m_axis_tvalid => tvalid_a,
+      m_axis_tready => tready_a,
+      m_axis_tdata => tdata_a
     );
 
   source_b_inst : entity work.axis_word_source
-    generic map (inject_bug => inject_bug)
+    generic map (
+      inject_bug => inject_bug
+    )
     port map (
-      clk => clk, rst => rst, load_valid => load_valid, load_data => load_data, load_ready => load_ready_b,
-      m_axis_tvalid => tvalid_b, m_axis_tready => tready_b, m_axis_tdata => tdata_b
+      clk => clk,
+      rst => rst,
+      load_valid => load_valid,
+      load_data => load_data,
+      load_ready => load_ready_b,
+      m_axis_tvalid => tvalid_b,
+      m_axis_tready => tready_b,
+      m_axis_tdata => tdata_b
     );
+
 end architecture;

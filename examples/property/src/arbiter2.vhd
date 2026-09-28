@@ -16,15 +16,19 @@ entity arbiter2 is
     inject_bug : boolean := false
   );
   port (
-    clk, rst : in std_ulogic;
-    request_a, request_b : in std_ulogic;
-    grant_a, grant_b : out std_ulogic
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    request_a : in std_ulogic;
+    request_b : in std_ulogic;
+    grant_a : out std_ulogic;
+    grant_b : out std_ulogic
   );
 end entity;
 
 architecture a of arbiter2 is
   signal held_a, held_b : std_ulogic := '0';
 begin
+
   grant_a <= held_a;
   grant_b <= held_b;
 
@@ -35,10 +39,18 @@ begin
       if rst = '1' then
         held_a <= '0';
         held_b <= '0';
-      elsif inject_bug and held_a = '1' and request_a = '0' and held_b = '0' and request_b = '1' then
+      elsif inject_bug
+            and held_a = '1'
+            and request_a = '0'
+            and held_b = '0'
+            and request_b = '1' then
         held_a <= '1';
         held_b <= '1';
-      elsif inject_bug and held_b = '1' and request_b = '0' and held_a = '0' and request_a = '1' then
+      elsif inject_bug
+            and held_b = '1'
+            and request_b = '0'
+            and held_a = '0'
+            and request_a = '1' then
         held_a <= '1';
         held_b <= '1';
       else
@@ -62,4 +74,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

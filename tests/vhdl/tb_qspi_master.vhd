@@ -60,15 +60,15 @@ architecture tb of tb_qspi_master is
   -- Shape of the transaction the stub slave should expect next. Set by the
   -- test process before the transaction is issued.
   type slave_cfg_t is record
-    cmd_bytes : natural;
-    cmd_lanes : lane_count_t;
-    addr_bytes : natural;
-    addr_lanes : lane_count_t;
-    wr_bytes : natural;
-    wr_lanes : lane_count_t;
+    cmd_bytes    : natural;
+    cmd_lanes    : lane_count_t;
+    addr_bytes   : natural;
+    addr_lanes   : lane_count_t;
+    wr_bytes     : natural;
+    wr_lanes     : lane_count_t;
     dummy_cycles : natural;
-    rd_bytes : natural;
-    rd_lanes : lane_count_t;
+    rd_bytes     : natural;
+    rd_lanes     : lane_count_t;
   end record;
 
   constant slave_cfg_init : slave_cfg_t := (
@@ -101,6 +101,7 @@ architecture tb of tb_qspi_master is
   constant long_read_bytes : positive := 4096;
 
 begin
+
   io <= qspi_io_value(m2s, s2m);
 
   -- Raw bus trace. Independent of every qspi_pkg helper, so the bit-order
@@ -132,7 +133,11 @@ begin
         );
       end if;
     else
-      check_equal(qspi_to_natural(m2s.io.enable), 0, "Master must release the IOs when CS goes high");
+      check_equal(
+        qspi_to_natural(m2s.io.enable),
+        0,
+        "Master must release the IOs when CS goes high"
+      );
       last_rise := now;
       cs_rise_time <= now;
     end if;
@@ -146,7 +151,7 @@ begin
     -- CS is still low
     variable selected : boolean;
 
-    procedure wait_for_sck(rising : boolean) is
+    procedure wait_for_sck(rising : boolean)is
     begin
       if rising then
         wait until rising_edge(m2s.sck) or m2s.cs_n = '1';
@@ -154,9 +159,9 @@ begin
         wait until falling_edge(m2s.sck) or m2s.cs_n = '1';
       end if;
       selected := m2s.cs_n = '0';
-    end;
+    end procedure;
 
-    procedure receive_phase(num_bytes : natural; lanes : lane_count_t) is
+    procedure receive_phase(num_bytes : natural; lanes : lane_count_t)is
     begin
       for index in 0 to num_bytes - 1 loop
         byte := (others => '0');
@@ -164,12 +169,17 @@ begin
           exit when not selected;
           wait_for_sck(rising => true);
           exit when not selected;
-          byte := qspi_byte_insert(byte, lanes, beat, qspi_sample_beat(io, lanes, qspi_master_side));
+          byte := qspi_byte_insert(
+            byte,
+            lanes,
+            beat,
+            qspi_sample_beat(io, lanes, qspi_master_side)
+          );
         end loop;
         exit when not selected;
         push_integer(rx_queue, qspi_to_natural(byte));
       end loop;
-    end;
+    end procedure;
   begin
     s2m.io <= qspi_drive_init;
 
@@ -185,7 +195,11 @@ begin
       exit when not selected;
       wait_for_sck(rising => true);
       exit when not selected;
-      check_equal(qspi_to_natural(m2s.io.enable), 0, "Master must tri-state every IO during a dummy cycle");
+      check_equal(
+        qspi_to_natural(m2s.io.enable),
+        0,
+        "Master must tri-state every IO during a dummy cycle"
+      );
     end loop;
 
     -- Drive each read beat on the falling edge before the rising edge the
@@ -223,19 +237,19 @@ begin
     variable assertions_before : natural;
 
     -- A check message naming the SCK period of the current run
-    impure function at_period(context_msg : string) return string is
+    impure function at_period (context_msg : string) return string is
     begin
       return context_msg & " (SCK period " & to_string(period) & ")";
-    end;
+    end function;
 
     -- Switch the master, and the CS framing check, to the next SCK period
-    procedure use_sck_period(period_idx : natural) is
+    procedure use_sck_period(period_idx : natural)is
     begin
       period := periods(period_idx);
       set_sck_period(net, master, period);
       sck_period_in_use <= period;
       wait for 0 ns;
-    end;
+    end procedure;
 
     -- Deallocate the arrays a run allocated
     procedure free_arrays is
@@ -246,7 +260,7 @@ begin
       if not is_null(read_data) then
         deallocate(read_data);
       end if;
-    end;
+    end procedure;
 
     -- Tell the stub slave what the next transaction looks like.
     procedure configure_slave(
@@ -259,7 +273,7 @@ begin
       dummy_cycles : natural := 0;
       rd_bytes : natural := 0;
       rd_lanes : lane_count_t := 1
-    ) is
+    )is
     begin
       slave_cfg <= (
         cmd_bytes => cmd_bytes,
@@ -274,18 +288,18 @@ begin
       );
       -- Let the stub see it before the VC pulls CS low.
       wait for 0 ns;
-    end;
+    end procedure;
 
-    procedure load_tx(values : integer_vector) is
+    procedure load_tx(values : integer_vector)is
     begin
       for index in values'range loop
         push_integer(tx_queue, values(index));
       end loop;
-    end;
+    end procedure;
 
     -- queue_pkg's length() counts encoded bytes rather than pushed items, so
     -- everything below counts by draining instead.
-    procedure drain_trace(variable count : out natural) is
+    procedure drain_trace(variable count : out natural)is
       variable drained : natural := 0;
       variable ignored : integer;
     begin
@@ -296,25 +310,36 @@ begin
       end loop;
 
       count := drained;
-    end;
+    end procedure;
 
-    procedure check_trace_length(expected_cycles : natural; context_msg : string) is
+    procedure check_trace_length(expected_cycles : natural; context_msg : string)is
       variable count : natural;
     begin
       drain_trace(count);
-      check_equal(count, expected_cycles, at_period(context_msg & ": number of SCK cycles while CS was low"));
-    end;
+      check_equal(
+        count,
+        expected_cycles,
+        at_period(context_msg & ": number of SCK cycles while CS was low")
+      );
+    end procedure;
 
     -- Compare the recorded raw bus trace against a hand-derived sequence.
-    procedure check_trace(expected_io : integer_vector; expected_oe : integer_vector; context_msg : string) is
+    procedure check_trace(
+      expected_io : integer_vector;
+      expected_oe : integer_vector;
+      context_msg : string
+    )is
       variable extra : natural;
     begin
       for index in 0 to expected_io'length - 1 loop
         check_false(
           is_empty(io_queue),
           at_period(
-            context_msg & ": only " & integer'image(index) & " SCK cycles recorded, expected " &
-            integer'image(expected_io'length)
+            context_msg
+            & ": only "
+            & integer'image(index)
+            & " SCK cycles recorded, expected "
+            & integer'image(expected_io'length)
           )
         );
         check_equal(
@@ -333,11 +358,13 @@ begin
       check_equal(
         extra,
         0,
-        at_period(context_msg & ": SCK cycles beyond the expected " & integer'image(expected_io'length))
+        at_period(
+          context_msg & ": SCK cycles beyond the expected " & integer'image(expected_io'length)
+        )
       );
-    end;
+    end procedure;
 
-    procedure check_received(expected : integer_vector; context_msg : string) is
+    procedure check_received(expected : integer_vector; context_msg : string)is
       variable extra : natural := 0;
       variable ignored : integer;
     begin
@@ -345,8 +372,11 @@ begin
         check_false(
           is_empty(rx_queue),
           at_period(
-            context_msg & ": only " & integer'image(index) & " bytes received, expected " &
-            integer'image(expected'length)
+            context_msg
+            & ": only "
+            & integer'image(index)
+            & " bytes received, expected "
+            & integer'image(expected'length)
           )
         );
         check_equal(
@@ -363,11 +393,17 @@ begin
       check_equal(
         extra,
         0,
-        at_period(context_msg & ": bytes received beyond the expected " & integer'image(expected'length))
+        at_period(
+          context_msg & ": bytes received beyond the expected " & integer'image(expected'length)
+        )
       );
-    end;
+    end procedure;
 
-    procedure check_read_data(data : integer_array_t; expected : integer_vector; context_msg : string) is
+    procedure check_read_data(
+      data : integer_array_t;
+      expected : integer_vector;
+      context_msg : string
+    )is
     begin
       check_equal(length(data), expected'length, at_period(context_msg & ": number of bytes read"));
 
@@ -378,7 +414,7 @@ begin
           at_period(context_msg & ": read byte " & integer'image(index))
         );
       end loop;
-    end;
+    end procedure;
   begin
     test_runner_setup(runner, runner_cfg);
 
@@ -395,8 +431,8 @@ begin
           check_trace(
             expected_io => (1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1),
             expected_oe => (
-              2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#,
-              2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#
+              2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#,
+              2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#
             ),
             context_msg => "x1 command phase"
           );
@@ -445,7 +481,13 @@ begin
           -- The shape of a quad output read: opcode at x1, eight dummy cycles,
           -- two bytes at x4. The stub slave counts exactly eight dummy edges,
           -- so a wrong count would shift the read phase and corrupt the data.
-          configure_slave(cmd_bytes => 1, cmd_lanes => 1, dummy_cycles => 8, rd_bytes => 2, rd_lanes => 4);
+          configure_slave(
+            cmd_bytes => 1,
+            cmd_lanes => 1,
+            dummy_cycles => 8,
+            rd_bytes => 2,
+            rd_lanes => 4
+          );
           load_tx((16#5A#, 16#C3#));
           cmd := new_byte_array((0 => 16#6B#));
           qspi_transfer(
@@ -463,15 +505,11 @@ begin
           -- only during the opcode: everything after it is Hi-Z on the master
           -- side.
           check_trace(
-            expected_io => (
-              0, 1, 1, 0, 1, 0, 1, 1,
-              0, 0, 0, 0, 0, 0, 0, 0,
-              2#0101#, 2#1010#, 2#1100#, 2#0011#
-            ),
+            expected_io =>
+              (0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2#0101#, 2#1010#, 2#1100#, 2#0011#),
             expected_oe => (
-              2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#,
-              0, 0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0
+              2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0
             ),
             context_msg => "dummy cycles"
           );
@@ -501,15 +539,10 @@ begin
           -- 0x03 on IO0, then 0x5A and 0xC3 on IO1 -- a single-lane read
           -- comes back on MISO, not on the wire the opcode went out on.
           check_trace(
-            expected_io => (
-              0, 0, 0, 0, 0, 0, 1, 1,
-              0, 2, 0, 2, 2, 0, 2, 0,
-              2, 2, 0, 0, 0, 0, 2, 2
-            ),
+            expected_io => (0, 0, 0, 0, 0, 0, 1, 1, 0, 2, 0, 2, 2, 0, 2, 0, 2, 2, 0, 0, 0, 0, 2, 2),
             expected_oe => (
-              2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#,
-              0, 0, 0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0, 0, 0, 0
+              2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 2#0001#, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             ),
             context_msg => "x1 read"
           );
@@ -519,7 +552,13 @@ begin
       elsif run("test_read_data_x2") then
         for period_idx in periods'range loop
           use_sck_period(period_idx);
-          configure_slave(cmd_bytes => 1, cmd_lanes => 1, dummy_cycles => 4, rd_bytes => 2, rd_lanes => 2);
+          configure_slave(
+            cmd_bytes => 1,
+            cmd_lanes => 1,
+            dummy_cycles => 4,
+            rd_bytes => 2,
+            rd_lanes => 2
+          );
           load_tx((16#5A#, 16#C3#));
           cmd := new_byte_array((0 => 16#3B#));
           qspi_transfer(
@@ -608,15 +647,23 @@ begin
 
           check(m2s.cs_n = '1', at_period("CS must be high between transactions"));
           check_equal(
-            qspi_to_natural(m2s.io.enable), 0, at_period("IOs must be released between transactions")
+            qspi_to_natural(m2s.io.enable),
+            0,
+            at_period("IOs must be released between transactions")
           );
-          check_equal(cs_assert_count - assertions_before, 1, at_period("exactly one CS assertion so far"));
+          check_equal(
+            cs_assert_count - assertions_before,
+            1,
+            at_period("exactly one CS assertion so far")
+          );
 
           configure_slave(cmd_bytes => 1, cmd_lanes => 1);
           qspi_transfer(net => net, qspi_master => master, cmd => cmd, cmd_lanes => 1);
 
           check_equal(
-            cs_assert_count - assertions_before, 2, at_period("each transaction gets its own CS assertion")
+            cs_assert_count - assertions_before,
+            2,
+            at_period("each transaction gets its own CS assertion")
           );
           check_received((16#06#, 16#06#), "CS framing");
           drain_trace(status);
@@ -635,7 +682,11 @@ begin
           for index in references'range loop
             cmd := new_byte_array((0 => 16#06# + index));
             qspi_transfer(
-              net => net, qspi_master => master, cmd => cmd, reference => references(index), cmd_lanes => 1
+              net => net,
+              qspi_master => master,
+              cmd => cmd,
+              reference => references(index),
+              cmd_lanes => 1
             );
             deallocate(cmd);
           end loop;
@@ -643,7 +694,9 @@ begin
           wait_until_idle(net, as_sync(master));
 
           check_equal(
-            cs_assert_count - assertions_before, 3, at_period("wait_until_idle returned before the queue drained")
+            cs_assert_count - assertions_before,
+            3,
+            at_period("wait_until_idle returned before the queue drained")
           );
           check_received((16#06#, 16#07#, 16#08#), "wait_until_idle");
 
@@ -661,7 +714,13 @@ begin
 
           configure_slave(cmd_bytes => 1, cmd_lanes => 1);
           cmd := new_byte_array((0 => 16#9F#));
-          qspi_transfer(net => net, qspi_master => master, cmd => cmd, reference => reference, cmd_lanes => 1);
+          qspi_transfer(
+            net => net,
+            qspi_master => master,
+            cmd => cmd,
+            reference => reference,
+            cmd_lanes => 1
+          );
 
           wait until rising_edge(m2s.sck);
           timestamp := now;
@@ -678,7 +737,12 @@ begin
         for period_idx in periods'range loop
           use_sck_period(period_idx);
           -- A long x1 read, reset after 100 SCK cycles
-          configure_slave(cmd_bytes => 1, cmd_lanes => 1, rd_bytes => long_read_bytes, rd_lanes => 1);
+          configure_slave(
+            cmd_bytes => 1,
+            cmd_lanes => 1,
+            rd_bytes => long_read_bytes,
+            rd_lanes => 1
+          );
           for index in 1 to long_read_bytes loop
             push_integer(tx_queue, 16#A5#);
           end loop;
@@ -700,7 +764,11 @@ begin
           check(m2s.cs_n = '1', at_period("CS is high after the reset"));
           -- docs-end: qspi-master-reset
           check(m2s.sck = '0', at_period("SCK is idle after the reset"));
-          check_equal(qspi_to_natural(m2s.io.enable), 0, at_period("IOs are released after the reset"));
+          check_equal(
+            qspi_to_natural(m2s.io.enable),
+            0,
+            at_period("IOs are released after the reset")
+          );
           check(cs_rise_time >= reset_time, at_period("CS rose at the reset"));
           check(
             cs_rise_time - reset_time <= period,
@@ -709,9 +777,16 @@ begin
 
           -- The caller of the aborted transfer gets the whole bytes read
           await_qspi_transfer_reply(net, reference, read_data);
-          check(length(read_data) < long_read_bytes, at_period("the aborted read returns fewer bytes"));
+          check(
+            length(read_data) < long_read_bytes,
+            at_period("the aborted read returns fewer bytes")
+          );
           for index in 0 to length(read_data) - 1 loop
-            check_equal(get(read_data, index), 16#A5#, at_period("byte " & to_string(index) & " of the aborted read"));
+            check_equal(
+              get(read_data, index),
+              16#A5#,
+              at_period("byte " & to_string(index) & " of the aborted read")
+            );
           end loop;
           flush(tx_queue);
           flush(rx_queue);
@@ -722,7 +797,13 @@ begin
           configure_slave(cmd_bytes => 1, cmd_lanes => 1, rd_bytes => 2, rd_lanes => 1);
           load_tx((16#5A#, 16#C3#));
           cmd := new_byte_array((0 => 16#03#));
-          qspi_transfer(net => net, qspi_master => master, cmd => cmd, data => read_data, num_read_bytes => 2);
+          qspi_transfer(
+            net => net,
+            qspi_master => master,
+            cmd => cmd,
+            data => read_data,
+            num_read_bytes => 2
+          );
           check_received((0 => 16#03#), "transfer after a reset");
           check_read_data(read_data, (16#5A#, 16#C3#), "transfer after a reset");
           drain_trace(status);
@@ -736,7 +817,13 @@ begin
         sck_period_in_use <= period;
         configure_slave(cmd_bytes => 1, cmd_lanes => 1);
         cmd := new_byte_array((0 => 16#9F#));
-        qspi_transfer(net => net, qspi_master => master, cmd => cmd, reference => reference, cmd_lanes => 1);
+        qspi_transfer(
+          net => net,
+          qspi_master => master,
+          cmd => cmd,
+          reference => reference,
+          cmd_lanes => 1
+        );
 
         wait until rising_edge(m2s.sck);
         timestamp := now;
@@ -762,7 +849,12 @@ begin
 
           -- 0x03 with a four-byte address, proving 4-byte addressing mode.
           configure_slave(
-            cmd_bytes => 1, cmd_lanes => 1, addr_bytes => 4, addr_lanes => 1, rd_bytes => 1, rd_lanes => 1
+            cmd_bytes => 1,
+            cmd_lanes => 1,
+            addr_bytes => 4,
+            addr_lanes => 1,
+            rd_bytes => 1,
+            rd_lanes => 1
           );
           load_tx((0 => 16#77#));
           qspi_flash_read(
@@ -782,10 +874,21 @@ begin
           check_received((0 => 16#06#), "write enable");
 
           configure_slave(
-            cmd_bytes => 1, cmd_lanes => 1, addr_bytes => 3, addr_lanes => 1, wr_bytes => 3, wr_lanes => 1
+            cmd_bytes => 1,
+            cmd_lanes => 1,
+            addr_bytes => 3,
+            addr_lanes => 1,
+            wr_bytes => 3,
+            wr_lanes => 1
           );
           data := new_byte_array((16#DE#, 16#AD#, 16#BE#));
-          qspi_flash_page_program(net => net, qspi_master => master, addr => 16#00A000#, data => data, addr_bytes => 3);
+          qspi_flash_page_program(
+            net => net,
+            qspi_master => master,
+            addr => 16#00A000#,
+            data => data,
+            addr_bytes => 3
+          );
           deallocate(data);
           check_received((16#02#, 16#00#, 16#A0#, 16#00#, 16#DE#, 16#AD#, 16#BE#), "page program");
 
@@ -824,4 +927,5 @@ begin
       m2s => m2s,
       s2m => s2m
     );
+
 end architecture;

@@ -12,7 +12,9 @@ context awesome_vunit_vcs.ethernet_context;
 -- installed package: no path to its VHDL files or Python modules, and no
 -- Python in the testbench.
 entity tb_gmii_monitor is
-  generic (runner_cfg : string);
+  generic (
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_gmii_monitor is
@@ -21,11 +23,13 @@ architecture tb of tb_gmii_monitor is
   signal dv, er : std_ulogic;
 
   constant source : gmii_source_t := new_gmii_source;
-  constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+  constant monitor : gmii_monitor_t :=
+    new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
 
   -- Destination and source address, local experimental EtherType, payload
   constant frame : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5" & x"48656C6C6F";
 begin
+
   clk <= not clk after 4 ns;
 
   main : process
@@ -91,4 +95,5 @@ begin
       dv => dv,
       er => er
     );
+
 end architecture;

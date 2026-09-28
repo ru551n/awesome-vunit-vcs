@@ -19,7 +19,9 @@ end entity;
 
 architecture a of field_packer is
 begin
+
   packed <= opcode & flag & address & value;
+
 end architecture;
 
 library ieee;
@@ -41,8 +43,12 @@ end entity;
 
 architecture a of field_unpacker is
 begin
+
   opcode <= packed(15 downto 12);
   flag <= packed(11);
-  address <= packed(0) & packed(9 downto 5) when inject_bug else packed(10 downto 5);
-  value <= packed(4 downto 1) & packed(10) when inject_bug else packed(4 downto 0);
+  address <= packed(0) & packed(9 downto 5) when inject_bug else
+             packed(10 downto 5);
+  value <= packed(4 downto 1) & packed(10) when inject_bug else
+           packed(4 downto 0);
+
 end architecture;

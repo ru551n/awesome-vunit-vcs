@@ -20,13 +20,15 @@ entity tb_cookbook_interfaces is
 end entity;
 
 architecture tb of tb_cookbook_interfaces is
-  constant frame : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
+  constant frame : std_ulogic_vector
+    := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
 
   -- docs-start: mii-handles
   -- MII: 2.5 MHz at 10 Mbit/s, 25 MHz at 100 Mbit/s
   constant mii_source : mii_source_t := new_mii_source(link_rate_mbps => mii_link_rate_mbps);
   constant mii_monitor : mii_monitor_t := new_mii_monitor(
-    link_rate_mbps => mii_link_rate_mbps, protocol_checker => default_mii_protocol_checker
+    link_rate_mbps => mii_link_rate_mbps,
+    protocol_checker => default_mii_protocol_checker
   );
   signal mii_clk : std_ulogic := '0';
   signal mii_data : std_ulogic_vector(3 downto 0) := (others => '0');
@@ -35,9 +37,11 @@ architecture tb of tb_cookbook_interfaces is
 
   -- docs-start: rgmii-handles
   -- RGMII: both clock edges; 125 MHz at 1000 Mbit/s, 25 MHz at 100, 2.5 MHz at 10
-  constant rgmii_source : rgmii_source_t := new_rgmii_source(link_rate_mbps => rgmii_link_rate_mbps);
+  constant rgmii_source : rgmii_source_t :=
+    new_rgmii_source(link_rate_mbps => rgmii_link_rate_mbps);
   constant rgmii_monitor : rgmii_monitor_t := new_rgmii_monitor(
-    link_rate_mbps => rgmii_link_rate_mbps, protocol_checker => default_rgmii_protocol_checker
+    link_rate_mbps => rgmii_link_rate_mbps,
+    protocol_checker => default_rgmii_protocol_checker
   );
   signal rgmii_clk : std_ulogic := '0';
   signal rgmii_data : std_ulogic_vector(3 downto 0) := (others => '0');
@@ -48,7 +52,8 @@ architecture tb of tb_cookbook_interfaces is
   -- RMII: a 50 MHz reference clock at both 10 and 100 Mbit/s
   constant rmii_source : rmii_source_t := new_rmii_source(link_rate_mbps => rmii_link_rate_mbps);
   constant rmii_monitor : rmii_monitor_t := new_rmii_monitor(
-    link_rate_mbps => rmii_link_rate_mbps, protocol_checker => default_rmii_protocol_checker
+    link_rate_mbps => rmii_link_rate_mbps,
+    protocol_checker => default_rmii_protocol_checker
   );
   signal rmii_ref_clk : std_ulogic := '0';
   signal rmii_data : std_ulogic_vector(1 downto 0) := (others => '0');
@@ -57,9 +62,12 @@ architecture tb of tb_cookbook_interfaces is
 
   -- docs-start: xgmii-handles
   -- XGMII family: 4 lanes (XGMII) or 8 lanes (25GMII up to 400GMII); one column per rising edge
-  constant xgmii_source : xgmii_source_t := new_xgmii_source(lanes => xgmii_lanes, link_rate_mbps => xgmii_link_rate_mbps);
+  constant xgmii_source : xgmii_source_t :=
+    new_xgmii_source(lanes => xgmii_lanes, link_rate_mbps => xgmii_link_rate_mbps);
   constant xgmii_monitor : xgmii_monitor_t := new_xgmii_monitor(
-    lanes => xgmii_lanes, link_rate_mbps => xgmii_link_rate_mbps, protocol_checker => default_xgmii_protocol_checker
+    lanes => xgmii_lanes,
+    link_rate_mbps => xgmii_link_rate_mbps,
+    protocol_checker => default_xgmii_protocol_checker
   );
   constant xgmii_clk_period : time := xgmii_lanes * (8 us / xgmii_link_rate_mbps);
   signal xgmii_clk : std_ulogic := '0';
@@ -72,17 +80,20 @@ architecture tb of tb_cookbook_interfaces is
   constant axis_source : axis_mac_source_t := new_axis_mac_source(bytes_per_beat => 8);
   constant axis_sink : axis_mac_sink_t := new_axis_mac_sink(ready_high_percent => 60);
   constant axis_monitor : axis_mac_monitor_t := new_axis_mac_monitor(
-    bytes_per_beat => 8, protocol_checker => default_axis_mac_protocol_checker
+    bytes_per_beat => 8,
+    protocol_checker => default_axis_mac_protocol_checker
   );
   signal axis_clk : std_ulogic := '0';
   signal tdata : std_ulogic_vector(data_length(axis_source) - 1 downto 0);
   signal tkeep : std_ulogic_vector(keep_length(axis_source) - 1 downto 0);
   signal tvalid, tready, tlast : std_ulogic;
   signal tuser : std_ulogic_vector(user_length(axis_source) - 1 downto 0);
-  -- docs-end: axis-mac-handles
+-- docs-end: axis-mac-handles
 begin
+
   mii_clk <= not mii_clk after (4000 ns / mii_link_rate_mbps) / 2;
-  rgmii_clk <= not rgmii_clk after 4 ns when rgmii_link_rate_mbps = 1000 else not rgmii_clk after (4000 ns / rgmii_link_rate_mbps) / 2;
+  rgmii_clk <= not rgmii_clk after 4 ns when rgmii_link_rate_mbps = 1000 else
+               not rgmii_clk after (4000 ns / rgmii_link_rate_mbps) / 2;
   rmii_ref_clk <= not rmii_ref_clk after 10 ns;
   xgmii_clk <= not xgmii_clk after xgmii_clk_period / 2;
   axis_clk <= not axis_clk after 3200 ps;
@@ -97,7 +108,7 @@ begin
         push_ethernet_frame(net, mii_source, frame);
         wait_until_idle(net, as_sync(mii_source));
         wait_until_idle(net, as_sync(mii_monitor));
-        -- docs-end: mii-test
+      -- docs-end: mii-test
 
       elsif run("test_rgmii") then
         check_ethernet_frame(net, rgmii_monitor, frame, blocking => false);
@@ -131,55 +142,133 @@ begin
 
   -- docs-start: mii-instances
   mii_source_inst : entity awesome_vunit_vcs.mii_source
-    generic map (mii_source)
-    port map (mii_clk, mii_data, mii_dv, mii_er);
+    generic map (
+      mii_source
+    )
+    port map (
+      mii_clk,
+      mii_data,
+      mii_dv,
+      mii_er
+    );
 
   mii_monitor_inst : entity awesome_vunit_vcs.mii_monitor
-    generic map (mii_monitor)
-    port map (mii_clk, mii_data, mii_dv, mii_er);
+    generic map (
+      mii_monitor
+    )
+    port map (
+      mii_clk,
+      mii_data,
+      mii_dv,
+      mii_er
+    );
   -- docs-end: mii-instances
 
   -- docs-start: rgmii-instances
   rgmii_source_inst : entity awesome_vunit_vcs.rgmii_source
-    generic map (rgmii_source)
-    port map (rgmii_clk, rgmii_data, rgmii_ctl);
+    generic map (
+      rgmii_source
+    )
+    port map (
+      rgmii_clk,
+      rgmii_data,
+      rgmii_ctl
+    );
 
   rgmii_monitor_inst : entity awesome_vunit_vcs.rgmii_monitor
-    generic map (rgmii_monitor)
-    port map (rgmii_clk, rgmii_data, rgmii_ctl);
+    generic map (
+      rgmii_monitor
+    )
+    port map (
+      rgmii_clk,
+      rgmii_data,
+      rgmii_ctl
+    );
   -- docs-end: rgmii-instances
 
   -- docs-start: rmii-instances
   rmii_source_inst : entity awesome_vunit_vcs.rmii_source
-    generic map (rmii_source)
-    port map (rmii_ref_clk, rmii_data, rmii_dv, rmii_er);
+    generic map (
+      rmii_source
+    )
+    port map (
+      rmii_ref_clk,
+      rmii_data,
+      rmii_dv,
+      rmii_er
+    );
 
   rmii_monitor_inst : entity awesome_vunit_vcs.rmii_monitor
-    generic map (rmii_monitor)
-    port map (rmii_ref_clk, rmii_data, rmii_dv, rmii_er);
+    generic map (
+      rmii_monitor
+    )
+    port map (
+      rmii_ref_clk,
+      rmii_data,
+      rmii_dv,
+      rmii_er
+    );
   -- docs-end: rmii-instances
 
   -- docs-start: xgmii-instances
   xgmii_source_inst : entity awesome_vunit_vcs.xgmii_source
-    generic map (xgmii_source)
-    port map (xgmii_clk, xgmii_data, xgmii_ctrl);
+    generic map (
+      xgmii_source
+    )
+    port map (
+      xgmii_clk,
+      xgmii_data,
+      xgmii_ctrl
+    );
 
   xgmii_monitor_inst : entity awesome_vunit_vcs.xgmii_monitor
-    generic map (xgmii_monitor)
-    port map (xgmii_clk, xgmii_data, xgmii_ctrl);
+    generic map (
+      xgmii_monitor
+    )
+    port map (
+      xgmii_clk,
+      xgmii_data,
+      xgmii_ctrl
+    );
   -- docs-end: xgmii-instances
 
   -- docs-start: axis-mac-instances
   axis_source_inst : entity awesome_vunit_vcs.axis_mac_source
-    generic map (axis_source)
-    port map (axis_clk, tdata, tkeep, tvalid, tready, tlast, tuser);
+    generic map (
+      axis_source
+    )
+    port map (
+      axis_clk,
+      tdata,
+      tkeep,
+      tvalid,
+      tready,
+      tlast,
+      tuser
+    );
 
   axis_sink_inst : entity awesome_vunit_vcs.axis_mac_sink
-    generic map (axis_sink)
-    port map (axis_clk, tready);
+    generic map (
+      axis_sink
+    )
+    port map (
+      axis_clk,
+      tready
+    );
 
   axis_monitor_inst : entity awesome_vunit_vcs.axis_mac_monitor
-    generic map (axis_monitor)
-    port map (axis_clk, tdata, tkeep, tvalid, tready, tlast, tuser);
+    generic map (
+      axis_monitor
+    )
+    port map (
+      axis_clk,
+      tdata,
+      tkeep,
+      tvalid,
+      tready,
+      tlast,
+      tuser
+    );
+
   -- docs-end: axis-mac-instances
 end architecture;

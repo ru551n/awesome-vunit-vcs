@@ -17,7 +17,11 @@ entity handle_table is
     inject_bug : boolean := false
   );
   port (
-    clk, rst, allocate, release_handle, write_enable : in std_ulogic;
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    allocate : in std_ulogic;
+    release_handle : in std_ulogic;
+    write_enable : in std_ulogic;
     handle : in std_ulogic_vector(1 downto 0);
     write_data : in std_ulogic_vector(7 downto 0);
     read_data : out std_ulogic_vector(7 downto 0);
@@ -31,6 +35,7 @@ architecture a of handle_table is
   signal data : data_t := (others => (others => '0'));
   signal live : std_ulogic_vector(3 downto 0) := (others => '0');
 begin
+
   read_data <= data(to_integer(unsigned(handle)));
 
   main : process(clk)
@@ -78,4 +83,5 @@ begin
       end if;
     end if;
   end process;
+
 end architecture;

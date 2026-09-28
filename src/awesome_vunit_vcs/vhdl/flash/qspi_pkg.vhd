@@ -50,29 +50,22 @@ package qspi_pkg is
   -- One end's drive of the four IO wires. enable is per lane so that a
   -- single-lane phase leaves the other three wires to the far end.
   type qspi_drive_t is record
-    value : qspi_io_t;
+    value  : qspi_io_t;
     enable : qspi_io_t;
   end record;
 
   -- No lane driven
-  constant qspi_drive_init : qspi_drive_t := (
-    value => (others => '0'),
-    enable => (others => '0')
-  );
+  constant qspi_drive_init : qspi_drive_t := (value => (others => '0'), enable => (others => '0'));
 
   -- Master to slave: the clock, the chip select and the master's IO drive.
   type qspi_m2s_t is record
-    sck : std_ulogic;
+    sck  : std_ulogic;
     cs_n : std_ulogic;
-    io : qspi_drive_t;
+    io   : qspi_drive_t;
   end record;
 
   -- SCK low, CS high and no lane driven: an idle master
-  constant qspi_m2s_init : qspi_m2s_t := (
-    sck => '0',
-    cs_n => '1',
-    io => qspi_drive_init
-  );
+  constant qspi_m2s_init : qspi_m2s_t := (sck => '0', cs_n => '1', io => qspi_drive_init);
 
   -- Slave to master: the slave's IO drive. The slave never drives sck or cs_n.
   type qspi_s2m_t is record
@@ -84,7 +77,7 @@ package qspi_pkg is
 
   -- What a probe on the four wires would see, given both ends' drive.
   -- Undriven lanes read 'Z'; lanes driven by both ends read 'X'.
-  function qspi_io_value(m2s : qspi_m2s_t; s2m : qspi_s2m_t) return qspi_io_t;
+  function qspi_io_value (m2s : qspi_m2s_t; s2m : qspi_s2m_t) return qspi_io_t;
 
   ---------------------------------------------------------------------------
   -- Lanes
@@ -103,16 +96,16 @@ package qspi_pkg is
   constant qspi_miso_lane : natural := 1;
 
   -- True for 1, 2 and 4 lanes
-  function qspi_is_valid_lane_count(lanes : lane_count_t) return boolean;
+  function qspi_is_valid_lane_count (lanes : lane_count_t) return boolean;
 
   -- SCK cycles needed to move one byte over lanes lanes.
-  function qspi_beats_per_byte(lanes : lane_count_t) return positive;
+  function qspi_beats_per_byte (lanes : lane_count_t) return positive;
 
   -- Lowest IO lane used by a phase of the given width driven by the given side.
-  function qspi_lane_base(lanes : lane_count_t; driver : qspi_side_t) return natural;
+  function qspi_lane_base (lanes : lane_count_t; driver : qspi_side_t) return natural;
 
   -- Output-enable mask for a phase of the given width driven by the given side.
-  function qspi_lane_mask(lanes : lane_count_t; driver : qspi_side_t) return qspi_io_t;
+  function qspi_lane_mask (lanes : lane_count_t; driver : qspi_side_t) return qspi_io_t;
 
   ---------------------------------------------------------------------------
   -- Byte serialization, MSB first
@@ -121,14 +114,14 @@ package qspi_pkg is
   -- The lanes bits of data that go out in beat number beat (0 first),
   -- returned as a (lanes-1 downto 0) slice that maps straight onto the IO lanes
   -- of the phase: the most significant bit of the group on the highest lane.
-  function qspi_byte_beat(
+  function qspi_byte_beat (
     data : std_ulogic_vector(7 downto 0);
     lanes : lane_count_t;
     beat : natural
   ) return std_ulogic_vector;
 
   -- The inverse: fold a received beat back into the byte under construction.
-  function qspi_byte_insert(
+  function qspi_byte_insert (
     data : std_ulogic_vector(7 downto 0);
     lanes : lane_count_t;
     beat : natural;
@@ -136,7 +129,7 @@ package qspi_pkg is
   ) return std_ulogic_vector;
 
   -- Beat beat of data as a ready-to-apply drive record for the given side.
-  function qspi_drive_beat(
+  function qspi_drive_beat (
     data : std_ulogic_vector(7 downto 0);
     lanes : lane_count_t;
     beat : natural;
@@ -145,7 +138,7 @@ package qspi_pkg is
 
   -- The lanes of a bus value that carry a phase of the given width driven by
   -- the given side, normalized to (lanes-1 downto 0).
-  function qspi_sample_beat(
+  function qspi_sample_beat (
     io : qspi_io_t;
     lanes : lane_count_t;
     driver : qspi_side_t
@@ -156,14 +149,16 @@ package qspi_pkg is
   ---------------------------------------------------------------------------
 
   -- A byte value, 0 to 255, as an 8-bit vector. A larger value is a failure.
-  function qspi_to_byte(value : natural) return std_ulogic_vector;
+  function qspi_to_byte (value : natural) return std_ulogic_vector;
   -- The unsigned value of a vector. Every element other than '1' counts as
   -- '0', so check for metavalues before converting.
-  function qspi_to_natural(data : std_ulogic_vector) return natural;
+  function qspi_to_natural (data : std_ulogic_vector) return natural;
+
 end package;
 
 package body qspi_pkg is
-  function qspi_io_value(m2s : qspi_m2s_t; s2m : qspi_s2m_t) return qspi_io_t is
+
+  function qspi_io_value (m2s : qspi_m2s_t; s2m : qspi_s2m_t) return qspi_io_t is
     variable result : qspi_io_t := (others => 'Z');
   begin
     for lane in result'range loop
@@ -178,23 +173,23 @@ package body qspi_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
 
-  function qspi_is_valid_lane_count(lanes : lane_count_t) return boolean is
+  function qspi_is_valid_lane_count (lanes : lane_count_t) return boolean is
   begin
     return lanes = 1 or lanes = 2 or lanes = 4;
-  end;
+  end function;
 
-  function qspi_beats_per_byte(lanes : lane_count_t) return positive is
+  function qspi_beats_per_byte (lanes : lane_count_t) return positive is
   begin
     assert qspi_is_valid_lane_count(lanes)
       report "QSPI lane count must be 1, 2 or 4, got " & integer'image(lanes)
       severity failure;
 
     return 8 / lanes;
-  end;
+  end function;
 
-  function qspi_lane_base(lanes : lane_count_t; driver : qspi_side_t) return natural is
+  function qspi_lane_base (lanes : lane_count_t; driver : qspi_side_t) return natural is
   begin
     assert qspi_is_valid_lane_count(lanes)
       report "QSPI lane count must be 1, 2 or 4, got " & integer'image(lanes)
@@ -205,18 +200,18 @@ package body qspi_pkg is
     end if;
 
     return qspi_mosi_lane;
-  end;
+  end function;
 
-  function qspi_lane_mask(lanes : lane_count_t; driver : qspi_side_t) return qspi_io_t is
+  function qspi_lane_mask (lanes : lane_count_t; driver : qspi_side_t) return qspi_io_t is
     constant base : natural := qspi_lane_base(lanes, driver);
     variable result : qspi_io_t := (others => '0');
   begin
     result(base + lanes - 1 downto base) := (others => '1');
 
     return result;
-  end;
+  end function;
 
-  function qspi_byte_beat(
+  function qspi_byte_beat (
     data : std_ulogic_vector(7 downto 0);
     lanes : lane_count_t;
     beat : natural
@@ -224,13 +219,17 @@ package body qspi_pkg is
     constant high : natural := 7 - beat * lanes;
   begin
     assert beat < qspi_beats_per_byte(lanes)
-      report "QSPI beat " & integer'image(beat) & " out of range for " & integer'image(lanes) & " lanes"
+      report "QSPI beat "
+             & integer'image(beat)
+             & " out of range for "
+             & integer'image(lanes)
+             & " lanes"
       severity failure;
 
     return data(high downto high - lanes + 1);
-  end;
+  end function;
 
-  function qspi_byte_insert(
+  function qspi_byte_insert (
     data : std_ulogic_vector(7 downto 0);
     lanes : lane_count_t;
     beat : natural;
@@ -240,18 +239,25 @@ package body qspi_pkg is
     variable result : std_ulogic_vector(7 downto 0) := data;
   begin
     assert beat < qspi_beats_per_byte(lanes)
-      report "QSPI beat " & integer'image(beat) & " out of range for " & integer'image(lanes) & " lanes"
+      report "QSPI beat "
+             & integer'image(beat)
+             & " out of range for "
+             & integer'image(lanes)
+             & " lanes"
       severity failure;
     assert value'length = lanes
-      report "QSPI beat value is " & integer'image(value'length) & " bits, expected " & integer'image(lanes)
+      report "QSPI beat value is "
+             & integer'image(value'length)
+             & " bits, expected "
+             & integer'image(lanes)
       severity failure;
 
     result(high downto high - lanes + 1) := value;
 
     return result;
-  end;
+  end function;
 
-  function qspi_drive_beat(
+  function qspi_drive_beat (
     data : std_ulogic_vector(7 downto 0);
     lanes : lane_count_t;
     beat : natural;
@@ -264,9 +270,9 @@ package body qspi_pkg is
     result.enable := qspi_lane_mask(lanes, driver);
 
     return result;
-  end;
+  end function;
 
-  function qspi_sample_beat(
+  function qspi_sample_beat (
     io : qspi_io_t;
     lanes : lane_count_t;
     driver : qspi_side_t
@@ -277,21 +283,21 @@ package body qspi_pkg is
     result := io(base + lanes - 1 downto base);
 
     return result;
-  end;
+  end function;
 
-  function qspi_to_byte(value : natural) return std_ulogic_vector is
+  function qspi_to_byte (value : natural) return std_ulogic_vector is
   begin
     assert value < 256
       report "QSPI byte value " & integer'image(value) & " does not fit in 8 bits"
       severity failure;
 
     return std_ulogic_vector(to_unsigned(value, 8));
-  end;
+  end function;
 
   -- Weak values map to '0' rather than blowing up in numeric_std: a VC that
   -- samples an undriven wire should report that through its own checker, with
   -- a message naming the phase, not through a cryptic conversion error.
-  function qspi_to_natural(data : std_ulogic_vector) return natural is
+  function qspi_to_natural (data : std_ulogic_vector) return natural is
     variable normalized : std_ulogic_vector(data'length - 1 downto 0) := data;
     variable result : natural := 0;
   begin
@@ -303,5 +309,6 @@ package body qspi_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
+
 end package body;

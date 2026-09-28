@@ -35,6 +35,7 @@ end entity;
 
 architecture a of mii_monitor is
 begin
+
   main : process
   begin
     monitor_symbol_interface(net, to_ethernet_vc(monitor), clk, data, dv, er);
@@ -52,4 +53,5 @@ begin
         er => er
       );
   end generate;
+
 end architecture;

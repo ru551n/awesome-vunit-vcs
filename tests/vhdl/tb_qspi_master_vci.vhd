@@ -25,11 +25,13 @@ architecture tb of tb_qspi_master_vci is
   signal default_m2s : qspi_m2s_t := qspi_m2s_init;
   signal default_s2m : qspi_s2m_t := qspi_s2m_init;
 
-  constant explicit_master : qspi_master_t := new_qspi_master(id => get_id("tb_qspi_master_vci:explicit_master"));
+  constant explicit_master : qspi_master_t :=
+    new_qspi_master(id => get_id("tb_qspi_master_vci:explicit_master"));
 
   constant custom_logger : logger_t := get_logger("tb_qspi_master_vci:custom_logger");
   constant custom_actor : actor_t := new_actor("tb_qspi_master_vci:custom_actor");
-  constant custom_checker : checker_t := new_checker(get_logger("tb_qspi_master_vci:custom_checker"));
+  constant custom_checker : checker_t :=
+    new_checker(get_logger("tb_qspi_master_vci:custom_checker"));
   constant custom_master : qspi_master_t := new_qspi_master(
     id => get_id("tb_qspi_master_vci:custom_master"),
     logger => custom_logger,
@@ -53,15 +55,14 @@ architecture tb of tb_qspi_master_vci is
   );
   signal checked_m2s : qspi_m2s_t := qspi_m2s_init;
 
-  constant default_checked_master : qspi_master_t := new_qspi_master(
-    cs_deselect_time => 5 ns,
-    protocol_checker => new_qspi_protocol_checker
-  );
+  constant default_checked_master : qspi_master_t :=
+    new_qspi_master(cs_deselect_time => 5 ns, protocol_checker => new_qspi_protocol_checker);
   signal default_checked_m2s : qspi_m2s_t := qspi_m2s_init;
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown qspi_master message");
 
 begin
+
   default_master_inst : entity awesome_vunit_vcs.qspi_master
     generic map (
       qspi_master => default_master
@@ -121,12 +122,16 @@ begin
       wait for 1 ms;
       qspi_transfer(net, checked_master, cmd);
       qspi_transfer(net, checked_master, cmd);
-    end;
+    end procedure;
     variable count : natural;
     variable start : time;
 
     -- A message of an unknown type, like the VCI tests of the Ethernet VCs
-    procedure check_unexpected_message(actor : actor_t; logger : logger_t; expect_failure : boolean) is
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
       mock(logger, error);
@@ -139,7 +144,7 @@ begin
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
   begin
     test_runner_setup(runner, runner_cfg);
     cmd := new_byte_array((0 => 16#9F#));
@@ -148,30 +153,49 @@ begin
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_master))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_master))), "qspi_master", "name of its parent");
-        check(get_parent(get_parent(get_id(default_master))) = get_id("awesome_vunit_vcs"), "grandparent");
-        check(get_id(default_checked_master) /= get_id(default_master), "a second default id differs");
+        check(
+          get_parent(get_parent(get_id(default_master))) = get_id("awesome_vunit_vcs"),
+          "grandparent"
+        );
+        check(
+          get_id(default_checked_master) /= get_id(default_master),
+          "a second default id differs"
+        );
 
       elsif run("test_default_logger_actor_and_checker_are_used") then
         check(get_logger(default_master) = get_logger(get_id(default_master)), "logger of the id");
         check(
-          get_actor(default_master) = find(get_id(default_master), enable_deferred_creation => false),
+          get_actor(default_master)
+          = find(get_id(default_master), enable_deferred_creation => false),
           "actor"
         );
         check(as_sync(default_master) = get_actor(default_master), "as_sync");
-        check(get_logger(get_checker(default_master)) = get_logger(default_master), "checker on the logger");
+        check(
+          get_logger(get_checker(default_master)) = get_logger(default_master),
+          "checker on the logger"
+        );
         check(protocol_checker(default_master) = null_qspi_protocol_checker, "no protocol checker");
 
         -- Nothing drives the far end: 8 metavalue beats on the default logger
         disable_stop(get_logger(default_master), error);
         qspi_transfer(net, default_master, cmd, data, num_read_bytes => 1);
-        check_equal(get_log_count(get_logger(default_master), error), 8, "metavalues on the default logger");
+        check_equal(
+          get_log_count(get_logger(default_master), error),
+          8,
+          "metavalues on the default logger"
+        );
         reset_log_count(get_logger(default_master), error);
 
       elsif run("test_explicit_id_is_used") then
         check(get_id(explicit_master) = get_id("tb_qspi_master_vci:explicit_master"), "id");
-        check_equal(get_full_name(get_logger(explicit_master)), full_name(get_id(explicit_master)), "logger name");
+        check_equal(
+          get_full_name(get_logger(explicit_master)),
+          full_name(get_id(explicit_master)),
+          "logger name"
+        );
         check(
-          get_actor(explicit_master) = find(get_id(explicit_master), enable_deferred_creation => false),
+          get_actor(explicit_master)
+          = find(get_id(explicit_master), enable_deferred_creation => false),
           "actor"
         );
 
@@ -186,17 +210,29 @@ begin
         -- The master serves the actor that was passed
         wait_until_idle(net, custom_actor);
         await_qspi_transfer_reply(net, reference);
-        check_equal(get_log_count(get_logger(custom_checker), error), 8, "metavalues on the custom checker");
+        check_equal(
+          get_log_count(get_logger(custom_checker), error),
+          8,
+          "metavalues on the custom checker"
+        );
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         reset_log_count(get_logger(custom_checker), error);
 
       elsif run("test_unexpected_message_is_a_check_failure") then
-        check_unexpected_message(get_actor(default_master), get_logger(default_master), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_master),
+          get_logger(default_master),
+          expect_failure => true
+        );
         -- On the checker of the master, not on its logger
         check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_master), get_logger(ignoring_master), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_master),
+          get_logger(ignoring_master),
+          expect_failure => false
+        );
         qspi_transfer(net, ignoring_master, cmd);
 
       elsif run("test_wait_until_idle_and_wait_for_time") then
@@ -239,7 +275,10 @@ begin
         check(default_m2s.cs_n = '1', "CS high after the reset");
 
       elsif run("test_protocol_checker_is_a_child_of_the_master") then
-        check(get_parent(get_id(protocol_checker(checked_master))) = get_id(checked_master), "parent id");
+        check(
+          get_parent(get_id(protocol_checker(checked_master))) = get_id(checked_master),
+          "parent id"
+        );
         check_equal(
           get_full_name(get_logger(protocol_checker(checked_master))),
           "tb_qspi_master_vci:checked_master:protocol_checker",
@@ -258,7 +297,11 @@ begin
           qspi_transfer(net, default_checked_master, cmd);
           await_qspi_transfer_reply(net, reference);
         end loop;
-        check_equal(get_log_count(get_logger(protocol_checker(checked_master)), error), 1, "violation on the child");
+        check_equal(
+          get_log_count(get_logger(protocol_checker(checked_master)), error),
+          1,
+          "violation on the child"
+        );
         check_equal(
           get_log_count(get_logger(protocol_checker(default_checked_master)), error),
           1,
@@ -289,16 +332,28 @@ begin
         transfer_pair;
         get_check_count(net, checked_master, qspi_cs_deselect, count);
         check_equal(count, 2, "switched on again through the master");
-        check_equal(get_log_count(get_logger(protocol_checker(checked_master)), error), 2, "violations logged");
+        check_equal(
+          get_log_count(get_logger(protocol_checker(checked_master)), error),
+          2,
+          "violations logged"
+        );
         reset_log_count(get_logger(protocol_checker(checked_master)), error);
 
       elsif run("test_check_procedures_of_a_master_without_protocol_checker_fail") then
         mock(get_logger(explicit_master), error);
         set_check_enabled(net, explicit_master, qspi_cs_deselect, false);
-        check_log(get_logger(explicit_master), "tb_qspi_master_vci:explicit_master has no protocol checker", error);
+        check_log(
+          get_logger(explicit_master),
+          "tb_qspi_master_vci:explicit_master has no protocol checker",
+          error
+        );
         count := 1;
         get_check_count(net, explicit_master, qspi_cs_deselect, count);
-        check_log(get_logger(explicit_master), "tb_qspi_master_vci:explicit_master has no protocol checker", error);
+        check_log(
+          get_logger(explicit_master),
+          "tb_qspi_master_vci:explicit_master has no protocol checker",
+          error
+        );
         check_equal(count, 0, "blocking count without a protocol checker");
         get_check_count(net, explicit_master, qspi_cs_deselect, check_reference);
         check_only_log(
@@ -315,4 +370,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 20 ms);
+
 end architecture;

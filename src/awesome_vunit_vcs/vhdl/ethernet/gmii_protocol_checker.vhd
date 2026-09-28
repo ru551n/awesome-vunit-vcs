@@ -33,8 +33,10 @@ end entity;
 
 architecture a of gmii_protocol_checker is
 begin
+
   main : process
   begin
     monitor_symbol_interface(net, to_ethernet_vc(protocol_checker), clk, data, dv, er);
   end process;
+
 end architecture;

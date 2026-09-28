@@ -29,7 +29,8 @@ architecture tb of tb_flash is
   constant block_bytes : positive := 65536;
 
   -- docs-start: flash_constructors
-  constant master_a : qspi_master_t := new_qspi_master(sck_period => 20 ns, id => get_id("tb_flash:master_a"));
+  constant master_a : qspi_master_t :=
+    new_qspi_master(sck_period => 20 ns, id => get_id("tb_flash:master_a"));
   constant flash_a : flash_t := new_flash(
     page_bytes => page_bytes,
     sector_bytes => sector_bytes,
@@ -44,7 +45,8 @@ architecture tb of tb_flash is
 
   -- A second device on its own bus. Its state would leak into flash_a if the
   -- backends shared anything.
-  constant master_b : qspi_master_t := new_qspi_master(sck_period => 20 ns, id => get_id("tb_flash:master_b"));
+  constant master_b : qspi_master_t :=
+    new_qspi_master(sck_period => 20 ns, id => get_id("tb_flash:master_b"));
   constant flash_b : flash_t := new_flash(
     jedec_id => 16#C22018#,
     protocol_checker => new_qspi_protocol_checker,
@@ -59,10 +61,8 @@ architecture tb of tb_flash is
   -- would look the same.
   constant cs_deselect_too_short : delay_length := 5 ns;
 
-  constant bad_master : qspi_master_t := new_qspi_master(
-    sck_period => 20 ns,
-    cs_deselect_time => cs_deselect_too_short
-  );
+  constant bad_master : qspi_master_t :=
+    new_qspi_master(sck_period => 20 ns, cs_deselect_time => cs_deselect_too_short);
   constant checked_flash : flash_t := new_flash(
     protocol_checker => new_qspi_protocol_checker,
     id => get_id("tb_flash:checked_flash")
@@ -70,10 +70,8 @@ architecture tb of tb_flash is
   signal checked_m2s : qspi_m2s_t := qspi_m2s_init;
   signal checked_s2m : qspi_s2m_t := qspi_s2m_init;
 
-  constant unchecked_master : qspi_master_t := new_qspi_master(
-    sck_period => 20 ns,
-    cs_deselect_time => cs_deselect_too_short
-  );
+  constant unchecked_master : qspi_master_t :=
+    new_qspi_master(sck_period => 20 ns, cs_deselect_time => cs_deselect_too_short);
   constant unchecked_flash : flash_t := new_flash(id => get_id("tb_flash:unchecked_flash"));
   signal unchecked_m2s : qspi_m2s_t := qspi_m2s_init;
   signal unchecked_s2m : qspi_s2m_t := qspi_s2m_init;
@@ -94,18 +92,14 @@ architecture tb of tb_flash is
   signal custom_s2m : qspi_s2m_t := qspi_s2m_init;
 
   -- Driven by the testbench, no master
-  constant raw_flash : flash_t := new_flash(
-    protocol_checker => new_qspi_protocol_checker,
-    id => get_id("tb_flash:raw_flash")
-  );
+  constant raw_flash : flash_t :=
+    new_flash(protocol_checker => new_qspi_protocol_checker, id => get_id("tb_flash:raw_flash"));
   signal raw_m2s : qspi_m2s_t := qspi_m2s_init;
   signal raw_s2m : qspi_s2m_t := qspi_s2m_init;
 
   -- A device that keeps WEL when it refuses a program or erase for protection
-  constant keep_wel_master : qspi_master_t := new_qspi_master(
-    sck_period => 20 ns,
-    id => get_id("tb_flash:keep_wel_master")
-  );
+  constant keep_wel_master : qspi_master_t :=
+    new_qspi_master(sck_period => 20 ns, id => get_id("tb_flash:keep_wel_master"));
   constant keep_wel_flash : flash_t := new_flash(
     timing_enabled => false,
     clear_wel_on_protection_reject => false,
@@ -129,40 +123,34 @@ architecture tb of tb_flash is
 
   type flash_vec_t is array (natural range <>) of flash_t;
   constant flashes : flash_vec_t := (
-    flash_a,
-    flash_b,
-    checked_flash,
-    unchecked_flash,
-    custom_flash,
-    raw_flash,
-    keep_wel_flash,
-    default_flash_1,
-    default_flash_2
+    flash_a, flash_b, checked_flash, unchecked_flash, custom_flash, raw_flash, keep_wel_flash,
+    default_flash_1, default_flash_2
   );
 
   -- first, first + 1, ...: a misordered or shifted transfer shows up as a
   -- wrong value
-  impure function ramp(length : positive; first : natural := 0) return integer_array_t is
-    variable result : integer_array_t := new_1d(length => length, bit_width => 8, is_signed => false);
+  impure function ramp (length : positive; first : natural := 0) return integer_array_t is
+    variable result : integer_array_t :=
+      new_1d(length => length, bit_width => 8, is_signed => false);
   begin
     for idx in 0 to length - 1 loop
       set(result, idx, (first + idx) mod 256);
     end loop;
     return result;
-  end;
+  end function;
 
-  procedure check_bytes(got : integer_array_t; expected : integer_array_t; msg : string) is
+  procedure check_bytes(got : integer_array_t; expected : integer_array_t; msg : string)is
   begin
     check_equal(length(got), length(expected), msg & ": length");
     for idx in 0 to length(expected) - 1 loop
       check_equal(get(got, idx), get(expected, idx), msg & ": byte " & to_string(idx));
     end loop;
-  end;
+  end procedure;
 
   -- Poll the status register of flash_a until write-in-progress clears, over
   -- the bus, as a controller does. This also proves the VC answers the bus
   -- while it is busy.
-  procedure poll_until_ready(signal net : inout network_t; timeout : delay_length := 10 ms) is
+  procedure poll_until_ready(signal net : inout network_t; timeout : delay_length := 10 ms)is
     constant deadline : time := now + timeout;
     variable status : natural;
   begin
@@ -172,8 +160,9 @@ architecture tb of tb_flash is
       exit when status mod 2 = 0;
       check(now < deadline, "poll_until_ready: timed out with WIP still set");
     end loop;
-  end;
+  end procedure;
 begin
+
   -- docs-start: flash_instances
   qspi_master_a_inst : entity awesome_vunit_vcs.qspi_master
     generic map (
@@ -341,7 +330,7 @@ begin
 
     -- One x1 byte of zeros bit-banged on the raw bus, in SPI mode 0 with
     -- 10 ns setup and hold, and io(0) = 'X' in beat metavalue_beat
-    procedure send_raw_byte(metavalue_beat : natural) is
+    procedure send_raw_byte(metavalue_beat : natural)is
     begin
       raw_m2s.cs_n <= '0';
       for beat in 0 to 7 loop
@@ -360,7 +349,7 @@ begin
       wait for 10 ns;
       raw_m2s.cs_n <= '1';
       wait for 50 ns;
-    end;
+    end procedure;
   begin
     test_runner_setup(runner, runner_cfg);
 
@@ -383,7 +372,9 @@ begin
       elsif run("test_erased_device_reads_all_ones") then
         -- Nothing was preloaded, so sparse storage must read erased
         qspi_flash_read(net, master_a, 16#123456#, 8, got);
-        expected := new_byte_array((16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#));
+        expected := new_byte_array(
+          (16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#)
+        );
         check_bytes(got, expected, "erased device");
         deallocate(got);
         deallocate(expected);
@@ -486,7 +477,7 @@ begin
         poll_until_ready(net);
         flash_check_content_fill(net, flash_a, 16#009000#, sector_bytes, 16#FF#);
         flash_check_content(net, flash_a, 16#009000# + sector_bytes, x"5A");
-        -- docs-end: flash_sector_erase
+      -- docs-end: flash_sector_erase
 
       elsif run("test_block_erase") then
         flash_preload_fill(net, flash_a, 16#010000#, block_bytes, 16#00#);
@@ -577,7 +568,7 @@ begin
         check_equal(get(regions, 0), 16#00C000#, "region address");
         check_equal(get(regions, 1), 4, "region length");
         deallocate(regions);
-        -- docs-end: flash-written-regions
+      -- docs-end: flash-written-regions
 
       elsif run("test_four_byte_addressing_reaches_the_same_data") then
         -- The last 8 bytes of the 16 MiB device, reached with a 4-byte and a
@@ -615,8 +606,9 @@ begin
         poll_until_ready(net);
         check(
           now - start >= 100 us,
-          "the erase reported ready after " & to_string(now - start) &
-          ", less than the 100 us it was configured to take"
+          "the erase reported ready after "
+          & to_string(now - start)
+          & ", less than the 100 us it was configured to take"
         );
 
       elsif run("test_timing_disabled_makes_erase_instant") then
@@ -626,7 +618,10 @@ begin
         qspi_flash_sector_erase(net, master_a, 16#00F000#);
         poll_until_ready(net);
         -- Only the bus traffic takes time
-        check(now - start < 50 us, "with timing disabled the erase still took " & to_string(now - start));
+        check(
+          now - start < 50 us,
+          "with timing disabled the erase still took " & to_string(now - start)
+        );
 
       elsif run("test_continuous_read_needs_no_opcode") then
         -- docs-start: qspi_master_continuous_read
@@ -680,7 +675,7 @@ begin
         check_bytes(got, expected, "an ordinary read after leaving continuous mode");
         deallocate(got);
         deallocate(expected);
-        -- docs-end: qspi_master_continuous_read
+      -- docs-end: qspi_master_continuous_read
 
       elsif run("test_partial_byte_aborts_a_page_program") then
         -- A real part abandons a page program whose clock count is not a
@@ -702,7 +697,11 @@ begin
         -- The master releases the IOs for its three dummy cycles while the
         -- device expects the next program byte, so it samples 'Z' on io(0) at
         -- each of the three rising edges: 3 errors
-        check_equal(get_log_count(get_logger(flash_a), error), 3, "metavalues sampled in the trailing clocks");
+        check_equal(
+          get_log_count(get_logger(flash_a), error),
+          3,
+          "metavalues sampled in the trailing clocks"
+        );
         reset_log_count(get_logger(flash_a), error);
         -- Aborted, so the array is untouched
         flash_check_content_fill(net, flash_a, 16#014000#, 1, 16#FF#);
@@ -746,11 +745,15 @@ begin
         deallocate(got);
         qspi_flash_read_id(net, bad_master, got, 3);
         deallocate(got);
-        check_equal(get_log_count(get_logger(protocol_checker(checked_flash)), error), 1, "tSHSL violations");
+        check_equal(
+          get_log_count(get_logger(protocol_checker(checked_flash)), error),
+          1,
+          "tSHSL violations"
+        );
         get_check_count(net, checked_flash, qspi_cs_deselect, count);
         check_equal(count, 1, "qspi_cs_deselect count");
         reset_log_count(get_logger(protocol_checker(checked_flash)), error);
-        -- docs-end: flash_protocol_violation
+      -- docs-end: flash_protocol_violation
 
       elsif run("test_protocol_checks_can_be_switched_off") then
         -- The same traffic against a device created without a protocol checker
@@ -760,7 +763,11 @@ begin
         deallocate(got);
         qspi_flash_read_id(net, unchecked_master, got, 3);
         deallocate(got);
-        check_equal(get_log_count(get_logger(unchecked_flash), error), 0, "errors with protocol checks off");
+        check_equal(
+          get_log_count(get_logger(unchecked_flash), error),
+          0,
+          "errors with protocol checks off"
+        );
 
       elsif run("test_commands_are_ignored_while_busy") then
         flash_set_timing_enable(net, flash_a, true);
@@ -784,9 +791,13 @@ begin
         flash_check_content(net, flash_a, 16#000100#, new_byte_array((0 => 16#00#)));
         -- The check is a message: wait until the VC has handled it
         wait_until_idle(net, as_sync(flash_a));
-        check_equal(get_log_count(get_logger(flash_a), error), 1, "content mismatches on erased flash");
+        check_equal(
+          get_log_count(get_logger(flash_a), error),
+          1,
+          "content mismatches on erased flash"
+        );
         reset_log_count(get_logger(flash_a), error);
-        -- docs-end: flash-content-mismatch
+      -- docs-end: flash-content-mismatch
 
       elsif run("test_non_default_configuration") then
         disable_stop(get_logger(protocol_checker(custom_flash)), error);
@@ -808,7 +819,11 @@ begin
 
         -- The two commands above are back to back with the 50 ns CS deselect
         -- time of the master, short of the 60 ns tSHSL: one violation
-        check_equal(get_log_count(get_logger(protocol_checker(custom_flash)), error), 1, "tSHSL violations");
+        check_equal(
+          get_log_count(get_logger(protocol_checker(custom_flash)), error),
+          1,
+          "tSHSL violations"
+        );
         reset_log_count(get_logger(protocol_checker(custom_flash)), error);
 
       elsif run("test_metavalue_on_io_is_reported") then
@@ -817,7 +832,7 @@ begin
         send_raw_byte(metavalue_beat => 3);
         check_equal(get_log_count(get_logger(raw_flash), error), 1, "metavalues on the IOs");
         reset_log_count(get_logger(raw_flash), error);
-        -- docs-end: flash_metavalue
+      -- docs-end: flash_metavalue
 
       elsif run("test_default_id_instances_are_independent") then
         check(get_id(default_flash_1) /= get_id(default_flash_2), "the default ids differ");
@@ -897,7 +912,7 @@ begin
         check_equal(length(regions), 0, "written regions after a reset that clears the statistics");
         deallocate(regions);
         flash_check_content(net, flash_a, 16#01A000#, x"5A");
-        -- docs-end: flash-reset-statistics
+      -- docs-end: flash-reset-statistics
 
       elsif run("test_timing_disable_ends_the_wait") then
         flash_set_timing_enable(net, flash_a, true);
@@ -928,4 +943,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 50 ms);
+
 end architecture;

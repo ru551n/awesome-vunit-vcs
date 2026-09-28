@@ -30,28 +30,28 @@ package rmii_pkg is
   -- interface.
   type rmii_source_t is record
     -- Private
-    p_id : id_t;
-    p_logger : logger_t;
-    p_actor : actor_t;
-    p_checker : checker_t;
+    p_id                         : id_t;
+    p_logger                     : logger_t;
+    p_actor                      : actor_t;
+    p_checker                    : checker_t;
     p_unexpected_msg_type_policy : unexpected_msg_type_policy_t;
-    p_cfg : ethernet_cfg_t;
+    p_cfg                        : ethernet_cfg_t;
   end record;
 
   -- An RMII protocol checker, for the rmii_protocol_checker entity. It checks the
   -- protocol of one direction of an RMII interface.
   type rmii_protocol_checker_t is record
     -- Private
-    p_type : ethernet_component_type_t;
-    p_id : id_t;
-    p_logger : logger_t;
-    p_actor : actor_t;
-    p_checker : checker_t;
-    p_explicit_logger : boolean;
-    p_explicit_actor : boolean;
-    p_explicit_checker : boolean;
+    p_type                       : ethernet_component_type_t;
+    p_id                         : id_t;
+    p_logger                     : logger_t;
+    p_actor                      : actor_t;
+    p_checker                    : checker_t;
+    p_explicit_logger            : boolean;
+    p_explicit_actor             : boolean;
+    p_explicit_checker           : boolean;
     p_unexpected_msg_type_policy : unexpected_msg_type_policy_t;
-    p_cfg : ethernet_cfg_t;
+    p_cfg                        : ethernet_cfg_t;
   end record;
 
   -- No protocol checker: a monitor created with it does not check the protocol
@@ -88,13 +88,13 @@ package rmii_pkg is
   -- one direction of an RMII interface.
   type rmii_monitor_t is record
     -- Private
-    p_id : id_t;
-    p_logger : logger_t;
-    p_actor : actor_t;
-    p_checker : checker_t;
+    p_id                         : id_t;
+    p_logger                     : logger_t;
+    p_actor                      : actor_t;
+    p_checker                    : checker_t;
     p_unexpected_msg_type_policy : unexpected_msg_type_policy_t;
-    p_cfg : ethernet_cfg_t;
-    p_protocol_checker : rmii_protocol_checker_t;
+    p_cfg                        : ethernet_cfg_t;
+    p_protocol_checker           : rmii_protocol_checker_t;
   end record;
 
   -- Create a source.
@@ -109,7 +109,7 @@ package rmii_pkg is
   -- a new actor of the id and the checker to a new checker reporting to the
   -- logger. A message the source does not handle is a check failure, or
   -- ignored when unexpected_msg_type_policy is ignore.
-  impure function new_rmii_source(
+  impure function new_rmii_source (
     link_rate_mbps : positive := 100;
     crs_dv_toggle_octets : natural := 0;
     id : id_t := null_id;
@@ -141,7 +141,7 @@ package rmii_pkg is
   -- The id, logger, actor, checker and unexpected_msg_type_policy are like
   -- those of :vhdl:`rmii_pkg.new_rmii_source`, with the id defaulting to
   -- awesome_vunit_vcs:rmii_monitor:<n>.
-  impure function new_rmii_monitor(
+  impure function new_rmii_monitor (
     link_rate_mbps : positive := 100;
     has_fcs : boolean := true;
     min_frame_octets : natural := 64;
@@ -169,7 +169,7 @@ package rmii_pkg is
   -- The id, logger, actor, checker and unexpected_msg_type_policy are like
   -- those of :vhdl:`rmii_pkg.new_rmii_source`, with the id defaulting to
   -- awesome_vunit_vcs:rmii_protocol_checker:<n>.
-  impure function new_rmii_protocol_checker(
+  impure function new_rmii_protocol_checker (
     link_rate_mbps : positive := 100;
     min_preamble_octets : natural := 7;
     max_preamble_octets : natural := 7;
@@ -189,46 +189,47 @@ package rmii_pkg is
 
   -- The id of a VC. The Python backend of the VC is the object vc in the
   -- session of this id: ``new_session(get_id(monitor))``.
-  impure function get_id(source : rmii_source_t) return id_t;
-  impure function get_id(monitor : rmii_monitor_t) return id_t;
-  impure function get_id(protocol_checker : rmii_protocol_checker_t) return id_t;
+  impure function get_id (source : rmii_source_t) return id_t;
+  impure function get_id (monitor : rmii_monitor_t) return id_t;
+  impure function get_id (protocol_checker : rmii_protocol_checker_t) return id_t;
 
   -- The logger, actor and checker of a VC
-  impure function get_logger(source : rmii_source_t) return logger_t;
-  impure function get_logger(monitor : rmii_monitor_t) return logger_t;
-  impure function get_logger(protocol_checker : rmii_protocol_checker_t) return logger_t;
-  impure function get_actor(source : rmii_source_t) return actor_t;
-  impure function get_actor(monitor : rmii_monitor_t) return actor_t;
-  impure function get_actor(protocol_checker : rmii_protocol_checker_t) return actor_t;
-  impure function get_checker(source : rmii_source_t) return checker_t;
-  impure function get_checker(monitor : rmii_monitor_t) return checker_t;
-  impure function get_checker(protocol_checker : rmii_protocol_checker_t) return checker_t;
+  impure function get_logger (source : rmii_source_t) return logger_t;
+  impure function get_logger (monitor : rmii_monitor_t) return logger_t;
+  impure function get_logger (protocol_checker : rmii_protocol_checker_t) return logger_t;
+  impure function get_actor (source : rmii_source_t) return actor_t;
+  impure function get_actor (monitor : rmii_monitor_t) return actor_t;
+  impure function get_actor (protocol_checker : rmii_protocol_checker_t) return actor_t;
+  impure function get_checker (source : rmii_source_t) return checker_t;
+  impure function get_checker (monitor : rmii_monitor_t) return checker_t;
+  impure function get_checker (protocol_checker : rmii_protocol_checker_t) return checker_t;
 
   -- The synchronization VCI of a VC
-  impure function as_sync(source : rmii_source_t) return sync_handle_t;
-  impure function as_sync(monitor : rmii_monitor_t) return sync_handle_t;
-  impure function as_sync(protocol_checker : rmii_protocol_checker_t) return sync_handle_t;
+  impure function as_sync (source : rmii_source_t) return sync_handle_t;
+  impure function as_sync (monitor : rmii_monitor_t) return sync_handle_t;
+  impure function as_sync (protocol_checker : rmii_protocol_checker_t) return sync_handle_t;
 
   -- The stream VCI of a VC. A source is a stream master: push_stream pushes
   -- one octet, and the octet with last ends a frame, transmitted with
   -- default_frame_options. A monitor is a stream slave: pop_stream pops the
   -- octets of the frames it receives, last with the last octet of a frame.
-  impure function as_stream(source : rmii_source_t) return stream_master_t;
-  impure function as_stream(monitor : rmii_monitor_t) return stream_slave_t;
+  impure function as_stream (source : rmii_source_t) return stream_master_t;
+  impure function as_stream (monitor : rmii_monitor_t) return stream_slave_t;
 
   -- The Ethernet VCI of a VC
-  impure function as_ethernet_source(source : rmii_source_t) return ethernet_source_t;
-  impure function as_ethernet_monitor(monitor : rmii_monitor_t) return ethernet_monitor_t;
-  impure function as_ethernet_protocol_checker(protocol_checker : rmii_protocol_checker_t)
-    return ethernet_protocol_checker_t;
+  impure function as_ethernet_source (source : rmii_source_t) return ethernet_source_t;
+  impure function as_ethernet_monitor (monitor : rmii_monitor_t) return ethernet_monitor_t;
+  impure function as_ethernet_protocol_checker (
+    protocol_checker : rmii_protocol_checker_t
+  ) return ethernet_protocol_checker_t;
 
   -- The protocol checker of a monitor, null_rmii_protocol_checker when it has none
-  function get_protocol_checker(monitor : rmii_monitor_t) return rmii_protocol_checker_t;
+  function get_protocol_checker (monitor : rmii_monitor_t) return rmii_protocol_checker_t;
 
   -- The width of the data port of a VC
-  impure function data_length(source : rmii_source_t) return positive;
-  impure function data_length(monitor : rmii_monitor_t) return positive;
-  impure function data_length(protocol_checker : rmii_protocol_checker_t) return positive;
+  impure function data_length (source : rmii_source_t) return positive;
+  impure function data_length (monitor : rmii_monitor_t) return positive;
+  impure function data_length (protocol_checker : rmii_protocol_checker_t) return positive;
 
   -- The procedures of :vhdl:`ethernet_pkg.push_ethernet_frame`,
   -- :vhdl:`ethernet_pkg.push_ethernet_packet` and
@@ -332,10 +333,7 @@ package rmii_pkg is
     include_fcs : boolean := true;
     include_errored : boolean := true
   );
-  procedure stop_capture(
-    signal net : inout network_t;
-    monitor : rmii_monitor_t
-  );
+  procedure stop_capture(signal net : inout network_t; monitor : rmii_monitor_t);
 
   -- The procedures of :vhdl:`ethernet_pkg.set_check_enabled` and
   -- :vhdl:`ethernet_pkg.get_check_count` for an RMII protocol checker
@@ -384,45 +382,42 @@ package rmii_pkg is
   );
 
   -- Recover a VC, see :vhdl:`ethernet_pkg.reset`
-  procedure reset(
-    signal net : inout network_t;
-    source : rmii_source_t
-  );
+  procedure reset(signal net : inout network_t; source : rmii_source_t);
   procedure reset(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     clear_statistics : boolean := false
   );
-  procedure reset(
-    signal net : inout network_t;
-    protocol_checker : rmii_protocol_checker_t
-  );
+  procedure reset(signal net : inout network_t; protocol_checker : rmii_protocol_checker_t);
 
   -- Private: the VC an entity implements
-  impure function to_ethernet_vc(source : rmii_source_t) return ethernet_vc_t;
-  impure function to_ethernet_vc(monitor : rmii_monitor_t) return ethernet_vc_t;
-  impure function to_ethernet_vc(protocol_checker : rmii_protocol_checker_t) return ethernet_vc_t;
+  impure function to_ethernet_vc (source : rmii_source_t) return ethernet_vc_t;
+  impure function to_ethernet_vc (monitor : rmii_monitor_t) return ethernet_vc_t;
+  impure function to_ethernet_vc (protocol_checker : rmii_protocol_checker_t) return ethernet_vc_t;
+
 end package;
 
 package body rmii_pkg is
+
   -- Reports configuration errors of the constructors
   constant rmii_pkg_logger : logger_t := get_logger("awesome_vunit_vcs:rmii_pkg");
   constant rmii_pkg_checker : checker_t := new_checker(rmii_pkg_logger);
 
-  impure function cfg_data_length(cfg : ethernet_cfg_t) return positive is
+  impure function cfg_data_length (cfg : ethernet_cfg_t) return positive is
   begin
     return 2;
-  end;
+  end function;
 
-  procedure check_link_rate(link_rate_mbps : positive) is
+  procedure check_link_rate(link_rate_mbps : positive)is
   begin
     check(
-      rmii_pkg_checker, link_rate_mbps = 10 or link_rate_mbps = 100,
+      rmii_pkg_checker,
+      link_rate_mbps = 10 or link_rate_mbps = 100,
       "RMII link_rate_mbps is 10 or 100, got " & integer'image(link_rate_mbps)
     );
-  end;
+  end procedure;
 
-  impure function new_rmii_source(
+  impure function new_rmii_source (
     link_rate_mbps : positive := 100;
     crs_dv_toggle_octets : natural := 0;
     id : id_t := null_id;
@@ -431,7 +426,8 @@ package body rmii_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return rmii_source_t is
-    constant identity : ethernet_identity_t := new_ethernet_identity("rmii_source", id, logger, actor, checker);
+    constant identity : ethernet_identity_t :=
+      new_ethernet_identity("rmii_source", id, logger, actor, checker);
   begin
     check_link_rate(link_rate_mbps);
     return (
@@ -446,9 +442,9 @@ package body rmii_pkg is
         crs_dv_toggle_octets => crs_dv_toggle_octets
       )
     );
-  end;
+  end function;
 
-  impure function new_rmii_protocol_checker(
+  impure function new_rmii_protocol_checker (
     link_rate_mbps : positive := 100;
     min_preamble_octets : natural := 7;
     max_preamble_octets : natural := 7;
@@ -493,11 +489,11 @@ package body rmii_pkg is
         delta_unit => delta_unit
       )
     );
-  end;
+  end function;
 
   -- The protocol checker of a monitor with id parent and configuration
   -- monitor_cfg, like get_valid_protocol_checker of axi_stream_pkg
-  impure function child_protocol_checker(
+  impure function child_protocol_checker (
     protocol_checker : rmii_protocol_checker_t;
     parent : id_t;
     monitor_cfg : ethernet_cfg_t
@@ -541,9 +537,9 @@ package body rmii_pkg is
     result.p_actor := identity.p_actor;
     result.p_checker := identity.p_checker;
     return result;
-  end;
+  end function;
 
-  impure function new_rmii_monitor(
+  impure function new_rmii_monitor (
     link_rate_mbps : positive := 100;
     has_fcs : boolean := true;
     min_frame_octets : natural := 64;
@@ -558,7 +554,8 @@ package body rmii_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return rmii_monitor_t is
-    constant identity : ethernet_identity_t := new_ethernet_identity("rmii_monitor", id, logger, actor, checker);
+    constant identity : ethernet_identity_t :=
+      new_ethernet_identity("rmii_monitor", id, logger, actor, checker);
     constant cfg : ethernet_cfg_t := new_ethernet_cfg(
       interface => rmii,
       link_rate_mbps => link_rate_mbps,
@@ -580,138 +577,139 @@ package body rmii_pkg is
       p_cfg => cfg,
       p_protocol_checker => child_protocol_checker(protocol_checker, identity.p_id, cfg)
     );
-  end;
+  end function;
 
-  impure function get_id(source : rmii_source_t) return id_t is
+  impure function get_id (source : rmii_source_t) return id_t is
   begin
     return source.p_id;
-  end;
+  end function;
 
-  impure function get_id(monitor : rmii_monitor_t) return id_t is
+  impure function get_id (monitor : rmii_monitor_t) return id_t is
   begin
     return monitor.p_id;
-  end;
+  end function;
 
-  impure function get_id(protocol_checker : rmii_protocol_checker_t) return id_t is
+  impure function get_id (protocol_checker : rmii_protocol_checker_t) return id_t is
   begin
     return protocol_checker.p_id;
-  end;
+  end function;
 
-  impure function get_logger(source : rmii_source_t) return logger_t is
+  impure function get_logger (source : rmii_source_t) return logger_t is
   begin
     return source.p_logger;
-  end;
+  end function;
 
-  impure function get_logger(monitor : rmii_monitor_t) return logger_t is
+  impure function get_logger (monitor : rmii_monitor_t) return logger_t is
   begin
     return monitor.p_logger;
-  end;
+  end function;
 
-  impure function get_logger(protocol_checker : rmii_protocol_checker_t) return logger_t is
+  impure function get_logger (protocol_checker : rmii_protocol_checker_t) return logger_t is
   begin
     return protocol_checker.p_logger;
-  end;
+  end function;
 
-  impure function get_actor(source : rmii_source_t) return actor_t is
+  impure function get_actor (source : rmii_source_t) return actor_t is
   begin
     return source.p_actor;
-  end;
+  end function;
 
-  impure function get_actor(monitor : rmii_monitor_t) return actor_t is
+  impure function get_actor (monitor : rmii_monitor_t) return actor_t is
   begin
     return monitor.p_actor;
-  end;
+  end function;
 
-  impure function get_actor(protocol_checker : rmii_protocol_checker_t) return actor_t is
+  impure function get_actor (protocol_checker : rmii_protocol_checker_t) return actor_t is
   begin
     return protocol_checker.p_actor;
-  end;
+  end function;
 
-  impure function get_checker(source : rmii_source_t) return checker_t is
+  impure function get_checker (source : rmii_source_t) return checker_t is
   begin
     return source.p_checker;
-  end;
+  end function;
 
-  impure function get_checker(monitor : rmii_monitor_t) return checker_t is
+  impure function get_checker (monitor : rmii_monitor_t) return checker_t is
   begin
     return monitor.p_checker;
-  end;
+  end function;
 
-  impure function get_checker(protocol_checker : rmii_protocol_checker_t) return checker_t is
+  impure function get_checker (protocol_checker : rmii_protocol_checker_t) return checker_t is
   begin
     return protocol_checker.p_checker;
-  end;
+  end function;
 
-  impure function as_sync(source : rmii_source_t) return sync_handle_t is
+  impure function as_sync (source : rmii_source_t) return sync_handle_t is
   begin
     return source.p_actor;
-  end;
+  end function;
 
-  impure function as_sync(monitor : rmii_monitor_t) return sync_handle_t is
+  impure function as_sync (monitor : rmii_monitor_t) return sync_handle_t is
   begin
     return monitor.p_actor;
-  end;
+  end function;
 
-  impure function as_sync(protocol_checker : rmii_protocol_checker_t) return sync_handle_t is
+  impure function as_sync (protocol_checker : rmii_protocol_checker_t) return sync_handle_t is
   begin
     return protocol_checker.p_actor;
-  end;
+  end function;
 
-  impure function as_stream(source : rmii_source_t) return stream_master_t is
+  impure function as_stream (source : rmii_source_t) return stream_master_t is
   begin
     return (p_actor => source.p_actor);
-  end;
+  end function;
 
-  impure function as_stream(monitor : rmii_monitor_t) return stream_slave_t is
+  impure function as_stream (monitor : rmii_monitor_t) return stream_slave_t is
   begin
     return (p_actor => monitor.p_actor);
-  end;
+  end function;
 
-  impure function as_ethernet_source(source : rmii_source_t) return ethernet_source_t is
+  impure function as_ethernet_source (source : rmii_source_t) return ethernet_source_t is
   begin
     return (p_actor => source.p_actor, p_checker => source.p_checker);
-  end;
+  end function;
 
-  impure function as_ethernet_monitor(monitor : rmii_monitor_t) return ethernet_monitor_t is
+  impure function as_ethernet_monitor (monitor : rmii_monitor_t) return ethernet_monitor_t is
   begin
     return (p_actor => monitor.p_actor, p_checker => monitor.p_checker);
-  end;
+  end function;
 
-  impure function as_ethernet_protocol_checker(protocol_checker : rmii_protocol_checker_t)
-    return ethernet_protocol_checker_t is
+  impure function as_ethernet_protocol_checker (
+    protocol_checker : rmii_protocol_checker_t
+  ) return ethernet_protocol_checker_t is
   begin
     return (p_actor => protocol_checker.p_actor, p_checker => protocol_checker.p_checker);
-  end;
+  end function;
 
-  function get_protocol_checker(monitor : rmii_monitor_t) return rmii_protocol_checker_t is
+  function get_protocol_checker (monitor : rmii_monitor_t) return rmii_protocol_checker_t is
   begin
     return monitor.p_protocol_checker;
-  end;
+  end function;
 
-  impure function data_length(source : rmii_source_t) return positive is
+  impure function data_length (source : rmii_source_t) return positive is
   begin
     return cfg_data_length(source.p_cfg);
-  end;
+  end function;
 
-  impure function data_length(monitor : rmii_monitor_t) return positive is
+  impure function data_length (monitor : rmii_monitor_t) return positive is
   begin
     return cfg_data_length(monitor.p_cfg);
-  end;
+  end function;
 
-  impure function data_length(protocol_checker : rmii_protocol_checker_t) return positive is
+  impure function data_length (protocol_checker : rmii_protocol_checker_t) return positive is
   begin
     return cfg_data_length(protocol_checker.p_cfg);
-  end;
+  end function;
 
   procedure push_ethernet_frame(
     signal net : inout network_t;
     source : rmii_source_t;
     data : std_ulogic_vector;
     options : ethernet_frame_options_t := default_frame_options
-  ) is
+  )is
   begin
     push_ethernet_frame(net, as_ethernet_source(source), data, options);
-  end;
+  end procedure;
 
   procedure push_ethernet_frame(
     signal net : inout network_t;
@@ -721,10 +719,18 @@ package body rmii_pkg is
     ethertype : std_ulogic_vector;
     payload : std_ulogic_vector;
     options : ethernet_frame_options_t := default_frame_options
-  ) is
+  )is
   begin
-    push_ethernet_frame(net, as_ethernet_source(source), destination, source_address, ethertype, payload, options);
-  end;
+    push_ethernet_frame(
+      net,
+      as_ethernet_source(source),
+      destination,
+      source_address,
+      ethertype,
+      payload,
+      options
+    );
+  end procedure;
 
   procedure push_ethernet_packet(
     signal net : inout network_t;
@@ -732,10 +738,10 @@ package body rmii_pkg is
     function_name : string;
     arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
-  ) is
+  )is
   begin
     push_ethernet_packet(net, as_ethernet_source(source), function_name, arguments, options);
-  end;
+  end procedure;
 
   procedure push_ethernet_sequence(
     signal net : inout network_t;
@@ -744,19 +750,19 @@ package body rmii_pkg is
     arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
-  ) is
+  )is
   begin
     push_ethernet_sequence(net, as_ethernet_source(source), function_name, arguments, count, seed);
-  end;
+  end procedure;
 
   procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     pop_ethernet_frame(net, as_ethernet_monitor(monitor), reference);
-  end;
+  end procedure;
 
   procedure pop_ethernet_frame(
     signal net : inout network_t;
@@ -764,20 +770,20 @@ package body rmii_pkg is
     variable data : out std_ulogic_vector;
     variable length : out natural;
     variable fcs_ok : out boolean
-  ) is
+  )is
   begin
     pop_ethernet_frame(net, as_ethernet_monitor(monitor), data, length, fcs_ok);
-  end;
+  end procedure;
 
   procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     variable data : out std_ulogic_vector;
     variable length : out natural
-  ) is
+  )is
   begin
     pop_ethernet_frame(net, as_ethernet_monitor(monitor), data, length);
-  end;
+  end procedure;
 
   procedure check_ethernet_frame(
     signal net : inout network_t;
@@ -785,10 +791,10 @@ package body rmii_pkg is
     expected : std_ulogic_vector;
     msg : string := "";
     blocking : boolean := true
-  ) is
+  )is
   begin
     check_ethernet_frame(net, as_ethernet_monitor(monitor), expected, msg, blocking);
-  end;
+  end procedure;
 
   procedure check_ethernet_sequence(
     signal net : inout network_t;
@@ -797,55 +803,62 @@ package body rmii_pkg is
     arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
-  ) is
+  )is
   begin
-    check_ethernet_sequence(net, as_ethernet_monitor(monitor), function_name, arguments, count, seed);
-  end;
+    check_ethernet_sequence(
+      net,
+      as_ethernet_monitor(monitor),
+      function_name,
+      arguments,
+      count,
+      seed
+    );
+  end procedure;
 
   procedure get_statistics(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     get_statistics(net, as_ethernet_monitor(monitor), reference);
-  end;
+  end procedure;
 
   procedure get_statistics(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     variable statistics : out ethernet_statistics_t
-  ) is
+  )is
   begin
     get_statistics(net, as_ethernet_monitor(monitor), statistics);
-  end;
+  end procedure;
 
   procedure get_frame_count(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     get_frame_count(net, as_ethernet_monitor(monitor), reference);
-  end;
+  end procedure;
 
   procedure get_frame_count(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     variable count : out natural
-  ) is
+  )is
   begin
     get_frame_count(net, as_ethernet_monitor(monitor), count);
-  end;
+  end procedure;
 
   procedure log_statistics(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     log_level : log_level_t := info
-  ) is
+  )is
   begin
     log_statistics(net, as_ethernet_monitor(monitor), log_level);
-  end;
+  end procedure;
 
   procedure start_capture(
     signal net : inout network_t;
@@ -853,131 +866,126 @@ package body rmii_pkg is
     file_name : string;
     include_fcs : boolean := true;
     include_errored : boolean := true
-  ) is
+  )is
   begin
     start_capture(net, as_ethernet_monitor(monitor), file_name, include_fcs, include_errored);
-  end;
+  end procedure;
 
-  procedure stop_capture(
-    signal net : inout network_t;
-    monitor : rmii_monitor_t
-  ) is
+  procedure stop_capture(signal net : inout network_t; monitor : rmii_monitor_t)is
   begin
     stop_capture(net, as_ethernet_monitor(monitor));
-  end;
+  end procedure;
 
   procedure set_check_enabled(
     signal net : inout network_t;
     protocol_checker : rmii_protocol_checker_t;
     check : ethernet_check_t;
     enabled : boolean := true
-  ) is
+  )is
   begin
     set_check_enabled(net, as_ethernet_protocol_checker(protocol_checker), check, enabled);
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : rmii_protocol_checker_t;
     check : ethernet_check_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     get_check_count(net, as_ethernet_protocol_checker(protocol_checker), check, reference);
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : rmii_protocol_checker_t;
     check : ethernet_check_t;
     variable count : out natural
-  ) is
+  )is
   begin
     get_check_count(net, as_ethernet_protocol_checker(protocol_checker), check, count);
-  end;
+  end procedure;
 
   -- Fails on the logger of the monitor when it has no protocol checker to forward to
-  impure function has_protocol_checker(monitor : rmii_monitor_t; procedure_name : string) return boolean is
+  impure function has_protocol_checker (
+    monitor : rmii_monitor_t;
+    procedure_name : string
+  ) return boolean is
   begin
     if get_protocol_checker(monitor) = null_rmii_protocol_checker then
       failure(
         get_logger(monitor),
-        procedure_name & " needs a protocol checker, but the monitor has none. Create the monitor with " &
-        "protocol_checker => new_rmii_protocol_checker or default_rmii_protocol_checker"
+        procedure_name
+        & " needs a protocol checker, but the monitor has none. Create the monitor with "
+        & "protocol_checker => new_rmii_protocol_checker or default_rmii_protocol_checker"
       );
       return false;
     end if;
     return true;
-  end;
+  end function;
 
   procedure set_check_enabled(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     check : ethernet_check_t;
     enabled : boolean := true
-  ) is
+  )is
   begin
     if is_monitor_check(check) then
       set_check_enabled(net, as_ethernet_monitor(monitor), check, enabled);
     elsif has_protocol_checker(monitor, "set_check_enabled") then
       set_check_enabled(net, get_protocol_checker(monitor), check, enabled);
     end if;
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     check : ethernet_check_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
     if is_monitor_check(check) then
       get_check_count(net, as_ethernet_monitor(monitor), check, reference);
     elsif has_protocol_checker(monitor, "get_check_count") then
       get_check_count(net, get_protocol_checker(monitor), check, reference);
     end if;
-  end;
+  end procedure;
 
   procedure get_check_count(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     check : ethernet_check_t;
     variable count : out natural
-  ) is
+  )is
   begin
     if is_monitor_check(check) then
       get_check_count(net, as_ethernet_monitor(monitor), check, count);
     elsif has_protocol_checker(monitor, "get_check_count") then
       get_check_count(net, get_protocol_checker(monitor), check, count);
     end if;
-  end;
+  end procedure;
 
-  procedure reset(
-    signal net : inout network_t;
-    source : rmii_source_t
-  ) is
+  procedure reset(signal net : inout network_t; source : rmii_source_t)is
   begin
     reset(net, as_ethernet_source(source));
-  end;
+  end procedure;
 
   procedure reset(
     signal net : inout network_t;
     monitor : rmii_monitor_t;
     clear_statistics : boolean := false
-  ) is
+  )is
   begin
     reset(net, as_ethernet_monitor(monitor), clear_statistics);
-  end;
+  end procedure;
 
-  procedure reset(
-    signal net : inout network_t;
-    protocol_checker : rmii_protocol_checker_t
-  ) is
+  procedure reset(signal net : inout network_t; protocol_checker : rmii_protocol_checker_t)is
   begin
     reset(net, as_ethernet_protocol_checker(protocol_checker));
-  end;
+  end procedure;
 
-  impure function to_ethernet_vc(source : rmii_source_t) return ethernet_vc_t is
+  impure function to_ethernet_vc (source : rmii_source_t) return ethernet_vc_t is
   begin
     return (
       p_kind => source_vc,
@@ -988,9 +996,9 @@ package body rmii_pkg is
       p_unexpected_msg_type_policy => source.p_unexpected_msg_type_policy,
       p_cfg => source.p_cfg
     );
-  end;
+  end function;
 
-  impure function to_ethernet_vc(monitor : rmii_monitor_t) return ethernet_vc_t is
+  impure function to_ethernet_vc (monitor : rmii_monitor_t) return ethernet_vc_t is
   begin
     return (
       p_kind => monitor_vc,
@@ -1001,9 +1009,11 @@ package body rmii_pkg is
       p_unexpected_msg_type_policy => monitor.p_unexpected_msg_type_policy,
       p_cfg => monitor.p_cfg
     );
-  end;
+  end function;
 
-  impure function to_ethernet_vc(protocol_checker : rmii_protocol_checker_t) return ethernet_vc_t is
+  impure function to_ethernet_vc (
+    protocol_checker : rmii_protocol_checker_t
+  ) return ethernet_vc_t is
   begin
     return (
       p_kind => protocol_checker_vc,
@@ -1014,5 +1024,6 @@ package body rmii_pkg is
       p_unexpected_msg_type_policy => protocol_checker.p_unexpected_msg_type_policy,
       p_cfg => protocol_checker.p_cfg
     );
-  end;
+  end function;
+
 end package body;

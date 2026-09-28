@@ -38,6 +38,7 @@ architecture a of rgmii_protocol_checker is
   signal octet : std_ulogic_vector(7 downto 0) := (others => '0');
   signal dv, er : std_ulogic := '0';
 begin
+
   -- Without a delay the line is sampled on clk itself: a copy of clk would
   -- change a delta cycle later and see data that changed on the clock edge
   combine_gen : if get_sample_delay(protocol_checker) = 0 ns generate
@@ -61,4 +62,5 @@ begin
   begin
     monitor_symbol_interface(net, to_ethernet_vc(protocol_checker), symbol_clk, octet, dv, er);
   end process;
+
 end architecture;

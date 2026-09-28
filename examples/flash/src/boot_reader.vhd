@@ -34,6 +34,7 @@ end entity;
 architecture a of boot_reader is
   constant controller : qspi_master_t := new_qspi_master;
 begin
+
   boot : process
     variable data : integer_array_t := null_integer_array;
     variable image_bytes : natural := 0;
@@ -63,4 +64,5 @@ begin
       m2s => m2s,
       s2m => s2m
     );
+
 end architecture;

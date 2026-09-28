@@ -10,12 +10,13 @@ library vunit_lib;
 context vunit_lib.vunit_context;
 
 library awesome_vunit_vcs;
-  use awesome_vunit_vcs.property_pkg.all;
+use awesome_vunit_vcs.property_pkg.all;
 
 entity tb_property_getters is
   generic (
     runner_cfg : string;
-    reads : natural := 50);
+    reads : natural := 50
+  );
 end entity;
 
 architecture tb of tb_property_getters is
@@ -29,7 +30,6 @@ begin
     variable start : time;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     prop := new_property(
       "property_benchmark:fields",
@@ -48,7 +48,12 @@ begin
     end loop;
 
     check_property(prop);
-    info("BENCHMARK getters reads=" & integer'image(reads) & " examples=" & integer'image(get_example_count(prop)));
+    info(
+      "BENCHMARK getters reads="
+      & integer'image(reads)
+      & " examples="
+      & integer'image(get_example_count(prop))
+    );
     test_runner_cleanup(runner);
   end process;
 

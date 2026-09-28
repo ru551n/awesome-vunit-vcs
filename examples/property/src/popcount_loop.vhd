@@ -5,12 +5,12 @@
 -- Counts the set bits of a 16-bit vector with a serial loop and an accumulator.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity popcount_loop is
   port (
-    data_in : in  std_ulogic_vector(15 downto 0);
+    data_in : in std_ulogic_vector(15 downto 0);
     count : out std_ulogic_vector(4 downto 0)
   );
 end entity;
@@ -19,12 +19,11 @@ architecture a of popcount_loop is
 
 begin
 
-  main : process (data_in)
+  main : process(data_in)
 
     variable acc : natural range 0 to 16;
 
   begin
-
     acc := 0;
     for idx in data_in'range loop
 

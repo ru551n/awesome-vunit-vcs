@@ -7,19 +7,20 @@
 
 -- docs-start: libraries
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
 
-  use work.example_records_pkg.all;
+use work.example_records_pkg.all;
 
 -- docs-end: libraries
 
 entity tb_property_examples is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_property_examples is
@@ -59,32 +60,32 @@ begin
         output_path => output_path(runner_cfg),
         search_path => tb_path(runner_cfg) & "python"
       );
-    end;
+    end function;
 
     -- docs-end: new-example-helper
 
     -- docs-start: apply-helper
     -- Put operands on the ALU and let it settle
-    procedure apply (a_value, b_value : natural; subtract_value : std_ulogic := '0') is
+    procedure apply(a_value, b_value : natural; subtract_value : std_ulogic := '0')is
     begin
 
       a <= std_ulogic_vector(to_unsigned(a_value, 8));
       b <= std_ulogic_vector(to_unsigned(b_value, 8));
       subtract <= subtract_value;
       wait for 1 ns;
-    end;
+    end procedure;
 
     -- docs-end: apply-helper
 
     -- docs-start: pulse-helper
     -- Hold a signal high for one clock cycle
-    procedure pulse (signal value : out std_ulogic) is
+    procedure pulse(signal value : out std_ulogic)is
     begin
 
       value <= '1';
       wait until rising_edge(clk);
       value <= '0';
-    end;
+    end procedure;
 
     -- docs-end: pulse-helper
 
@@ -97,11 +98,10 @@ begin
         return "(" & integer'image(idx) & ")";
       end if;
       return "(" & integer'image(idx) & ")." & name;
-    end;
+    end function;
 
   -- docs-end: item-helper
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 
@@ -137,7 +137,9 @@ begin
           for idx in 0 to get_length(prop, "values") - 1 loop
 
             apply(get_integer(prop, "values" & item(idx)), offset);
-            passed := passed and to_integer(unsigned(y)) = get_integer(prop, "values" & item(idx)) + offset;
+            passed := passed
+                      and to_integer(unsigned(y))
+                          = get_integer(prop, "values" & item(idx)) + offset;
           end loop;
 
           report_example(prop, passed => passed);
@@ -199,7 +201,11 @@ begin
 
           pair := get_pair(prop);
           apply(pair.a, pair.b);
-          report_example(prop, passed => to_integer(unsigned(y)) = pair.a + pair.b, msg => to_string(pair));
+          report_example(
+            prop,
+            passed => to_integer(unsigned(y)) = pair.a + pair.b,
+            msg => to_string(pair)
+          );
         end loop;
 
       -- docs-end: generated_record
@@ -258,7 +264,8 @@ begin
 
             address <= std_ulogic_vector(to_unsigned(idx, 3));
             wait for 1 ns;
-            passed := passed and to_integer(unsigned(read_data)) = get_integer(prop, "data" & item(idx));
+            passed := passed
+                      and to_integer(unsigned(read_data)) = get_integer(prop, "data" & item(idx));
           end loop;
 
           report_example(prop, passed => passed);
@@ -281,10 +288,17 @@ begin
                         and to_integer(unsigned(y))
                             = get_integer(prop, item(idx, "a")) + get_integer(prop, item(idx, "b"));
             else
-              apply(get_integer(prop, item(idx, "a")), get_integer(prop, item(idx, "b")), subtract_value => '1');
+              apply(
+                get_integer(prop, item(idx, "a")),
+                get_integer(prop, item(idx, "b")),
+                subtract_value => '1'
+              );
               passed := passed
                         and to_integer(unsigned(y))
-                            = (512 + get_integer(prop, item(idx, "a")) - get_integer(prop, item(idx, "b"))) mod 512;
+                            = (512
+                               + get_integer(prop, item(idx, "a"))
+                               - get_integer(prop, item(idx, "b")))
+                              mod 512;
             end if;
           end loop;
 
@@ -315,7 +329,8 @@ begin
       -- docs-end: expect-strategy-error
       end if;
 
-      if running_test_case /= "test_stateful" and running_test_case /= "test_expect_a_strategy_error" then
+      if running_test_case /= "test_stateful"
+         and running_test_case /= "test_expect_a_strategy_error" then
         check_property(prop);
       end if;
     end loop;

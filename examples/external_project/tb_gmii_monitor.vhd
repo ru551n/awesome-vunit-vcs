@@ -3,7 +3,7 @@
 -- You can obtain one at http://mozilla.org/MPL/2.0/.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
@@ -13,7 +13,8 @@ context awesome_vunit_vcs.ethernet_context;
 -- Python in the testbench.
 entity tb_gmii_monitor is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_gmii_monitor is
@@ -23,7 +24,8 @@ architecture tb of tb_gmii_monitor is
   signal dv, er : std_ulogic;
 
   constant source : gmii_source_t := new_gmii_source;
-  constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+  constant monitor : gmii_monitor_t :=
+    new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
 
   -- Destination and source address, local experimental EtherType, payload
   constant frame : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5" & x"48656C6C6F";
@@ -38,7 +40,6 @@ begin
     variable statistics : ethernet_statistics_t;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop

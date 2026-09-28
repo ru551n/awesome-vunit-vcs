@@ -1,12 +1,12 @@
 name: VHDL style
 
-# Checks the VHDL against the VUnit-derived style in vsg.yaml with vsg-rs
-# (https://github.com/ru551n/vsg-rs). On pull requests, layout findings are posted as
+# Checks the VHDL against the house style in speja.yaml with speja
+# (https://github.com/ru551n/speja, formerly vsg-rs). On pull requests, layout findings are posted as
 # suggested changes and a summary comment; other findings are annotations on the changed
 # lines. To fix them locally:
 #
 #   pip install -e ".[dev]"
-#   vsg-rs $(git ls-files "*.vhd" ":!:tests/python/golden") -c vsg.yaml --fix
+#   speja $(git ls-files "*.vhd" ":!:tests/python/golden") -c speja.yaml --fix
 #
 # Only tracked VHDL is checked, and not the generated tests/python/golden (compared byte
 # for byte). A fresh checkout has no generated VHDL, so directories suffice here; locally,
@@ -26,8 +26,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  vsg:
-    name: vsg-rs
+  speja:
+    name: speja
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -36,6 +36,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ru551n/vsg-rs@v0.9.6
+      - uses: ru551n/speja@v0.14.6
         with:
-          args: --recursive src/awesome_vunit_vcs/vhdl tests/vhdl examples benchmarks -c vsg.yaml
+          args: --recursive src/awesome_vunit_vcs/vhdl tests/vhdl examples benchmarks -c speja.yaml

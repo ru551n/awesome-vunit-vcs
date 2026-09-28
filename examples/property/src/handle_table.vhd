@@ -6,23 +6,24 @@
 -- is full; write, read and release_handle act on a slot by its handle.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity handle_table is
   generic (
     -- A planted bug: release frees the lowest still-live slot instead of the
     -- one named by handle, so a later allocate can hand out a handle that is
     -- still live.
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
   port (
-    clk : in  std_ulogic;
-    rst : in  std_ulogic;
-    allocate : in  std_ulogic;
-    release_handle : in  std_ulogic;
-    write_enable : in  std_ulogic;
-    handle : in  std_ulogic_vector(1 downto 0);
-    write_data : in  std_ulogic_vector(7 downto 0);
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    allocate : in std_ulogic;
+    release_handle : in std_ulogic;
+    write_enable : in std_ulogic;
+    handle : in std_ulogic_vector(1 downto 0);
+    write_data : in std_ulogic_vector(7 downto 0);
     read_data : out std_ulogic_vector(7 downto 0);
     allocated_handle : out std_ulogic_vector(1 downto 0);
     allocated : out std_ulogic
@@ -40,13 +41,12 @@ begin
 
   read_data <= data(to_integer(unsigned(handle)));
 
-  main : process (clk)
+  main : process(clk)
 
     variable idx : natural range 0 to 4;
     variable slot_free : boolean;
 
   begin
-
     if rising_edge(clk) then
       if rst = '1' then
         live <= (others => '0');
@@ -80,7 +80,6 @@ begin
               exit;
             end if;
           end loop;
-
         end if;
         live(idx) <= '0';
         allocated <= '0';

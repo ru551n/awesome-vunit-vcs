@@ -9,8 +9,8 @@
 -- memory here.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.axi4_context;
@@ -18,7 +18,8 @@ context awesome_vunit_vcs.axi4_context;
 entity tb_axi4_memory is
   generic (
     runner_cfg : string;
-    tb_path : string);
+    tb_path : string
+  );
 end entity;
 
 architecture tb of tb_axi4_memory is
@@ -33,7 +34,7 @@ begin
     variable data : integer_array_t;
     variable logger : logger_t;
 
-    procedure test_write_integer (word : integer; expected : integer_vector) is
+    procedure test_write_integer(word : integer; expected : integer_vector)is
     begin
 
       write_integer(memory, 0, word, bytes_per_word => expected'length);
@@ -42,7 +43,7 @@ begin
         check_equal(read_byte(memory, idx), expected(idx));
       end loop;
 
-    end;
+    end procedure;
 
     -- A memory with an id of its own, since every memory has a Python session
     impure function new_memory (
@@ -59,10 +60,9 @@ begin
         endian => endian,
         id => get_id("tb_axi4_memory:" & name)
       );
-    end;
+    end function;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     if run("test_new_memory") then
@@ -112,7 +112,10 @@ begin
     elsif run("test_allocate_at_a_64_bit_address") then
       memory := new_memory("memory");
       buf := allocate(memory, x"0123_4567_89AB_0000", 16, name => "far", permissions => read_only);
-      check_equal(std_ulogic_vector(wide_base_address(buf)), std_ulogic_vector'(x"0123_4567_89AB_0000"));
+      check_equal(
+        std_ulogic_vector(wide_base_address(buf)),
+        std_ulogic_vector'(x"0123_4567_89AB_0000")
+      );
       check_equal(name(buf), "far");
       check_equal(num_bytes(memory), 0, "a buffer at an address does not move the next one");
       check_equal(
@@ -184,9 +187,18 @@ begin
       buf := allocate(memory, 10, name => "buffer_name");
       check_equal(name(buf), "buffer_name");
       check_equal(describe_address(memory, 12), "address 12 at unallocated location");
-      check_equal(describe_address(memory, 1), "address 1 at offset 1 within anonymous buffer at range (0 to 1)");
-      check_equal(describe_address(memory, 2), "address 2 at offset 0 within buffer 'buffer_name' at range (2 to 11)");
-      check_equal(describe_address(memory, 5), "address 5 at offset 3 within buffer 'buffer_name' at range (2 to 11)");
+      check_equal(
+        describe_address(memory, 1),
+        "address 1 at offset 1 within anonymous buffer at range (0 to 1)"
+      );
+      check_equal(
+        describe_address(memory, 2),
+        "address 2 at offset 0 within buffer 'buffer_name' at range (2 to 11)"
+      );
+      check_equal(
+        describe_address(memory, 5),
+        "address 5 at offset 3 within buffer 'buffer_name' at range (2 to 11)"
+      );
 
     elsif run("test_set_expected_byte") then
       memory := new_memory("memory");
@@ -197,7 +209,11 @@ begin
       check_false(has_expected_byte(memory, 1), "address 1 has no expected byte");
       mock(logger);
       write_byte(memory, 0, 255);
-      check_only_log(logger, "Writing to " & describe_address(memory, 0) & ". Got 255 expected 77", error);
+      check_only_log(
+        logger,
+        "Writing to " & describe_address(memory, 0) & ". Got 255 expected 77",
+        error
+      );
       unmock(logger);
 
     elsif run("test_set_expected_word") then
@@ -207,9 +223,17 @@ begin
       set_expected_word(memory, 0, x"3322");
       mock(logger);
       write_byte(memory, 0, 16#33#);
-      check_only_log(logger, "Writing to " & describe_address(memory, 0) & ". Got 51 expected 34", error);
+      check_only_log(
+        logger,
+        "Writing to " & describe_address(memory, 0) & ". Got 51 expected 34",
+        error
+      );
       write_byte(memory, 1, 16#22#);
-      check_only_log(logger, "Writing to " & describe_address(memory, 1) & ". Got 34 expected 51", error);
+      check_only_log(
+        logger,
+        "Writing to " & describe_address(memory, 1) & ". Got 34 expected 51",
+        error
+      );
       unmock(logger);
 
     elsif run("test_set_expected_integer") then
@@ -239,12 +263,24 @@ begin
       mock(logger);
       check_false(expected_was_written(buf));
       check_expected_was_written(buf);
-      check_log(logger, "The " & describe_address(memory, 0) & " was never written with expected byte 77", error);
-      check_only_log(logger, "The " & describe_address(memory, 2) & " was never written with expected byte 66", error);
+      check_log(
+        logger,
+        "The " & describe_address(memory, 0) & " was never written with expected byte 77",
+        error
+      );
+      check_only_log(
+        logger,
+        "The " & describe_address(memory, 2) & " was never written with expected byte 66",
+        error
+      );
       write_byte(memory, 0, 77);
       check_false(expected_was_written(buf));
       check_expected_was_written(buf);
-      check_only_log(logger, "The " & describe_address(memory, 2) & " was never written with expected byte 66", error);
+      check_only_log(
+        logger,
+        "The " & describe_address(memory, 2) & " was never written with expected byte 66",
+        error
+      );
       write_byte(memory, 2, 66);
       check_true(expected_was_written(buf));
       check_true(expected_was_written(memory));

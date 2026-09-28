@@ -24,12 +24,12 @@
 -- may be recorded at the same time (one per lane of a wide interface).
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
+use vunit_lib.integer_array_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
@@ -39,14 +39,21 @@ package vc_python_pkg is
   -- The Python session of a VC, identified by the id of the VC. Two VCs with the same id would
   -- share their Python state, so a second session for an id is a failure on logger, or on the
   -- logger of the id when logger is null_logger.
-  impure function new_vc_session (id : id_t; logger : logger_t := null_logger) return python_session_t;
+  impure function new_vc_session (
+    id : id_t;
+    logger : logger_t := null_logger
+  ) return python_session_t;
 
   -- Import ``class_name`` from ``module_name`` and create the backend, the object ``vc`` of the
   -- session: ``vc = class_name(args)``.
-  procedure create_backend (session : python_session_t; module_name, class_name : string; args : arg_t := null_arg);
+  procedure create_backend(
+    session : python_session_t;
+    module_name, class_name : string;
+    args : arg_t := null_arg
+  );
 
   -- Call ``vc.<method>(args)``, ignoring or returning its result.
-  procedure backend_call (session : python_session_t; method : string; args : arg_t := null_arg);
+  procedure backend_call(session : python_session_t; method : string; args : arg_t := null_arg);
   impure function backend_call_integer (
     session : python_session_t;
     method : string;
@@ -82,13 +89,18 @@ package vc_python_pkg is
 
   -- Carry arguments in a com message, for a VC that calls its backend with
   -- arguments a user gave to a procedure
-  procedure push_arg (msg : msg_t; value : arg_t);
+  procedure push_arg(msg : msg_t; value : arg_t);
   impure function pop_arg (msg : msg_t) return arg_t;
 
   -- Fetch the reports waiting in the backend, ``vc.take_reports(args)``, and
   -- log them: errors as check failures on checker, the others on logger at
   -- their level
-  procedure log_reports (session : python_session_t; logger : logger_t; checker : checker_t; args : arg_t := null_arg);
+  procedure log_reports(
+    session : python_session_t;
+    logger : logger_t;
+    checker : checker_t;
+    args : arg_t := null_arg
+  );
 
   -- The samples a passive VC recorded and has not sent to its backend yet,
   -- created with :vhdl:`vc_python_pkg.new_sample_batch`
@@ -119,13 +131,14 @@ package vc_python_pkg is
   ) return sample_batch_t;
 
   -- Record word at the current simulation time
-  procedure record_sample (variable batch : inout sample_batch_t; word : integer);
+  procedure record_sample(variable batch : inout sample_batch_t; word : integer);
 
   -- Send the recorded samples to the backend and log the reports it has
-  procedure flush_samples (variable batch : inout sample_batch_t);
+  procedure flush_samples(variable batch : inout sample_batch_t);
 
   -- The number of samples recorded and not sent yet
   impure function num_samples (batch : sample_batch_t) return natural;
+
 end package;
 
 package body vc_python_pkg is
@@ -137,8 +150,10 @@ package body vc_python_pkg is
   -- The full names of the ids with a Python session
   constant vc_sessions : dict_t := new_dict;
 
-  impure function new_vc_session (id : id_t; logger : logger_t := null_logger) return python_session_t is
-
+  impure function new_vc_session (
+    id : id_t;
+    logger : logger_t := null_logger
+  ) return python_session_t is
     constant name : string := full_name(id);
   begin
 
@@ -149,27 +164,34 @@ package body vc_python_pkg is
           "Two verification components have the id " & name & " and would share one Python backend"
         );
       else
-        failure(logger, "Two verification components have the id " & name & " and would share one Python backend");
+        failure(
+          logger,
+          "Two verification components have the id " & name & " and would share one Python backend"
+        );
       end if;
     else
       set_string(vc_sessions, name, "");
     end if;
     return new_session(id);
-  end;
+  end function;
 
-  procedure create_backend (session : python_session_t; module_name, class_name : string; args : arg_t := null_arg) is
+  procedure create_backend(
+    session : python_session_t;
+    module_name, class_name : string;
+    args : arg_t := null_arg
+  )is
   begin
 
     -- Module and class are names, not data; the arguments are the bridge's typed call
     exec("from " & module_name & " import " & class_name, session);
     exec("vc = " & to_call_str(class_name, args), session);
-  end;
+  end procedure;
 
-  procedure backend_call (session : python_session_t; method : string; args : arg_t := null_arg) is
+  procedure backend_call(session : python_session_t; method : string; args : arg_t := null_arg)is
   begin
 
     call("vc." & method, args, session => session);
-  end;
+  end procedure;
 
   impure function backend_call_integer (
     session : python_session_t;
@@ -179,7 +201,7 @@ package body vc_python_pkg is
   begin
 
     return call_integer_w_arg("vc." & method, args, session => session);
-  end;
+  end function;
 
   impure function backend_call_boolean (
     session : python_session_t;
@@ -189,7 +211,7 @@ package body vc_python_pkg is
   begin
 
     return call_boolean("vc." & method, args, session => session);
-  end;
+  end function;
 
   impure function backend_call_string (
     session : python_session_t;
@@ -199,7 +221,7 @@ package body vc_python_pkg is
   begin
 
     return call_string("vc." & method, args, session => session);
-  end;
+  end function;
 
   impure function backend_call_integer_array (
     session : python_session_t;
@@ -209,31 +231,29 @@ package body vc_python_pkg is
   begin
 
     return call_integer_array("vc." & method, args, session => session);
-  end;
+  end function;
 
   function time_halves (value : time) return integer_vector is
-
     constant hi : natural := value / time_split;
     constant lo : natural := (value - hi * time_split) / 1 fs;
   begin
 
     return (hi, lo);
-  end;
+  end function;
 
   function arg_time (value : time) return arg_t is
   begin
 
     return arg(time_halves(value));
-  end;
+  end function;
 
   function kwarg_time (name : string; value : time) return arg_t is
   begin
 
     return kwarg(name, time_halves(value));
-  end;
+  end function;
 
   function character_codes (value : string) return integer_vector is
-
     alias normalized : string(1 to value'length) is value;
     variable result : integer_vector(1 to value'length);
   begin
@@ -244,43 +264,41 @@ package body vc_python_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
 
   function arg_text (value : string) return arg_t is
   begin
 
     return arg(character_codes(value));
-  end;
+  end function;
 
   function kwarg_text (name : string; value : string) return arg_t is
   begin
 
     return kwarg(name, character_codes(value));
-  end;
+  end function;
 
-  procedure push_arg (msg : msg_t; value : arg_t) is
+  procedure push_arg(msg : msg_t; value : arg_t)is
   begin
 
     push_string(msg, value.name);
     push_string(msg, value.value);
-  end;
+  end procedure;
 
   impure function pop_arg (msg : msg_t) return arg_t is
-
     constant name : string := pop_string(msg);
     constant value : string := pop_string(msg);
   begin
 
     return (name => name, value => value);
-  end;
+  end function;
 
-  procedure log_reports (
+  procedure log_reports(
     session : python_session_t;
     logger : logger_t;
     checker : checker_t;
     args : arg_t := null_arg
-  ) is
-
+  )is
     constant reports : string := backend_call_string(session, "take_reports", args);
     alias text : string(1 to reports'length) is reports;
     variable first : positive := 1;
@@ -300,19 +318,14 @@ package body vc_python_pkg is
 
         case text(first) is
           when 'E' =>
-
             check_failed(checker, text(first + 2 to last - 1));
           when 'F' =>
-
             failure(logger, text(first + 2 to last - 1));
           when 'W' =>
-
             warning(logger, text(first + 2 to last - 1));
           when 'I' =>
-
             info(logger, text(first + 2 to last - 1));
           when others =>
-
             debug(logger, text(first + 2 to last - 1));
         end case;
 
@@ -322,7 +335,7 @@ package body vc_python_pkg is
       first := last + 1;
     end loop;
 
-  end;
+  end procedure;
 
   impure function new_sample_batch (
     session : python_session_t;
@@ -346,16 +359,15 @@ package body vc_python_pkg is
       p_base_time => 0 fs,
       p_last_time => 0 fs
     );
-  end;
+  end function;
 
   impure function num_samples (batch : sample_batch_t) return natural is
   begin
 
     return length(batch.p_samples) / 2;
-  end;
+  end function;
 
-  procedure record_sample (variable batch : inout sample_batch_t; word : integer) is
-
+  procedure record_sample(variable batch : inout sample_batch_t; word : integer)is
     variable delta : natural;
   begin
 
@@ -378,10 +390,9 @@ package body vc_python_pkg is
     if num_samples(batch) >= batch.p_batch_length then
       flush_samples(batch);
     end if;
-  end;
+  end procedure;
 
-  procedure flush_samples (variable batch : inout sample_batch_t) is
-
+  procedure flush_samples(variable batch : inout sample_batch_t)is
     variable num_reports : natural;
   begin
 
@@ -399,6 +410,6 @@ package body vc_python_pkg is
     if num_reports > 0 then
       log_reports(batch.p_session, batch.p_logger, batch.p_checker);
     end if;
-  end;
+  end procedure;
 
 end package body;

@@ -18,12 +18,14 @@ entity tb_axi4_benchmark is
     data_length : positive := 32;
     num_bursts : positive := 5000;
     with_monitor : boolean := true;
-    with_protocol_checker : boolean := false);
+    with_protocol_checker : boolean := false
+  );
 end entity;
 
 architecture tb of tb_axi4_benchmark is
 
-  constant axi4_bus : axi4_bus_t := new_axi4_bus(data_length => data_length, address_length => 32, id_length => 4);
+  constant axi4_bus : axi4_bus_t :=
+    new_axi4_bus(data_length => data_length, address_length => 32, id_length => 4);
 
   impure function checker return axi4_protocol_checker_t is
   begin
@@ -32,7 +34,7 @@ architecture tb of tb_axi4_benchmark is
       return new_axi4_protocol_checker;
     end if;
     return null_axi4_protocol_checker;
-  end;
+  end function;
 
   constant monitor : axi4_monitor_t := new_axi4_monitor(axi4_bus, protocol_checker => checker);
 
@@ -80,14 +82,13 @@ begin
         rlast => rlast
       );
 
-  end generate monitor_gen;
+  end generate;
 
   main : process
 
     variable statistics : axi4_statistics_t;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     wait until rising_edge(aclk);
     for burst in 0 to num_bursts - 1 loop
@@ -131,7 +132,14 @@ begin
       check_equal(statistics.write_transactions, num_bursts, "writes");
       check_equal(statistics.read_transactions, num_bursts, "reads");
     end if;
-    info("BENCHMARK " & config_name & " beats=" & to_string(2 * num_bursts * beats) & " sim=" & to_string(now));
+    info(
+      "BENCHMARK "
+      & config_name
+      & " beats="
+      & to_string(2 * num_bursts * beats)
+      & " sim="
+      & to_string(now)
+    );
     test_runner_cleanup(runner);
   end process;
 

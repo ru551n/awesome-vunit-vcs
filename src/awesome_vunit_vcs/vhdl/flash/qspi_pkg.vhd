@@ -33,8 +33,8 @@
 -- a qspi_side_t saying which end is driving.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 package qspi_pkg is
 
@@ -139,7 +139,11 @@ package qspi_pkg is
 
   -- The lanes of a bus value that carry a phase of the given width driven by
   -- the given side, normalized to (lanes-1 downto 0).
-  function qspi_sample_beat (io : qspi_io_t; lanes : lane_count_t; driver : qspi_side_t) return std_ulogic_vector;
+  function qspi_sample_beat (
+    io : qspi_io_t;
+    lanes : lane_count_t;
+    driver : qspi_side_t
+  ) return std_ulogic_vector;
 
   ---------------------------------------------------------------------------
   -- Byte conversion
@@ -150,12 +154,12 @@ package qspi_pkg is
   -- The unsigned value of a vector. Every element other than '1' counts as
   -- '0', so check for metavalues before converting.
   function qspi_to_natural (data : std_ulogic_vector) return natural;
+
 end package;
 
 package body qspi_pkg is
 
   function qspi_io_value (m2s : qspi_m2s_t; s2m : qspi_s2m_t) return qspi_io_t is
-
     variable result : qspi_io_t := (others => 'Z');
   begin
 
@@ -172,13 +176,13 @@ package body qspi_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
 
   function qspi_is_valid_lane_count (lanes : lane_count_t) return boolean is
   begin
 
     return lanes = 1 or lanes = 2 or lanes = 4;
-  end;
+  end function;
 
   function qspi_beats_per_byte (lanes : lane_count_t) return positive is
   begin
@@ -188,7 +192,7 @@ package body qspi_pkg is
       severity failure;
 
     return 8 / lanes;
-  end;
+  end function;
 
   function qspi_lane_base (lanes : lane_count_t; driver : qspi_side_t) return natural is
   begin
@@ -202,10 +206,9 @@ package body qspi_pkg is
     end if;
 
     return qspi_mosi_lane;
-  end;
+  end function;
 
   function qspi_lane_mask (lanes : lane_count_t; driver : qspi_side_t) return qspi_io_t is
-
     constant base : natural := qspi_lane_base(lanes, driver);
     variable result : qspi_io_t := (others => '0');
   begin
@@ -213,23 +216,26 @@ package body qspi_pkg is
     result(base + lanes - 1 downto base) := (others => '1');
 
     return result;
-  end;
+  end function;
 
   function qspi_byte_beat (
     data : std_ulogic_vector(7 downto 0);
     lanes : lane_count_t;
     beat : natural
   ) return std_ulogic_vector is
-
     constant high : natural := 7 - beat * lanes;
   begin
 
     assert beat < qspi_beats_per_byte(lanes)
-      report "QSPI beat " & integer'image(beat) & " out of range for " & integer'image(lanes) & " lanes"
+      report "QSPI beat "
+             & integer'image(beat)
+             & " out of range for "
+             & integer'image(lanes)
+             & " lanes"
       severity failure;
 
     return data(high downto high - lanes + 1);
-  end;
+  end function;
 
   function qspi_byte_insert (
     data : std_ulogic_vector(7 downto 0);
@@ -237,22 +243,28 @@ package body qspi_pkg is
     beat : natural;
     value : std_ulogic_vector
   ) return std_ulogic_vector is
-
     constant high : natural := 7 - beat * lanes;
     variable result : std_ulogic_vector(7 downto 0) := data;
   begin
 
     assert beat < qspi_beats_per_byte(lanes)
-      report "QSPI beat " & integer'image(beat) & " out of range for " & integer'image(lanes) & " lanes"
+      report "QSPI beat "
+             & integer'image(beat)
+             & " out of range for "
+             & integer'image(lanes)
+             & " lanes"
       severity failure;
     assert value'length = lanes
-      report "QSPI beat value is " & integer'image(value'length) & " bits, expected " & integer'image(lanes)
+      report "QSPI beat value is "
+             & integer'image(value'length)
+             & " bits, expected "
+             & integer'image(lanes)
       severity failure;
 
     result(high downto high - lanes + 1) := value;
 
     return result;
-  end;
+  end function;
 
   function qspi_drive_beat (
     data : std_ulogic_vector(7 downto 0);
@@ -260,7 +272,6 @@ package body qspi_pkg is
     beat : natural;
     driver : qspi_side_t
   ) return qspi_drive_t is
-
     constant base : natural := qspi_lane_base(lanes, driver);
     variable result : qspi_drive_t := qspi_drive_init;
   begin
@@ -269,10 +280,13 @@ package body qspi_pkg is
     result.enable := qspi_lane_mask(lanes, driver);
 
     return result;
-  end;
+  end function;
 
-  function qspi_sample_beat (io : qspi_io_t; lanes : lane_count_t; driver : qspi_side_t) return std_ulogic_vector is
-
+  function qspi_sample_beat (
+    io : qspi_io_t;
+    lanes : lane_count_t;
+    driver : qspi_side_t
+  ) return std_ulogic_vector is
     constant base : natural := qspi_lane_base(lanes, driver);
     variable result : std_ulogic_vector(lanes - 1 downto 0);
   begin
@@ -280,7 +294,7 @@ package body qspi_pkg is
     result := io(base + lanes - 1 downto base);
 
     return result;
-  end;
+  end function;
 
   function qspi_to_byte (value : natural) return std_ulogic_vector is
   begin
@@ -290,13 +304,12 @@ package body qspi_pkg is
       severity failure;
 
     return std_ulogic_vector(to_unsigned(value, 8));
-  end;
+  end function;
 
   -- Weak values map to '0' rather than blowing up in numeric_std: a VC that
   -- samples an undriven wire should report that through its own checker, with
   -- a message naming the phase, not through a cryptic conversion error.
   function qspi_to_natural (data : std_ulogic_vector) return natural is
-
     variable normalized : std_ulogic_vector(data'length - 1 downto 0) := data;
     variable result : natural := 0;
   begin
@@ -310,6 +323,6 @@ package body qspi_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
 
 end package body;

@@ -15,25 +15,26 @@
 -- testbench; pins follows the bus. SDA changes t_hd_dat after SCL falls.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.i2c_pkg.all;
-  use work.i2c_target_pkg.all;
-  use work.vc_python_pkg.all;
+use work.i2c_pkg.all;
+use work.i2c_target_pkg.all;
+use work.vc_python_pkg.all;
 
 entity i2c_target is
   generic (
     -- Created with :vhdl:`i2c_target_pkg.new_i2c_target`
-    target : i2c_target_t);
+    target : i2c_target_t
+  );
   port (
     -- The clock line: released 'Z', or driven '0' to stretch the clock
     scl : inout std_logic := 'Z';
@@ -65,16 +66,15 @@ begin
     variable values : integer_array_t;
     variable reset_number : natural;
 
-    procedure log_waiting (count : natural) is
+    procedure log_waiting(count : natural)is
     begin
 
       if count > 0 then
         log_reports(session, logger, checker);
       end if;
-    end;
+    end procedure;
 
     impure function pop_bytes return integer_vector is
-
       constant count : natural := pop(msg);
       variable result : integer_vector(0 to count - 1);
     begin
@@ -85,11 +85,15 @@ begin
       end loop;
 
       return result;
-    end;
+    end function;
 
   begin
-
-    create_backend(session, "awesome_vunit_vcs.i2c.vunit_backend", "I2cTargetBackend", backend_arguments(target));
+    create_backend(
+      session,
+      "awesome_vunit_vcs.i2c.vunit_backend",
+      "I2cTargetBackend",
+      backend_arguments(target)
+    );
     backend_call(session, "set_arguments", model_arguments(target));
     log_waiting(backend_call_integer(session, "create_device", arg_text(model(target))));
     initialized <= true;
@@ -113,7 +117,11 @@ begin
       elsif msg_type = check_i2c_target_memory_msg then
         address := pop(msg);
         log_waiting(
-          backend_call_integer(session, "check_memory", arg(pop_bytes) & arg(address) & arg_text(pop_string(msg)))
+          backend_call_integer(
+            session,
+            "check_memory",
+            arg(pop_bytes) & arg(address) & arg_text(pop_string(msg))
+          )
         );
       elsif msg_type = read_i2c_target_memory_msg then
         address := pop(msg);
@@ -172,16 +180,15 @@ begin
         return 'Z';
       end if;
       return '0';
-    end;
+    end function;
 
     function bit_of (value : natural; idx : natural) return boolean is
     begin
 
       return (value / 2 ** idx) mod 2 = 1;
-    end;
+    end function;
 
-    procedure take (directive : integer_array_t) is
-
+    procedure take(directive : integer_array_t)is
       variable local : integer_array_t := directive;
     begin
 
@@ -193,7 +200,7 @@ begin
         log_reports(session, logger, checker);
       end if;
       deallocate(local);
-    end;
+    end procedure;
 
     -- The acknowledge bit ended: start the next byte
     procedure next_byte is
@@ -211,10 +218,9 @@ begin
         sda <= 'Z' after t_hd_dat(target);
         state := idle;
       end if;
-    end;
+    end procedure;
 
   begin
-
     if not initialized then
       wait until initialized;
     end if;
@@ -232,7 +238,11 @@ begin
         scl <= 'Z';
         state := idle;
         reset_done <= reset_count;
-      elsif cur_scl = '1' and prev_scl = '1' and cur_sda /= prev_sda and cur_sda /= 'X' and prev_sda /= 'X' then
+      elsif cur_scl = '1'
+            and prev_scl = '1'
+            and cur_sda /= prev_sda
+            and cur_sda /= 'X'
+            and prev_sda /= 'X' then
         -- SDA changed while SCL is high: a START or a STOP
         sda <= 'Z';
         if cur_sda = '0' then
@@ -260,7 +270,9 @@ begin
             take(backend_call_integer_array(session, "received", arg(byte) & arg_time(now)));
           end if;
         elsif state = transmitting and bit_count = 9 then
-          take(backend_call_integer_array(session, "transmitted", arg(cur_sda = '0') & arg_time(now)));
+          take(
+            backend_call_integer_array(session, "transmitted", arg(cur_sda = '0') & arg_time(now))
+          );
         end if;
       elsif prev_scl = '1' and cur_scl = '0' and state /= idle then
         if state = receiving and bit_count = 8 then

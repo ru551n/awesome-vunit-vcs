@@ -7,8 +7,8 @@
 -- python/resources_strategies.py.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
@@ -16,7 +16,8 @@ context awesome_vunit_vcs.property_context;
 entity tb_property_resources is
   generic (
     runner_cfg : string;
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
 end entity;
 
 architecture tb of tb_property_resources is
@@ -39,16 +40,15 @@ begin
     variable prop : property_t;
 
     -- Hold a signal high for one clock cycle
-    procedure pulse (signal value : out std_ulogic) is
+    procedure pulse(signal value : out std_ulogic)is
     begin
 
       value <= '1';
       wait until rising_edge(clk);
       value <= '0';
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 

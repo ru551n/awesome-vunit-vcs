@@ -16,7 +16,8 @@ entity tb_i2c_benchmark is
     config_name : string;
     num_reads : positive := 16;
     with_target : boolean := true;
-    with_monitor : boolean := false);
+    with_monitor : boolean := false
+  );
 end entity;
 
 architecture tb of tb_i2c_benchmark is
@@ -32,7 +33,6 @@ architecture tb of tb_i2c_benchmark is
 
   -- The operations of the read: every byte acknowledged but the last
   function read_ops return string is
-
     variable result : string(1 to 7 + 2 * (num_bytes - 1) + 5);
   begin
 
@@ -44,7 +44,7 @@ architecture tb of tb_i2c_benchmark is
 
     result(result'high - 4 to result'high) := "RN P ";
     return result;
-  end;
+  end function;
 
 begin
 
@@ -70,7 +70,7 @@ begin
         sda => sda
       );
 
-  end generate target_gen;
+  end generate;
 
   monitor_gen : if with_monitor generate
     monitor_inst : entity awesome_vunit_vcs.i2c_monitor
@@ -82,14 +82,13 @@ begin
         sda => sda
       );
 
-  end generate monitor_gen;
+  end generate;
 
   main : process
 
     variable result : i2c_result_t;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     for idx in 1 to num_reads loop
 
@@ -99,7 +98,14 @@ begin
       deallocate(result.acks);
     end loop;
 
-    info("BENCHMARK " & config_name & " bytes=" & to_string(num_reads * num_bytes) & " sim=" & to_string(now));
+    info(
+      "BENCHMARK "
+      & config_name
+      & " bytes="
+      & to_string(num_reads * num_bytes)
+      & " sim="
+      & to_string(now)
+    );
     test_runner_cleanup(runner);
   end process;
 

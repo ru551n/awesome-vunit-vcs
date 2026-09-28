@@ -21,7 +21,8 @@ context awesome_vunit_vcs.property_context;
 entity tb_property_cdc is
   generic (
     runner_cfg : string;
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
 end entity;
 
 -- docs-end: cdc-generic
@@ -44,7 +45,6 @@ begin
   -- from a signal set for each example; stopped cleanly between examples
   src_clk_gen : process
   begin
-
     loop
 
       wait until clk_enable;
@@ -61,7 +61,6 @@ begin
 
   dst_clk_gen : process
   begin
-
     loop
 
       wait until clk_enable;
@@ -80,9 +79,8 @@ begin
   -- docs-end: cdc-clocks
 
   -- Count destination events; cleared by the destination-domain reset
-  count_gen : process (dst_clk)
+  count_gen : process(dst_clk)
   begin
-
     if rising_edge(dst_clk) then
       if dst_rst = '1' then
         dst_count <= 0;
@@ -110,10 +108,9 @@ begin
       src_event <= '1';
       wait until rising_edge(src_clk);
       src_event <= '0';
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 

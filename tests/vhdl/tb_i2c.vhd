@@ -11,22 +11,28 @@ context awesome_vunit_vcs.i2c_context;
 
 entity tb_i2c is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_i2c is
 
-  constant master : i2c_master_t := new_i2c_master(speed => i2c_fast_mode, id => get_id("tb_i2c:master"));
-  constant other_master : i2c_master_t := new_i2c_master(speed => i2c_fast_mode, id => get_id("tb_i2c:other_master"));
-  constant registers : i2c_target_t := new_i2c_target(address => 16#50#, id => get_id("tb_i2c:registers"));
+  constant master : i2c_master_t :=
+    new_i2c_master(speed => i2c_fast_mode, id => get_id("tb_i2c:master"));
+  constant other_master : i2c_master_t :=
+    new_i2c_master(speed => i2c_fast_mode, id => get_id("tb_i2c:other_master"));
+  constant registers : i2c_target_t :=
+    new_i2c_target(address => 16#50#, id => get_id("tb_i2c:registers"));
   -- A 24C04: 512 bytes in two blocks at 0x54 and 0x55, 16-byte pages
   constant eeprom : i2c_target_t := new_i2c_target(
     address => 16#54#,
     model => "eeprom",
-    model_args => kwarg("size_bytes", 512) & kwarg("page_bytes", 16) & kwarg_time("t_wr_fs", 100 us),
+    model_args =>
+      kwarg("size_bytes", 512) & kwarg("page_bytes", 16) & kwarg_time("t_wr_fs", 100 us),
     id => get_id("tb_i2c:eeprom")
   );
-  constant smbus : i2c_target_t := new_i2c_target(address => 16#60#, pec => true, id => get_id("tb_i2c:smbus"));
+  constant smbus : i2c_target_t :=
+    new_i2c_target(address => 16#60#, pec => true, id => get_id("tb_i2c:smbus"));
   constant broadcast : i2c_target_t :=
     new_i2c_target(address => 16#20#, general_call => true, id => get_id("tb_i2c:broadcast"));
   constant doubler : i2c_target_t := new_i2c_target(
@@ -144,10 +150,9 @@ begin
         check_equal(count, 0, "violations of " & i2c_check_t'image(item));
       end loop;
 
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
@@ -173,7 +178,11 @@ begin
         i2c_target_check_memory(net, eeprom, 16#10#, x"FF", "nothing written beyond the page");
         -- A random read: a write of the address, then a read after a repeated START
         i2c_write_read(net, master, 16#54#, x"0F", data);
-        check_equal(data, std_ulogic_vector'(x"02FF"), "a sequential read crosses the page boundary");
+        check_equal(
+          data,
+          std_ulogic_vector'(x"02FF"),
+          "a sequential read crosses the page boundary"
+        );
         -- The second block answers at 0x55
         i2c_write(net, master, 16#55#, x"0077");
         wait_until_idle(net, as_sync(master));
@@ -191,7 +200,11 @@ begin
         disable_stop(get_logger(get_checker(smbus)), error);
         i2c_transfer(net, master, "S 0xC0 0x05 0x11 0x00 P", result);
         wait_until_idle(net, as_sync(smbus));
-        check_equal(get_log_count(get_logger(get_checker(smbus)), error), 1, "a wrong PEC is a check failure");
+        check_equal(
+          get_log_count(get_logger(get_checker(smbus)), error),
+          1,
+          "a wrong PEC is a check failure"
+        );
         reset_log_count(get_logger(get_checker(smbus)), error);
         i2c_target_check_memory(net, smbus, 5, x"AB", "the write with the wrong PEC is dropped");
         i2c_transfer(net, master, "S 0xC0 0x05 0x11 0xBB P", result);
@@ -224,7 +237,10 @@ begin
         await_i2c_transfer_reply(net, reference, result);
         await_i2c_transfer_reply(net, other_reference, other_result);
         check(result.status = i2c_ok, "the winner");
-        check(other_result.status = i2c_arbitration_lost, "the loser " & i2c_status_t'image(other_result.status));
+        check(
+          other_result.status = i2c_arbitration_lost,
+          "the loser " & i2c_status_t'image(other_result.status)
+        );
         i2c_target_check_memory(net, registers, 0, x"42");
         i2c_target_check_memory(net, smbus, 5, x"00", "the loser wrote nothing");
         pop_i2c_transfer(net, monitor, transfer);
@@ -243,8 +259,20 @@ begin
       elsif run("test_general_call") then
         i2c_write(net, master, 0, x"0612");
         wait_until_idle(net, as_sync(master));
-        i2c_target_check_memory(net, broadcast, 6, x"12", "the general call reaches the target that answers it");
-        i2c_target_check_memory(net, registers, 6, x"00", "a target without general call ignores it");
+        i2c_target_check_memory(
+          net,
+          broadcast,
+          6,
+          x"12",
+          "the general call reaches the target that answers it"
+        );
+        i2c_target_check_memory(
+          net,
+          registers,
+          6,
+          x"00",
+          "a target without general call ignores it"
+        );
         check_no_violations;
 
       elsif run("test_python_device_model") then
@@ -264,7 +292,10 @@ begin
         check_false(transfer.stopped, "the first transfer has no STOP");
         deallocate(transfer.data);
         pop_i2c_transfer(net, monitor, transfer);
-        check(transfer.repeated_start and transfer.stopped, "the second starts with a repeated START");
+        check(
+          transfer.repeated_start and transfer.stopped,
+          "the second starts with a repeated START"
+        );
         deallocate(transfer.data);
         check_no_violations;
 
@@ -289,4 +320,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 50 ms);
+
 end architecture;

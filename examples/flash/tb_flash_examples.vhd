@@ -16,7 +16,8 @@ context awesome_vunit_vcs.flash_context;
 
 entity tb_flash_examples is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_flash_examples is
@@ -42,8 +43,10 @@ architecture tb of tb_flash_examples is
   -- docs-start: timing-handles
   -- A master that keeps CS high for one 20 ns clock period between commands, and
   -- a flash whose protocol checker requires 30 ns (t_shsl)
-  constant hasty_master : qspi_master_t := new_qspi_master(sck_period => 20 ns, cs_deselect_time => 5 ns);
-  constant checked_flash : flash_t := new_flash(protocol_checker => new_qspi_protocol_checker(t_shsl => 30 ns));
+  constant hasty_master : qspi_master_t :=
+    new_qspi_master(sck_period => 20 ns, cs_deselect_time => 5 ns);
+  constant checked_flash : flash_t :=
+    new_flash(protocol_checker => new_qspi_protocol_checker(t_shsl => 30 ns));
   signal hasty_m2s : qspi_m2s_t := qspi_m2s_init;
   signal hasty_s2m : qspi_s2m_t := qspi_s2m_init;
   -- docs-end: timing-handles
@@ -80,7 +83,6 @@ begin
 
   -- docs-end: variables
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 

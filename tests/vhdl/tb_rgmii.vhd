@@ -8,16 +8,16 @@
 -- expecting violations counts them on both monitors.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library osvvm;
-  use osvvm.randompkg.randomptype;
+use osvvm.randompkg.randomptype;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
@@ -26,7 +26,8 @@ entity tb_rgmii is
   generic (
     runner_cfg : string;
     link_rate_mbps : positive := 1000;
-    edge_aligned : boolean := false);
+    edge_aligned : boolean := false
+  );
 end entity;
 
 architecture tb of tb_rgmii is
@@ -39,7 +40,7 @@ architecture tb of tb_rgmii is
       return 8 ns;
     end if;
     return 4000 ns / link_rate_mbps;
-  end;
+  end function;
 
   function data_timing return rgmii_data_timing_t is
   begin
@@ -48,7 +49,7 @@ architecture tb of tb_rgmii is
       return rgmii_edge_aligned;
     end if;
     return rgmii_centered;
-  end;
+  end function;
 
   constant clk_period : time := clock_period;
   constant gigabit : boolean := link_rate_mbps = 1000;
@@ -60,7 +61,8 @@ architecture tb of tb_rgmii is
   signal data : std_ulogic_vector(3 downto 0);
   signal ctl : std_ulogic;
 
-  constant source : rgmii_source_t := new_rgmii_source(link_rate_mbps => link_rate_mbps, data_timing => data_timing);
+  constant source : rgmii_source_t :=
+    new_rgmii_source(link_rate_mbps => link_rate_mbps, data_timing => data_timing);
   constant monitor : rgmii_monitor_t := new_rgmii_monitor(
     link_rate_mbps => link_rate_mbps,
     data_timing => data_timing,
@@ -103,8 +105,8 @@ begin
     -- Below 1000 Mbit/s RGMII realigns nibbles on the SFD like MII, which expected_violations does not predict
     constant traffic_function : string := "awesome_vunit_vcs.ethernet.traffic:random_traffic";
     impure function traffic_arguments return arg_t is
-
-      constant common : string := "bad_fcs,short_preamble,long_preamble,runt,giant,phy_error,short_ifg";
+      constant common : string
+        := "bad_fcs,short_preamble,long_preamble,runt,giant,phy_error,short_ifg";
     begin
 
       if gigabit then
@@ -117,21 +119,22 @@ begin
              & kwarg("malformations", common)
              & kwarg("malformed_fraction", 0.3)
              & kwarg("interface", "rgmii");
-    end;
+    end function;
 
     impure function frame_data (octets : positive; seed : natural := 0) return std_ulogic_vector is
-
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
 
       for idx in 0 to octets - 1 loop
 
-        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(to_unsigned((7 * idx + seed) mod 256, 8));
+        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(
+          to_unsigned((7 * idx + seed) mod 256, 8)
+        );
       end loop;
 
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
-    end;
+    end function;
 
     procedure wait_until_idle is
     begin
@@ -143,9 +146,9 @@ begin
         wait_until_idle(net, as_sync(get_protocol_checker(monitors(idx))));
       end loop;
 
-    end;
+    end procedure;
 
-    procedure push_checked_frame (frame : std_ulogic_vector; ifg_octets : natural := 12) is
+    procedure push_checked_frame(frame : std_ulogic_vector; ifg_octets : natural := 12)is
     begin
 
       for idx in monitors'range loop
@@ -154,10 +157,9 @@ begin
       end loop;
 
       push_ethernet_frame(net, source, frame, frame_options(ifg_octets => ifg_octets));
-    end;
+    end procedure;
 
-    procedure check_violations (check : ethernet_check_t; expected : natural) is
-
+    procedure check_violations(check : ethernet_check_t; expected : natural)is
       variable violations : natural;
     begin
 
@@ -178,7 +180,7 @@ begin
         reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
       end loop;
 
-    end;
+    end procedure;
 
     -- Wait for a sampling edge like the monitors: on clk for centered data, a
     -- copy of clk would change a delta cycle later and see data that changed on
@@ -191,7 +193,7 @@ begin
       else
         wait until rising_edge(clk);
       end if;
-    end;
+    end procedure;
 
     procedure wait_for_falling_sample is
     begin
@@ -201,7 +203,7 @@ begin
       else
         wait until falling_edge(clk);
       end if;
-    end;
+    end procedure;
 
     procedure wait_for_frame is
     begin
@@ -212,10 +214,10 @@ begin
         exit when ctl = '1';
       end loop;
 
-    end;
+    end procedure;
 
     -- The symbol of one clock cycle, sampled on both edges
-    procedure sample_symbol (variable symbol : out symbol_t) is
+    procedure sample_symbol(variable symbol : out symbol_t)is
     begin
 
       symbol.rising_data := to_integer(unsigned(data));
@@ -224,10 +226,9 @@ begin
       symbol.falling_data := to_integer(unsigned(data));
       symbol.falling_ctl := ctl;
       wait_for_rising_sample;
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
 
@@ -248,16 +249,32 @@ begin
 
         for idx in symbols'range loop
 
-          check_equal(symbols(idx).rising_ctl, '1', "Valid on the rising edge of symbol " & to_string(idx));
-          check_equal(symbols(idx).falling_ctl, '1', "Valid xor error on the falling edge of symbol " & to_string(idx));
+          check_equal(
+            symbols(idx).rising_ctl,
+            '1',
+            "Valid on the rising edge of symbol " & to_string(idx)
+          );
+          check_equal(
+            symbols(idx).falling_ctl,
+            '1',
+            "Valid xor error on the falling edge of symbol " & to_string(idx)
+          );
         end loop;
 
         if gigabit then
           -- An octet per clock cycle: the lower bits on the rising and the upper bits on the falling edge
           for idx in 0 to 6 loop
 
-            check_equal(symbols(idx).rising_data, 16#5#, "Rising edge of preamble octet " & to_string(idx));
-            check_equal(symbols(idx).falling_data, 16#5#, "Falling edge of preamble octet " & to_string(idx));
+            check_equal(
+              symbols(idx).rising_data,
+              16#5#,
+              "Rising edge of preamble octet " & to_string(idx)
+            );
+            check_equal(
+              symbols(idx).falling_data,
+              16#5#,
+              "Falling edge of preamble octet " & to_string(idx)
+            );
           end loop;
 
           check_equal(symbols(7).rising_data, 16#5#, "Rising edge of the SFD");
@@ -358,7 +375,13 @@ begin
           );
         end loop;
 
-        push_ethernet_sequence(net, source, traffic_function, traffic_arguments, seed => get_string_seed(runner_cfg));
+        push_ethernet_sequence(
+          net,
+          source,
+          traffic_function,
+          traffic_arguments,
+          seed => get_string_seed(runner_cfg)
+        );
         wait_until_idle;
         for idx in monitors'range loop
 
@@ -383,7 +406,10 @@ begin
             total := total + count;
           end loop;
 
-          check(total > 0, "The sequence has malformed frames, seed " & get_string_seed(runner_cfg));
+          check(
+            total > 0,
+            "The sequence has malformed frames, seed " & get_string_seed(runner_cfg)
+          );
           check_equal(get_log_count(get_logger(get_protocol_checker(monitors(idx))), error), total);
           reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
           check_equal(
@@ -396,7 +422,10 @@ begin
       elsif run("test_randomized_traffic") then
         for idx in 1 to 50 loop
 
-          push_checked_frame(frame_data(rnd.RandInt(60, 1514), seed => idx), ifg_octets => rnd.RandInt(12, 40));
+          push_checked_frame(
+            frame_data(rnd.RandInt(60, 1514), seed => idx),
+            ifg_octets => rnd.RandInt(12, 40)
+          );
         end loop;
 
         wait_until_idle;

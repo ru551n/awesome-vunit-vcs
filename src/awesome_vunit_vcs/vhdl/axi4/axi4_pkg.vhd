@@ -13,18 +13,18 @@
 -- awesome_vunit_vcs/axi4/bus.py.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.vc_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.vc_python_pkg.all;
+use work.vc_python_pkg.all;
 
 package axi4_pkg is
 
@@ -155,12 +155,17 @@ package axi4_pkg is
   end record;
 
   -- Private. A sampler before the first edge
-  constant new_axi4_sampler : axi4_sampler_t :=
-    (p_previous_valid => "00000", p_previous_resetn => '1', p_started => false, p_last_edge => 0 fs, p_period => 0 fs);
+  constant new_axi4_sampler : axi4_sampler_t := (
+    p_previous_valid => "00000",
+    p_previous_resetn => '1',
+    p_started => false,
+    p_last_edge => 0 fs,
+    p_period => 0 fs
+  );
 
   -- Private. At a rising edge of ACLK: record the clock period when it
   -- changed and ARESETn when it changed
-  procedure record_axi4_clock (
+  procedure record_axi4_clock(
     variable batch : inout sample_batch_t;
     variable sampler : inout axi4_sampler_t;
     aresetn : std_ulogic
@@ -169,7 +174,7 @@ package axi4_pkg is
   -- Private. At a rising edge of ACLK: record a channel when VALID is 1 or
   -- changed, or VALID or READY is a metavalue. ``payload`` holds the fields
   -- of the channel, the first field in the rightmost bits.
-  procedure record_axi4_channel (
+  procedure record_axi4_channel(
     variable batch : inout sample_batch_t;
     variable sampler : inout axi4_sampler_t;
     channel : axi4_channel_t;
@@ -179,7 +184,7 @@ package axi4_pkg is
   );
 
   -- Private. A tick record, for a backend that must learn the time
-  procedure record_axi4_tick (variable batch : inout sample_batch_t; aresetn : std_ulogic);
+  procedure record_axi4_tick(variable batch : inout sample_batch_t; aresetn : std_ulogic);
 
   -- Private. One bit per byte lane of data, rightmost lane first: 1 for a
   -- lane with a metavalue
@@ -203,11 +208,12 @@ package axi4_pkg is
   -- Private. A message type no handler took: a check failure ``Got unexpected
   -- message <name>`` on checker unless policy is ignore or the message was
   -- already handled, like vc_pkg.unexpected_msg_type of VUnit
-  procedure axi4_unexpected_msg_type (
+  procedure axi4_unexpected_msg_type(
     msg_type : msg_type_t;
     policy : unexpected_msg_type_policy_t;
     checker : checker_t
   );
+
 end package;
 
 package body axi4_pkg is
@@ -225,7 +231,6 @@ package body axi4_pkg is
     ruser_length : natural := 0;
     lite : boolean := false
   ) return axi4_bus_t is
-
     variable width : natural := 8;
   begin
 
@@ -235,7 +240,9 @@ package body axi4_pkg is
     end loop;
 
     assert width = data_length and data_length <= 1024
-      report "The AXI4 data length " & integer'image(data_length) & " is not a power of 2 from 8 to 1024"
+      report "The AXI4 data length "
+             & integer'image(data_length)
+             & " is not a power of 2 from 8 to 1024"
       severity failure;
     assert not lite or data_length = 32 or data_length = 64
       report "AXI4-Lite has a data length of 32 or 64, not " & integer'image(data_length)
@@ -257,70 +264,69 @@ package body axi4_pkg is
       p_ruser_length => ruser_length,
       p_lite => lite
     );
-  end;
+  end function;
 
   function data_length (axi4_bus : axi4_bus_t) return natural is
   begin
 
     return axi4_bus.p_data_length;
-  end;
+  end function;
 
   function address_length (axi4_bus : axi4_bus_t) return natural is
   begin
 
     return axi4_bus.p_address_length;
-  end;
+  end function;
 
   function id_length (axi4_bus : axi4_bus_t) return natural is
   begin
 
     return axi4_bus.p_id_length;
-  end;
+  end function;
 
   function awuser_length (axi4_bus : axi4_bus_t) return natural is
   begin
 
     return axi4_bus.p_awuser_length;
-  end;
+  end function;
 
   function wuser_length (axi4_bus : axi4_bus_t) return natural is
   begin
 
     return axi4_bus.p_wuser_length;
-  end;
+  end function;
 
   function buser_length (axi4_bus : axi4_bus_t) return natural is
   begin
 
     return axi4_bus.p_buser_length;
-  end;
+  end function;
 
   function aruser_length (axi4_bus : axi4_bus_t) return natural is
   begin
 
     return axi4_bus.p_aruser_length;
-  end;
+  end function;
 
   function ruser_length (axi4_bus : axi4_bus_t) return natural is
   begin
 
     return axi4_bus.p_ruser_length;
-  end;
+  end function;
 
   function byte_lanes (axi4_bus : axi4_bus_t) return natural is
   begin
 
     return axi4_bus.p_data_length / 8;
-  end;
+  end function;
 
   function is_lite (axi4_bus : axi4_bus_t) return boolean is
   begin
 
     return axi4_bus.p_lite;
-  end;
+  end function;
 
   function full_size (axi4_bus : axi4_bus_t) return std_ulogic_vector is
-
     variable size : natural := 0;
   begin
 
@@ -330,7 +336,7 @@ package body axi4_pkg is
     end loop;
 
     return std_ulogic_vector(to_unsigned(size, 3));
-  end;
+  end function;
 
   function header (
     kind : natural;
@@ -338,7 +344,6 @@ package body axi4_pkg is
     payload_metavalue : boolean;
     control : natural
   ) return natural is
-
     variable result : natural := kind + 1024 * control;
   begin
 
@@ -364,13 +369,13 @@ package body axi4_pkg is
       result := result + 512;
     end if;
     return result;
-  end;
+  end function;
 
-  procedure record_axi4_clock (
+  procedure record_axi4_clock(
     variable batch : inout sample_batch_t;
     variable sampler : inout axi4_sampler_t;
     aresetn : std_ulogic
-  ) is
+  )is
   begin
 
     if sampler.p_started and now - sampler.p_last_edge /= sampler.p_period then
@@ -384,29 +389,31 @@ package body axi4_pkg is
       record_sample(batch, header(control_kind, '0', '0', aresetn, false, 0));
       sampler.p_previous_resetn := to_x01(aresetn);
     end if;
-  end;
+  end procedure;
 
-  procedure record_axi4_tick (variable batch : inout sample_batch_t; aresetn : std_ulogic) is
+  procedure record_axi4_tick(variable batch : inout sample_batch_t; aresetn : std_ulogic)is
   begin
 
     record_sample(batch, header(control_kind, '0', '0', aresetn, false, 2));
-  end;
+  end procedure;
 
-  procedure record_axi4_channel (
+  procedure record_axi4_channel(
     variable batch : inout sample_batch_t;
     variable sampler : inout axi4_sampler_t;
     channel : axi4_channel_t;
     valid, ready, aresetn : std_ulogic;
     payload_metavalue : boolean;
     payload : std_ulogic_vector
-  ) is
-
+  )is
     constant code : natural := axi4_channel_t'pos(channel);
     alias bits : std_ulogic_vector(payload'length - 1 downto 0) is payload;
     variable word : std_ulogic_vector(31 downto 0);
   begin
 
-    if to_x01(valid) = '1' or to_x01(valid) /= sampler.p_previous_valid(code) or is_x(valid) or is_x(ready) then
+    if to_x01(valid) = '1'
+       or to_x01(valid) /= sampler.p_previous_valid(code)
+       or is_x(valid)
+       or is_x(ready) then
       record_sample(batch, header(code, valid, ready, aresetn, payload_metavalue, 0));
       for word_idx in 0 to (bits'length + 31) / 32 - 1 loop
 
@@ -421,13 +428,11 @@ package body axi4_pkg is
 
         record_sample(batch, to_integer(signed(word)));
       end loop;
-
     end if;
     sampler.p_previous_valid(code) := to_x01(valid);
-  end;
+  end procedure;
 
   function lane_metavalues (data : std_ulogic_vector) return std_ulogic_vector is
-
     alias bits : std_ulogic_vector(data'length - 1 downto 0) is data;
     variable result : std_ulogic_vector(data'length / 8 - 1 downto 0) := (others => '0');
   begin
@@ -440,7 +445,7 @@ package body axi4_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
 
   impure function backend_bus_arguments (axi4_bus : axi4_bus_t) return arg_t is
   begin
@@ -454,13 +459,13 @@ package body axi4_pkg is
            & kwarg("aruser_width", axi4_bus.p_aruser_length)
            & kwarg("ruser_width", axi4_bus.p_ruser_length)
            & kwarg("lite", axi4_bus.p_lite);
-  end;
+  end function;
 
   function axi4_time (hi, lo : natural) return time is
   begin
 
     return hi * 1073741824 fs + lo * 1 fs;
-  end;
+  end function;
 
   impure function new_axi4_actor (id : id_t) return actor_t is
   begin
@@ -470,13 +475,13 @@ package body axi4_pkg is
       return new_actor;
     end if;
     return new_actor(id);
-  end;
+  end function;
 
-  procedure axi4_unexpected_msg_type (
+  procedure axi4_unexpected_msg_type(
     msg_type : msg_type_t;
     policy : unexpected_msg_type_policy_t;
     checker : checker_t
-  ) is
+  )is
   begin
 
     if is_already_handled(msg_type) or policy = ignore then
@@ -484,6 +489,6 @@ package body axi4_pkg is
     else
       check_failed(checker, "Got unexpected message " & name(msg_type));
     end if;
-  end;
+  end procedure;
 
 end package body;

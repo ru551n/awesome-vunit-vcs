@@ -10,19 +10,19 @@
 -- protocol checkers.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
 library osvvm;
-  use osvvm.randompkg.randomptype;
+use osvvm.randompkg.randomptype;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
@@ -32,7 +32,8 @@ entity tb_xgmii is
     runner_cfg : string;
     lanes : positive := 4;
     both_edges : boolean := false;
-    link_rate_mbps : positive := 10000);
+    link_rate_mbps : positive := 10000
+  );
 end entity;
 
 architecture tb of tb_xgmii is
@@ -93,37 +94,41 @@ begin
     begin
 
       return kwarg("count", 60)
-             & kwarg("malformations", "bad_fcs,short_preamble,long_preamble,bad_sfd,runt,giant,phy_error,short_ifg")
+             & kwarg(
+               "malformations",
+               "bad_fcs,short_preamble,long_preamble,bad_sfd,runt,giant,phy_error,short_ifg"
+             )
              & kwarg("malformed_fraction", 0.3)
              & kwarg("interface", "xgmii");
-    end;
+    end function;
 
     variable statistics : ethernet_statistics_t;
 
     -- Frame data from the destination address up to the FCS: addresses, the
     -- local experimental EtherType and a counting payload
     impure function frame_data (octets : positive; seed : natural := 0) return std_ulogic_vector is
-
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
 
       for idx in 0 to octets - 1 loop
 
-        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(to_unsigned((7 * idx + seed) mod 256, 8));
+        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(
+          to_unsigned((7 * idx + seed) mod 256, 8)
+        );
       end loop;
 
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
-    end;
+    end function;
 
     -- Lanes of a frame of 64 zero octets, which has no valid FCS: Idle up to
     -- start_lane, Start, the rest of the preamble, the SFD, the frame,
     -- Terminate when terminate, then Idle to the end of the column and for one
     -- more column
     impure function raw_frame (start_lane : natural; terminate : boolean) return lane_vec_t is
-
       constant octets : positive := start_lane + 8 + 64 + boolean'pos(terminate);
-      variable result : lane_vec_t(0 to (octets + lanes - 1) / lanes * lanes + lanes - 1) := (others => idle_lane);
+      variable result : lane_vec_t(0 to (octets + lanes - 1) / lanes * lanes + lanes - 1) :=
+        (others => idle_lane);
     begin
 
       result(start_lane) := (x"FB", '1');
@@ -142,10 +147,9 @@ begin
         result(start_lane + 72) := (x"FD", '1');
       end if;
       return result;
-    end;
+    end function;
 
-    procedure send_lanes (value : lane_vec_t) is
-
+    procedure send_lanes(value : lane_vec_t)is
       alias normalized : lane_vec_t(0 to value'length - 1) is value;
       variable column_data : std_ulogic_vector(0 to 8 * value'length - 1);
       variable column_control : std_ulogic_vector(0 to value'length - 1);
@@ -158,7 +162,7 @@ begin
       end loop;
 
       push_xgmii_columns(net, source, column_data, column_control);
-    end;
+    end procedure;
 
     procedure wait_until_idle is
     begin
@@ -170,10 +174,10 @@ begin
         wait_until_idle(net, as_sync(get_protocol_checker(monitors(idx))));
       end loop;
 
-    end;
+    end procedure;
 
     -- Push a frame both monitors check that they receive unchanged
-    procedure push_checked_frame (frame : std_ulogic_vector; ifg_octets : natural := 12) is
+    procedure push_checked_frame(frame : std_ulogic_vector; ifg_octets : natural := 12)is
     begin
 
       for idx in monitors'range loop
@@ -182,11 +186,10 @@ begin
       end loop;
 
       push_ethernet_frame(net, source, frame, frame_options(ifg_octets => ifg_octets));
-    end;
+    end procedure;
 
     -- Check that each monitor found expected violations of check
-    procedure check_violation_count (check : ethernet_check_t; expected : natural) is
-
+    procedure check_violation_count(check : ethernet_check_t; expected : natural)is
       variable violations : natural;
     begin
 
@@ -201,11 +204,11 @@ begin
         );
       end loop;
 
-    end;
+    end procedure;
 
     -- Check that each protocol checker logged expected errors since the last
     -- check, and the monitors none
-    procedure check_error_count (expected : natural) is
+    procedure check_error_count(expected : natural)is
     begin
 
       wait_until_idle;
@@ -224,10 +227,9 @@ begin
         );
       end loop;
 
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
 
@@ -294,7 +296,10 @@ begin
         check_violation_count(eth_ifg, 0);
         check_error_count(0);
         get_statistics(net, monitor, statistics);
-        check(statistics.min_ifg_octets >= 5, "Minimum IFG " & to_string(statistics.min_ifg_octets));
+        check(
+          statistics.min_ifg_octets >= 5,
+          "Minimum IFG " & to_string(statistics.min_ifg_octets)
+        );
 
       elsif run("test_short_ifg") then
         -- 8 preamble octets and 68 frame octets end on the last lane of a
@@ -350,7 +355,13 @@ begin
           );
         end loop;
 
-        push_ethernet_sequence(net, source, traffic_function, traffic_arguments, seed => get_string_seed(runner_cfg));
+        push_ethernet_sequence(
+          net,
+          source,
+          traffic_function,
+          traffic_arguments,
+          seed => get_string_seed(runner_cfg)
+        );
         wait_until_idle;
         for idx in monitors'range loop
 
@@ -375,7 +386,10 @@ begin
             total := total + count;
           end loop;
 
-          check(total > 0, "The sequence has malformed frames, seed " & get_string_seed(runner_cfg));
+          check(
+            total > 0,
+            "The sequence has malformed frames, seed " & get_string_seed(runner_cfg)
+          );
           check_equal(get_log_count(get_logger(get_protocol_checker(monitors(idx))), error), total);
           reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
           check_equal(
@@ -389,7 +403,10 @@ begin
         -- The deficit idle count shortens a gap by up to lanes - 1 octets
         for idx in 1 to 100 loop
 
-          push_checked_frame(frame_data(rnd.RandInt(60, 1514), seed => idx), ifg_octets => rnd.RandInt(12, 40));
+          push_checked_frame(
+            frame_data(rnd.RandInt(60, 1514), seed => idx),
+            ifg_octets => rnd.RandInt(12, 40)
+          );
         end loop;
 
         check_error_count(0);

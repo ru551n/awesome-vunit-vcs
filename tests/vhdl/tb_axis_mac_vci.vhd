@@ -10,26 +10,27 @@
 -- tb_axi_stream of VUnit.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.stream_master_pkg.all;
-  use vunit_lib.stream_slave_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.stream_master_pkg.all;
+use vunit_lib.stream_slave_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
-  use awesome_vunit_vcs.vc_python_pkg.all;
+use awesome_vunit_vcs.vc_python_pkg.all;
 
 entity tb_axis_mac_vci is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_axis_mac_vci is
@@ -57,11 +58,13 @@ architecture tb of tb_axis_mac_vci is
 
   constant sink : axis_mac_sink_t := new_axis_mac_sink(ready_high_percent => 50, seed => 3);
   constant second_sink : axis_mac_sink_t := new_axis_mac_sink;
-  constant ignoring_sink : axis_mac_sink_t := new_axis_mac_sink(unexpected_msg_type_policy => ignore);
+  constant ignoring_sink : axis_mac_sink_t :=
+    new_axis_mac_sink(unexpected_msg_type_policy => ignore);
 
   constant source : axis_mac_source_t := new_axis_mac_source;
   constant second_source : axis_mac_source_t := new_axis_mac_source;
-  constant ignoring_source : axis_mac_source_t := new_axis_mac_source(unexpected_msg_type_policy => ignore);
+  constant ignoring_source : axis_mac_source_t :=
+    new_axis_mac_source(unexpected_msg_type_policy => ignore);
 
   constant monitor : axis_mac_monitor_t := new_axis_mac_monitor(
     protocol_checker => default_axis_mac_protocol_checker,
@@ -69,7 +72,8 @@ architecture tb of tb_axis_mac_vci is
   );
   constant default_monitor : axis_mac_monitor_t := new_axis_mac_monitor;
   constant second_default_monitor : axis_mac_monitor_t := new_axis_mac_monitor;
-  constant ignoring_monitor : axis_mac_monitor_t := new_axis_mac_monitor(unexpected_msg_type_policy => ignore);
+  constant ignoring_monitor : axis_mac_monitor_t :=
+    new_axis_mac_monitor(unexpected_msg_type_policy => ignore);
 
   constant protocol_checker : axis_mac_protocol_checker_t := new_axis_mac_protocol_checker;
   constant second_protocol_checker : axis_mac_protocol_checker_t := new_axis_mac_protocol_checker;
@@ -79,8 +83,12 @@ architecture tb of tb_axis_mac_vci is
   type axis_mac_protocol_checker_vec_t is array (natural range <>) of axis_mac_protocol_checker_t;
 
   -- Every protocol checker observing the line
-  constant protocol_checkers : axis_mac_protocol_checker_vec_t :=
-    (get_protocol_checker(monitor), protocol_checker, second_protocol_checker, ignoring_protocol_checker);
+  constant protocol_checkers : axis_mac_protocol_checker_vec_t := (
+    get_protocol_checker(monitor),
+    protocol_checker,
+    second_protocol_checker,
+    ignoring_protocol_checker
+  );
 
   constant unknown_msg_type : msg_type_t := new_msg_type("unknown msg");
   constant subscriber : actor_t := new_actor("tb_axis_mac_vci:subscriber");
@@ -112,7 +120,6 @@ begin
 
     -- Frame data from the destination address up to the FCS
     impure function frame_data (octets : positive) return std_ulogic_vector is
-
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
 
@@ -123,7 +130,7 @@ begin
 
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
-    end;
+    end function;
 
     procedure wait_until_idle is
     begin
@@ -136,21 +143,22 @@ begin
         wait_until_idle(net, as_sync(protocol_checkers(idx)));
       end loop;
 
-    end;
+    end procedure;
 
     impure function starts_with (value, prefix : string) return boolean is
     begin
 
-      return value'length >= prefix'length and value(value'left to value'left + prefix'length - 1) = prefix;
-    end;
+      return value'length >= prefix'length
+             and value(value'left to value'left + prefix'length - 1) = prefix;
+    end function;
 
-    procedure check_default_identity (
+    procedure check_default_identity(
       id : id_t;
       logger : logger_t;
       actor : actor_t;
       checker : checker_t;
       vc_name : string
-    ) is
+    )is
     begin
 
       check(
@@ -160,10 +168,13 @@ begin
       check_equal(get_full_name(logger), full_name(id), "Logger of " & vc_name);
       check(find(id, enable_deferred_creation => false) = actor, "Actor of " & vc_name);
       check(get_logger(checker) = logger, "Checker of " & vc_name);
-    end;
+    end procedure;
 
-    procedure check_unexpected_message (actor : actor_t; logger : logger_t; expect_failure : boolean) is
-
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
 
@@ -177,19 +188,18 @@ begin
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
 
-    procedure check_wait_for_time (actor : actor_t) is
+    procedure check_wait_for_time(actor : actor_t)is
     begin
 
       start := now;
       wait_for_time(net, actor, 37 * clk_period);
       wait_until_idle(net, actor);
       check_equal(now - start, 37 * clk_period, "wait_for_time of " & name(actor));
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
@@ -219,7 +229,13 @@ begin
         check(get_id(source) /= get_id(second_source));
         check(get_id(default_monitor) /= get_id(second_default_monitor));
         check(get_id(protocol_checker) /= get_id(second_protocol_checker));
-        check_default_identity(get_id(sink), get_logger(sink), get_actor(sink), get_checker(sink), "axis_mac_sink");
+        check_default_identity(
+          get_id(sink),
+          get_logger(sink),
+          get_actor(sink),
+          get_checker(sink),
+          "axis_mac_sink"
+        );
         check(get_id(sink) /= get_id(second_sink));
 
       elsif run("test_explicit_id_names_logger_actor_and_checker") then
@@ -229,19 +245,28 @@ begin
         check(get_logger(get_checker(monitor)) = get_logger(monitor));
 
       elsif run("test_protocol_checker_is_a_child_of_its_monitor") then
-        check_equal(full_name(get_id(get_protocol_checker(monitor))), "tb_axis_mac_vci:monitor:protocol_checker");
+        check_equal(
+          full_name(get_id(get_protocol_checker(monitor))),
+          "tb_axis_mac_vci:monitor:protocol_checker"
+        );
         check_equal(
           get_full_name(get_logger(get_protocol_checker(monitor))),
           "tb_axis_mac_vci:monitor:protocol_checker"
         );
-        check(get_id(get_actor(get_protocol_checker(monitor))) = get_id(get_protocol_checker(monitor)));
+        check(
+          get_id(get_actor(get_protocol_checker(monitor))) = get_id(get_protocol_checker(monitor))
+        );
         check(get_protocol_checker(default_monitor) = null_axis_mac_protocol_checker);
 
       elsif run("test_explicit_logger_actor_and_checker_are_kept") then
         custom_logger := get_logger("tb_axis_mac_vci:custom");
         custom_actor := new_actor("tb_axis_mac_vci:custom actor");
         custom_checker := new_checker("tb_axis_mac_vci:custom checker");
-        custom_source := new_axis_mac_source(logger => custom_logger, actor => custom_actor, checker => custom_checker);
+        custom_source := new_axis_mac_source(
+          logger => custom_logger,
+          actor => custom_actor,
+          checker => custom_checker
+        );
         check(get_logger(custom_source) = custom_logger);
         check(get_actor(custom_source) = custom_actor);
         check(get_checker(custom_source) = custom_checker);
@@ -258,11 +283,15 @@ begin
 
       elsif run("test_default_instances_have_independent_backends") then
         exec("vc.tb_marker = 'first'", new_session(get_id(default_monitor)));
-        check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_default_monitor))));
+        check_false(
+          eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_default_monitor)))
+        );
         exec("vc.tb_marker = 'first'", new_session(get_id(source)));
         check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_source))));
         exec("vc.tb_marker = 'first'", new_session(get_id(protocol_checker)));
-        check_false(eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_protocol_checker))));
+        check_false(
+          eval_boolean("hasattr(vc, 'tb_marker')", new_session(get_id(second_protocol_checker)))
+        );
 
       elsif run("test_monitor_forwards_check_calls_to_its_protocol_checker") then
         set_check_enabled(net, monitor, eth_fcs, false);
@@ -296,7 +325,10 @@ begin
         -- eth_scoreboard and eth_user belong to the monitor and need no protocol checker
         set_check_enabled(net, default_monitor, eth_user, false);
         get_check_count(net, default_monitor, eth_user, count);
-        exec("vc.error('ETH_USER', 'not counted while disabled')", new_session(get_id(default_monitor)));
+        exec(
+          "vc.error('ETH_USER', 'not counted while disabled')",
+          new_session(get_id(default_monitor))
+        );
         get_check_count(net, default_monitor, eth_user, count);
         check_equal(count, 0, "eth_user while disabled");
         set_check_enabled(net, default_monitor, eth_user);
@@ -305,19 +337,39 @@ begin
 
       elsif run("test_unexpected_message_is_a_check_failure") then
         check_unexpected_message(get_actor(source), get_logger(source), expect_failure => true);
-        check_unexpected_message(get_actor(default_monitor), get_logger(default_monitor), expect_failure => true);
-        check_unexpected_message(get_actor(protocol_checker), get_logger(protocol_checker), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_monitor),
+          get_logger(default_monitor),
+          expect_failure => true
+        );
+        check_unexpected_message(
+          get_actor(protocol_checker),
+          get_logger(protocol_checker),
+          expect_failure => true
+        );
         check_unexpected_message(get_actor(sink), get_logger(sink), expect_failure => true);
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_source), get_logger(ignoring_source), expect_failure => false);
-        check_unexpected_message(get_actor(ignoring_monitor), get_logger(ignoring_monitor), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_source),
+          get_logger(ignoring_source),
+          expect_failure => false
+        );
+        check_unexpected_message(
+          get_actor(ignoring_monitor),
+          get_logger(ignoring_monitor),
+          expect_failure => false
+        );
         check_unexpected_message(
           get_actor(ignoring_protocol_checker),
           get_logger(ignoring_protocol_checker),
           expect_failure => false
         );
-        check_unexpected_message(get_actor(ignoring_sink), get_logger(ignoring_sink), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_sink),
+          get_logger(ignoring_sink),
+          expect_failure => false
+        );
 
       elsif run("test_wait_for_time") then
         check_wait_for_time(as_sync(source));
@@ -330,7 +382,12 @@ begin
         pop_stream(net, as_stream(default_monitor), stream_reference);
         for idx in 0 to 59 loop
 
-          push_stream(net, as_stream(source), frame_data(60)(8 * idx to 8 * idx + 7), last => idx = 59);
+          push_stream(
+            net,
+            as_stream(source),
+            frame_data(60)(8 * idx to 8 * idx + 7),
+            last => idx = 59
+          );
         end loop;
 
         await_pop_stream_reply(net, stream_reference, octet, last);
@@ -347,7 +404,11 @@ begin
         mock(get_logger(source), error);
         push_stream(net, as_stream(source), std_logic_vector'("0101010"), last => true);
         wait_until_idle(net, as_sync(source));
-        check_only_log(get_logger(source), "push_stream data of an Ethernet source is one octet, got 7 bits", error);
+        check_only_log(
+          get_logger(source),
+          "push_stream data of an Ethernet source is one octet, got 7 bits",
+          error
+        );
         unmock(get_logger(source));
 
       elsif run("test_push_stream_without_last") then
@@ -358,7 +419,11 @@ begin
 
         mock(get_logger(source), error);
         wait_until_idle(net, as_sync(source));
-        check_only_log(get_logger(source), "3 octets were pushed with push_stream without last", error);
+        check_only_log(
+          get_logger(source),
+          "3 octets were pushed with push_stream without last",
+          error
+        );
         unmock(get_logger(source));
 
       elsif run("test_monitor_publishes_frames") then
@@ -515,7 +580,6 @@ begin
           wait until rising_edge(clk);
           check_equal(sink_tready, '1', "tready with a pattern of 100 %");
         end loop;
-
       end if;
     end loop;
 

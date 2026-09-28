@@ -13,12 +13,14 @@ context awesome_vunit_vcs.axi4_context;
 
 entity tb_axi4_bursts is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_axi4_bursts is
 
-  constant axi4_bus : axi4_bus_t := new_axi4_bus(data_length => 32, address_length => 32, id_length => 4);
+  constant axi4_bus : axi4_bus_t :=
+    new_axi4_bus(data_length => 32, address_length => 32, id_length => 4);
   constant monitor : axi4_monitor_t := new_axi4_monitor(
     axi4_bus,
     protocol_checker => new_axi4_protocol_checker,
@@ -165,7 +167,6 @@ begin
 
   count_stalls : process
   begin
-
     wait until rising_edge(aclk);
     stalls(0) <= stalls(0) + 1 when awvalid = '1' and awready = '0' else
                  stalls(0);
@@ -189,7 +190,13 @@ begin
     variable latency : natural;
     variable min_latency, max_latency : natural;
 
-    procedure aw (id : natural; addr : natural; len : natural; size : natural; burst : axi_burst_type_t) is
+    procedure aw(
+      id : natural;
+      addr : natural;
+      len : natural;
+      size : natural;
+      burst : axi_burst_type_t
+    )is
     begin
 
       awvalid <= '1';
@@ -200,9 +207,9 @@ begin
       awburst <= burst;
       wait until rising_edge(aclk) and awready = '1';
       awvalid <= '0';
-    end;
+    end procedure;
 
-    procedure w (data : word_array_t; strb : strb_array_t) is
+    procedure w(data : word_array_t; strb : strb_array_t)is
     begin
 
       for idx in data'range loop
@@ -216,7 +223,7 @@ begin
       end loop;
 
       wvalid <= '0';
-    end;
+    end procedure;
 
     procedure b is
     begin
@@ -224,9 +231,15 @@ begin
       bready <= '1';
       wait until rising_edge(aclk) and bvalid = '1';
       bready <= '0';
-    end;
+    end procedure;
 
-    procedure ar (id : natural; addr : natural; len : natural; size : natural; burst : axi_burst_type_t) is
+    procedure ar(
+      id : natural;
+      addr : natural;
+      len : natural;
+      size : natural;
+      burst : axi_burst_type_t
+    )is
     begin
 
       arvalid <= '1';
@@ -237,11 +250,10 @@ begin
       arburst <= burst;
       wait until rising_edge(aclk) and arready = '1';
       arvalid <= '0';
-    end;
+    end procedure;
 
     -- Read beats until RLAST, into read_words
     procedure r is
-
       variable idx : natural := 0;
     begin
 
@@ -255,16 +267,15 @@ begin
       end loop;
 
       rready <= '0';
-    end;
+    end procedure;
 
-    procedure pop_and_check (
+    procedure pop_and_check(
       is_write : boolean;
       id : natural;
       address : natural;
       expected : std_ulogic_vector;
       what : string
-    ) is
-
+    )is
       alias bytes : std_ulogic_vector(0 to expected'length - 1) is expected;
     begin
 
@@ -286,10 +297,9 @@ begin
 
       deallocate(transaction.data);
       deallocate(transaction.strobe);
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     buffer_ref := allocate(memory, 16#10000#, permissions => read_and_write);
     wait until rising_edge(aclk);
@@ -331,7 +341,11 @@ begin
         pop_and_check(false, 6, 16#2000#, x"0000AABBCCDDEEFF00110000", "read back");
         pop_and_check(false, 7, 16#4000#, x"0300000003000000", "FIXED read");
         wait_until_idle(net, as_sync(monitor));
-        check_equal(get_log_count(get_logger(monitor), error), 0, "the reads match the shadow memory");
+        check_equal(
+          get_log_count(get_logger(monitor), error),
+          0,
+          "the reads match the shadow memory"
+        );
 
       elsif run("test_outstanding_ids_and_measured_latencies") then
         ar(1, 16#100#, 1, 2, axi_burst_type_incr);
@@ -358,8 +372,16 @@ begin
         check_equal(statistics.read_bytes, 28, "read bytes");
         check_equal(statistics.max_outstanding_reads, 3, "three reads outstanding");
         check_equal(statistics.write_transactions, 4, "writes");
-        check_equal(statistics.min_write_latency, min_latency, "the latency the testbench measured");
-        check_equal(statistics.max_write_latency, max_latency, "the latency the testbench measured");
+        check_equal(
+          statistics.min_write_latency,
+          min_latency,
+          "the latency the testbench measured"
+        );
+        check_equal(
+          statistics.max_write_latency,
+          max_latency,
+          "the latency the testbench measured"
+        );
         pop_axi4_transaction(net, monitor, transaction);
         check_equal(transaction.id, 1, "the first read");
         check_equal(transaction.len, 1, "its ARLEN");
@@ -401,7 +423,11 @@ begin
         ar(0, 16#500#, 0, 2, axi_burst_type_incr);
         r;
         wait_until_idle(net, as_sync(monitor));
-        check_equal(get_log_count(get_logger(monitor), error), 1, "the read differs from the shadow memory");
+        check_equal(
+          get_log_count(get_logger(monitor), error),
+          1,
+          "the read differs from the shadow memory"
+        );
         reset_log_count(get_logger(monitor), error);
       end if;
     end loop;
@@ -410,4 +436,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 1 ms);
+
 end architecture;

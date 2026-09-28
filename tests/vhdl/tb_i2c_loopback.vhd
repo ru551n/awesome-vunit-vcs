@@ -13,14 +13,16 @@ entity tb_i2c_loopback is
   generic (
     runner_cfg : string;
     -- i2c_speed_t'pos of the speed mode
-    speed_mode : natural := 0);
+    speed_mode : natural := 0
+  );
 end entity;
 
 architecture tb of tb_i2c_loopback is
 
   constant speed_value : i2c_speed_t := i2c_speed_t'val(speed_mode);
   constant master : i2c_master_t := new_i2c_master(speed => speed_value);
-  constant registers : i2c_target_t := new_i2c_target(address => 16#50#, model_args => kwarg("size_bytes", 64));
+  constant registers : i2c_target_t :=
+    new_i2c_target(address => 16#50#, model_args => kwarg("size_bytes", 64));
   constant ten_bit_registers : i2c_target_t := new_i2c_target(address => 16#2A5#, ten_bit => true);
   constant monitor : i2c_monitor_t :=
     new_i2c_monitor(protocol_checker => new_i2c_protocol_checker(speed => speed_value));
@@ -88,10 +90,9 @@ begin
         check_equal(count, 0, "violations of " & i2c_check_t'image(item));
       end loop;
 
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
@@ -102,7 +103,11 @@ begin
         check_equal(data, std_ulogic_vector'(x"A1B2C3"), "read back");
         i2c_target_check_memory(net, registers, 16#10#, x"A1B2C3");
         i2c_read(net, master, 16#50#, data(23 downto 16));
-        check_equal(data(23 downto 16), std_ulogic_vector'(x"00"), "the register after the last one read");
+        check_equal(
+          data(23 downto 16),
+          std_ulogic_vector'(x"00"),
+          "the register after the last one read"
+        );
         check_no_violations;
 
       elsif run("test_monitor_sees_the_transfers") then
@@ -147,7 +152,10 @@ begin
         check_equal(data(7 downto 0), std_ulogic_vector'(x"77"), "10-bit read");
         i2c_target_check_memory(net, registers, 3, x"00", "the 7-bit target at 0x50 saw nothing");
         pop_i2c_transfer(net, monitor, transfer);
-        check(transfer.ten_bit and transfer.address = 16#2A5#, "the monitor decodes the 10-bit address");
+        check(
+          transfer.ten_bit and transfer.address = 16#2A5#,
+          "the monitor decodes the 10-bit address"
+        );
         deallocate(transfer.data);
         check_no_violations;
 
@@ -158,7 +166,10 @@ begin
         check_equal(data(15 downto 0), std_ulogic_vector'(x"CAFE"), "read back while stretching");
         get_i2c_statistics(net, monitor, statistics);
         -- Stretched before every acknowledge bit of the target: 3 + 2 bytes
-        check(statistics.stretch_time >= 5 * 29 us, "stretch time " & to_string(statistics.stretch_time));
+        check(
+          statistics.stretch_time >= 5 * 29 us,
+          "stretch time " & to_string(statistics.stretch_time)
+        );
         check_no_violations;
 
       elsif run("test_address_not_acknowledged") then
@@ -184,17 +195,17 @@ begin
 
         case speed_value is
           when i2c_standard_mode =>
-
             check_equal(statistics.scl_frequency_hz, 100_000, "SCL frequency");
           when i2c_fast_mode =>
-
             check_equal(statistics.scl_frequency_hz, 400_000, "SCL frequency");
           when i2c_fast_mode_plus =>
-
             check_equal(statistics.scl_frequency_hz, 1_000_000, "SCL frequency");
         end case;
 
-        check(statistics.utilization_ppm > 0 and statistics.utilization_ppm < 1_000_000, "utilization");
+        check(
+          statistics.utilization_ppm > 0 and statistics.utilization_ppm < 1_000_000,
+          "utilization"
+        );
         check_no_violations;
       end if;
     end loop;
@@ -203,4 +214,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 50 ms);
+
 end architecture;

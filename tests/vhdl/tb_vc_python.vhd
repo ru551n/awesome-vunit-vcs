@@ -15,11 +15,12 @@ library python_bridge;
 context python_bridge.python_context;
 
 library awesome_vunit_vcs;
-  use awesome_vunit_vcs.vc_python_pkg.all;
+use awesome_vunit_vcs.vc_python_pkg.all;
 
 entity tb_vc_python is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_vc_python is
@@ -36,7 +37,6 @@ begin
 
     -- The arguments are built from variables that are gone before the receiver uses them
     procedure send_arguments is
-
       variable port_number : integer := 1234;
       variable text : line := new string'("it's ""quoted"" \ here" & LF & "and on a new line");
       variable msg : msg_t := new_msg(arguments_msg);
@@ -46,10 +46,9 @@ begin
       deallocate(text);
       port_number := 0;
       send(net, receiver, msg);
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     exec("import builtins", session);
 
@@ -70,12 +69,25 @@ begin
           "decode_text",
           arg_text("quote "" apostrophe ' backslash \ tab" & HT & "end")
         );
-        check_equal(backend_call_string(session, "__str__"), "quote "" apostrophe ' backslash \ tab" & HT & "end");
+        check_equal(
+          backend_call_string(session, "__str__"),
+          "quote "" apostrophe ' backslash \ tab" & HT & "end"
+        );
 
       elsif run("test_time_arguments_of_any_size") then
-        create_backend(session, "awesome_vunit_vcs.common.vunit_bridge", "decode_time_fs", arg_time(123456789 ns));
+        create_backend(
+          session,
+          "awesome_vunit_vcs.common.vunit_bridge",
+          "decode_time_fs",
+          arg_time(123456789 ns)
+        );
         check_equal(backend_call_string(session, "__str__"), "123456789000000");
-        create_backend(session, "awesome_vunit_vcs.common.vunit_bridge", "decode_time_fs", arg_time(1 fs));
+        create_backend(
+          session,
+          "awesome_vunit_vcs.common.vunit_bridge",
+          "decode_time_fs",
+          arg_time(1 fs)
+        );
         check_equal(backend_call_integer(session, "__int__"), 1);
 
       elsif run("test_arguments_carried_to_another_process") then
@@ -94,7 +106,6 @@ begin
     variable msg : msg_t;
 
   begin
-
     receive(net, receiver, msg);
     exec("from awesome_vunit_vcs.common.vunit_bridge import decode_text", session);
     exec(
@@ -114,4 +125,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 10 ms);
+
 end architecture;

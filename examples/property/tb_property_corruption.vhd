@@ -7,8 +7,8 @@
 -- packet parser. The strategies are in python/corruption_strategies.py.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
@@ -16,7 +16,8 @@ context awesome_vunit_vcs.property_context;
 entity tb_property_corruption is
   generic (
     runner_cfg : string;
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
 end entity;
 
 architecture tb of tb_property_corruption is
@@ -57,26 +58,25 @@ begin
         output_path => output_path(runner_cfg),
         search_path => tb_path(runner_cfg) & "python"
       );
-    end;
+    end function;
 
     -- Hold a signal high for one clock cycle
-    procedure pulse (signal value : out std_ulogic) is
+    procedure pulse(signal value : out std_ulogic)is
     begin
 
       value <= '1';
       wait until rising_edge(clk);
       value <= '0';
-    end;
+    end procedure;
 
     -- The path of list element idx, "(2)"
     impure function item (idx : natural) return string is
     begin
 
       return "(" & integer'image(idx) & ")";
-    end;
+    end function;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 
@@ -95,7 +95,9 @@ begin
           has_fault := has_field(prop, "fault");
           if has_fault then
             if get_string(prop, "fault.kind") = "flip_data" then
-              pr_flip_data <= std_ulogic_vector(shift_left(to_unsigned(1, 8), get_integer(prop, "fault.position")));
+              pr_flip_data <= std_ulogic_vector(
+                shift_left(to_unsigned(1, 8), get_integer(prop, "fault.position"))
+              );
               pr_flip_parity <= '0';
             else
               pr_flip_data <= (others => '0');

@@ -18,26 +18,27 @@
 -- * The bus is free after a STOP and tBUF; a START waits for it.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.i2c_pkg.all;
-  use work.i2c_master_pkg.all;
-  use work.vc_python_pkg.all;
+use work.i2c_pkg.all;
+use work.i2c_master_pkg.all;
+use work.vc_python_pkg.all;
 
 entity i2c_master is
   generic (
     -- Created with :vhdl:`i2c_master_pkg.new_i2c_master`
-    master : i2c_master_t);
+    master : i2c_master_t
+  );
   port (
     -- The clock line: driven '0' or released 'Z'; the testbench pulls it up with 'H'
     scl : inout std_logic := 'Z';
@@ -60,7 +61,6 @@ begin
 
   bus_state : process
   begin
-
     wait on sda, forget_bus;
     if forget_bus'event then
       bus_busy <= false;
@@ -115,21 +115,21 @@ begin
     variable ops : integer_array_t;
     variable results : integer_array_t;
 
-    procedure log_waiting (count : natural) is
+    procedure log_waiting(count : natural)is
     begin
 
       if count > 0 then
         log_reports(session, logger, checker);
       end if;
-    end;
+    end procedure;
 
-    procedure wait_after_fall (delay : delay_length) is
+    procedure wait_after_fall(delay : delay_length)is
     begin
 
       if fall_time + delay > now then
         wait for fall_time + delay - now;
       end if;
-    end;
+    end procedure;
 
     procedure release_bus is
     begin
@@ -138,7 +138,7 @@ begin
       scl <= 'Z';
       holding := false;
       open_transaction := false;
-    end;
+    end procedure;
 
     -- Release SCL and wait for it to rise, which a target stretching the clock
     -- delays; then sample SDA
@@ -150,7 +150,10 @@ begin
       if to_x01(scl) /= '1' then
         check_failed(
           checker,
-          "SCL still low " & to_string(stretch_timeout(master)) & " after it was released, at " & to_string(now)
+          "SCL still low "
+          & to_string(stretch_timeout(master))
+          & " after it was released, at "
+          & to_string(now)
         );
         release_bus;
         aborted := true;
@@ -161,7 +164,7 @@ begin
       if is_x(sda) then
         check_failed(checker, "Metavalue " & to_string(sda) & " on SDA at " & to_string(now));
       end if;
-    end;
+    end procedure;
 
     -- The high period ends early when another master pulls SCL low
     procedure clock_fall is
@@ -172,11 +175,11 @@ begin
       end if;
       scl <= '0';
       fall_time := now;
-    end;
+    end procedure;
 
     -- One bit; a 1 the master writes is a released SDA, and reading it back as
     -- 0 loses arbitration
-    procedure clock_bit (value : std_ulogic; write : boolean) is
+    procedure clock_bit(value : std_ulogic; write : boolean)is
     begin
 
       wait_after_fall(t_hd_dat);
@@ -196,7 +199,7 @@ begin
         return;
       end if;
       clock_fall;
-    end;
+    end procedure;
 
     procedure start_condition is
     begin
@@ -225,7 +228,6 @@ begin
             exit;
           end if;
         end loop;
-
       end if;
       -- After a transaction left without a STOP, SCL may have just risen
       if not holding and scl'last_event < t_su_sta then
@@ -243,7 +245,7 @@ begin
       fall_time := now;
       holding := true;
       open_transaction := true;
-    end;
+    end procedure;
 
     procedure stop_condition is
     begin
@@ -259,7 +261,7 @@ begin
       sda <= 'Z';
       holding := false;
       open_transaction := false;
-    end;
+    end procedure;
 
     -- The result of an operation that lost the bus, or its value
     impure function result_of (value : integer) return integer is
@@ -269,10 +271,9 @@ begin
         return abort_code;
       end if;
       return value;
-    end;
+    end function;
 
-    procedure write_byte (value : natural; num_bits : positive; idx : natural) is
-
+    procedure write_byte(value : natural; num_bits : positive; idx : natural)is
       variable bits : std_ulogic_vector(7 downto 0);
     begin
 
@@ -287,11 +288,10 @@ begin
       end loop;
 
       set(results, idx, 0);
-    end;
+    end procedure;
 
     -- Clock out the operations; results holds one result per operation
     procedure run_ops is
-
       variable op : natural;
       variable kind : natural;
       variable value : natural;
@@ -317,11 +317,9 @@ begin
 
         case kind is
           when start_op =>
-
             start_condition;
             set(results, idx, result_of(0));
           when write_op =>
-
             write_byte(value, 8, idx);
             if not aborted then
               clock_bit('1', write => false);
@@ -342,7 +340,6 @@ begin
               end if;
             end if;
           when read_op =>
-
             byte := 0;
             for bit_idx in 7 downto 0 loop
 
@@ -361,11 +358,9 @@ begin
             end if;
             set(results, idx, result_of(byte));
           when stop_op =>
-
             stop_condition;
             set(results, idx, result_of(0));
           when others =>
-
             write_byte(value, (op / 4096) mod 16, idx);
         end case;
 
@@ -381,10 +376,9 @@ begin
         clock_rise;
         holding := false;
       end if;
-    end;
+    end procedure;
 
     procedure run_transfer is
-
       constant want_reply : boolean := pop(msg);
       constant is_ops : boolean := pop(msg);
       variable address : natural;
@@ -454,11 +448,15 @@ begin
         delete(msg);
       end if;
       deallocate(values);
-    end;
+    end procedure;
 
   begin
-
-    create_backend(session, "awesome_vunit_vcs.i2c.vunit_backend", "I2cMasterBackend", backend_arguments(master));
+    create_backend(
+      session,
+      "awesome_vunit_vcs.i2c.vunit_backend",
+      "I2cMasterBackend",
+      backend_arguments(master)
+    );
     values := backend_call_integer_array(session, "timing");
     t_low := get(values, 0) * 1 ps;
     t_high := get(values, 1) * 1 ps;

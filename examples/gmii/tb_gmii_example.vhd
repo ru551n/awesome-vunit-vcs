@@ -3,11 +3,11 @@
 -- You can obtain one at http://mozilla.org/MPL/2.0/.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library osvvm;
-  use osvvm.randompkg.randomptype;
+use osvvm.randompkg.randomptype;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
@@ -17,7 +17,8 @@ context awesome_vunit_vcs.ethernet_context;
 -- frames must leave the DUT as they entered it.
 entity tb_gmii_example is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_gmii_example is
@@ -39,8 +40,10 @@ architecture tb of tb_gmii_example is
     id => get_id("tb_gmii_example:input_monitor")
   );
   -- The output monitor uses the default protocol checks
-  constant output_monitor : gmii_monitor_t :=
-    new_gmii_monitor(protocol_checker => default_gmii_protocol_checker, id => get_id("tb_gmii_example:output_monitor"));
+  constant output_monitor : gmii_monitor_t := new_gmii_monitor(
+    protocol_checker => default_gmii_protocol_checker,
+    id => get_id("tb_gmii_example:output_monitor")
+  );
 
 -- docs-end: monitors
 begin
@@ -56,7 +59,6 @@ begin
     -- Frame data from the destination address up to, not including, the FCS:
     -- the addresses, the local experimental EtherType and a random payload
     impure function random_frame (octets : positive) return std_ulogic_vector is
-
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
 
@@ -67,10 +69,9 @@ begin
       end loop;
 
       return result;
-    end;
+    end function;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
 
@@ -83,7 +84,12 @@ begin
 
           -- The scoreboard compares the next received frame with the expected
           -- one; a difference is an ETH_SCOREBOARD check failure
-          check_ethernet_frame(net, output_monitor, random_frame(rnd.RandInt(60, 1514)), blocking => false);
+          check_ethernet_frame(
+            net,
+            output_monitor,
+            random_frame(rnd.RandInt(60, 1514)),
+            blocking => false
+          );
         end loop;
 
         -- Replay the same random sequence for the source
@@ -127,7 +133,10 @@ begin
         -- The backend of a monitor is the object vc in the Python session
         -- with the identity of the monitor. python/frame_sizes.py subscribes
         -- to the frames it reconstructs.
-        exec_file(tb_path(runner_cfg) & "python/frame_sizes.py", new_session(get_id(output_monitor)));
+        exec_file(
+          tb_path(runner_cfg) & "python/frame_sizes.py",
+          new_session(get_id(output_monitor))
+        );
 
         push_ethernet_frame(net, source, random_frame(60));
         push_ethernet_frame(net, source, random_frame(200));
@@ -150,7 +159,10 @@ begin
           wait_until_idle(net, as_sync(source));
           wait_until_idle(net, as_sync(input_monitor));
           wait_until_idle(net, as_sync(output_monitor));
-          check_equal(eval_integer("vc.last_packet()['UDP'].dport", new_session(get_id(output_monitor))), 1234);
+          check_equal(
+            eval_integer("vc.last_packet()['UDP'].dport", new_session(get_id(output_monitor))),
+            1234
+          );
         else
           info("Scapy is not installed (pip install awesome-vunit-vcs[scapy]), nothing to test");
         end if;

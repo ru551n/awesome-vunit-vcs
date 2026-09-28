@@ -8,24 +8,25 @@
 -- handle.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.com_context;
 
-  use work.ethernet_vc_pkg.all;
-  use work.rgmii_pkg.all;
+use work.ethernet_vc_pkg.all;
+use work.rgmii_pkg.all;
 
 entity rgmii_protocol_checker is
   generic (
-    protocol_checker : rgmii_protocol_checker_t);
+    protocol_checker : rgmii_protocol_checker_t
+  );
   port (
     -- TXC or RXC
-    clk : in  std_ulogic;
+    clk : in std_ulogic;
     -- TD or RD
-    data : in  std_ulogic_vector(data_length(protocol_checker) - 1 downto 0);
+    data : in std_ulogic_vector(data_length(protocol_checker) - 1 downto 0);
     -- TX_CTL or RX_CTL
-    ctl : in  std_ulogic
+    ctl : in std_ulogic
   );
 end entity;
 
@@ -47,7 +48,6 @@ begin
 
     combine : process
     begin
-
       combine_double_edges(to_ethernet_vc(protocol_checker), clk, data, ctl, octet, dv, er);
     end process;
 
@@ -57,15 +57,13 @@ begin
 
     combine : process
     begin
-
       combine_double_edges(to_ethernet_vc(protocol_checker), sample_clk, data, ctl, octet, dv, er);
     end process;
 
-  end generate combine_gen;
+  end generate;
 
   main : process
   begin
-
     monitor_symbol_interface(net, to_ethernet_vc(protocol_checker), symbol_clk, octet, dv, er);
   end process;
 

@@ -18,17 +18,17 @@
 -- i2c_protocol_checker on the same pins.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.vc_pkg.all;
 
-  use work.i2c_pkg.all;
-  use work.i2c_protocol_checker_pkg.all;
+use work.i2c_pkg.all;
+use work.i2c_protocol_checker_pkg.all;
 
 package i2c_monitor_pkg is
 
@@ -101,21 +101,21 @@ package i2c_monitor_pkg is
 
   -- Non-blocking: pop the oldest transfer the monitor keeps, or the next one
   -- to come
-  procedure pop_i2c_transfer (
+  procedure pop_i2c_transfer(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     variable reference : inout i2c_monitor_reference_t
   );
 
   -- Blocking: redeem a reference of :vhdl:`i2c_monitor_pkg.pop_i2c_transfer`
-  procedure await_pop_i2c_transfer_reply (
+  procedure await_pop_i2c_transfer_reply(
     signal net : inout network_t;
     variable reference : inout i2c_monitor_reference_t;
     variable transfer : out i2c_transfer_t
   );
 
   -- Blocking: pop the oldest transfer the monitor keeps, or wait for the next
-  procedure pop_i2c_transfer (
+  procedure pop_i2c_transfer(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     variable transfer : out i2c_transfer_t
@@ -123,13 +123,13 @@ package i2c_monitor_pkg is
 
   -- Read the transfer of an ``i2c_transfer_msg`` the monitor published, or of
   -- a pop reply
-  procedure pop_i2c_transfer (msg : msg_t; variable transfer : out i2c_transfer_t);
+  procedure pop_i2c_transfer(msg : msg_t; variable transfer : out i2c_transfer_t);
 
   -- Non-blocking: the next transfer must have this address, direction and
   -- data, leftmost byte first. A difference, or an expected transfer that
   -- never came when the test ends, is a check failure (``I2C_SCOREBOARD``) on
   -- the checker of the monitor, prefixed with msg.
-  procedure check_i2c_transfer (
+  procedure check_i2c_transfer(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     address : natural;
@@ -171,21 +171,21 @@ package i2c_monitor_pkg is
   end record;
 
   -- Non-blocking: request the statistics
-  procedure get_i2c_statistics (
+  procedure get_i2c_statistics(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     variable reference : inout i2c_monitor_reference_t
   );
 
   -- Blocking: redeem a reference of :vhdl:`i2c_monitor_pkg.get_i2c_statistics`
-  procedure await_get_i2c_statistics_reply (
+  procedure await_get_i2c_statistics_reply(
     signal net : inout network_t;
     variable reference : inout i2c_monitor_reference_t;
     variable statistics : out i2c_statistics_t
   );
 
   -- Blocking: get the statistics
-  procedure get_i2c_statistics (
+  procedure get_i2c_statistics(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     variable statistics : out i2c_statistics_t
@@ -194,7 +194,11 @@ package i2c_monitor_pkg is
   -- Blocking: recover a monitor. Forgets a transaction in progress, the kept
   -- transfers and the expected ones. Pending pops are cancelled and must not
   -- be awaited. Statistics are kept unless clear_statistics.
-  procedure reset (signal net : inout network_t; monitor : i2c_monitor_t; clear_statistics : boolean := false);
+  procedure reset(
+    signal net : inout network_t;
+    monitor : i2c_monitor_t;
+    clear_statistics : boolean := false
+  );
 
   -- The message types the procedures above send to the component, and the
   -- ``i2c_transfer_msg`` it publishes
@@ -209,7 +213,8 @@ package i2c_monitor_pkg is
 
   -- Private. A message type no handler took, see
   -- :vhdl:`i2c_pkg.i2c_unexpected_msg_type`
-  procedure unexpected_msg_type (msg_type : msg_type_t; monitor : i2c_monitor_t);
+  procedure unexpected_msg_type(msg_type : msg_type_t; monitor : i2c_monitor_t);
+
 end package;
 
 package body i2c_monitor_pkg is
@@ -222,7 +227,6 @@ package body i2c_monitor_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return i2c_monitor_t is
-
     variable result : i2c_monitor_t := (
       p_protocol_checker => null_i2c_protocol_checker,
       p_id => id,
@@ -247,63 +251,62 @@ package body i2c_monitor_pkg is
     end if;
     result.p_protocol_checker := get_valid_protocol_checker(protocol_checker, result.p_id);
     return result;
-  end;
+  end function;
 
   impure function get_id (monitor : i2c_monitor_t) return id_t is
   begin
 
     return monitor.p_id;
-  end;
+  end function;
 
   impure function get_logger (monitor : i2c_monitor_t) return logger_t is
   begin
 
     return monitor.p_logger;
-  end;
+  end function;
 
   impure function get_actor (monitor : i2c_monitor_t) return actor_t is
   begin
 
     return monitor.p_actor;
-  end;
+  end function;
 
   impure function get_checker (monitor : i2c_monitor_t) return checker_t is
   begin
 
     return monitor.p_checker;
-  end;
+  end function;
 
   impure function as_sync (monitor : i2c_monitor_t) return sync_handle_t is
   begin
 
     return monitor.p_actor;
-  end;
+  end function;
 
   function protocol_checker (monitor : i2c_monitor_t) return i2c_protocol_checker_t is
   begin
 
     return monitor.p_protocol_checker;
-  end;
+  end function;
 
-  procedure unexpected_msg_type (msg_type : msg_type_t; monitor : i2c_monitor_t) is
+  procedure unexpected_msg_type(msg_type : msg_type_t; monitor : i2c_monitor_t)is
   begin
 
     i2c_unexpected_msg_type(msg_type, monitor.p_unexpected_msg_type_policy, monitor.p_checker);
-  end;
+  end procedure;
 
-  procedure pop_i2c_transfer (
+  procedure pop_i2c_transfer(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     variable reference : inout i2c_monitor_reference_t
-  ) is
+  )is
   begin
 
     reference := new_msg(pop_i2c_transfer_msg);
     send(net, monitor.p_actor, reference);
-  end;
+  end procedure;
 
-  procedure pop_i2c_transfer (msg : msg_t; variable transfer : out i2c_transfer_t) is
-
+  procedure pop_i2c_transfer(msg : msg_t; variable transfer : out i2c_transfer_t)is
     variable flags : natural;
     variable num_bytes : natural;
   begin
@@ -324,14 +327,13 @@ package body i2c_monitor_pkg is
       set(transfer.data, idx, integer'(pop(msg)));
     end loop;
 
-  end;
+  end procedure;
 
-  procedure await_pop_i2c_transfer_reply (
+  procedure await_pop_i2c_transfer_reply(
     signal net : inout network_t;
     variable reference : inout i2c_monitor_reference_t;
     variable transfer : out i2c_transfer_t
-  ) is
-
+  )is
     variable reply_msg : msg_t;
   begin
 
@@ -339,30 +341,28 @@ package body i2c_monitor_pkg is
     pop_i2c_transfer(reply_msg, transfer);
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure pop_i2c_transfer (
+  procedure pop_i2c_transfer(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     variable transfer : out i2c_transfer_t
-  ) is
-
+  )is
     variable reference : i2c_monitor_reference_t;
   begin
 
     pop_i2c_transfer(net, monitor, reference);
     await_pop_i2c_transfer_reply(net, reference, transfer);
-  end;
+  end procedure;
 
-  procedure check_i2c_transfer (
+  procedure check_i2c_transfer(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     address : natural;
     is_read : boolean;
     data : std_ulogic_vector;
     msg : string := ""
-  ) is
-
+  )is
     constant values : integer_vector := i2c_bytes(data);
     variable request_msg : msg_t := new_msg(check_i2c_transfer_msg);
   begin
@@ -377,25 +377,24 @@ package body i2c_monitor_pkg is
 
     push_string(request_msg, msg);
     send(net, monitor.p_actor, request_msg);
-  end;
+  end procedure;
 
-  procedure get_i2c_statistics (
+  procedure get_i2c_statistics(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     variable reference : inout i2c_monitor_reference_t
-  ) is
+  )is
   begin
 
     reference := new_msg(get_i2c_statistics_msg);
     send(net, monitor.p_actor, reference);
-  end;
+  end procedure;
 
-  procedure await_get_i2c_statistics_reply (
+  procedure await_get_i2c_statistics_reply(
     signal net : inout network_t;
     variable reference : inout i2c_monitor_reference_t;
     variable statistics : out i2c_statistics_t
-  ) is
-
+  )is
     variable reply_msg : msg_t;
   begin
 
@@ -416,23 +415,25 @@ package body i2c_monitor_pkg is
     statistics.utilization_ppm := pop(reply_msg);
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure get_i2c_statistics (
+  procedure get_i2c_statistics(
     signal net : inout network_t;
     monitor : i2c_monitor_t;
     variable statistics : out i2c_statistics_t
-  ) is
-
+  )is
     variable reference : i2c_monitor_reference_t;
   begin
 
     get_i2c_statistics(net, monitor, reference);
     await_get_i2c_statistics_reply(net, reference, statistics);
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; monitor : i2c_monitor_t; clear_statistics : boolean := false) is
-
+  procedure reset(
+    signal net : inout network_t;
+    monitor : i2c_monitor_t;
+    clear_statistics : boolean := false
+  )is
     variable request_msg : msg_t := new_msg(reset_i2c_monitor_msg);
     variable reply_msg : msg_t;
   begin
@@ -440,6 +441,6 @@ package body i2c_monitor_pkg is
     push(request_msg, clear_statistics);
     request(net, monitor.p_actor, request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
 end package body;

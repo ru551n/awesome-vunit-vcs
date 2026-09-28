@@ -11,15 +11,16 @@
 -- written as enumerated literals.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.axi4_context;
 
 entity tb_axi4_write_slave_vci is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_axi4_write_slave_vci is
@@ -30,7 +31,8 @@ architecture tb of tb_axi4_write_slave_vci is
 
   constant custom_logger : logger_t := get_logger("tb_axi4_write_slave_vci:custom_logger");
   constant custom_actor : actor_t := new_actor("tb_axi4_write_slave_vci:custom_actor");
-  constant custom_checker : checker_t := new_checker(get_logger("tb_axi4_write_slave_vci:custom_checker"));
+  constant custom_checker : checker_t :=
+    new_checker(get_logger("tb_axi4_write_slave_vci:custom_checker"));
   constant custom_slave : axi4_slave_t := new_axi4_slave(
     memory,
     id => get_id("tb_axi4_write_slave_vci:custom_slave"),
@@ -108,7 +110,7 @@ begin
         bready => bready
       );
 
-  end generate slaves_gen;
+  end generate;
 
   narrow_slave_inst : entity awesome_vunit_vcs.axi4_write_slave
     generic map (
@@ -149,8 +151,11 @@ begin
 
     variable start : time;
 
-    procedure check_unexpected_message (actor : actor_t; logger : logger_t; expect_failure : boolean) is
-
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
 
@@ -164,10 +169,10 @@ begin
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
 
     -- One single beat burst to the three slaves on the shared pins
-    procedure write (address : natural; data : std_ulogic_vector(31 downto 0)) is
+    procedure write(address : natural; data : std_ulogic_vector(31 downto 0))is
     begin
 
       awvalid <= '1';
@@ -178,10 +183,9 @@ begin
       wdata <= data;
       wait until rising_edge(aclk) and wready = "111";
       wvalid <= '0';
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     wait until rising_edge(aclk);
 
@@ -190,14 +194,23 @@ begin
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_slave))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_slave))), "axi4_slave", "name of its parent");
-        check(get_parent(get_parent(get_id(default_slave))) = get_id("awesome_vunit_vcs"), "grandparent");
+        check(
+          get_parent(get_parent(get_id(default_slave))) = get_id("awesome_vunit_vcs"),
+          "grandparent"
+        );
         check(get_bus(default_slave) = default_axi4_bus, "its bus");
 
       elsif run("test_default_logger_actor_and_checker_are_used") then
         check(get_logger(default_slave) = get_logger(get_id(default_slave)), "logger of the id");
-        check(get_actor(default_slave) = find(get_id(default_slave), enable_deferred_creation => false), "actor");
+        check(
+          get_actor(default_slave) = find(get_id(default_slave), enable_deferred_creation => false),
+          "actor"
+        );
         check(as_sync(default_slave) = get_actor(default_slave), "as_sync");
-        check(get_logger(get_checker(default_slave)) = get_logger(default_slave), "checker on the logger");
+        check(
+          get_logger(get_checker(default_slave)) = get_logger(default_slave),
+          "checker on the logger"
+        );
 
       elsif run("test_custom_logger_actor_and_checker_are_used") then
         check(get_logger(custom_slave) = custom_logger, "logger");
@@ -215,7 +228,11 @@ begin
           wait_until_idle(net, as_sync(slaves(idx)));
         end loop;
 
-        check_equal(get_log_count(get_logger(custom_checker), error), 1, "a failure on the custom checker");
+        check_equal(
+          get_log_count(get_logger(custom_checker), error),
+          1,
+          "a failure on the custom checker"
+        );
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         reset_log_count(get_logger(custom_checker), error);
         reset_log_count(get_logger(default_slave), error);
@@ -223,11 +240,19 @@ begin
         clear_expected_byte(memory, 16#40#);
 
       elsif run("test_unexpected_message_is_a_check_failure") then
-        check_unexpected_message(get_actor(default_slave), get_logger(default_slave), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_slave),
+          get_logger(default_slave),
+          expect_failure => true
+        );
         check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_slave), get_logger(ignoring_slave), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_slave),
+          get_logger(ignoring_slave),
+          expect_failure => false
+        );
 
       elsif run("test_wait_until_idle_and_wait_for_time") then
         start := now;
@@ -301,7 +326,10 @@ begin
         wait until (wide_wvalid and wide_wready) = '1' and rising_edge(aclk);
         wide_wvalid <= '0';
         wait until wide_bvalid = '1' and rising_edge(aclk);
-        check_equal(read_word(memory, x"FFFF_0000_0000_0000", 5), std_ulogic_vector'(x"0123456789"));
+        check_equal(
+          read_word(memory, x"FFFF_0000_0000_0000", 5),
+          std_ulogic_vector'(x"0123456789")
+        );
         check_equal(read_byte(memory, x"FFFF_0000_0000_007F"), 16#EE#);
       end if;
     end loop;

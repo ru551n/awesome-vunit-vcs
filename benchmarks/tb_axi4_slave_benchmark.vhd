@@ -8,8 +8,8 @@
 -- memory_t, or from axi4_write_slave and axi4_read_slave on an axi4_memory_t.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.axi4_context;
@@ -20,12 +20,14 @@ entity tb_axi4_slave_benchmark is
     config_name : string;
     beats : positive := 16;
     num_bursts : positive := 20000;
-    vunit_slaves : boolean := false);
+    vunit_slaves : boolean := false
+  );
 end entity;
 
 architecture tb of tb_axi4_slave_benchmark is
 
-  constant axi4_bus : axi4_bus_t := new_axi4_bus(data_length => 32, address_length => 32, id_length => 4);
+  constant axi4_bus : axi4_bus_t :=
+    new_axi4_bus(data_length => 32, address_length => 32, id_length => 4);
   constant memory : axi4_memory_t := new_axi4_memory;
   constant write_slave : axi4_slave_t := new_axi4_slave(memory, axi4_bus);
   constant read_slave : axi4_slave_t := new_axi4_slave(memory, axi4_bus);
@@ -59,7 +61,6 @@ begin
     variable buf : buffer_t;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     if vunit_slaves then
       buf := allocate(vunit_memory, 4 * beats * num_bursts);
@@ -144,7 +145,7 @@ begin
         rlast => rlast
       );
 
-  end generate awesome_gen;
+  end generate;
 
   vunit_gen : if vunit_slaves generate
     write_slave_inst : entity vunit_lib.axi_write_slave
@@ -192,6 +193,6 @@ begin
         rlast => rlast
       );
 
-  end generate vunit_gen;
+  end generate;
 
 end architecture;

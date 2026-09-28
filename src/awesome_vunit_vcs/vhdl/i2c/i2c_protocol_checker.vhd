@@ -13,29 +13,30 @@
 -- own after the stuck-low time without a change.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.i2c_pkg.all;
-  use work.i2c_protocol_checker_pkg.all;
-  use work.vc_python_pkg.all;
+use work.i2c_pkg.all;
+use work.i2c_protocol_checker_pkg.all;
+use work.vc_python_pkg.all;
 
 entity i2c_protocol_checker is
   generic (
     -- Created with :vhdl:`i2c_protocol_checker_pkg.new_i2c_protocol_checker`
-    protocol_checker : i2c_protocol_checker_t);
+    protocol_checker : i2c_protocol_checker_t
+  );
   port (
     -- The clock line, read with to_x01
-    scl : in  std_ulogic;
+    scl : in std_ulogic;
     -- The data line, read with to_x01
-    sda : in  std_ulogic
+    sda : in std_ulogic
   );
 end entity;
 
@@ -61,16 +62,15 @@ begin
     variable check : i2c_check_t;
     variable enabled : boolean;
 
-    procedure log_waiting (count : natural) is
+    procedure log_waiting(count : natural)is
     begin
 
       if count > 0 then
         log_reports(session, logger, checker);
       end if;
-    end;
+    end procedure;
 
   begin
-
     session := new_vc_session(get_id(protocol_checker), logger);
     create_backend(
       session,
@@ -132,12 +132,19 @@ begin
           check := i2c_check_t'val(integer'(pop(msg)));
           enabled := pop(msg);
           log_waiting(
-            backend_call_integer(session, "set_check_enabled", arg_text(i2c_check_t'image(check)) & arg(enabled))
+            backend_call_integer(
+              session,
+              "set_check_enabled",
+              arg_text(i2c_check_t'image(check)) & arg(enabled)
+            )
           );
         elsif msg_type = get_i2c_check_count_msg then
           check := i2c_check_t'val(integer'(pop(msg)));
           reply_msg := new_msg(get_i2c_check_count_reply_msg);
-          push(reply_msg, backend_call_integer(session, "check_count", arg_text(i2c_check_t'image(check))));
+          push(
+            reply_msg,
+            backend_call_integer(session, "check_count", arg_text(i2c_check_t'image(check)))
+          );
           log_waiting(backend_call_integer(session, "num_reports"));
           reply(net, msg, reply_msg);
         elsif msg_type = reset_i2c_protocol_checker_msg then

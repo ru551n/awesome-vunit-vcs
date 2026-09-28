@@ -10,32 +10,33 @@
 -- the same pins.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.queue_pkg.all;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.queue_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.i2c_pkg.all;
-  use work.i2c_monitor_pkg.all;
-  use work.i2c_protocol_checker_pkg.all;
-  use work.vc_python_pkg.all;
+use work.i2c_pkg.all;
+use work.i2c_monitor_pkg.all;
+use work.i2c_protocol_checker_pkg.all;
+use work.vc_python_pkg.all;
 
 entity i2c_monitor is
   generic (
     -- Created with :vhdl:`i2c_monitor_pkg.new_i2c_monitor`
-    monitor : i2c_monitor_t);
+    monitor : i2c_monitor_t
+  );
   port (
     -- The clock line, read with to_x01
-    scl : in  std_ulogic;
+    scl : in std_ulogic;
     -- The data line, read with to_x01
-    sda : in  std_ulogic
+    sda : in std_ulogic
   );
 end entity;
 
@@ -58,16 +59,15 @@ begin
     variable msg_type : msg_type_t;
     variable values : integer_array_t;
 
-    procedure log_waiting (count : natural) is
+    procedure log_waiting(count : natural)is
     begin
 
       if count > 0 then
         log_reports(session, logger, checker);
       end if;
-    end;
+    end procedure;
 
     impure function has_subscribers return boolean is
-
       variable state : actor_state_t := get_actor_state(actor);
       variable result : boolean;
     begin
@@ -78,10 +78,10 @@ begin
       end if;
       deallocate(state);
       return result;
-    end;
+    end function;
 
     -- The transfers of values from index first on, as messages of msg_type
-    procedure push_transfer (transfer_msg : msg_t; first : natural) is
+    procedure push_transfer(transfer_msg : msg_t; first : natural)is
     begin
 
       push(transfer_msg, get(values, first));
@@ -94,11 +94,10 @@ begin
         push(transfer_msg, get(values, first + 6 + idx));
       end loop;
 
-    end;
+    end procedure;
 
     -- Everything that waits for Python to be up to date
     procedure serve is
-
       variable idx : natural;
       variable publish_msg : msg_t;
       variable request_msg : msg_t;
@@ -137,10 +136,9 @@ begin
         reply(net, request_msg, reply_msg);
       end loop;
 
-    end;
+    end procedure;
 
-    procedure check_transfer (request_msg : msg_t) is
-
+    procedure check_transfer(request_msg : msg_t)is
       constant address : natural := pop(request_msg);
       constant is_read : boolean := pop(request_msg);
       constant num_bytes : natural := pop(request_msg);
@@ -157,10 +155,9 @@ begin
         "check_transfer",
         arg(address) & arg(is_read) & arg(data) & arg_text(pop_string(request_msg))
       );
-    end;
+    end procedure;
 
   begin
-
     session := new_vc_session(get_id(monitor), logger);
     create_backend(
       session,
@@ -262,6 +259,6 @@ begin
         sda => sda
       );
 
-  end generate protocol_checker_gen;
+  end generate;
 
 end architecture;

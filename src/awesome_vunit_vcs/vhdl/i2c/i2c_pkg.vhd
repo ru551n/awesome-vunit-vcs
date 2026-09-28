@@ -11,12 +11,12 @@
 -- bits mean is made by their Python backends (awesome_vunit_vcs.i2c).
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.vc_pkg.all;
 
 package i2c_pkg is
 
@@ -98,13 +98,17 @@ package i2c_pkg is
   -- Private. A message type no handler took: a check failure ``Got unexpected
   -- message <name>`` on checker unless policy is ignore or the message was
   -- already handled, like vc_pkg.unexpected_msg_type of VUnit
-  procedure i2c_unexpected_msg_type (msg_type : msg_type_t; policy : unexpected_msg_type_policy_t; checker : checker_t);
+  procedure i2c_unexpected_msg_type(
+    msg_type : msg_type_t;
+    policy : unexpected_msg_type_policy_t;
+    checker : checker_t
+  );
+
 end package;
 
 package body i2c_pkg is
 
   function i2c_sample_word (scl, sda : std_ulogic) return natural is
-
     variable result : natural := 0;
   begin
 
@@ -121,16 +125,15 @@ package body i2c_pkg is
       result := result + 8;
     end if;
     return result;
-  end;
+  end function;
 
   function i2c_time (hi, lo : natural) return time is
   begin
 
     return hi * 1073741824 fs + lo * 1 fs;
-  end;
+  end function;
 
   function i2c_bytes (value : std_ulogic_vector) return integer_vector is
-
     alias normalized : std_ulogic_vector(0 to value'length - 1) is value;
     variable result : integer_vector(0 to value'length / 8 - 1);
     variable byte : natural;
@@ -154,7 +157,7 @@ package body i2c_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
 
   impure function new_i2c_actor (id : id_t) return actor_t is
   begin
@@ -164,13 +167,13 @@ package body i2c_pkg is
       return new_actor;
     end if;
     return new_actor(id);
-  end;
+  end function;
 
-  procedure i2c_unexpected_msg_type (
+  procedure i2c_unexpected_msg_type(
     msg_type : msg_type_t;
     policy : unexpected_msg_type_policy_t;
     checker : checker_t
-  ) is
+  )is
   begin
 
     if is_already_handled(msg_type) or policy = ignore then
@@ -178,6 +181,6 @@ package body i2c_pkg is
     else
       check_failed(checker, "Got unexpected message " & name(msg_type));
     end if;
-  end;
+  end procedure;
 
 end package body;

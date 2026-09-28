@@ -15,22 +15,22 @@
 -- takes it as a u_unsigned of up to 64 bits.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.memory_pkg.permissions_t;
-  use vunit_lib.memory_pkg.endianness_t;
-  use vunit_lib.memory_pkg.endianness_arg_t;
-  use vunit_lib.string_ptr_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.memory_pkg.permissions_t;
+use vunit_lib.memory_pkg.endianness_t;
+use vunit_lib.memory_pkg.endianness_arg_t;
+use vunit_lib.string_ptr_pkg.all;
+use vunit_lib.vc_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.vc_python_pkg.all;
+use work.vc_python_pkg.all;
 
 package axi4_memory_pkg is
 
@@ -78,7 +78,7 @@ package axi4_memory_pkg is
   impure function get_checker (memory : axi4_memory_t) return checker_t;
 
   -- Forget the content, the permissions, the expected data and the buffers
-  procedure clear (memory : axi4_memory_t);
+  procedure clear(memory : axi4_memory_t);
 
   -- Where the next buffer :vhdl:`axi4_memory_pkg.allocate` places starts:
   -- the end of the last one
@@ -130,19 +130,19 @@ package axi4_memory_pkg is
   -- Backdoor access: the testbench reads and writes without permission
   -- checks. A byte with an expected value written with another one is a
   -- check failure and is not written, as in VUnit.
-  procedure write_byte (memory : axi4_memory_t; address : natural; byte : natural range 0 to 255);
-  procedure write_byte (memory : axi4_memory_t; address : u_unsigned; byte : natural range 0 to 255);
+  procedure write_byte(memory : axi4_memory_t; address : natural; byte : natural range 0 to 255);
+  procedure write_byte(memory : axi4_memory_t; address : u_unsigned; byte : natural range 0 to 255);
   impure function read_byte (memory : axi4_memory_t; address : natural) return natural;
   impure function read_byte (memory : axi4_memory_t; address : u_unsigned) return natural;
 
   -- A word of whole bytes, in the byte order ``endian``
-  procedure write_word (
+  procedure write_word(
     memory : axi4_memory_t;
     address : natural;
     word : std_ulogic_vector;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
   );
-  procedure write_word (
+  procedure write_word(
     memory : axi4_memory_t;
     address : u_unsigned;
     word : std_ulogic_vector;
@@ -162,7 +162,7 @@ package axi4_memory_pkg is
   ) return std_ulogic_vector;
 
   -- An integer of 1 to 4 bytes, two's complement
-  procedure write_integer (
+  procedure write_integer(
     memory : axi4_memory_t;
     address : natural;
     word : integer;
@@ -173,30 +173,58 @@ package axi4_memory_pkg is
   -- Bulk content: the values of ``data`` as bytes from ``address`` on,
   -- ``num_bytes`` bytes as a new array of 8-bit values, and ``num_bytes`` bytes
   -- of ``value``, which costs the same for any size
-  procedure write_bytes (memory : axi4_memory_t; address : natural; data : integer_array_t);
-  procedure write_bytes (memory : axi4_memory_t; address : u_unsigned; data : integer_array_t);
-  impure function read_bytes (memory : axi4_memory_t; address : natural; num_bytes : natural) return integer_array_t;
-  impure function read_bytes (memory : axi4_memory_t; address : u_unsigned; num_bytes : natural) return integer_array_t;
-  procedure fill (memory : axi4_memory_t; address : natural; num_bytes : natural; value : natural range 0 to 255);
-  procedure fill (memory : axi4_memory_t; address : u_unsigned; num_bytes : natural; value : natural range 0 to 255);
+  procedure write_bytes(memory : axi4_memory_t; address : natural; data : integer_array_t);
+  procedure write_bytes(memory : axi4_memory_t; address : u_unsigned; data : integer_array_t);
+  impure function read_bytes (
+    memory : axi4_memory_t;
+    address : natural;
+    num_bytes : natural
+  ) return integer_array_t;
+  impure function read_bytes (
+    memory : axi4_memory_t;
+    address : u_unsigned;
+    num_bytes : natural
+  ) return integer_array_t;
+  procedure fill(
+    memory : axi4_memory_t;
+    address : natural;
+    num_bytes : natural;
+    value : natural range 0 to 255
+  );
+  procedure fill(
+    memory : axi4_memory_t;
+    address : u_unsigned;
+    num_bytes : natural;
+    value : natural range 0 to 255
+  );
 
   -- Load an image file of the flash family's formats (Intel HEX, S-record,
   -- raw binary, JSON; ``image_format`` "" infers it from the extension).
   -- Sparse formats stay sparse. ``base`` is the load address of a raw binary
   -- and an offset for the others.
-  procedure load_image (memory : axi4_memory_t; file_name : string; image_format : string := ""; base : natural := 0);
-  procedure load_image (memory : axi4_memory_t; file_name : string; image_format : string; base : u_unsigned);
+  procedure load_image(
+    memory : axi4_memory_t;
+    file_name : string;
+    image_format : string := "";
+    base : natural := 0
+  );
+  procedure load_image(
+    memory : axi4_memory_t;
+    file_name : string;
+    image_format : string;
+    base : u_unsigned
+  );
 
   -- The permissions of a byte, and of ``num_bytes`` bytes from ``address``
   impure function get_permissions (memory : axi4_memory_t; address : natural) return permissions_t;
-  procedure set_permissions (memory : axi4_memory_t; address : natural; permissions : permissions_t);
-  procedure set_permissions (
+  procedure set_permissions(memory : axi4_memory_t; address : natural; permissions : permissions_t);
+  procedure set_permissions(
     memory : axi4_memory_t;
     address : natural;
     num_bytes : natural;
     permissions : permissions_t
   );
-  procedure set_permissions (
+  procedure set_permissions(
     memory : axi4_memory_t;
     address : u_unsigned;
     num_bytes : natural;
@@ -207,21 +235,25 @@ package axi4_memory_pkg is
   -- check failure on the checker of the slave; the check procedures below
   -- report each byte whose expected value was never written.
   impure function has_expected_byte (memory : axi4_memory_t; address : natural) return boolean;
-  procedure clear_expected_byte (memory : axi4_memory_t; address : natural);
-  procedure set_expected_byte (memory : axi4_memory_t; address : natural; expected : natural range 0 to 255);
-  procedure set_expected_word (
+  procedure clear_expected_byte(memory : axi4_memory_t; address : natural);
+  procedure set_expected_byte(
+    memory : axi4_memory_t;
+    address : natural;
+    expected : natural range 0 to 255
+  );
+  procedure set_expected_word(
     memory : axi4_memory_t;
     address : natural;
     expected : std_ulogic_vector;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
   );
-  procedure set_expected_word (
+  procedure set_expected_word(
     memory : axi4_memory_t;
     address : u_unsigned;
     expected : std_ulogic_vector;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
   );
-  procedure set_expected_integer (
+  procedure set_expected_integer(
     memory : axi4_memory_t;
     address : natural;
     expected : integer;
@@ -232,11 +264,23 @@ package axi4_memory_pkg is
 
   -- Check, or tell, that every byte with an expected value holds it: in a
   -- range, a buffer, or the whole memory
-  procedure check_expected_was_written (memory : axi4_memory_t; address : natural; num_bytes : natural);
-  procedure check_expected_was_written (memory : axi4_memory_t; address : u_unsigned; num_bytes : natural);
-  procedure check_expected_was_written (buf : axi4_buffer_t);
-  procedure check_expected_was_written (memory : axi4_memory_t);
-  impure function expected_was_written (memory : axi4_memory_t; address : natural; num_bytes : natural) return boolean;
+  procedure check_expected_was_written(
+    memory : axi4_memory_t;
+    address : natural;
+    num_bytes : natural
+  );
+  procedure check_expected_was_written(
+    memory : axi4_memory_t;
+    address : u_unsigned;
+    num_bytes : natural
+  );
+  procedure check_expected_was_written(buf : axi4_buffer_t);
+  procedure check_expected_was_written(memory : axi4_memory_t);
+  impure function expected_was_written (
+    memory : axi4_memory_t;
+    address : natural;
+    num_bytes : natural
+  ) return boolean;
   impure function expected_was_written (buf : axi4_buffer_t) return boolean;
   impure function expected_was_written (memory : axi4_memory_t) return boolean;
 
@@ -252,7 +296,7 @@ package axi4_memory_pkg is
     stride_in_bytes : natural := 0;
     permissions : permissions_t := vunit_lib.memory_pkg.read_only
   ) return axi4_buffer_t;
-  procedure write_integer_array (
+  procedure write_integer_array(
     memory : axi4_memory_t;
     base_address : natural;
     integer_array : integer_array_t;
@@ -268,7 +312,7 @@ package axi4_memory_pkg is
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian;
     permissions : permissions_t := vunit_lib.memory_pkg.read_only
   ) return axi4_buffer_t;
-  procedure set_expected_integer_array (
+  procedure set_expected_integer_array(
     memory : axi4_memory_t;
     base_address : natural;
     integer_array : integer_array_t;
@@ -289,7 +333,8 @@ package axi4_memory_pkg is
   impure function memory_session (memory : axi4_memory_t) return python_session_t;
 
   -- Private. Log the reports of the memory when ``num_reports`` is not 0
-  procedure log_memory_reports (memory : axi4_memory_t; num_reports : natural);
+  procedure log_memory_reports(memory : axi4_memory_t; num_reports : natural);
+
 end package;
 
 package body axi4_memory_pkg is
@@ -303,7 +348,6 @@ package body axi4_memory_pkg is
     logger : logger_t := null_logger;
     checker : checker_t := null_checker
   ) return axi4_memory_t is
-
     variable result : axi4_memory_t;
   begin
 
@@ -326,25 +370,25 @@ package body axi4_memory_pkg is
     result.p_session := new_vc_session(result.p_id, result.p_logger);
     result.p_state := new_integer_vector_ptr(1, value => 0);
     return result;
-  end;
+  end function;
 
   impure function get_id (memory : axi4_memory_t) return id_t is
   begin
 
     return memory.p_id;
-  end;
+  end function;
 
   impure function get_logger (memory : axi4_memory_t) return logger_t is
   begin
 
     return memory.p_logger;
-  end;
+  end function;
 
   impure function get_checker (memory : axi4_memory_t) return checker_t is
   begin
 
     return memory.p_checker;
-  end;
+  end function;
 
   impure function memory_session (memory : axi4_memory_t) return python_session_t is
   begin
@@ -366,45 +410,44 @@ package body axi4_memory_pkg is
       log_memory_reports(memory, backend_call_integer(memory.p_session, "num_reports"));
     end if;
     return memory.p_session;
-  end;
+  end function;
 
-  procedure log_memory_reports (memory : axi4_memory_t; num_reports : natural) is
+  procedure log_memory_reports(memory : axi4_memory_t; num_reports : natural)is
   begin
 
     if num_reports > 0 then
       log_reports(memory.p_session, memory.p_logger, memory.p_checker);
     end if;
-  end;
+  end procedure;
 
   -- Call a backdoor method that returns the number of reports, and log them
-  procedure memory_call (memory : axi4_memory_t; method : string; args : arg_t) is
+  procedure memory_call(memory : axi4_memory_t; method : string; args : arg_t)is
   begin
 
     log_memory_reports(memory, backend_call_integer(memory_session(memory), method, args));
-  end;
+  end procedure;
 
   -- Log the reports of a call that returned something else
-  procedure log_waiting (memory : axi4_memory_t) is
+  procedure log_waiting(memory : axi4_memory_t)is
   begin
 
     log_memory_reports(memory, backend_call_integer(memory_session(memory), "num_reports"));
-  end;
+  end procedure;
 
   function wide (address : natural) return u_unsigned is
   begin
 
     return to_unsigned(address, 64);
-  end;
+  end function;
 
   impure function endian_arg (endian : endianness_arg_t) return arg_t is
   begin
 
     return arg(endianness_arg_t'pos(endian));
-  end;
+  end function;
 
   -- The bytes of a word, least significant first
   function word_bytes (word : std_ulogic_vector) return integer_vector is
-
     alias normalized : std_ulogic_vector(word'length - 1 downto 0) is word;
     variable result : integer_vector(0 to word'length / 8 - 1);
   begin
@@ -418,19 +461,19 @@ package body axi4_memory_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
 
-  procedure clear (memory : axi4_memory_t) is
+  procedure clear(memory : axi4_memory_t)is
   begin
 
     memory_call(memory, "clear", null_arg);
-  end;
+  end procedure;
 
   impure function num_bytes (memory : axi4_memory_t) return natural is
   begin
 
     return backend_call_integer(memory_session(memory), "num_bytes");
-  end;
+  end function;
 
   impure function new_buffer (
     memory : axi4_memory_t;
@@ -443,7 +486,12 @@ package body axi4_memory_pkg is
 
     log_waiting(memory);
     if address < 0 then
-      return (p_memory => memory, p_name => new_string_ptr(name), p_address => (others => '0'), p_num_bytes => 0);
+      return (
+        p_memory => memory,
+        p_name => new_string_ptr(name),
+        p_address => (others => '0'),
+        p_num_bytes => 0
+      );
     end if;
     return (
       p_memory => memory,
@@ -451,7 +499,7 @@ package body axi4_memory_pkg is
       p_address => resize(wide_address, 64),
       p_num_bytes => num_bytes
     );
-  end;
+  end function;
 
   impure function allocate (
     memory : axi4_memory_t;
@@ -460,7 +508,6 @@ package body axi4_memory_pkg is
     alignment : positive := 1;
     permissions : permissions_t := vunit_lib.memory_pkg.read_and_write
   ) return axi4_buffer_t is
-
     constant address : integer := backend_call_integer(
       memory_session(memory),
       "allocate",
@@ -469,7 +516,7 @@ package body axi4_memory_pkg is
   begin
 
     return new_buffer(memory, address, wide(maximum(address, 0)), num_bytes, name);
-  end;
+  end function;
 
   impure function allocate (
     memory : axi4_memory_t;
@@ -478,7 +525,6 @@ package body axi4_memory_pkg is
     name : string := "";
     permissions : permissions_t := vunit_lib.memory_pkg.read_and_write
   ) return axi4_buffer_t is
-
     constant result : integer := backend_call_integer(
       memory_session(memory),
       "allocate",
@@ -492,71 +538,75 @@ package body axi4_memory_pkg is
   begin
 
     return new_buffer(memory, result, address, num_bytes, name);
-  end;
+  end function;
 
   impure function name (buf : axi4_buffer_t) return string is
   begin
 
     return to_string(buf.p_name);
-  end;
+  end function;
 
   impure function num_bytes (buf : axi4_buffer_t) return natural is
   begin
 
     return buf.p_num_bytes;
-  end;
+  end function;
 
   impure function base_address (buf : axi4_buffer_t) return natural is
   begin
 
     return to_integer(buf.p_address);
-  end;
+  end function;
 
   impure function last_address (buf : axi4_buffer_t) return natural is
   begin
 
     return base_address(buf) + buf.p_num_bytes - 1;
-  end;
+  end function;
 
   impure function wide_base_address (buf : axi4_buffer_t) return u_unsigned is
   begin
 
     return buf.p_address;
-  end;
+  end function;
 
   impure function describe_address (memory : axi4_memory_t; address : u_unsigned) return string is
   begin
 
     return backend_call_string(memory_session(memory), "describe_address", arg_unsigned(address));
-  end;
+  end function;
 
   impure function describe_address (memory : axi4_memory_t; address : natural) return string is
   begin
 
     return describe_address(memory, wide(address));
-  end;
+  end function;
 
-  procedure write_word (
+  procedure write_word(
     memory : axi4_memory_t;
     address : u_unsigned;
     word : std_ulogic_vector;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
-  ) is
+  )is
   begin
 
-    memory_call(memory, "write_word", arg_unsigned(address) & arg(word_bytes(word)) & endian_arg(endian));
-  end;
+    memory_call(
+      memory,
+      "write_word",
+      arg_unsigned(address) & arg(word_bytes(word)) & endian_arg(endian)
+    );
+  end procedure;
 
-  procedure write_word (
+  procedure write_word(
     memory : axi4_memory_t;
     address : natural;
     word : std_ulogic_vector;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
-  ) is
+  )is
   begin
 
     write_word(memory, wide(address), word, endian);
-  end;
+  end procedure;
 
   impure function read_word (
     memory : axi4_memory_t;
@@ -564,7 +614,6 @@ package body axi4_memory_pkg is
     bytes_per_word : positive;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
   ) return std_ulogic_vector is
-
     variable values : integer_array_t := backend_call_integer_array(
       memory_session(memory),
       "read_word",
@@ -581,7 +630,7 @@ package body axi4_memory_pkg is
 
     deallocate(values);
     return result;
-  end;
+  end function;
 
   impure function read_word (
     memory : axi4_memory_t;
@@ -592,112 +641,155 @@ package body axi4_memory_pkg is
   begin
 
     return read_word(memory, wide(address), bytes_per_word, endian);
-  end;
+  end function;
 
-  procedure write_byte (memory : axi4_memory_t; address : u_unsigned; byte : natural range 0 to 255) is
+  procedure write_byte(
+    memory : axi4_memory_t;
+    address : u_unsigned;
+    byte : natural range 0 to 255
+  )is
   begin
 
     write_word(memory, address, std_ulogic_vector(to_unsigned(byte, 8)));
-  end;
+  end procedure;
 
-  procedure write_byte (memory : axi4_memory_t; address : natural; byte : natural range 0 to 255) is
+  procedure write_byte(memory : axi4_memory_t; address : natural; byte : natural range 0 to 255)is
   begin
 
     write_byte(memory, wide(address), byte);
-  end;
+  end procedure;
 
   impure function read_byte (memory : axi4_memory_t; address : u_unsigned) return natural is
   begin
 
     return to_integer(unsigned(read_word(memory, address, 1)));
-  end;
+  end function;
 
   impure function read_byte (memory : axi4_memory_t; address : natural) return natural is
   begin
 
     return read_byte(memory, wide(address));
-  end;
+  end function;
 
-  procedure write_integer (
+  procedure write_integer(
     memory : axi4_memory_t;
     address : natural;
     word : integer;
     bytes_per_word : natural range 1 to 4 := 4;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
-  ) is
+  )is
   begin
 
-    memory_call(memory, "write_integer", arg(address) & arg(word) & arg(bytes_per_word) & endian_arg(endian));
-  end;
+    memory_call(
+      memory,
+      "write_integer",
+      arg(address) & arg(word) & arg(bytes_per_word) & endian_arg(endian)
+    );
+  end procedure;
 
-  procedure write_bytes (memory : axi4_memory_t; address : u_unsigned; data : integer_array_t) is
+  procedure write_bytes(memory : axi4_memory_t; address : u_unsigned; data : integer_array_t)is
   begin
 
     memory_call(memory, "write_bytes", arg_unsigned(address) & arg(data));
-  end;
+  end procedure;
 
-  procedure write_bytes (memory : axi4_memory_t; address : natural; data : integer_array_t) is
+  procedure write_bytes(memory : axi4_memory_t; address : natural; data : integer_array_t)is
   begin
 
     write_bytes(memory, wide(address), data);
-  end;
+  end procedure;
 
   impure function read_bytes (
     memory : axi4_memory_t;
     address : u_unsigned;
     num_bytes : natural
   ) return integer_array_t is
-
-    constant result : integer_array_t :=
-      backend_call_integer_array(memory_session(memory), "read_bytes", arg_unsigned(address) & arg(num_bytes));
+    constant result : integer_array_t := backend_call_integer_array(
+      memory_session(memory),
+      "read_bytes",
+      arg_unsigned(address) & arg(num_bytes)
+    );
   begin
 
     log_waiting(memory);
     return result;
-  end;
+  end function;
 
-  impure function read_bytes (memory : axi4_memory_t; address : natural; num_bytes : natural) return integer_array_t is
+  impure function read_bytes (
+    memory : axi4_memory_t;
+    address : natural;
+    num_bytes : natural
+  ) return integer_array_t is
   begin
 
     return read_bytes(memory, wide(address), num_bytes);
-  end;
+  end function;
 
-  procedure fill (memory : axi4_memory_t; address : u_unsigned; num_bytes : natural; value : natural range 0 to 255) is
+  procedure fill(
+    memory : axi4_memory_t;
+    address : u_unsigned;
+    num_bytes : natural;
+    value : natural range 0 to 255
+  )is
   begin
 
     memory_call(memory, "fill", arg_unsigned(address) & arg(num_bytes) & arg(value));
-  end;
+  end procedure;
 
-  procedure fill (memory : axi4_memory_t; address : natural; num_bytes : natural; value : natural range 0 to 255) is
+  procedure fill(
+    memory : axi4_memory_t;
+    address : natural;
+    num_bytes : natural;
+    value : natural range 0 to 255
+  )is
   begin
 
     fill(memory, wide(address), num_bytes, value);
-  end;
+  end procedure;
 
-  procedure load_image (memory : axi4_memory_t; file_name : string; image_format : string; base : u_unsigned) is
+  procedure load_image(
+    memory : axi4_memory_t;
+    file_name : string;
+    image_format : string;
+    base : u_unsigned
+  )is
   begin
 
-    memory_call(memory, "load_image", arg_text(file_name) & arg_text(image_format) & arg_unsigned(base));
-  end;
+    memory_call(
+      memory,
+      "load_image",
+      arg_text(file_name) & arg_text(image_format) & arg_unsigned(base)
+    );
+  end procedure;
 
-  procedure load_image (memory : axi4_memory_t; file_name : string; image_format : string := ""; base : natural := 0) is
+  procedure load_image(
+    memory : axi4_memory_t;
+    file_name : string;
+    image_format : string := "";
+    base : natural := 0
+  )is
   begin
 
     load_image(memory, file_name, image_format, wide(base));
-  end;
+  end procedure;
 
-  impure function get_permissions (memory : axi4_memory_t; address : natural) return permissions_t is
+  impure function get_permissions (
+    memory : axi4_memory_t;
+    address : natural
+  ) return permissions_t is
   begin
 
-    return permissions_t'val(backend_call_integer(memory_session(memory), "get_permissions", arg(address)));
-  end;
+    return permissions_t'val(
+      backend_call_integer(memory_session(memory), "get_permissions", arg(address))
+    );
+  end function;
 
-  procedure set_permissions (
+  procedure set_permissions(
     memory : axi4_memory_t;
     address : u_unsigned;
     num_bytes : natural;
     permissions : permissions_t
-  ) is
+  )is
   begin
 
     memory_call(
@@ -705,72 +797,84 @@ package body axi4_memory_pkg is
       "set_permissions",
       arg_unsigned(address) & arg(num_bytes) & arg(permissions_t'pos(permissions))
     );
-  end;
+  end procedure;
 
-  procedure set_permissions (
+  procedure set_permissions(
     memory : axi4_memory_t;
     address : natural;
     num_bytes : natural;
     permissions : permissions_t
-  ) is
+  )is
   begin
 
     set_permissions(memory, wide(address), num_bytes, permissions);
-  end;
+  end procedure;
 
-  procedure set_permissions (memory : axi4_memory_t; address : natural; permissions : permissions_t) is
+  procedure set_permissions(
+    memory : axi4_memory_t;
+    address : natural;
+    permissions : permissions_t
+  )is
   begin
 
     set_permissions(memory, address, 1, permissions);
-  end;
+  end procedure;
 
   impure function has_expected_byte (memory : axi4_memory_t; address : natural) return boolean is
   begin
 
     return backend_call_boolean(memory_session(memory), "has_expected", arg(address));
-  end;
+  end function;
 
-  procedure clear_expected_byte (memory : axi4_memory_t; address : natural) is
+  procedure clear_expected_byte(memory : axi4_memory_t; address : natural)is
   begin
 
     memory_call(memory, "clear_expected", arg(address) & arg(1));
-  end;
+  end procedure;
 
-  procedure set_expected_word (
+  procedure set_expected_word(
     memory : axi4_memory_t;
     address : u_unsigned;
     expected : std_ulogic_vector;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
-  ) is
+  )is
   begin
 
-    memory_call(memory, "set_expected_word", arg_unsigned(address) & arg(word_bytes(expected)) & endian_arg(endian));
-  end;
+    memory_call(
+      memory,
+      "set_expected_word",
+      arg_unsigned(address) & arg(word_bytes(expected)) & endian_arg(endian)
+    );
+  end procedure;
 
-  procedure set_expected_word (
+  procedure set_expected_word(
     memory : axi4_memory_t;
     address : natural;
     expected : std_ulogic_vector;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
-  ) is
+  )is
   begin
 
     set_expected_word(memory, wide(address), expected, endian);
-  end;
+  end procedure;
 
-  procedure set_expected_byte (memory : axi4_memory_t; address : natural; expected : natural range 0 to 255) is
+  procedure set_expected_byte(
+    memory : axi4_memory_t;
+    address : natural;
+    expected : natural range 0 to 255
+  )is
   begin
 
     set_expected_word(memory, address, std_ulogic_vector(to_unsigned(expected, 8)));
-  end;
+  end procedure;
 
-  procedure set_expected_integer (
+  procedure set_expected_integer(
     memory : axi4_memory_t;
     address : natural;
     expected : integer;
     bytes_per_word : natural range 1 to 4 := 4;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
-  ) is
+  )is
   begin
 
     memory_call(
@@ -778,37 +882,45 @@ package body axi4_memory_pkg is
       "set_expected_integer",
       arg(address) & arg(expected) & arg(bytes_per_word) & endian_arg(endian)
     );
-  end;
+  end procedure;
 
   impure function get_expected_byte (memory : axi4_memory_t; address : natural) return natural is
   begin
 
     return backend_call_integer(memory_session(memory), "get_expected", arg(address));
-  end;
+  end function;
 
-  procedure check_expected_was_written (memory : axi4_memory_t; address : u_unsigned; num_bytes : natural) is
+  procedure check_expected_was_written(
+    memory : axi4_memory_t;
+    address : u_unsigned;
+    num_bytes : natural
+  )is
   begin
 
     memory_call(memory, "check_expected_was_written", arg_unsigned(address) & arg(num_bytes));
-  end;
+  end procedure;
 
-  procedure check_expected_was_written (memory : axi4_memory_t; address : natural; num_bytes : natural) is
+  procedure check_expected_was_written(
+    memory : axi4_memory_t;
+    address : natural;
+    num_bytes : natural
+  )is
   begin
 
     check_expected_was_written(memory, wide(address), num_bytes);
-  end;
+  end procedure;
 
-  procedure check_expected_was_written (buf : axi4_buffer_t) is
+  procedure check_expected_was_written(buf : axi4_buffer_t)is
   begin
 
     check_expected_was_written(buf.p_memory, buf.p_address, buf.p_num_bytes);
-  end;
+  end procedure;
 
-  procedure check_expected_was_written (memory : axi4_memory_t) is
+  procedure check_expected_was_written(memory : axi4_memory_t)is
   begin
 
     memory_call(memory, "check_expected_was_written", null_arg);
-  end;
+  end procedure;
 
   impure function expected_was_written (
     memory : axi4_memory_t;
@@ -817,8 +929,12 @@ package body axi4_memory_pkg is
   ) return boolean is
   begin
 
-    return backend_call_boolean(memory_session(memory), "expected_was_written", arg(address) & arg(num_bytes));
-  end;
+    return backend_call_boolean(
+      memory_session(memory),
+      "expected_was_written",
+      arg(address) & arg(num_bytes)
+    );
+  end function;
 
   impure function expected_was_written (buf : axi4_buffer_t) return boolean is
   begin
@@ -828,22 +944,25 @@ package body axi4_memory_pkg is
       "expected_was_written",
       arg_unsigned(buf.p_address) & arg(buf.p_num_bytes)
     );
-  end;
+  end function;
 
   impure function expected_was_written (memory : axi4_memory_t) return boolean is
   begin
 
     return backend_call_boolean(memory_session(memory), "expected_was_written");
-  end;
+  end function;
 
-  impure function stride (integer_array : integer_array_t; stride_in_bytes : natural) return natural is
+  impure function stride (
+    integer_array : integer_array_t;
+    stride_in_bytes : natural
+  ) return natural is
   begin
 
     if stride_in_bytes = 0 then
       return integer_array.width * bytes_per_word(integer_array);
     end if;
     return stride_in_bytes;
-  end;
+  end function;
 
   impure function allocate_integer_array (
     memory : axi4_memory_t;
@@ -862,16 +981,16 @@ package body axi4_memory_pkg is
       alignment,
       permissions
     );
-  end;
+  end function;
 
-  procedure write_array (
+  procedure write_array(
     memory : axi4_memory_t;
     base_address : natural;
     integer_array : integer_array_t;
     stride_in_bytes : natural;
     endian : endianness_arg_t;
     expected : boolean
-  ) is
+  )is
   begin
 
     memory_call(
@@ -884,19 +1003,19 @@ package body axi4_memory_pkg is
       & endian_arg(endian)
       & arg(expected)
     );
-  end;
+  end procedure;
 
-  procedure write_integer_array (
+  procedure write_integer_array(
     memory : axi4_memory_t;
     base_address : natural;
     integer_array : integer_array_t;
     stride_in_bytes : natural := 0;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
-  ) is
+  )is
   begin
 
     write_array(memory, base_address, integer_array, stride_in_bytes, endian, false);
-  end;
+  end procedure;
 
   impure function write_integer_array (
     memory : axi4_memory_t;
@@ -907,26 +1026,25 @@ package body axi4_memory_pkg is
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian;
     permissions : permissions_t := vunit_lib.memory_pkg.read_only
   ) return axi4_buffer_t is
-
     constant buf : axi4_buffer_t :=
       allocate_integer_array(memory, integer_array, name, alignment, stride_in_bytes, permissions);
   begin
 
     write_array(memory, base_address(buf), integer_array, stride_in_bytes, endian, false);
     return buf;
-  end;
+  end function;
 
-  procedure set_expected_integer_array (
+  procedure set_expected_integer_array(
     memory : axi4_memory_t;
     base_address : natural;
     integer_array : integer_array_t;
     stride_in_bytes : natural := 0;
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian
-  ) is
+  )is
   begin
 
     write_array(memory, base_address, integer_array, stride_in_bytes, endian, true);
-  end;
+  end procedure;
 
   impure function set_expected_integer_array (
     memory : axi4_memory_t;
@@ -937,13 +1055,12 @@ package body axi4_memory_pkg is
     endian : endianness_arg_t := vunit_lib.memory_pkg.default_endian;
     permissions : permissions_t := vunit_lib.memory_pkg.write_only
   ) return axi4_buffer_t is
-
     constant buf : axi4_buffer_t :=
       allocate_integer_array(memory, integer_array, name, alignment, stride_in_bytes, permissions);
   begin
 
     write_array(memory, base_address(buf), integer_array, stride_in_bytes, endian, true);
     return buf;
-  end;
+  end function;
 
 end package body;

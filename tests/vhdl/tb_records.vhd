@@ -11,13 +11,14 @@ library vunit_lib;
 context vunit_lib.vunit_context;
 
 library awesome_vunit_vcs;
-  use awesome_vunit_vcs.property_pkg.all;
+use awesome_vunit_vcs.property_pkg.all;
 
-  use work.record_types_pkg.all;
+use work.record_types_pkg.all;
 
 entity tb_records is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_records is
@@ -31,7 +32,6 @@ begin
     variable lane : lane_t;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 
@@ -45,7 +45,11 @@ begin
         while next_example(prop) loop
 
           link := get_link(prop, "value");
-          report_example(prop, passed => to_string(link) = get_string(prop, "image"), msg => to_string(link));
+          report_example(
+            prop,
+            passed => to_string(link) = get_string(prop, "image"),
+            msg => to_string(link)
+          );
         end loop;
 
         check_property(prop);
@@ -62,7 +66,9 @@ begin
           lane := get_lane(prop);
           report_example(
             prop,
-            passed => lane.index = get_integer(prop, "index") and lane.enabled = get_boolean(prop, "enabled")
+            passed =>
+              lane.index = get_integer(prop, "index")
+              and lane.enabled = get_boolean(prop, "enabled")
           );
         end loop;
 

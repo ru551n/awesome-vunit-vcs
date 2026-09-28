@@ -10,44 +10,45 @@
 -- timing.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.queue_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.queue_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.axi4_pkg.all;
-  use work.axi4_memory_pkg.all;
-  use work.axi4_slave_pkg.all;
-  use work.vc_python_pkg.all;
+use work.axi4_pkg.all;
+use work.axi4_memory_pkg.all;
+use work.axi4_slave_pkg.all;
+use work.vc_python_pkg.all;
 
 entity axi4_read_slave is
   generic (
     -- Created with :vhdl:`axi4_slave_pkg.new_axi4_slave`
-    axi_slave : axi4_slave_t);
+    axi_slave : axi4_slave_t
+  );
   port (
     -- The clock; the slave samples and drives at its rising edges
-    aclk : in  std_ulogic;
+    aclk : in std_ulogic;
     -- The active low reset, 1 when left open. At 0 the slave drops its bursts
     -- and deasserts ARREADY and RVALID.
-    aresetn : in  std_ulogic := '1';
+    aresetn : in std_ulogic := '1';
     -- The read address channel. ARLEN is 8 bits for AXI4 and 4 for AXI3.
-    arvalid : in  std_ulogic;
+    arvalid : in std_ulogic;
     arready : out std_ulogic := '0';
-    arid : in  std_ulogic_vector(id_length(get_bus(axi_slave)) - 1 downto 0) := (others => '0');
-    araddr : in  std_ulogic_vector(address_length(get_bus(axi_slave)) - 1 downto 0);
-    arlen : in  std_ulogic_vector;
-    arsize : in  std_ulogic_vector(2 downto 0) := full_size(get_bus(axi_slave));
-    arburst : in  std_ulogic_vector(1 downto 0) := "01";
+    arid : in std_ulogic_vector(id_length(get_bus(axi_slave)) - 1 downto 0) := (others => '0');
+    araddr : in std_ulogic_vector(address_length(get_bus(axi_slave)) - 1 downto 0);
+    arlen : in std_ulogic_vector;
+    arsize : in std_ulogic_vector(2 downto 0) := full_size(get_bus(axi_slave));
+    arburst : in std_ulogic_vector(1 downto 0) := "01";
     -- The read data channel
     rvalid : out std_ulogic := '0';
-    rready : in  std_ulogic;
+    rready : in std_ulogic;
     rid : out std_ulogic_vector(id_length(get_bus(axi_slave)) - 1 downto 0);
     rdata : out std_ulogic_vector(data_length(get_bus(axi_slave)) - 1 downto 0);
     rresp : out std_ulogic_vector(1 downto 0);
@@ -93,10 +94,9 @@ begin
         rresp <= (rresp'range => config.drive_invalid_val);
         rlast <= config.drive_invalid_val;
       end if;
-    end;
+    end procedure;
 
     procedure drop_bursts is
-
       variable dropped : integer_array_t;
     begin
 
@@ -120,10 +120,9 @@ begin
       rvalid <= '0';
       arready <= '0';
       drive_r_invalid;
-    end;
+    end procedure;
 
     procedure accept_burst is
-
       variable values : integer_array_t;
     begin
 
@@ -144,10 +143,9 @@ begin
       draw_latency(random, state.min_response_latency, state.max_response_latency, latency);
       push(times, now + latency);
       state.queued_bursts := state.queued_bursts + 1;
-    end;
+    end procedure;
 
     procedure drive_beat is
-
       -- The RRESP and the lanes of the beat
       constant first : natural := 2 + (total_beats - beats) * (1 + data_bytes);
       variable value : integer;
@@ -171,7 +169,7 @@ begin
       else
         rlast <= '0';
       end if;
-    end;
+    end procedure;
 
     -- One rising edge of ACLK, in the order of VUnit's axi_read_slave
     procedure cycle is
@@ -216,10 +214,9 @@ begin
       else
         arready <= '1';
       end if;
-    end;
+    end procedure;
 
   begin
-
     drive_r_invalid;
     session := memory_session(get_memory(axi_slave));
     port_index := attach_axi4_slave(axi_slave, is_write => false);
@@ -239,7 +236,13 @@ begin
         end if;
       end if;
 
-      handle_axi4_slave_messages(net, axi_slave, port_index, state, idle => state.queued_bursts = 0 and beats = 0);
+      handle_axi4_slave_messages(
+        net,
+        axi_slave,
+        port_index,
+        state,
+        idle => state.queued_bursts = 0 and beats = 0
+      );
       if state.reset_requested then
         drop_bursts;
       end if;
@@ -263,7 +266,6 @@ begin
     variable num_beats_now : integer;
 
   begin
-
     wait until rising_edge(aclk);
     num_beats_now := num_beats;
     if to_x01(arvalid) = '1' then

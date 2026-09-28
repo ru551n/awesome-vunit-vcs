@@ -13,7 +13,8 @@ context awesome_vunit_vcs.ethernet_context;
 -- protocol checks.
 entity tb_cookbook is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_cookbook is
@@ -29,13 +30,15 @@ architecture tb of tb_cookbook is
 
   -- docs-start: handles
   constant source : gmii_source_t := new_gmii_source;
-  constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+  constant monitor : gmii_monitor_t :=
+    new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
   -- docs-end: handles
   constant subscriber : actor_t := new_actor("tb_cookbook:subscriber");
 
   -- docs-start: frame
   -- A 60 octet frame: destination, source, EtherType and a payload of ones
-  constant frame : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
+  constant frame : std_ulogic_vector
+    := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
 
 -- docs-end: frame
 begin
@@ -60,11 +63,10 @@ begin
 
       wait_until_idle(net, as_sync(source));
       wait_until_idle(net, as_sync(monitor));
-    end;
+    end procedure;
 
   -- docs-end: wait-helper
   begin
-
     -- docs-start: test-structure
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
@@ -80,7 +82,14 @@ begin
       elsif run("test_send_header_fields") then
         -- docs-start: header-fields
         check_ethernet_frame(net, monitor, frame, blocking => false);
-        push_ethernet_frame(net, source, x"020000000001", x"020000000002", x"88B5", (0 to 8 * 46 - 1 => '1'));
+        push_ethernet_frame(
+          net,
+          source,
+          x"020000000001",
+          x"020000000002",
+          x"88B5",
+          (0 to 8 * 46 - 1 => '1')
+        );
         wait_until_idle;
       -- docs-end: header-fields
 
@@ -129,7 +138,10 @@ begin
           net,
           source,
           "cookbook_traffic:udp_to_dut",
-          kwarg("port", 1234) & kwarg("size", 64) & kwarg_text("label", "first frame") & kwarg_time("sent_at", now)
+          kwarg("port", 1234)
+          & kwarg("size", 64)
+          & kwarg_text("label", "first frame")
+          & kwarg_time("sent_at", now)
         );
         wait_until_idle;
         get_statistics(net, monitor, statistics);
@@ -196,7 +208,10 @@ begin
       elsif run("test_call_a_python_function") then
         -- docs-start: call-python
         import_module_from_file(tb_path(runner_cfg) & "python/cookbook_model.py", "cookbook_model");
-        check(call_integer_vector("cookbook_model.gain_table", kwarg("length", 4)) = integer_vector'(0, 1, 4, 9));
+        check(
+          call_integer_vector("cookbook_model.gain_table", kwarg("length", 4))
+          = integer_vector'(0, 1, 4, 9)
+        );
       -- docs-end: call-python
 
       elsif run("test_python_reference_model") then
@@ -204,19 +219,29 @@ begin
         import_module_from_file(tb_path(runner_cfg) & "python/cookbook_model.py", "cookbook_model");
         for idx in frame_sizes'range loop
 
-          push_ethernet_frame(net, source, frame(0 to 111) & (0 to 8 * (frame_sizes(idx) - 14) - 1 => '1'));
+          push_ethernet_frame(
+            net,
+            source,
+            frame(0 to 111) & (0 to 8 * (frame_sizes(idx) - 14) - 1 => '1')
+          );
         end loop;
 
         wait_until_idle;
         get_statistics(net, monitor, statistics);
         -- The Python model predicts what the monitor must count
-        check_equal(statistics.payload_octets, call("cookbook_model.expected_payload_octets", arg(frame_sizes)));
+        check_equal(
+          statistics.payload_octets,
+          call("cookbook_model.expected_payload_octets", arg(frame_sizes))
+        );
       -- docs-end: reference-model
 
       elsif run("test_count_errors_from_a_python_subscriber") then
         -- docs-start: python-subscriber-errors
         -- python/cookbook_subscriber.py runs in the monitor's Python session
-        exec_file(tb_path(runner_cfg) & "python/cookbook_subscriber.py", new_session(get_id(monitor)));
+        exec_file(
+          tb_path(runner_cfg) & "python/cookbook_subscriber.py",
+          new_session(get_id(monitor))
+        );
         disable_stop(get_logger(monitor), error);
         push_ethernet_frame(net, source, frame);
         push_ethernet_frame(net, source, frame & (0 to 8 * 100 - 1 => '0'));

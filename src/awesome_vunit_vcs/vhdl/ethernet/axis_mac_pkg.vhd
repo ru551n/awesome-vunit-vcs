@@ -10,20 +10,20 @@
 -- and tuser(0) with tlast marking an errored frame.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.stream_master_pkg.all;
-  use vunit_lib.stream_slave_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.stream_master_pkg.all;
+use vunit_lib.stream_slave_pkg.all;
+use vunit_lib.vc_pkg.all;
 
-  use work.ethernet_pkg.all;
+use work.ethernet_pkg.all;
 
 library python_bridge;
-  use python_bridge.python_pkg.all;
+use python_bridge.python_pkg.all;
 
 package axis_mac_pkg is
 
@@ -250,13 +250,13 @@ package axis_mac_pkg is
   -- The procedures of :vhdl:`ethernet_pkg.push_ethernet_frame`,
   -- :vhdl:`ethernet_pkg.push_ethernet_packet` and
   -- :vhdl:`ethernet_pkg.push_ethernet_sequence` for an AXI-Stream MAC client source
-  procedure push_ethernet_frame (
+  procedure push_ethernet_frame(
     signal net : inout network_t;
     source : axis_mac_source_t;
     data : std_ulogic_vector;
     options : ethernet_frame_options_t := default_frame_options
   );
-  procedure push_ethernet_frame (
+  procedure push_ethernet_frame(
     signal net : inout network_t;
     source : axis_mac_source_t;
     destination : std_ulogic_vector;
@@ -265,14 +265,14 @@ package axis_mac_pkg is
     payload : std_ulogic_vector;
     options : ethernet_frame_options_t := default_frame_options
   );
-  procedure push_ethernet_packet (
+  procedure push_ethernet_packet(
     signal net : inout network_t;
     source : axis_mac_source_t;
     function_name : string;
     arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
   );
-  procedure push_ethernet_sequence (
+  procedure push_ethernet_sequence(
     signal net : inout network_t;
     source : axis_mac_source_t;
     function_name : string;
@@ -284,32 +284,32 @@ package axis_mac_pkg is
   -- The monitor procedures of ethernet_pkg, such as
   -- :vhdl:`ethernet_pkg.pop_ethernet_frame`, :vhdl:`ethernet_pkg.check_ethernet_frame`
   -- and :vhdl:`ethernet_pkg.get_statistics`, for an AXI-Stream MAC client monitor
-  procedure pop_ethernet_frame (
+  procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable reference : inout ethernet_reference_t
   );
-  procedure pop_ethernet_frame (
+  procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable data : out std_ulogic_vector;
     variable length : out natural;
     variable fcs_ok : out boolean
   );
-  procedure pop_ethernet_frame (
+  procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable data : out std_ulogic_vector;
     variable length : out natural
   );
-  procedure check_ethernet_frame (
+  procedure check_ethernet_frame(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     expected : std_ulogic_vector;
     msg : string := "";
     blocking : boolean := true
   );
-  procedure check_ethernet_sequence (
+  procedure check_ethernet_sequence(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     function_name : string;
@@ -317,51 +317,55 @@ package axis_mac_pkg is
     count : natural := 0;
     seed : string := ""
   );
-  procedure get_statistics (
+  procedure get_statistics(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable reference : inout ethernet_reference_t
   );
-  procedure get_statistics (
+  procedure get_statistics(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable statistics : out ethernet_statistics_t
   );
-  procedure get_frame_count (
+  procedure get_frame_count(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable reference : inout ethernet_reference_t
   );
-  procedure get_frame_count (signal net : inout network_t; monitor : axis_mac_monitor_t; variable count : out natural);
-  procedure log_statistics (
+  procedure get_frame_count(
+    signal net : inout network_t;
+    monitor : axis_mac_monitor_t;
+    variable count : out natural
+  );
+  procedure log_statistics(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     log_level : log_level_t := info
   );
-  procedure start_capture (
+  procedure start_capture(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     file_name : string;
     include_fcs : boolean := true;
     include_errored : boolean := true
   );
-  procedure stop_capture (signal net : inout network_t; monitor : axis_mac_monitor_t);
+  procedure stop_capture(signal net : inout network_t; monitor : axis_mac_monitor_t);
 
   -- The procedures of :vhdl:`ethernet_pkg.set_check_enabled` and
   -- :vhdl:`ethernet_pkg.get_check_count` for an AXI-Stream MAC client protocol checker
-  procedure set_check_enabled (
+  procedure set_check_enabled(
     signal net : inout network_t;
     protocol_checker : axis_mac_protocol_checker_t;
     check : ethernet_check_t;
     enabled : boolean := true
   );
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : axis_mac_protocol_checker_t;
     check : ethernet_check_t;
     variable reference : inout ethernet_reference_t
   );
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : axis_mac_protocol_checker_t;
     check : ethernet_check_t;
@@ -374,19 +378,19 @@ package axis_mac_pkg is
   -- protocol checks to the protocol checker it instantiates
   -- (:vhdl:`axis_mac_pkg.get_protocol_checker`). A protocol check on a monitor
   -- without a protocol checker is a failure on the logger of the monitor.
-  procedure set_check_enabled (
+  procedure set_check_enabled(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     check : ethernet_check_t;
     enabled : boolean := true
   );
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     check : ethernet_check_t;
     variable reference : inout ethernet_reference_t
   );
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     check : ethernet_check_t;
@@ -394,9 +398,13 @@ package axis_mac_pkg is
   );
 
   -- Recover a VC, see :vhdl:`ethernet_pkg.reset`
-  procedure reset (signal net : inout network_t; source : axis_mac_source_t);
-  procedure reset (signal net : inout network_t; monitor : axis_mac_monitor_t; clear_statistics : boolean := false);
-  procedure reset (signal net : inout network_t; protocol_checker : axis_mac_protocol_checker_t);
+  procedure reset(signal net : inout network_t; source : axis_mac_source_t);
+  procedure reset(
+    signal net : inout network_t;
+    monitor : axis_mac_monitor_t;
+    clear_statistics : boolean := false
+  );
+  procedure reset(signal net : inout network_t; protocol_checker : axis_mac_protocol_checker_t);
 
   -- An AXI-Stream MAC client sink, for the axis_mac_sink entity. It drives tready
   -- of one AXI-Stream interface with a backpressure pattern.
@@ -439,10 +447,12 @@ package axis_mac_pkg is
   -- The backpressure pattern a sink starts with
   function get_ready_high_percent (sink : axis_mac_sink_t) return natural;
   function get_ready_seed (sink : axis_mac_sink_t) return natural;
-  function get_unexpected_msg_type_policy (sink : axis_mac_sink_t) return unexpected_msg_type_policy_t;
+  function get_unexpected_msg_type_policy (
+    sink : axis_mac_sink_t
+  ) return unexpected_msg_type_policy_t;
 
   -- Change the backpressure pattern of a sink from the next clock on
-  procedure set_ready_pattern (
+  procedure set_ready_pattern(
     signal net : inout network_t;
     sink : axis_mac_sink_t;
     ready_high_percent : natural;
@@ -451,7 +461,7 @@ package axis_mac_pkg is
 
   -- Return a sink to the pattern it was created with. Blocks until the sink
   -- has handled it, also while the clock is stopped.
-  procedure reset (signal net : inout network_t; sink : axis_mac_sink_t);
+  procedure reset(signal net : inout network_t; sink : axis_mac_sink_t);
 
   -- The message types of a sink
   constant set_axis_mac_sink_ready_msg : msg_type_t := new_msg_type("set axis mac sink ready");
@@ -461,7 +471,10 @@ package axis_mac_pkg is
   -- Private: the VC an entity implements
   impure function to_ethernet_vc (source : axis_mac_source_t) return ethernet_vc_t;
   impure function to_ethernet_vc (monitor : axis_mac_monitor_t) return ethernet_vc_t;
-  impure function to_ethernet_vc (protocol_checker : axis_mac_protocol_checker_t) return ethernet_vc_t;
+  impure function to_ethernet_vc (
+    protocol_checker : axis_mac_protocol_checker_t
+  ) return ethernet_vc_t;
+
 end package;
 
 package body axis_mac_pkg is
@@ -474,7 +487,7 @@ package body axis_mac_pkg is
   begin
 
     return 8 * cfg.p_lanes;
-  end;
+  end function;
 
   impure function new_axis_mac_source (
     bytes_per_beat : positive := 8;
@@ -489,8 +502,8 @@ package body axis_mac_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return axis_mac_source_t is
-
-    constant identity : ethernet_identity_t := new_ethernet_identity("axis_mac_source", id, logger, actor, checker);
+    constant identity : ethernet_identity_t :=
+      new_ethernet_identity("axis_mac_source", id, logger, actor, checker);
   begin
 
     return (
@@ -512,7 +525,7 @@ package body axis_mac_pkg is
         min_ifg_octets => 0
       )
     );
-  end;
+  end function;
 
   impure function new_axis_mac_protocol_checker (
     bytes_per_beat : positive := 8;
@@ -530,7 +543,6 @@ package body axis_mac_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return axis_mac_protocol_checker_t is
-
     constant identity : ethernet_identity_t :=
       new_ethernet_identity("axis_mac_protocol_checker", id, logger, actor, checker);
   begin
@@ -561,7 +573,7 @@ package body axis_mac_pkg is
         delta_unit => delta_unit
       )
     );
-  end;
+  end function;
 
   -- The protocol checker of a monitor with id parent and configuration
   -- monitor_cfg, like get_valid_protocol_checker of axi_stream_pkg
@@ -570,7 +582,6 @@ package body axis_mac_pkg is
     parent : id_t;
     monitor_cfg : ethernet_cfg_t
   ) return axis_mac_protocol_checker_t is
-
     variable result : axis_mac_protocol_checker_t := protocol_checker;
     variable identity : ethernet_identity_t;
   begin
@@ -619,7 +630,7 @@ package body axis_mac_pkg is
     result.p_actor := identity.p_actor;
     result.p_checker := identity.p_checker;
     return result;
-  end;
+  end function;
 
   impure function new_axis_mac_monitor (
     bytes_per_beat : positive := 8;
@@ -638,8 +649,8 @@ package body axis_mac_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return axis_mac_monitor_t is
-
-    constant identity : ethernet_identity_t := new_ethernet_identity("axis_mac_monitor", id, logger, actor, checker);
+    constant identity : ethernet_identity_t :=
+      new_ethernet_identity("axis_mac_monitor", id, logger, actor, checker);
     constant cfg : ethernet_cfg_t := new_ethernet_cfg(
       interface => axis,
       link_rate_mbps => link_rate_mbps,
@@ -666,121 +677,121 @@ package body axis_mac_pkg is
       p_cfg => cfg,
       p_protocol_checker => child_protocol_checker(protocol_checker, identity.p_id, cfg)
     );
-  end;
+  end function;
 
   impure function get_id (source : axis_mac_source_t) return id_t is
   begin
 
     return source.p_id;
-  end;
+  end function;
 
   impure function get_id (monitor : axis_mac_monitor_t) return id_t is
   begin
 
     return monitor.p_id;
-  end;
+  end function;
 
   impure function get_id (protocol_checker : axis_mac_protocol_checker_t) return id_t is
   begin
 
     return protocol_checker.p_id;
-  end;
+  end function;
 
   impure function get_logger (source : axis_mac_source_t) return logger_t is
   begin
 
     return source.p_logger;
-  end;
+  end function;
 
   impure function get_logger (monitor : axis_mac_monitor_t) return logger_t is
   begin
 
     return monitor.p_logger;
-  end;
+  end function;
 
   impure function get_logger (protocol_checker : axis_mac_protocol_checker_t) return logger_t is
   begin
 
     return protocol_checker.p_logger;
-  end;
+  end function;
 
   impure function get_actor (source : axis_mac_source_t) return actor_t is
   begin
 
     return source.p_actor;
-  end;
+  end function;
 
   impure function get_actor (monitor : axis_mac_monitor_t) return actor_t is
   begin
 
     return monitor.p_actor;
-  end;
+  end function;
 
   impure function get_actor (protocol_checker : axis_mac_protocol_checker_t) return actor_t is
   begin
 
     return protocol_checker.p_actor;
-  end;
+  end function;
 
   impure function get_checker (source : axis_mac_source_t) return checker_t is
   begin
 
     return source.p_checker;
-  end;
+  end function;
 
   impure function get_checker (monitor : axis_mac_monitor_t) return checker_t is
   begin
 
     return monitor.p_checker;
-  end;
+  end function;
 
   impure function get_checker (protocol_checker : axis_mac_protocol_checker_t) return checker_t is
   begin
 
     return protocol_checker.p_checker;
-  end;
+  end function;
 
   impure function as_sync (source : axis_mac_source_t) return sync_handle_t is
   begin
 
     return source.p_actor;
-  end;
+  end function;
 
   impure function as_sync (monitor : axis_mac_monitor_t) return sync_handle_t is
   begin
 
     return monitor.p_actor;
-  end;
+  end function;
 
   impure function as_sync (protocol_checker : axis_mac_protocol_checker_t) return sync_handle_t is
   begin
 
     return protocol_checker.p_actor;
-  end;
+  end function;
 
   impure function as_stream (source : axis_mac_source_t) return stream_master_t is
   begin
 
     return (p_actor => source.p_actor);
-  end;
+  end function;
 
   impure function as_stream (monitor : axis_mac_monitor_t) return stream_slave_t is
   begin
 
     return (p_actor => monitor.p_actor);
-  end;
+  end function;
 
   impure function as_ethernet_source (source : axis_mac_source_t) return ethernet_source_t is
   begin
 
     return (p_actor => source.p_actor, p_checker => source.p_checker);
-  end;
+  end function;
 
   impure function as_ethernet_monitor (monitor : axis_mac_monitor_t) return ethernet_monitor_t is
   begin
 
     return (p_actor => monitor.p_actor, p_checker => monitor.p_checker);
-  end;
+  end function;
 
   impure function as_ethernet_protocol_checker (
     protocol_checker : axis_mac_protocol_checker_t
@@ -788,80 +799,80 @@ package body axis_mac_pkg is
   begin
 
     return (p_actor => protocol_checker.p_actor, p_checker => protocol_checker.p_checker);
-  end;
+  end function;
 
   function get_protocol_checker (monitor : axis_mac_monitor_t) return axis_mac_protocol_checker_t is
   begin
 
     return monitor.p_protocol_checker;
-  end;
+  end function;
 
   impure function data_length (source : axis_mac_source_t) return positive is
   begin
 
     return cfg_data_length(source.p_cfg);
-  end;
+  end function;
 
   impure function data_length (monitor : axis_mac_monitor_t) return positive is
   begin
 
     return cfg_data_length(monitor.p_cfg);
-  end;
+  end function;
 
   impure function data_length (protocol_checker : axis_mac_protocol_checker_t) return positive is
   begin
 
     return cfg_data_length(protocol_checker.p_cfg);
-  end;
+  end function;
 
   impure function keep_length (source : axis_mac_source_t) return positive is
   begin
 
     return source.p_cfg.p_lanes;
-  end;
+  end function;
 
   impure function keep_length (monitor : axis_mac_monitor_t) return positive is
   begin
 
     return monitor.p_cfg.p_lanes;
-  end;
+  end function;
 
   impure function keep_length (protocol_checker : axis_mac_protocol_checker_t) return positive is
   begin
 
     return protocol_checker.p_cfg.p_lanes;
-  end;
+  end function;
 
   impure function user_length (source : axis_mac_source_t) return positive is
   begin
 
     return source.p_cfg.p_user_length;
-  end;
+  end function;
 
   impure function user_length (monitor : axis_mac_monitor_t) return positive is
   begin
 
     return monitor.p_cfg.p_user_length;
-  end;
+  end function;
 
   impure function user_length (protocol_checker : axis_mac_protocol_checker_t) return positive is
   begin
 
     return protocol_checker.p_cfg.p_user_length;
-  end;
+  end function;
 
-  procedure push_ethernet_frame (
+  procedure push_ethernet_frame(
     signal net : inout network_t;
     source : axis_mac_source_t;
     data : std_ulogic_vector;
     options : ethernet_frame_options_t := default_frame_options
-  ) is
+  )is
   begin
 
     push_ethernet_frame(net, as_ethernet_source(source), data, options);
-  end;
+  end procedure;
 
-  procedure push_ethernet_frame (
+  procedure push_ethernet_frame(
     signal net : inout network_t;
     source : axis_mac_source_t;
     destination : std_ulogic_vector;
@@ -869,198 +880,216 @@ package body axis_mac_pkg is
     ethertype : std_ulogic_vector;
     payload : std_ulogic_vector;
     options : ethernet_frame_options_t := default_frame_options
-  ) is
+  )is
   begin
 
-    push_ethernet_frame(net, as_ethernet_source(source), destination, source_address, ethertype, payload, options);
-  end;
+    push_ethernet_frame(
+      net,
+      as_ethernet_source(source),
+      destination,
+      source_address,
+      ethertype,
+      payload,
+      options
+    );
+  end procedure;
 
-  procedure push_ethernet_packet (
+  procedure push_ethernet_packet(
     signal net : inout network_t;
     source : axis_mac_source_t;
     function_name : string;
     arguments : arg_t := null_arg;
     options : ethernet_frame_options_t := default_frame_options
-  ) is
+  )is
   begin
 
     push_ethernet_packet(net, as_ethernet_source(source), function_name, arguments, options);
-  end;
+  end procedure;
 
-  procedure push_ethernet_sequence (
+  procedure push_ethernet_sequence(
     signal net : inout network_t;
     source : axis_mac_source_t;
     function_name : string;
     arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
-  ) is
+  )is
   begin
 
     push_ethernet_sequence(net, as_ethernet_source(source), function_name, arguments, count, seed);
-  end;
+  end procedure;
 
-  procedure pop_ethernet_frame (
+  procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
 
     pop_ethernet_frame(net, as_ethernet_monitor(monitor), reference);
-  end;
+  end procedure;
 
-  procedure pop_ethernet_frame (
+  procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable data : out std_ulogic_vector;
     variable length : out natural;
     variable fcs_ok : out boolean
-  ) is
+  )is
   begin
 
     pop_ethernet_frame(net, as_ethernet_monitor(monitor), data, length, fcs_ok);
-  end;
+  end procedure;
 
-  procedure pop_ethernet_frame (
+  procedure pop_ethernet_frame(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable data : out std_ulogic_vector;
     variable length : out natural
-  ) is
+  )is
   begin
 
     pop_ethernet_frame(net, as_ethernet_monitor(monitor), data, length);
-  end;
+  end procedure;
 
-  procedure check_ethernet_frame (
+  procedure check_ethernet_frame(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     expected : std_ulogic_vector;
     msg : string := "";
     blocking : boolean := true
-  ) is
+  )is
   begin
 
     check_ethernet_frame(net, as_ethernet_monitor(monitor), expected, msg, blocking);
-  end;
+  end procedure;
 
-  procedure check_ethernet_sequence (
+  procedure check_ethernet_sequence(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     function_name : string;
     arguments : arg_t := null_arg;
     count : natural := 0;
     seed : string := ""
-  ) is
+  )is
   begin
 
-    check_ethernet_sequence(net, as_ethernet_monitor(monitor), function_name, arguments, count, seed);
-  end;
+    check_ethernet_sequence(
+      net,
+      as_ethernet_monitor(monitor),
+      function_name,
+      arguments,
+      count,
+      seed
+    );
+  end procedure;
 
-  procedure get_statistics (
+  procedure get_statistics(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
 
     get_statistics(net, as_ethernet_monitor(monitor), reference);
-  end;
+  end procedure;
 
-  procedure get_statistics (
+  procedure get_statistics(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable statistics : out ethernet_statistics_t
-  ) is
+  )is
   begin
 
     get_statistics(net, as_ethernet_monitor(monitor), statistics);
-  end;
+  end procedure;
 
-  procedure get_frame_count (
+  procedure get_frame_count(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
 
     get_frame_count(net, as_ethernet_monitor(monitor), reference);
-  end;
+  end procedure;
 
-  procedure get_frame_count (
+  procedure get_frame_count(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     variable count : out natural
-  ) is
+  )is
   begin
 
     get_frame_count(net, as_ethernet_monitor(monitor), count);
-  end;
+  end procedure;
 
-  procedure log_statistics (
+  procedure log_statistics(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     log_level : log_level_t := info
-  ) is
+  )is
   begin
 
     log_statistics(net, as_ethernet_monitor(monitor), log_level);
-  end;
+  end procedure;
 
-  procedure start_capture (
+  procedure start_capture(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     file_name : string;
     include_fcs : boolean := true;
     include_errored : boolean := true
-  ) is
+  )is
   begin
 
     start_capture(net, as_ethernet_monitor(monitor), file_name, include_fcs, include_errored);
-  end;
+  end procedure;
 
-  procedure stop_capture (signal net : inout network_t; monitor : axis_mac_monitor_t) is
+  procedure stop_capture(signal net : inout network_t; monitor : axis_mac_monitor_t)is
   begin
 
     stop_capture(net, as_ethernet_monitor(monitor));
-  end;
+  end procedure;
 
-  procedure set_check_enabled (
+  procedure set_check_enabled(
     signal net : inout network_t;
     protocol_checker : axis_mac_protocol_checker_t;
     check : ethernet_check_t;
     enabled : boolean := true
-  ) is
+  )is
   begin
 
     set_check_enabled(net, as_ethernet_protocol_checker(protocol_checker), check, enabled);
-  end;
+  end procedure;
 
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : axis_mac_protocol_checker_t;
     check : ethernet_check_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
 
     get_check_count(net, as_ethernet_protocol_checker(protocol_checker), check, reference);
-  end;
+  end procedure;
 
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : axis_mac_protocol_checker_t;
     check : ethernet_check_t;
     variable count : out natural
-  ) is
+  )is
   begin
 
     get_check_count(net, as_ethernet_protocol_checker(protocol_checker), check, count);
-  end;
+  end procedure;
 
   -- Fails on the logger of the monitor when it has no protocol checker to forward to
-  impure function has_protocol_checker (monitor : axis_mac_monitor_t; procedure_name : string) return boolean is
+  impure function has_protocol_checker (
+    monitor : axis_mac_monitor_t;
+    procedure_name : string
+  ) return boolean is
   begin
 
     if get_protocol_checker(monitor) = null_axis_mac_protocol_checker then
@@ -1073,14 +1102,14 @@ package body axis_mac_pkg is
       return false;
     end if;
     return true;
-  end;
+  end function;
 
-  procedure set_check_enabled (
+  procedure set_check_enabled(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     check : ethernet_check_t;
     enabled : boolean := true
-  ) is
+  )is
   begin
 
     if is_monitor_check(check) then
@@ -1088,14 +1117,14 @@ package body axis_mac_pkg is
     elsif has_protocol_checker(monitor, "set_check_enabled") then
       set_check_enabled(net, get_protocol_checker(monitor), check, enabled);
     end if;
-  end;
+  end procedure;
 
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     check : ethernet_check_t;
     variable reference : inout ethernet_reference_t
-  ) is
+  )is
   begin
 
     if is_monitor_check(check) then
@@ -1103,14 +1132,14 @@ package body axis_mac_pkg is
     elsif has_protocol_checker(monitor, "get_check_count") then
       get_check_count(net, get_protocol_checker(monitor), check, reference);
     end if;
-  end;
+  end procedure;
 
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     monitor : axis_mac_monitor_t;
     check : ethernet_check_t;
     variable count : out natural
-  ) is
+  )is
   begin
 
     if is_monitor_check(check) then
@@ -1118,25 +1147,29 @@ package body axis_mac_pkg is
     elsif has_protocol_checker(monitor, "get_check_count") then
       get_check_count(net, get_protocol_checker(monitor), check, count);
     end if;
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; source : axis_mac_source_t) is
+  procedure reset(signal net : inout network_t; source : axis_mac_source_t)is
   begin
 
     reset(net, as_ethernet_source(source));
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; monitor : axis_mac_monitor_t; clear_statistics : boolean := false) is
+  procedure reset(
+    signal net : inout network_t;
+    monitor : axis_mac_monitor_t;
+    clear_statistics : boolean := false
+  )is
   begin
 
     reset(net, as_ethernet_monitor(monitor), clear_statistics);
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; protocol_checker : axis_mac_protocol_checker_t) is
+  procedure reset(signal net : inout network_t; protocol_checker : axis_mac_protocol_checker_t)is
   begin
 
     reset(net, as_ethernet_protocol_checker(protocol_checker));
-  end;
+  end procedure;
 
   impure function new_axis_mac_sink (
     ready_high_percent : natural := 100;
@@ -1147,8 +1180,8 @@ package body axis_mac_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return axis_mac_sink_t is
-
-    constant identity : ethernet_identity_t := new_ethernet_identity("axis_mac_sink", id, logger, actor, checker);
+    constant identity : ethernet_identity_t :=
+      new_ethernet_identity("axis_mac_sink", id, logger, actor, checker);
   begin
 
     return (
@@ -1160,80 +1193,80 @@ package body axis_mac_pkg is
       p_ready_high_percent => ready_high_percent,
       p_seed => seed
     );
-  end;
+  end function;
 
   impure function get_id (sink : axis_mac_sink_t) return id_t is
   begin
 
     return sink.p_id;
-  end;
+  end function;
 
   impure function get_logger (sink : axis_mac_sink_t) return logger_t is
   begin
 
     return sink.p_logger;
-  end;
+  end function;
 
   impure function get_actor (sink : axis_mac_sink_t) return actor_t is
   begin
 
     return sink.p_actor;
-  end;
+  end function;
 
   impure function get_checker (sink : axis_mac_sink_t) return checker_t is
   begin
 
     return sink.p_checker;
-  end;
+  end function;
 
   impure function as_sync (sink : axis_mac_sink_t) return sync_handle_t is
   begin
 
     return sink.p_actor;
-  end;
+  end function;
 
   function get_ready_high_percent (sink : axis_mac_sink_t) return natural is
   begin
 
     return sink.p_ready_high_percent;
-  end;
+  end function;
 
   function get_ready_seed (sink : axis_mac_sink_t) return natural is
   begin
 
     return sink.p_seed;
-  end;
+  end function;
 
-  function get_unexpected_msg_type_policy (sink : axis_mac_sink_t) return unexpected_msg_type_policy_t is
+  function get_unexpected_msg_type_policy (
+    sink : axis_mac_sink_t
+  ) return unexpected_msg_type_policy_t is
   begin
 
     return sink.p_unexpected_msg_type_policy;
-  end;
+  end function;
 
-  procedure set_ready_pattern (
+  procedure set_ready_pattern(
     signal net : inout network_t;
     sink : axis_mac_sink_t;
     ready_high_percent : natural;
     seed : natural := 0
-  ) is
-
+  )is
     variable msg : msg_t := new_msg(set_axis_mac_sink_ready_msg);
   begin
 
     push(msg, ready_high_percent);
     push(msg, seed);
     send(net, sink.p_actor, msg);
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; sink : axis_mac_sink_t) is
-
+  procedure reset(signal net : inout network_t; sink : axis_mac_sink_t)is
     variable request_msg : msg_t := new_msg(reset_axis_mac_sink_msg);
     variable reply_msg : msg_t;
   begin
 
     request(net, sink.p_actor, request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
   impure function to_ethernet_vc (source : axis_mac_source_t) return ethernet_vc_t is
   begin
@@ -1247,7 +1280,7 @@ package body axis_mac_pkg is
       p_unexpected_msg_type_policy => source.p_unexpected_msg_type_policy,
       p_cfg => source.p_cfg
     );
-  end;
+  end function;
 
   impure function to_ethernet_vc (monitor : axis_mac_monitor_t) return ethernet_vc_t is
   begin
@@ -1261,9 +1294,11 @@ package body axis_mac_pkg is
       p_unexpected_msg_type_policy => monitor.p_unexpected_msg_type_policy,
       p_cfg => monitor.p_cfg
     );
-  end;
+  end function;
 
-  impure function to_ethernet_vc (protocol_checker : axis_mac_protocol_checker_t) return ethernet_vc_t is
+  impure function to_ethernet_vc (
+    protocol_checker : axis_mac_protocol_checker_t
+  ) return ethernet_vc_t is
   begin
 
     return (
@@ -1275,6 +1310,6 @@ package body axis_mac_pkg is
       p_unexpected_msg_type_policy => protocol_checker.p_unexpected_msg_type_policy,
       p_cfg => protocol_checker.p_cfg
     );
-  end;
+  end function;
 
 end package body;

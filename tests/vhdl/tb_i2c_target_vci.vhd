@@ -14,7 +14,8 @@ context awesome_vunit_vcs.i2c_context;
 
 entity tb_i2c_target_vci is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_i2c_target_vci is
@@ -28,7 +29,8 @@ architecture tb of tb_i2c_target_vci is
 
   constant custom_logger : logger_t := get_logger("tb_i2c_target_vci:custom_logger");
   constant custom_actor : actor_t := new_actor("tb_i2c_target_vci:custom_actor");
-  constant custom_checker : checker_t := new_checker(get_logger("tb_i2c_target_vci:custom_checker"));
+  constant custom_checker : checker_t :=
+    new_checker(get_logger("tb_i2c_target_vci:custom_checker"));
   constant custom_target : i2c_target_t := new_i2c_target(
     address => 16#53#,
     id => get_id("tb_i2c_target_vci:custom_target"),
@@ -108,8 +110,11 @@ begin
     variable status : i2c_status_t;
     variable start : time;
 
-    procedure check_unexpected_message (actor : actor_t; logger : logger_t; expect_failure : boolean) is
-
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
 
@@ -123,10 +128,9 @@ begin
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
@@ -134,26 +138,51 @@ begin
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_target))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_target))), "i2c_target", "name of its parent");
-        check(get_parent(get_parent(get_id(default_target))) = get_id("awesome_vunit_vcs"), "grandparent");
-        check(get_id(second_default_target) /= get_id(default_target), "a second default id differs");
+        check(
+          get_parent(get_parent(get_id(default_target))) = get_id("awesome_vunit_vcs"),
+          "grandparent"
+        );
+        check(
+          get_id(second_default_target) /= get_id(default_target),
+          "a second default id differs"
+        );
         check_equal(address(default_target), 16#50#, "address");
         check_equal(t_hd_dat(default_target), 100 ns, "default t_hd_dat");
 
       elsif run("test_default_logger_actor_and_checker_are_used") then
         check(get_logger(default_target) = get_logger(get_id(default_target)), "logger of the id");
-        check(get_actor(default_target) = find(get_id(default_target), enable_deferred_creation => false), "actor");
+        check(
+          get_actor(default_target)
+          = find(get_id(default_target), enable_deferred_creation => false),
+          "actor"
+        );
         check(as_sync(default_target) = get_actor(default_target), "as_sync");
-        check(get_logger(get_checker(default_target)) = get_logger(default_target), "checker on the logger");
+        check(
+          get_logger(get_checker(default_target)) = get_logger(default_target),
+          "checker on the logger"
+        );
         disable_stop(get_logger(default_target), error);
         i2c_target_check_memory(net, default_target, 0, x"01");
         wait_until_idle(net, as_sync(default_target));
-        check_equal(get_log_count(get_logger(default_target), error), 1, "a memory difference on the default logger");
+        check_equal(
+          get_log_count(get_logger(default_target), error),
+          1,
+          "a memory difference on the default logger"
+        );
         reset_log_count(get_logger(default_target), error);
 
       elsif run("test_explicit_id_is_used") then
         check(get_id(explicit_target) = get_id("tb_i2c_target_vci:explicit_target"), "id");
-        check_equal(get_full_name(get_logger(explicit_target)), full_name(get_id(explicit_target)), "logger name");
-        check(get_actor(explicit_target) = find(get_id(explicit_target), enable_deferred_creation => false), "actor");
+        check_equal(
+          get_full_name(get_logger(explicit_target)),
+          full_name(get_id(explicit_target)),
+          "logger name"
+        );
+        check(
+          get_actor(explicit_target)
+          = find(get_id(explicit_target), enable_deferred_creation => false),
+          "actor"
+        );
 
       elsif run("test_custom_logger_actor_and_checker_are_used") then
         check(get_logger(custom_target) = custom_logger, "logger");
@@ -163,16 +192,28 @@ begin
         disable_stop(get_logger(custom_checker), error);
         i2c_target_check_memory(net, custom_target, 0, x"01", "custom");
         wait_until_idle(net, custom_actor);
-        check_equal(get_log_count(get_logger(custom_checker), error), 1, "a memory difference on the custom checker");
+        check_equal(
+          get_log_count(get_logger(custom_checker), error),
+          1,
+          "a memory difference on the custom checker"
+        );
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         reset_log_count(get_logger(custom_checker), error);
 
       elsif run("test_unexpected_message_is_a_check_failure") then
-        check_unexpected_message(get_actor(default_target), get_logger(default_target), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_target),
+          get_logger(default_target),
+          expect_failure => true
+        );
         check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_target), get_logger(ignoring_target), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_target),
+          get_logger(ignoring_target),
+          expect_failure => false
+        );
         i2c_write(net, master, 16#54#, x"00", status);
         check(status = i2c_ok, "the target answers after the unexpected message");
 
@@ -219,4 +260,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 20 ms);
+
 end architecture;

@@ -6,20 +6,21 @@
 -- tb_property_fifo.vhd.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity fifo8 is
   generic (
     -- A planted bug: a simultaneous push and pop while full drops the pushed
     -- word instead of keeping it, only visible near full and at wraparound.
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
   port (
-    clk : in  std_ulogic;
-    rst : in  std_ulogic;
-    push : in  std_ulogic;
-    pop : in  std_ulogic;
-    data_in : in  std_ulogic_vector(7 downto 0);
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    push : in std_ulogic;
+    pop : in std_ulogic;
+    data_in : in std_ulogic_vector(7 downto 0);
     data_out : out std_ulogic_vector(7 downto 0);
     full : out std_ulogic;
     empty : out std_ulogic;
@@ -47,9 +48,8 @@ begin
   count <= std_ulogic_vector(to_unsigned(fill, 4));
   data_out <= memory(rd_ptr);
 
-  main : process (clk)
+  main : process(clk)
   begin
-
     if rising_edge(clk) then
       if rst = '1' then
         wr_ptr <= 0;

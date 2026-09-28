@@ -15,26 +15,26 @@
 -- its AW handshake and at its write response.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
-  use ieee.math_real.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use ieee.math_real.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.axi_slave_pkg.probability_t;
-  use vunit_lib.axi_statistics_pkg.all;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.queue_pkg.all;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.axi_slave_pkg.probability_t;
+use vunit_lib.axi_statistics_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.queue_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.vc_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.axi4_pkg.all;
-  use work.axi4_memory_pkg.all;
-  use work.vc_python_pkg.all;
+use work.axi4_pkg.all;
+use work.axi4_memory_pkg.all;
+use work.vc_python_pkg.all;
 
 package axi4_slave_pkg is
 
@@ -126,24 +126,32 @@ package axi4_slave_pkg is
 
   -- Blocking: set the depth of the address FIFO. A depth smaller than the
   -- bursts waiting is a check failure and leaves it unchanged.
-  procedure set_address_fifo_depth (signal net : inout network_t; axi_slave : axi4_slave_t; depth : positive);
+  procedure set_address_fifo_depth(
+    signal net : inout network_t;
+    axi_slave : axi4_slave_t;
+    depth : positive
+  );
 
   -- Blocking: set the depth of the write response FIFO, likewise
-  procedure set_write_response_fifo_depth (signal net : inout network_t; axi_slave : axi4_slave_t; depth : positive);
+  procedure set_write_response_fifo_depth(
+    signal net : inout network_t;
+    axi_slave : axi4_slave_t;
+    depth : positive
+  );
 
   -- Blocking: set the stall probabilities of AxREADY, of RVALID or WREADY,
   -- and of BVALID
-  procedure set_address_stall_probability (
+  procedure set_address_stall_probability(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     probability : probability_t
   );
-  procedure set_data_stall_probability (
+  procedure set_data_stall_probability(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     probability : probability_t
   );
-  procedure set_write_response_stall_probability (
+  procedure set_write_response_stall_probability(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     probability : probability_t
@@ -152,21 +160,25 @@ package axi4_slave_pkg is
   -- Blocking: set the response latency, uniform in [min_latency,
   -- max_latency], or fixed. All write data is written to the memory right
   -- before the write response.
-  procedure set_response_latency (
+  procedure set_response_latency(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     min_latency, max_latency : delay_length
   );
-  procedure set_response_latency (signal net : inout network_t; axi_slave : axi4_slave_t; latency : delay_length);
+  procedure set_response_latency(
+    signal net : inout network_t;
+    axi_slave : axi4_slave_t;
+    latency : delay_length
+  );
 
   -- Blocking: check INCR bursts for crossing a 4 KB boundary, or not
-  procedure enable_4kbyte_boundary_check (signal net : inout network_t; axi_slave : axi4_slave_t);
-  procedure disable_4kbyte_boundary_check (signal net : inout network_t; axi_slave : axi4_slave_t);
+  procedure enable_4kbyte_boundary_check(signal net : inout network_t; axi_slave : axi4_slave_t);
+  procedure disable_4kbyte_boundary_check(signal net : inout network_t; axi_slave : axi4_slave_t);
 
   -- Blocking: the number of bursts of each length the slave accepted, as
   -- VUnit's ``axi_statistics_t``. ``stat`` is deallocated first; the caller
   -- deallocates the new one. ``clear`` starts counting from 0 again.
-  procedure get_statistics (
+  procedure get_statistics(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     variable stat : inout axi_statistics_t;
@@ -178,16 +190,17 @@ package axi4_slave_pkg is
   -- while a burst is active and bursts of more than one beat use the full
   -- data width. For a read slave: RREADY stays 1 while a burst is active and
   -- bursts of more than one beat use the full data width.
-  procedure enable_well_behaved_check (signal net : inout network_t; axi_slave : axi4_slave_t);
+  procedure enable_well_behaved_check(signal net : inout network_t; axi_slave : axi4_slave_t);
 
   -- Blocking: recover a slave, for example after a reset of the design.
   -- Drops the bursts and responses queued or in progress and deasserts VALID
   -- and READY until the next clock edge. The configuration, the statistics and
   -- the memory are kept. ARESETn at 0 does the same at every edge.
-  procedure reset (signal net : inout network_t; axi_slave : axi4_slave_t);
+  procedure reset(signal net : inout network_t; axi_slave : axi4_slave_t);
 
   -- The message types the procedures above send to the slave
-  constant set_axi4_slave_address_fifo_depth_msg : msg_type_t := new_msg_type("set axi4 slave address fifo depth");
+  constant set_axi4_slave_address_fifo_depth_msg : msg_type_t :=
+    new_msg_type("set axi4 slave address fifo depth");
   constant set_axi4_slave_write_response_fifo_depth_msg : msg_type_t :=
     new_msg_type("set axi4 slave write response fifo depth");
   constant set_axi4_slave_address_stall_probability_msg : msg_type_t :=
@@ -196,7 +209,8 @@ package axi4_slave_pkg is
     new_msg_type("set axi4 slave data stall probability");
   constant set_axi4_slave_write_response_stall_probability_msg : msg_type_t :=
     new_msg_type("set axi4 slave write response stall probability");
-  constant set_axi4_slave_response_latency_msg : msg_type_t := new_msg_type("set axi4 slave response latency");
+  constant set_axi4_slave_response_latency_msg : msg_type_t :=
+    new_msg_type("set axi4 slave response latency");
   constant set_axi4_slave_4kbyte_boundary_check_msg : msg_type_t :=
     new_msg_type("set axi4 slave 4kbyte boundary check");
   constant get_axi4_slave_statistics_msg : msg_type_t := new_msg_type("get axi4 slave statistics");
@@ -207,7 +221,7 @@ package axi4_slave_pkg is
 
   -- Private. A message type no handler took, see
   -- :vhdl:`axi4_pkg.axi4_unexpected_msg_type`
-  procedure unexpected_msg_type (msg_type : msg_type_t; axi_slave : axi4_slave_t);
+  procedure unexpected_msg_type(msg_type : msg_type_t; axi_slave : axi4_slave_t);
 
   -- Private. A vector as a number, metavalues as 0
   function known (value : std_ulogic_vector) return u_unsigned;
@@ -223,17 +237,20 @@ package axi4_slave_pkg is
   end record;
 
   -- Private. The random numbers of the process ``stream`` of a slave
-  function new_axi4_slave_random (axi_slave : axi4_slave_t; stream : natural) return axi4_slave_random_t;
+  function new_axi4_slave_random (
+    axi_slave : axi4_slave_t;
+    stream : natural
+  ) return axi4_slave_random_t;
 
   -- Private. Whether to stall a cycle, with ``probability``
-  procedure draw_stall (
+  procedure draw_stall(
     variable random : inout axi4_slave_random_t;
     probability : probability_t;
     variable stall : out boolean
   );
 
   -- Private. A response latency, uniform in [min_latency, max_latency]
-  procedure draw_latency (
+  procedure draw_latency(
     variable random : inout axi4_slave_random_t;
     min_latency, max_latency : delay_length;
     variable latency : out delay_length
@@ -244,7 +261,11 @@ package axi4_slave_pkg is
 
   -- Private. Log the reports of a slave, and of its memory, when
   -- ``num_reports`` is not 0
-  procedure log_slave_reports (axi_slave : axi4_slave_t; port_index : natural; num_reports : natural);
+  procedure log_slave_reports(
+    axi_slave : axi4_slave_t;
+    port_index : natural;
+    num_reports : natural
+  );
 
   -- Private. What the messages to a slave change
   type axi4_slave_state_t is record
@@ -272,13 +293,14 @@ package axi4_slave_pkg is
 
   -- Private. Handle the messages waiting for a slave, and reply to the
   -- wait_until_idle requests when ``idle``
-  procedure handle_axi4_slave_messages (
+  procedure handle_axi4_slave_messages(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     port_index : natural;
     variable state : inout axi4_slave_state_t;
     idle : boolean
   );
+
 end package;
 
 package body axi4_slave_pkg is
@@ -303,7 +325,6 @@ package body axi4_slave_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return axi4_slave_t is
-
     variable result : axi4_slave_t := (
       p_bus => axi4_bus,
       p_memory => memory,
@@ -341,183 +362,197 @@ package body axi4_slave_pkg is
       result.p_checker := new_checker(result.p_logger);
     end if;
     return result;
-  end;
+  end function;
 
   impure function get_id (axi_slave : axi4_slave_t) return id_t is
   begin
 
     return axi_slave.p_id;
-  end;
+  end function;
 
   impure function get_logger (axi_slave : axi4_slave_t) return logger_t is
   begin
 
     return axi_slave.p_logger;
-  end;
+  end function;
 
   impure function get_actor (axi_slave : axi4_slave_t) return actor_t is
   begin
 
     return axi_slave.p_actor;
-  end;
+  end function;
 
   impure function get_checker (axi_slave : axi4_slave_t) return checker_t is
   begin
 
     return axi_slave.p_checker;
-  end;
+  end function;
 
   impure function as_sync (axi_slave : axi4_slave_t) return sync_handle_t is
   begin
 
     return axi_slave.p_actor;
-  end;
+  end function;
 
   function get_bus (axi_slave : axi4_slave_t) return axi4_bus_t is
   begin
 
     return axi_slave.p_bus;
-  end;
+  end function;
 
   function get_memory (axi_slave : axi4_slave_t) return axi4_memory_t is
   begin
 
     return axi_slave.p_memory;
-  end;
+  end function;
 
   function get_config (axi_slave : axi4_slave_t) return axi4_slave_config_t is
   begin
 
     return axi_slave.p_config;
-  end;
+  end function;
 
-  procedure unexpected_msg_type (msg_type : msg_type_t; axi_slave : axi4_slave_t) is
+  procedure unexpected_msg_type(msg_type : msg_type_t; axi_slave : axi4_slave_t)is
   begin
 
     axi4_unexpected_msg_type(msg_type, axi_slave.p_unexpected_msg_type_policy, axi_slave.p_checker);
-  end;
+  end procedure;
 
   -- Send a request and wait for the slave to handle it
-  procedure request (signal net : inout network_t; axi_slave : axi4_slave_t; msg : msg_t) is
-
+  procedure request(signal net : inout network_t; axi_slave : axi4_slave_t; msg : msg_t)is
     variable request_msg : msg_t := msg;
     variable reply_msg : msg_t;
   begin
 
     request(net, axi_slave.p_actor, request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure set_address_fifo_depth (signal net : inout network_t; axi_slave : axi4_slave_t; depth : positive) is
-
+  procedure set_address_fifo_depth(
+    signal net : inout network_t;
+    axi_slave : axi4_slave_t;
+    depth : positive
+  )is
     variable request_msg : msg_t := new_msg(set_axi4_slave_address_fifo_depth_msg);
   begin
 
     push(request_msg, depth);
     request(net, axi_slave, request_msg);
-  end;
+  end procedure;
 
-  procedure set_write_response_fifo_depth (signal net : inout network_t; axi_slave : axi4_slave_t; depth : positive) is
-
+  procedure set_write_response_fifo_depth(
+    signal net : inout network_t;
+    axi_slave : axi4_slave_t;
+    depth : positive
+  )is
     variable request_msg : msg_t := new_msg(set_axi4_slave_write_response_fifo_depth_msg);
   begin
 
     push(request_msg, depth);
     request(net, axi_slave, request_msg);
-  end;
+  end procedure;
 
-  procedure set_probability (
+  procedure set_probability(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     msg_type : msg_type_t;
     probability : probability_t
-  ) is
-
+  )is
     variable request_msg : msg_t := new_msg(msg_type);
   begin
 
     push_real(request_msg, probability);
     request(net, axi_slave, request_msg);
-  end;
+  end procedure;
 
-  procedure set_address_stall_probability (
+  procedure set_address_stall_probability(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     probability : probability_t
-  ) is
+  )is
   begin
 
     set_probability(net, axi_slave, set_axi4_slave_address_stall_probability_msg, probability);
-  end;
+  end procedure;
 
-  procedure set_data_stall_probability (
+  procedure set_data_stall_probability(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     probability : probability_t
-  ) is
+  )is
   begin
 
     set_probability(net, axi_slave, set_axi4_slave_data_stall_probability_msg, probability);
-  end;
+  end procedure;
 
-  procedure set_write_response_stall_probability (
+  procedure set_write_response_stall_probability(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     probability : probability_t
-  ) is
+  )is
   begin
 
-    set_probability(net, axi_slave, set_axi4_slave_write_response_stall_probability_msg, probability);
-  end;
+    set_probability(
+      net,
+      axi_slave,
+      set_axi4_slave_write_response_stall_probability_msg,
+      probability
+    );
+  end procedure;
 
-  procedure set_response_latency (
+  procedure set_response_latency(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     min_latency, max_latency : delay_length
-  ) is
-
+  )is
     variable request_msg : msg_t := new_msg(set_axi4_slave_response_latency_msg);
   begin
 
     push_time(request_msg, min_latency);
     push_time(request_msg, max_latency);
     request(net, axi_slave, request_msg);
-  end;
+  end procedure;
 
-  procedure set_response_latency (signal net : inout network_t; axi_slave : axi4_slave_t; latency : delay_length) is
+  procedure set_response_latency(
+    signal net : inout network_t;
+    axi_slave : axi4_slave_t;
+    latency : delay_length
+  )is
   begin
 
     set_response_latency(net, axi_slave, latency, latency);
-  end;
+  end procedure;
 
-  procedure set_4kbyte_boundary_check (signal net : inout network_t; axi_slave : axi4_slave_t; enabled : boolean) is
-
+  procedure set_4kbyte_boundary_check(
+    signal net : inout network_t;
+    axi_slave : axi4_slave_t;
+    enabled : boolean
+  )is
     variable request_msg : msg_t := new_msg(set_axi4_slave_4kbyte_boundary_check_msg);
   begin
 
     push_boolean(request_msg, enabled);
     request(net, axi_slave, request_msg);
-  end;
+  end procedure;
 
-  procedure enable_4kbyte_boundary_check (signal net : inout network_t; axi_slave : axi4_slave_t) is
+  procedure enable_4kbyte_boundary_check(signal net : inout network_t; axi_slave : axi4_slave_t)is
   begin
 
     set_4kbyte_boundary_check(net, axi_slave, true);
-  end;
+  end procedure;
 
-  procedure disable_4kbyte_boundary_check (signal net : inout network_t; axi_slave : axi4_slave_t) is
+  procedure disable_4kbyte_boundary_check(signal net : inout network_t; axi_slave : axi4_slave_t)is
   begin
 
     set_4kbyte_boundary_check(net, axi_slave, false);
-  end;
+  end procedure;
 
-  procedure get_statistics (
+  procedure get_statistics(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     variable stat : inout axi_statistics_t;
     clear : boolean := false
-  ) is
-
+  )is
     variable request_msg : msg_t := new_msg(get_axi4_slave_statistics_msg);
     variable reply_msg : msg_t;
   begin
@@ -527,26 +562,23 @@ package body axi4_slave_pkg is
     request(net, axi_slave.p_actor, request_msg, reply_msg);
     stat := (p_count_by_burst_length => pop_integer_vector_ptr_ref(reply_msg));
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure enable_well_behaved_check (signal net : inout network_t; axi_slave : axi4_slave_t) is
-
+  procedure enable_well_behaved_check(signal net : inout network_t; axi_slave : axi4_slave_t)is
     variable request_msg : msg_t := new_msg(enable_axi4_slave_well_behaved_check_msg);
   begin
 
     request(net, axi_slave, request_msg);
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; axi_slave : axi4_slave_t) is
-
+  procedure reset(signal net : inout network_t; axi_slave : axi4_slave_t)is
     variable request_msg : msg_t := new_msg(reset_axi4_slave_msg);
   begin
 
     request(net, axi_slave, request_msg);
-  end;
+  end procedure;
 
   function known (value : std_ulogic_vector) return u_unsigned is
-
     alias normalized : std_ulogic_vector(value'length - 1 downto 0) is value;
     variable result : u_unsigned(value'length - 1 downto 0) := (others => '0');
   begin
@@ -559,10 +591,9 @@ package body axi4_slave_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
 
   function known (value : std_ulogic_vector) return natural is
-
     constant bits : u_unsigned(value'length - 1 downto 0) := known(value);
   begin
 
@@ -570,10 +601,9 @@ package body axi4_slave_pkg is
       return 0;
     end if;
     return to_integer(bits);
-  end;
+  end function;
 
   function to_decimal (value : u_unsigned) return string is
-
     variable rest : u_unsigned(value'length - 1 downto 0) := value;
     variable digit : natural;
   begin
@@ -583,10 +613,12 @@ package body axi4_slave_pkg is
     end if;
     digit := to_integer(rest mod 10);
     return to_decimal(rest / 10) & integer'image(digit);
-  end;
+  end function;
 
-  function new_axi4_slave_random (axi_slave : axi4_slave_t; stream : natural) return axi4_slave_random_t is
-
+  function new_axi4_slave_random (
+    axi_slave : axi4_slave_t;
+    stream : natural
+  ) return axi4_slave_random_t is
     constant seed : natural := axi_slave.p_config.seed;
   begin
 
@@ -594,14 +626,13 @@ package body axi4_slave_pkg is
       p_seed1 => 1 + (seed + stream) mod 2147483562,
       p_seed2 => 1 + (seed / 2147483562 + 7 * stream) mod 2147483398
     );
-  end;
+  end function;
 
-  procedure draw_stall (
+  procedure draw_stall(
     variable random : inout axi4_slave_random_t;
     probability : probability_t;
     variable stall : out boolean
-  ) is
-
+  )is
     variable value : real;
   begin
 
@@ -610,14 +641,13 @@ package body axi4_slave_pkg is
       uniform(random.p_seed1, random.p_seed2, value);
       stall := value < probability;
     end if;
-  end;
+  end procedure;
 
-  procedure draw_latency (
+  procedure draw_latency(
     variable random : inout axi4_slave_random_t;
     min_latency, max_latency : delay_length;
     variable latency : out delay_length
-  ) is
-
+  )is
     variable value : real;
   begin
 
@@ -626,10 +656,9 @@ package body axi4_slave_pkg is
       uniform(random.p_seed1, random.p_seed2, value);
       latency := min_latency + integer(value * real((max_latency - min_latency) / 1 ps)) * 1 ps;
     end if;
-  end;
+  end procedure;
 
   impure function attach_axi4_slave (axi_slave : axi4_slave_t; is_write : boolean) return natural is
-
     constant memory : axi4_memory_t := axi_slave.p_memory;
     constant port_index : natural := backend_call_integer(
       memory_session(memory),
@@ -644,10 +673,13 @@ package body axi4_slave_pkg is
     -- A handle attached twice is a failure on the logger of the memory
     log_memory_reports(memory, backend_call_integer(memory_session(memory), "num_reports"));
     return port_index;
-  end;
+  end function;
 
-  procedure log_slave_reports (axi_slave : axi4_slave_t; port_index : natural; num_reports : natural) is
-
+  procedure log_slave_reports(
+    axi_slave : axi4_slave_t;
+    port_index : natural;
+    num_reports : natural
+  )is
     constant memory : axi4_memory_t := axi_slave.p_memory;
   begin
 
@@ -655,10 +687,9 @@ package body axi4_slave_pkg is
       log_reports(memory_session(memory), axi_slave.p_logger, axi_slave.p_checker, arg(port_index));
       log_reports(memory_session(memory), get_logger(memory), get_checker(memory));
     end if;
-  end;
+  end procedure;
 
   impure function new_axi4_slave_state (axi_slave : axi4_slave_t) return axi4_slave_state_t is
-
     constant config : axi4_slave_config_t := axi_slave.p_config;
   begin
 
@@ -677,16 +708,15 @@ package body axi4_slave_pkg is
       resume_time => 0 fs,
       idle_requests => new_queue
     );
-  end;
+  end function;
 
-  procedure handle_axi4_slave_messages (
+  procedure handle_axi4_slave_messages(
     signal net : inout network_t;
     axi_slave : axi4_slave_t;
     port_index : natural;
     variable state : inout axi4_slave_state_t;
     idle : boolean
-  ) is
-
+  )is
     constant checker : checker_t := axi_slave.p_checker;
     variable msg, reply_msg : msg_t;
     variable msg_type : msg_type_t;
@@ -790,6 +820,6 @@ package body axi4_slave_pkg is
       reply(net, msg, reply_msg);
     end loop;
 
-  end;
+  end procedure;
 
 end package body;

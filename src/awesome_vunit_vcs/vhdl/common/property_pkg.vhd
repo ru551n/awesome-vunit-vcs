@@ -27,17 +27,17 @@
 -- flaky when an example fails once and passes when repeated.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.vc_pkg.enumerate;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.vc_pkg.enumerate;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.vc_python_pkg.all;
+use work.vc_python_pkg.all;
 
 package property_pkg is
 
@@ -116,7 +116,11 @@ package property_pkg is
   -- The integers of a list, tuple or bytes at ``path``, indexed from 0.
   impure function get_integer_vector (prop : property_t; path : string := "") return integer_vector;
   -- An unsigned integer, or bytes read big-endian, at ``path`` as ``length`` bits.
-  impure function get_unsigned (prop : property_t; path : string; length : positive) return std_ulogic_vector;
+  impure function get_unsigned (
+    prop : property_t;
+    path : string;
+    length : positive
+  ) return std_ulogic_vector;
   -- The number of items of a list, tuple or bytes at ``path``.
   impure function get_length (prop : property_t; path : string := "") return natural;
   -- Whether ``path`` exists and is not None, for optional fields.
@@ -134,7 +138,7 @@ package property_pkg is
   impure function get_rule (prop : property_t) return string;
 
   -- Report that the current step ran, returning ``value`` to the rule.
-  procedure report_step (prop : property_t; value : integer := 0);
+  procedure report_step(prop : property_t; value : integer := 0);
 
   ----------------------------------------------------------------------------
   -- Verdicts
@@ -142,7 +146,11 @@ package property_pkg is
 
   -- A simulation-time budget for an example: ``base`` plus ``per_item`` for each
   -- of ``items``.
-  function example_budget (base : delay_length; per_item : delay_length; items : natural) return delay_length;
+  function example_budget (
+    base : delay_length;
+    per_item : delay_length;
+    items : natural
+  ) return delay_length;
 
   -- Report the verdict on the current example.
   --
@@ -151,7 +159,7 @@ package property_pkg is
   -- lockup, reset the design and pass whether it works again as
   -- ``recovered``; false ends the property as aborted, keeping the smallest
   -- failing example found so far.
-  procedure report_example (
+  procedure report_example(
     prop : property_t;
     passed : boolean;
     timed_out : boolean := false;
@@ -162,7 +170,7 @@ package property_pkg is
   -- Report a score of the current example before its verdict. Hypothesis steers
   -- the generation towards examples with higher scores for each ``name``
   -- (``hypothesis.target``); report each name at most once per example.
-  procedure report_score (prop : property_t; name : string; value : real);
+  procedure report_score(prop : property_t; name : string; value : real);
 
   -- How the property ended: ``running`` until ``next_example`` returns false, then
   -- ``passed``; ``failed``, a counterexample was found; ``flaky``, an example failed
@@ -180,21 +188,21 @@ package property_pkg is
   -- Check that the property passed. A failure logs the minimal counterexample
   -- on the checker of the property. A property that ended with ``error`` was
   -- already logged as a failure and is not reported again.
-  procedure check_property (prop : property_t; msg : string := "");
+  procedure check_property(prop : property_t; msg : string := "");
+
 end package;
 
 package body property_pkg is
 
   -- Log the error that ended a property, once, as a failure on its logger
-  procedure report_property_error (prop : property_t) is
-
+  procedure report_property_error(prop : property_t)is
     constant detail : string := backend_call_string(prop.p_session, "take_error");
   begin
 
     if detail /= "" then
       failure(prop.p_logger, detail);
     end if;
-  end;
+  end procedure;
 
   impure function new_property (
     strategy : string;
@@ -207,7 +215,6 @@ package body property_pkg is
     logger : logger_t := null_logger;
     checker : checker_t := null_checker
   ) return property_t is
-
     variable result : property_t;
   begin
 
@@ -243,28 +250,27 @@ package body property_pkg is
     backend_call(result.p_session, "start", arguments);
     report_property_error(result);
     return result;
-  end;
+  end function;
 
   impure function get_id (prop : property_t) return id_t is
   begin
 
     return prop.p_id;
-  end;
+  end function;
 
   impure function get_logger (prop : property_t) return logger_t is
   begin
 
     return prop.p_logger;
-  end;
+  end function;
 
   impure function get_checker (prop : property_t) return checker_t is
   begin
 
     return prop.p_checker;
-  end;
+  end function;
 
   impure function next_example (prop : property_t) return boolean is
-
     constant more : boolean := backend_call_boolean(prop.p_session, "next");
   begin
 
@@ -272,29 +278,32 @@ package body property_pkg is
       report_property_error(prop);
     end if;
     return more;
-  end;
+  end function;
 
   impure function get_integer (prop : property_t; path : string := "") return integer is
   begin
 
     return backend_call_integer(prop.p_session, "integer", arg(path));
-  end;
+  end function;
 
   impure function get_boolean (prop : property_t; path : string := "") return boolean is
   begin
 
     return backend_call_boolean(prop.p_session, "boolean", arg(path));
-  end;
+  end function;
 
   impure function get_string (prop : property_t; path : string := "") return string is
   begin
 
     return backend_call_string(prop.p_session, "string", arg(path));
-  end;
+  end function;
 
-  impure function get_integer_vector (prop : property_t; path : string := "") return integer_vector is
-
-    variable items : integer_array_t := backend_call_integer_array(prop.p_session, "vector", arg(path));
+  impure function get_integer_vector (
+    prop : property_t;
+    path : string := ""
+  ) return integer_vector is
+    variable items : integer_array_t :=
+      backend_call_integer_array(prop.p_session, "vector", arg(path));
     variable result : integer_vector(0 to length(items) - 1);
   begin
 
@@ -305,11 +314,15 @@ package body property_pkg is
 
     deallocate(items);
     return result;
-  end;
+  end function;
 
-  impure function get_unsigned (prop : property_t; path : string; length : positive) return std_ulogic_vector is
-
-    constant bits : string := backend_call_string(prop.p_session, "unsigned", arg(path) & arg(length));
+  impure function get_unsigned (
+    prop : property_t;
+    path : string;
+    length : positive
+  ) return std_ulogic_vector is
+    constant bits : string :=
+      backend_call_string(prop.p_session, "unsigned", arg(path) & arg(length));
     alias bits_normalized : string(1 to bits'length) is bits;
     variable result : std_ulogic_vector(length - 1 downto 0);
   begin
@@ -324,80 +337,86 @@ package body property_pkg is
     end loop;
 
     return result;
-  end;
+  end function;
 
   impure function get_length (prop : property_t; path : string := "") return natural is
   begin
 
     return backend_call_integer(prop.p_session, "length", arg(path));
-  end;
+  end function;
 
   impure function has_field (prop : property_t; path : string) return boolean is
   begin
 
     return backend_call_boolean(prop.p_session, "has", arg(path));
-  end;
+  end function;
 
   impure function get_rule (prop : property_t) return string is
   begin
 
     return get_string(prop, "rule");
-  end;
+  end function;
 
-  procedure report_step (prop : property_t; value : integer := 0) is
+  procedure report_step(prop : property_t; value : integer := 0)is
   begin
 
     backend_call(prop.p_session, "report", arg(true) & kwarg("value", value));
-  end;
+  end procedure;
 
-  function example_budget (base : delay_length; per_item : delay_length; items : natural) return delay_length is
+  function example_budget (
+    base : delay_length;
+    per_item : delay_length;
+    items : natural
+  ) return delay_length is
   begin
 
     return base + items * per_item;
-  end;
+  end function;
 
-  procedure report_example (
+  procedure report_example(
     prop : property_t;
     passed : boolean;
     timed_out : boolean := false;
     recovered : boolean := true;
     msg : string := ""
-  ) is
+  )is
   begin
 
     backend_call(
       prop.p_session,
       "report",
-      arg(passed) & kwarg("timed_out", timed_out) & kwarg("recovered", recovered) & kwarg_text("message", msg)
+      arg(passed)
+      & kwarg("timed_out", timed_out)
+      & kwarg("recovered", recovered)
+      & kwarg_text("message", msg)
     );
-  end;
+  end procedure;
 
-  procedure report_score (prop : property_t; name : string; value : real) is
+  procedure report_score(prop : property_t; name : string; value : real)is
   begin
 
     backend_call(prop.p_session, "score", arg(name) & arg(value));
-  end;
+  end procedure;
 
   impure function get_outcome (prop : property_t) return string is
   begin
 
     return backend_call_string(prop.p_session, "get_outcome");
-  end;
+  end function;
 
   impure function get_example_count (prop : property_t) return natural is
   begin
 
     return backend_call_integer(prop.p_session, "get_count");
-  end;
+  end function;
 
   impure function get_counterexample (prop : property_t) return string is
   begin
 
     return backend_call_string(prop.p_session, "counterexample");
-  end;
+  end function;
 
-  procedure check_property (prop : property_t; msg : string := "") is
-
+  procedure check_property(prop : property_t; msg : string := "")is
     constant summary : string := backend_call_string(prop.p_session, "summary");
   begin
 
@@ -410,6 +429,6 @@ package body property_pkg is
     else
       check(prop.p_checker, get_outcome(prop) = "passed", msg & " - " & summary);
     end if;
-  end;
+  end procedure;
 
 end package body;

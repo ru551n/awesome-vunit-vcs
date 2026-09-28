@@ -16,13 +16,14 @@ context awesome_vunit_vcs.flash_context;
 entity boot_reader is
   generic (
     -- The largest image ram holds, in bytes
-    ram_bytes : positive := 256);
+    ram_bytes : positive := 256
+  );
   port (
     -- The boot starts when the reset is released
-    rst_n : in  std_ulogic;
+    rst_n : in std_ulogic;
     -- The QSPI bus to the flash
     m2s : out qspi_m2s_t := qspi_m2s_init;
-    s2m : in  qspi_s2m_t;
+    s2m : in qspi_s2m_t;
     -- The image, the byte of address 0 leftmost
     ram : out std_ulogic_vector(0 to 8 * ram_bytes - 1) := (others => '0');
     -- High when the image is in ram
@@ -42,7 +43,6 @@ begin
     variable image_bytes : natural := 0;
 
   begin
-
     wait until rst_n = '1';
 
     qspi_flash_fast_read(net, controller, 0, 4, data);

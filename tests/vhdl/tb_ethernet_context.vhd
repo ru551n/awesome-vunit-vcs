@@ -10,13 +10,15 @@ context awesome_vunit_vcs.ethernet_context;
 
 entity tb_ethernet_context is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_ethernet_context is
 
   constant source : gmii_source_t := new_gmii_source;
-  constant monitor : xgmii_monitor_t := new_xgmii_monitor(protocol_checker => default_xgmii_protocol_checker);
+  constant monitor : xgmii_monitor_t :=
+    new_xgmii_monitor(protocol_checker => default_xgmii_protocol_checker);
   constant protocol_checker : mii_protocol_checker_t := new_mii_protocol_checker;
   signal data : std_ulogic_vector(7 downto 0) := x"55";
 
@@ -30,7 +32,6 @@ begin
     variable values : integer_array_t;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop

@@ -11,13 +11,13 @@
 -- and logged.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
@@ -34,7 +34,8 @@ entity tb_bridge_benchmark is
     batch_length : positive := 4096;
     flush_at_frame_end : boolean := false;
     num_frames : positive := 200;
-    frame_octets : positive := 1500);
+    frame_octets : positive := 1500
+  );
 end entity;
 
 architecture tb of tb_bridge_benchmark is
@@ -52,7 +53,7 @@ architecture tb of tb_bridge_benchmark is
       return default_gmii_protocol_checker;
     end if;
     return null_gmii_protocol_checker;
-  end;
+  end function;
 
   constant source : gmii_source_t := new_gmii_source;
   constant monitor : gmii_monitor_t := new_gmii_monitor(
@@ -72,7 +73,6 @@ begin
     variable frames : natural;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     for idx in 0 to frame_octets - 1 loop
@@ -134,6 +134,6 @@ begin
         er => er
       );
 
-  end generate monitor_gen;
+  end generate;
 
 end architecture;

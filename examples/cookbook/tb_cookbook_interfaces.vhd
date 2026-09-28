@@ -15,18 +15,22 @@ entity tb_cookbook_interfaces is
     rgmii_link_rate_mbps : positive := 1000;
     rmii_link_rate_mbps : positive := 100;
     xgmii_lanes : positive := 4;
-    xgmii_link_rate_mbps : positive := 10_000);
+    xgmii_link_rate_mbps : positive := 10_000
+  );
 end entity;
 
 architecture tb of tb_cookbook_interfaces is
 
-  constant frame : std_ulogic_vector := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
+  constant frame : std_ulogic_vector
+    := x"020000000001" & x"020000000002" & x"88B5" & (0 to 8 * 46 - 1 => '1');
 
   -- docs-start: mii-handles
   -- MII: 2.5 MHz at 10 Mbit/s, 25 MHz at 100 Mbit/s
   constant mii_source : mii_source_t := new_mii_source(link_rate_mbps => mii_link_rate_mbps);
-  constant mii_monitor : mii_monitor_t :=
-    new_mii_monitor(link_rate_mbps => mii_link_rate_mbps, protocol_checker => default_mii_protocol_checker);
+  constant mii_monitor : mii_monitor_t := new_mii_monitor(
+    link_rate_mbps => mii_link_rate_mbps,
+    protocol_checker => default_mii_protocol_checker
+  );
   signal mii_clk : std_ulogic := '0';
   signal mii_data : std_ulogic_vector(3 downto 0) := (others => '0');
   signal mii_dv, mii_er : std_ulogic := '0';
@@ -34,9 +38,12 @@ architecture tb of tb_cookbook_interfaces is
 
   -- docs-start: rgmii-handles
   -- RGMII: both clock edges; 125 MHz at 1000 Mbit/s, 25 MHz at 100, 2.5 MHz at 10
-  constant rgmii_source : rgmii_source_t := new_rgmii_source(link_rate_mbps => rgmii_link_rate_mbps);
-  constant rgmii_monitor : rgmii_monitor_t :=
-    new_rgmii_monitor(link_rate_mbps => rgmii_link_rate_mbps, protocol_checker => default_rgmii_protocol_checker);
+  constant rgmii_source : rgmii_source_t :=
+    new_rgmii_source(link_rate_mbps => rgmii_link_rate_mbps);
+  constant rgmii_monitor : rgmii_monitor_t := new_rgmii_monitor(
+    link_rate_mbps => rgmii_link_rate_mbps,
+    protocol_checker => default_rgmii_protocol_checker
+  );
   signal rgmii_clk : std_ulogic := '0';
   signal rgmii_data : std_ulogic_vector(3 downto 0) := (others => '0');
   signal rgmii_ctl : std_ulogic := '0';
@@ -45,8 +52,10 @@ architecture tb of tb_cookbook_interfaces is
   -- docs-start: rmii-handles
   -- RMII: a 50 MHz reference clock at both 10 and 100 Mbit/s
   constant rmii_source : rmii_source_t := new_rmii_source(link_rate_mbps => rmii_link_rate_mbps);
-  constant rmii_monitor : rmii_monitor_t :=
-    new_rmii_monitor(link_rate_mbps => rmii_link_rate_mbps, protocol_checker => default_rmii_protocol_checker);
+  constant rmii_monitor : rmii_monitor_t := new_rmii_monitor(
+    link_rate_mbps => rmii_link_rate_mbps,
+    protocol_checker => default_rmii_protocol_checker
+  );
   signal rmii_ref_clk : std_ulogic := '0';
   signal rmii_data : std_ulogic_vector(1 downto 0) := (others => '0');
   signal rmii_dv, rmii_er : std_ulogic := '0';
@@ -71,8 +80,10 @@ architecture tb of tb_cookbook_interfaces is
   -- AXI-Stream MAC client: frames without preamble, a sink with tready high on 60 % of the clocks
   constant axis_source : axis_mac_source_t := new_axis_mac_source(bytes_per_beat => 8);
   constant axis_sink : axis_mac_sink_t := new_axis_mac_sink(ready_high_percent => 60);
-  constant axis_monitor : axis_mac_monitor_t :=
-    new_axis_mac_monitor(bytes_per_beat => 8, protocol_checker => default_axis_mac_protocol_checker);
+  constant axis_monitor : axis_mac_monitor_t := new_axis_mac_monitor(
+    bytes_per_beat => 8,
+    protocol_checker => default_axis_mac_protocol_checker
+  );
   signal axis_clk : std_ulogic := '0';
   signal tdata : std_ulogic_vector(data_length(axis_source) - 1 downto 0);
   signal tkeep : std_ulogic_vector(keep_length(axis_source) - 1 downto 0);
@@ -93,7 +104,6 @@ begin
 
   main : process
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 

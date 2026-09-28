@@ -11,12 +11,14 @@ context awesome_vunit_vcs.axi4_context;
 
 entity tb_axi4_lite is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_axi4_lite is
 
-  constant axi4_bus : axi4_bus_t := new_axi4_bus(data_length => 32, address_length => 32, lite => true);
+  constant axi4_bus : axi4_bus_t :=
+    new_axi4_bus(data_length => 32, address_length => 32, lite => true);
   constant monitor : axi4_monitor_t := new_axi4_monitor(
     axi4_bus,
     protocol_checker => new_axi4_protocol_checker,
@@ -26,7 +28,8 @@ architecture tb of tb_axi4_lite is
 
   constant bus_handle : bus_master_t := new_bus(data_length => 32, address_length => 32);
   constant memory : memory_t := new_memory;
-  constant axi_slave : axi_slave_t := new_axi_slave(memory => memory, address_stall_probability => 0.3);
+  constant axi_slave : axi_slave_t :=
+    new_axi_slave(memory => memory, address_stall_probability => 0.3);
 
   signal aclk : std_logic := '0';
   signal awvalid : std_logic;
@@ -160,7 +163,6 @@ begin
     variable data : std_logic_vector(31 downto 0);
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     buffer_ref := allocate(memory, 1024, permissions => read_and_write);
 
@@ -229,4 +231,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 1 ms);
+
 end architecture;

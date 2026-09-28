@@ -12,83 +12,84 @@
 -- same pins.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.queue_pkg.all;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.queue_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.axi4_pkg.all;
-  use work.axi4_monitor_pkg.all;
-  use work.axi4_protocol_checker_pkg.all;
-  use work.vc_python_pkg.all;
+use work.axi4_pkg.all;
+use work.axi4_monitor_pkg.all;
+use work.axi4_protocol_checker_pkg.all;
+use work.vc_python_pkg.all;
 
 entity axi4_monitor is
   generic (
     -- Created with :vhdl:`axi4_monitor_pkg.new_axi4_monitor`
-    monitor : axi4_monitor_t);
+    monitor : axi4_monitor_t
+  );
   port (
     -- The clock; the monitor samples at its rising edges
-    aclk : in  std_ulogic;
+    aclk : in std_ulogic;
     -- The active low reset, 1 when left open
-    aresetn : in  std_ulogic := '1';
+    aresetn : in std_ulogic := '1';
     -- The write address channel. Signals left open take the default of the
     -- AXI specification: AWLEN 0, AWSIZE the data width, AWBURST INCR, the
     -- others 0.
-    awvalid : in  std_ulogic := '0';
-    awready : in  std_ulogic := '0';
-    awid : in  std_ulogic_vector(id_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
-    awaddr : in  std_ulogic_vector(address_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
-    awlen : in  std_ulogic_vector(7 downto 0) := (others => '0');
-    awsize : in  std_ulogic_vector(2 downto 0) := full_size(get_bus(monitor));
-    awburst : in  std_ulogic_vector(1 downto 0) := "01";
-    awlock : in  std_ulogic := '0';
-    awcache : in  std_ulogic_vector(3 downto 0) := "0000";
-    awprot : in  std_ulogic_vector(2 downto 0) := "000";
-    awqos : in  std_ulogic_vector(3 downto 0) := "0000";
-    awregion : in  std_ulogic_vector(3 downto 0) := "0000";
-    awuser : in  std_ulogic_vector(awuser_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    awvalid : in std_ulogic := '0';
+    awready : in std_ulogic := '0';
+    awid : in std_ulogic_vector(id_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    awaddr : in std_ulogic_vector(address_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    awlen : in std_ulogic_vector(7 downto 0) := (others => '0');
+    awsize : in std_ulogic_vector(2 downto 0) := full_size(get_bus(monitor));
+    awburst : in std_ulogic_vector(1 downto 0) := "01";
+    awlock : in std_ulogic := '0';
+    awcache : in std_ulogic_vector(3 downto 0) := "0000";
+    awprot : in std_ulogic_vector(2 downto 0) := "000";
+    awqos : in std_ulogic_vector(3 downto 0) := "0000";
+    awregion : in std_ulogic_vector(3 downto 0) := "0000";
+    awuser : in std_ulogic_vector(awuser_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
     -- The write data channel; WSTRB and WLAST are 1 when left open
-    wvalid : in  std_ulogic := '0';
-    wready : in  std_ulogic := '0';
-    wdata : in  std_ulogic_vector(data_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
-    wstrb : in  std_ulogic_vector(byte_lanes(get_bus(monitor)) - 1 downto 0) := (others => '1');
-    wlast : in  std_ulogic := '1';
-    wuser : in  std_ulogic_vector(wuser_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    wvalid : in std_ulogic := '0';
+    wready : in std_ulogic := '0';
+    wdata : in std_ulogic_vector(data_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    wstrb : in std_ulogic_vector(byte_lanes(get_bus(monitor)) - 1 downto 0) := (others => '1');
+    wlast : in std_ulogic := '1';
+    wuser : in std_ulogic_vector(wuser_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
     -- The write response channel
-    bvalid : in  std_ulogic := '0';
-    bready : in  std_ulogic := '0';
-    bid : in  std_ulogic_vector(id_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
-    bresp : in  std_ulogic_vector(1 downto 0) := "00";
-    buser : in  std_ulogic_vector(buser_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    bvalid : in std_ulogic := '0';
+    bready : in std_ulogic := '0';
+    bid : in std_ulogic_vector(id_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    bresp : in std_ulogic_vector(1 downto 0) := "00";
+    buser : in std_ulogic_vector(buser_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
     -- The read address channel, with the defaults of the write address channel
-    arvalid : in  std_ulogic := '0';
-    arready : in  std_ulogic := '0';
-    arid : in  std_ulogic_vector(id_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
-    araddr : in  std_ulogic_vector(address_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
-    arlen : in  std_ulogic_vector(7 downto 0) := (others => '0');
-    arsize : in  std_ulogic_vector(2 downto 0) := full_size(get_bus(monitor));
-    arburst : in  std_ulogic_vector(1 downto 0) := "01";
-    arlock : in  std_ulogic := '0';
-    arcache : in  std_ulogic_vector(3 downto 0) := "0000";
-    arprot : in  std_ulogic_vector(2 downto 0) := "000";
-    arqos : in  std_ulogic_vector(3 downto 0) := "0000";
-    arregion : in  std_ulogic_vector(3 downto 0) := "0000";
-    aruser : in  std_ulogic_vector(aruser_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    arvalid : in std_ulogic := '0';
+    arready : in std_ulogic := '0';
+    arid : in std_ulogic_vector(id_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    araddr : in std_ulogic_vector(address_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    arlen : in std_ulogic_vector(7 downto 0) := (others => '0');
+    arsize : in std_ulogic_vector(2 downto 0) := full_size(get_bus(monitor));
+    arburst : in std_ulogic_vector(1 downto 0) := "01";
+    arlock : in std_ulogic := '0';
+    arcache : in std_ulogic_vector(3 downto 0) := "0000";
+    arprot : in std_ulogic_vector(2 downto 0) := "000";
+    arqos : in std_ulogic_vector(3 downto 0) := "0000";
+    arregion : in std_ulogic_vector(3 downto 0) := "0000";
+    aruser : in std_ulogic_vector(aruser_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
     -- The read data channel; RLAST is 1 when left open
-    rvalid : in  std_ulogic := '0';
-    rready : in  std_ulogic := '0';
-    rid : in  std_ulogic_vector(id_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
-    rdata : in  std_ulogic_vector(data_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
-    rresp : in  std_ulogic_vector(1 downto 0) := "00";
-    rlast : in  std_ulogic := '1';
-    ruser : in  std_ulogic_vector(ruser_length(get_bus(monitor)) - 1 downto 0) := (others => '0')
+    rvalid : in std_ulogic := '0';
+    rready : in std_ulogic := '0';
+    rid : in std_ulogic_vector(id_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    rdata : in std_ulogic_vector(data_length(get_bus(monitor)) - 1 downto 0) := (others => '0');
+    rresp : in std_ulogic_vector(1 downto 0) := "00";
+    rlast : in std_ulogic := '1';
+    ruser : in std_ulogic_vector(ruser_length(get_bus(monitor)) - 1 downto 0) := (others => '0')
   );
 end entity;
 
@@ -113,16 +114,15 @@ begin
     variable msg_type : msg_type_t;
     variable values : integer_array_t;
 
-    procedure log_waiting (count : natural) is
+    procedure log_waiting(count : natural)is
     begin
 
       if count > 0 then
         log_reports(session, logger, checker);
       end if;
-    end;
+    end procedure;
 
     impure function has_subscribers return boolean is
-
       variable state : actor_state_t := get_actor_state(actor);
       variable result : boolean;
     begin
@@ -133,10 +133,10 @@ begin
       end if;
       deallocate(state);
       return result;
-    end;
+    end function;
 
     -- The transaction of values from index first on, into a message
-    procedure push_transaction (transaction_msg : msg_t; first : natural) is
+    procedure push_transaction(transaction_msg : msg_t; first : natural)is
     begin
 
       for idx in first to first + 11 loop
@@ -146,7 +146,10 @@ begin
 
       for idx in 0 to 3 loop
 
-        push(transaction_msg, axi4_time(get(values, first + 12 + 2 * idx), get(values, first + 13 + 2 * idx)));
+        push(
+          transaction_msg,
+          axi4_time(get(values, first + 12 + 2 * idx), get(values, first + 13 + 2 * idx))
+        );
       end loop;
 
       push(transaction_msg, get(values, first + 20));
@@ -155,11 +158,10 @@ begin
         push(transaction_msg, get(values, first + header_length + idx));
       end loop;
 
-    end;
+    end procedure;
 
     -- Everything that waits for Python to be up to date
     procedure serve is
-
       variable idx : natural;
       variable publish_msg : msg_t;
       variable request_msg : msg_t;
@@ -198,10 +200,9 @@ begin
         reply(net, request_msg, reply_msg);
       end loop;
 
-    end;
+    end procedure;
 
-    procedure check_transaction (request_msg : msg_t) is
-
+    procedure check_transaction(request_msg : msg_t)is
       constant is_write : boolean := pop(request_msg);
       constant address_hi : integer := pop(request_msg);
       constant address_lo : integer := pop(request_msg);
@@ -227,12 +228,16 @@ begin
         & arg(resp)
         & arg_text(pop_string(request_msg))
       );
-    end;
+    end procedure;
 
   begin
-
     session := new_vc_session(get_id(monitor), logger);
-    create_backend(session, "awesome_vunit_vcs.axi4.vunit_backend", "Axi4MonitorBackend", backend_arguments(monitor));
+    create_backend(
+      session,
+      "awesome_vunit_vcs.axi4.vunit_backend",
+      "Axi4MonitorBackend",
+      backend_arguments(monitor)
+    );
     log_waiting(backend_call_integer(session, "num_reports"));
     batch := new_sample_batch(session, logger, checker, batch_length => 4096);
 
@@ -253,8 +258,30 @@ begin
           awvalid,
           awready,
           aresetn,
-          is_x(awuser & awregion & awqos & awprot & awcache & awlock & awburst & awsize & awlen & awaddr & awid),
-          awuser & awregion & awqos & awprot & awcache & awlock & awburst & awsize & awlen & awaddr & awid
+          is_x(
+            awuser
+            & awregion
+            & awqos
+            & awprot
+            & awcache
+            & awlock
+            & awburst
+            & awsize
+            & awlen
+            & awaddr
+            & awid
+          ),
+          awuser
+          & awregion
+          & awqos
+          & awprot
+          & awcache
+          & awlock
+          & awburst
+          & awsize
+          & awlen
+          & awaddr
+          & awid
         );
         record_axi4_channel(
           batch,
@@ -283,8 +310,30 @@ begin
           arvalid,
           arready,
           aresetn,
-          is_x(aruser & arregion & arqos & arprot & arcache & arlock & arburst & arsize & arlen & araddr & arid),
-          aruser & arregion & arqos & arprot & arcache & arlock & arburst & arsize & arlen & araddr & arid
+          is_x(
+            aruser
+            & arregion
+            & arqos
+            & arprot
+            & arcache
+            & arlock
+            & arburst
+            & arsize
+            & arlen
+            & araddr
+            & arid
+          ),
+          aruser
+          & arregion
+          & arqos
+          & arprot
+          & arcache
+          & arlock
+          & arburst
+          & arsize
+          & arlen
+          & araddr
+          & arid
         );
         record_axi4_channel(
           batch,
@@ -421,6 +470,6 @@ begin
         ruser => ruser
       );
 
-  end generate protocol_checker_gen;
+  end generate;
 
 end architecture;

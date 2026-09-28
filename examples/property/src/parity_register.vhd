@@ -9,20 +9,21 @@
 -- undetected.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity parity_register is
   generic (
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
   port (
-    clk : in  std_ulogic;
-    rst : in  std_ulogic;
-    write_enable : in  std_ulogic;
-    corrupt_enable : in  std_ulogic;
-    data_in : in  std_ulogic_vector(7 downto 0);
-    flip_data : in  std_ulogic_vector(7 downto 0);
-    flip_parity : in  std_ulogic;
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    write_enable : in std_ulogic;
+    corrupt_enable : in std_ulogic;
+    data_in : in std_ulogic_vector(7 downto 0);
+    flip_data : in std_ulogic_vector(7 downto 0);
+    flip_parity : in std_ulogic;
     data_out : out std_ulogic_vector(7 downto 0);
     error : out std_ulogic
   );
@@ -36,9 +37,8 @@ architecture a of parity_register is
 
 begin
 
-  main : process (clk)
+  main : process(clk)
   begin
-
     if rising_edge(clk) then
       if rst = '1' then
         stored_data <= (others => '0');
@@ -62,4 +62,5 @@ begin
 
   data_out <= stored_data;
   error <= computed_parity xor stored_parity;
+
 end architecture;

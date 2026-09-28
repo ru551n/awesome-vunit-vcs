@@ -21,22 +21,22 @@
 -- axi4_protocol_checker on the same pins.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.vc_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.axi4_pkg.all;
-  use work.axi4_protocol_checker_pkg.all;
-  use work.vc_python_pkg.arg_text;
+use work.axi4_pkg.all;
+use work.axi4_protocol_checker_pkg.all;
+use work.vc_python_pkg.arg_text;
 
 package axi4_monitor_pkg is
 
@@ -139,14 +139,14 @@ package axi4_monitor_pkg is
 
   -- Non-blocking: pop the oldest transaction the monitor keeps, or the next
   -- one to complete
-  procedure pop_axi4_transaction (
+  procedure pop_axi4_transaction(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     variable reference : inout axi4_monitor_reference_t
   );
 
   -- Blocking: redeem a reference of :vhdl:`axi4_monitor_pkg.pop_axi4_transaction`
-  procedure await_pop_axi4_transaction_reply (
+  procedure await_pop_axi4_transaction_reply(
     signal net : inout network_t;
     variable reference : inout axi4_monitor_reference_t;
     variable transaction : out axi4_transaction_t
@@ -154,7 +154,7 @@ package axi4_monitor_pkg is
 
   -- Blocking: pop the oldest transaction the monitor keeps, or wait for the
   -- next one to complete
-  procedure pop_axi4_transaction (
+  procedure pop_axi4_transaction(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     variable transaction : out axi4_transaction_t
@@ -162,7 +162,7 @@ package axi4_monitor_pkg is
 
   -- Read the transaction of an ``axi4_transaction_msg`` the monitor
   -- published, or of a pop reply
-  procedure pop_axi4_transaction (msg : msg_t; variable transaction : out axi4_transaction_t);
+  procedure pop_axi4_transaction(msg : msg_t; variable transaction : out axi4_transaction_t);
 
   -- Non-blocking: the next write (``is_write``) or read to complete must have
   -- this address and data, the bytes of ``data`` leftmost first in the order
@@ -171,7 +171,7 @@ package axi4_monitor_pkg is
   -- expected transaction that never came when the test ends, is a check
   -- failure (``AXI4_SCOREBOARD``) on the checker of the monitor, prefixed
   -- with msg.
-  procedure check_axi4_transaction (
+  procedure check_axi4_transaction(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     is_write : boolean;
@@ -218,21 +218,21 @@ package axi4_monitor_pkg is
   end record;
 
   -- Non-blocking: request the statistics
-  procedure get_axi4_statistics (
+  procedure get_axi4_statistics(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     variable reference : inout axi4_monitor_reference_t
   );
 
   -- Blocking: redeem a reference of :vhdl:`axi4_monitor_pkg.get_axi4_statistics`
-  procedure await_get_axi4_statistics_reply (
+  procedure await_get_axi4_statistics_reply(
     signal net : inout network_t;
     variable reference : inout axi4_monitor_reference_t;
     variable statistics : out axi4_statistics_t
   );
 
   -- Blocking: get the statistics
-  procedure get_axi4_statistics (
+  procedure get_axi4_statistics(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     variable statistics : out axi4_statistics_t
@@ -242,7 +242,7 @@ package axi4_monitor_pkg is
   -- monitor: counts, bandwidth, latency distributions with percentiles and
   -- histograms, outstanding transactions, burst histograms and the
   -- backpressure of each channel, and each ID with ``per_id_statistics``
-  procedure log_axi4_statistics (
+  procedure log_axi4_statistics(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     log_level : log_level_t := info
@@ -252,12 +252,17 @@ package axi4_monitor_pkg is
   -- Forgets the outstanding transactions, the kept and the expected ones.
   -- Pending pops are cancelled and must not be awaited. Statistics and the
   -- shadow memory are kept, statistics unless ``clear_statistics``.
-  procedure reset (signal net : inout network_t; monitor : axi4_monitor_t; clear_statistics : boolean := false);
+  procedure reset(
+    signal net : inout network_t;
+    monitor : axi4_monitor_t;
+    clear_statistics : boolean := false
+  );
 
   -- The message types the procedures above send to the component, and the
   -- ``axi4_transaction_msg`` it publishes
   constant pop_axi4_transaction_msg : msg_type_t := new_msg_type("pop axi4 transaction");
-  constant pop_axi4_transaction_reply_msg : msg_type_t := new_msg_type("pop axi4 transaction reply");
+  constant pop_axi4_transaction_reply_msg : msg_type_t :=
+    new_msg_type("pop axi4 transaction reply");
   constant axi4_transaction_msg : msg_type_t := new_msg_type("axi4 transaction");
   constant check_axi4_transaction_msg : msg_type_t := new_msg_type("check axi4 transaction");
   constant get_axi4_statistics_msg : msg_type_t := new_msg_type("get axi4 statistics");
@@ -271,7 +276,8 @@ package axi4_monitor_pkg is
 
   -- Private. A message type no handler took, see
   -- :vhdl:`axi4_pkg.axi4_unexpected_msg_type`
-  procedure unexpected_msg_type (msg_type : msg_type_t; monitor : axi4_monitor_t);
+  procedure unexpected_msg_type(msg_type : msg_type_t; monitor : axi4_monitor_t);
+
 end package;
 
 package body axi4_monitor_pkg is
@@ -287,7 +293,6 @@ package body axi4_monitor_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return axi4_monitor_t is
-
     variable result : axi4_monitor_t := (
       p_bus => axi4_bus,
       p_protocol_checker => null_axi4_protocol_checker,
@@ -313,51 +318,55 @@ package body axi4_monitor_pkg is
     if checker = null_checker then
       result.p_checker := new_checker(result.p_logger);
     end if;
-    result.p_protocol_checker := get_valid_protocol_checker(protocol_checker, result.p_id, axi4_bus);
+    result.p_protocol_checker := get_valid_protocol_checker(
+      protocol_checker,
+      result.p_id,
+      axi4_bus
+    );
     return result;
-  end;
+  end function;
 
   impure function get_id (monitor : axi4_monitor_t) return id_t is
   begin
 
     return monitor.p_id;
-  end;
+  end function;
 
   impure function get_logger (monitor : axi4_monitor_t) return logger_t is
   begin
 
     return monitor.p_logger;
-  end;
+  end function;
 
   impure function get_actor (monitor : axi4_monitor_t) return actor_t is
   begin
 
     return monitor.p_actor;
-  end;
+  end function;
 
   impure function get_checker (monitor : axi4_monitor_t) return checker_t is
   begin
 
     return monitor.p_checker;
-  end;
+  end function;
 
   impure function as_sync (monitor : axi4_monitor_t) return sync_handle_t is
   begin
 
     return monitor.p_actor;
-  end;
+  end function;
 
   function get_bus (monitor : axi4_monitor_t) return axi4_bus_t is
   begin
 
     return monitor.p_bus;
-  end;
+  end function;
 
   function protocol_checker (monitor : axi4_monitor_t) return axi4_protocol_checker_t is
   begin
 
     return monitor.p_protocol_checker;
-  end;
+  end function;
 
   impure function backend_arguments (monitor : axi4_monitor_t) return arg_t is
   begin
@@ -367,27 +376,26 @@ package body axi4_monitor_pkg is
            & kwarg("shadow_memory", monitor.p_shadow_memory)
            & kwarg("per_id_statistics", monitor.p_per_id_statistics)
            & kwarg("report_metavalues", monitor.p_protocol_checker = null_axi4_protocol_checker);
-  end;
+  end function;
 
-  procedure unexpected_msg_type (msg_type : msg_type_t; monitor : axi4_monitor_t) is
+  procedure unexpected_msg_type(msg_type : msg_type_t; monitor : axi4_monitor_t)is
   begin
 
     axi4_unexpected_msg_type(msg_type, monitor.p_unexpected_msg_type_policy, monitor.p_checker);
-  end;
+  end procedure;
 
-  procedure pop_axi4_transaction (
+  procedure pop_axi4_transaction(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     variable reference : inout axi4_monitor_reference_t
-  ) is
+  )is
   begin
 
     reference := new_msg(pop_axi4_transaction_msg);
     send(net, monitor.p_actor, reference);
-  end;
+  end procedure;
 
-  procedure pop_axi4_transaction (msg : msg_t; variable transaction : out axi4_transaction_t) is
-
+  procedure pop_axi4_transaction(msg : msg_t; variable transaction : out axi4_transaction_t)is
     variable flags : natural;
     variable num_bytes : natural;
     variable value : natural;
@@ -421,14 +429,13 @@ package body axi4_monitor_pkg is
       set(transaction.strobe, idx, value / 256);
     end loop;
 
-  end;
+  end procedure;
 
-  procedure await_pop_axi4_transaction_reply (
+  procedure await_pop_axi4_transaction_reply(
     signal net : inout network_t;
     variable reference : inout axi4_monitor_reference_t;
     variable transaction : out axi4_transaction_t
-  ) is
-
+  )is
     variable reply_msg : msg_t;
   begin
 
@@ -436,22 +443,21 @@ package body axi4_monitor_pkg is
     pop_axi4_transaction(reply_msg, transaction);
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure pop_axi4_transaction (
+  procedure pop_axi4_transaction(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     variable transaction : out axi4_transaction_t
-  ) is
-
+  )is
     variable reference : axi4_monitor_reference_t;
   begin
 
     pop_axi4_transaction(net, monitor, reference);
     await_pop_axi4_transaction_reply(net, reference, transaction);
-  end;
+  end procedure;
 
-  procedure check_axi4_transaction (
+  procedure check_axi4_transaction(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     is_write : boolean;
@@ -460,8 +466,7 @@ package body axi4_monitor_pkg is
     id : integer := -1;
     resp : std_ulogic_vector(1 downto 0) := "--";
     msg : string := ""
-  ) is
-
+  )is
     alias normalized : std_ulogic_vector(0 to data'length - 1) is data;
     constant wide_address : unsigned(63 downto 0) := resize(unsigned(to_x01(address)), 64);
     variable request_msg : msg_t := new_msg(check_axi4_transaction_msg);
@@ -497,25 +502,24 @@ package body axi4_monitor_pkg is
 
     push_string(request_msg, msg);
     send(net, monitor.p_actor, request_msg);
-  end;
+  end procedure;
 
-  procedure get_axi4_statistics (
+  procedure get_axi4_statistics(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     variable reference : inout axi4_monitor_reference_t
-  ) is
+  )is
   begin
 
     reference := new_msg(get_axi4_statistics_msg);
     send(net, monitor.p_actor, reference);
-  end;
+  end procedure;
 
-  procedure await_get_axi4_statistics_reply (
+  procedure await_get_axi4_statistics_reply(
     signal net : inout network_t;
     variable reference : inout axi4_monitor_reference_t;
     variable statistics : out axi4_statistics_t
-  ) is
-
+  )is
     variable reply_msg : msg_t;
   begin
 
@@ -543,36 +547,37 @@ package body axi4_monitor_pkg is
     statistics.cycles := pop(reply_msg);
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure get_axi4_statistics (
+  procedure get_axi4_statistics(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     variable statistics : out axi4_statistics_t
-  ) is
-
+  )is
     variable reference : axi4_monitor_reference_t;
   begin
 
     get_axi4_statistics(net, monitor, reference);
     await_get_axi4_statistics_reply(net, reference, statistics);
-  end;
+  end procedure;
 
-  procedure log_axi4_statistics (
+  procedure log_axi4_statistics(
     signal net : inout network_t;
     monitor : axi4_monitor_t;
     log_level : log_level_t := info
-  ) is
-
+  )is
     variable request_msg : msg_t := new_msg(log_axi4_statistics_msg);
   begin
 
     push(request_msg, log_level_t'pos(log_level));
     send(net, monitor.p_actor, request_msg);
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; monitor : axi4_monitor_t; clear_statistics : boolean := false) is
-
+  procedure reset(
+    signal net : inout network_t;
+    monitor : axi4_monitor_t;
+    clear_statistics : boolean := false
+  )is
     variable request_msg : msg_t := new_msg(reset_axi4_monitor_msg);
     variable reply_msg : msg_t;
   begin
@@ -580,6 +585,6 @@ package body axi4_monitor_pkg is
     push(request_msg, clear_statistics);
     request(net, monitor.p_actor, request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
 end package body;

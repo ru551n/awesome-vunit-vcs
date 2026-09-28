@@ -12,7 +12,8 @@ context awesome_vunit_vcs.i2c_context;
 
 entity tb_i2c_protocol_checker is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_i2c_protocol_checker is
@@ -72,7 +73,7 @@ begin
         sda => sda
       );
 
-  end generate masters_gen;
+  end generate;
 
   target_inst : entity awesome_vunit_vcs.i2c_target
     generic map (
@@ -109,7 +110,7 @@ begin
     variable reference : i2c_protocol_checker_reference_t;
 
     -- Exactly one check of the checker found violations
-    procedure check_only (expected : i2c_check_t) is
+    procedure check_only(expected : i2c_check_t)is
     begin
 
       wait_until_idle(net, as_sync(checker_vc));
@@ -128,16 +129,15 @@ begin
         "violations are check failures on the checker"
       );
       reset_log_count(get_logger(get_checker(checker_vc)), error);
-    end;
+    end procedure;
 
-    procedure write_read (idx : natural) is
+    procedure write_read(idx : natural)is
     begin
 
       i2c_write_read(net, masters(idx), 16#50#, x"00", data);
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     disable_stop(get_logger(get_checker(checker_vc)), error);
     -- Only test_t_hd_dat asks the hold checker
@@ -264,4 +264,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 20 ms);
+
 end architecture;

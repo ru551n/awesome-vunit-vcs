@@ -15,7 +15,8 @@ context awesome_vunit_vcs.flash_context;
 
 entity tb_qspi_protocol_checker_vci is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_qspi_protocol_checker_vci is
@@ -31,9 +32,13 @@ architecture tb of tb_qspi_protocol_checker_vci is
 
   constant custom_logger : logger_t := get_logger("tb_qspi_protocol_checker_vci:custom_logger");
   constant custom_actor : actor_t := new_actor("tb_qspi_protocol_checker_vci:custom_actor");
-  constant custom_checker : checker_t := new_checker(get_logger("tb_qspi_protocol_checker_vci:custom_checker"));
-  constant custom_protocol_checker : qspi_protocol_checker_t :=
-    new_qspi_protocol_checker(logger => custom_logger, actor => custom_actor, checker => custom_checker);
+  constant custom_checker : checker_t :=
+    new_checker(get_logger("tb_qspi_protocol_checker_vci:custom_checker"));
+  constant custom_protocol_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
+    logger => custom_logger,
+    actor => custom_actor,
+    checker => custom_checker
+  );
   signal custom_m2s : qspi_m2s_t := qspi_m2s_init;
 
   constant ignoring_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
@@ -109,8 +114,11 @@ begin
     variable start : time;
 
     -- A message of an unknown type, like the VCI tests of the Ethernet VCs
-    procedure check_unexpected_message (actor : actor_t; logger : logger_t; expect_failure : boolean) is
-
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
 
@@ -119,12 +127,16 @@ begin
       send(net, actor, request_msg);
       wait_until_idle(net, actor);
       if expect_failure then
-        check_only_log(logger, "Got unexpected message unknown qspi_protocol_checker message", error);
+        check_only_log(
+          logger,
+          "Got unexpected message unknown qspi_protocol_checker message",
+          error
+        );
       else
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
 
     -- Two empty commands 10 ns apart on both buses: one tSHSL violation for
     -- each checker
@@ -142,37 +154,71 @@ begin
       end loop;
 
       wait for 50 ns;
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
 
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_checker))) >= 1, "the default id is enumerated");
-        check_equal(name(get_parent(get_id(default_checker))), "qspi_protocol_checker", "name of its parent");
-        check(get_parent(get_parent(get_id(default_checker))) = get_id("awesome_vunit_vcs"), "grandparent");
-        check(get_id(second_default_checker) /= get_id(default_checker), "a second default id differs");
+        check_equal(
+          name(get_parent(get_id(default_checker))),
+          "qspi_protocol_checker",
+          "name of its parent"
+        );
+        check(
+          get_parent(get_parent(get_id(default_checker))) = get_id("awesome_vunit_vcs"),
+          "grandparent"
+        );
+        check(
+          get_id(second_default_checker) /= get_id(default_checker),
+          "a second default id differs"
+        );
 
       elsif run("test_default_logger_actor_and_checker_are_used") then
-        check(get_logger(default_checker) = get_logger(get_id(default_checker)), "logger of the id");
-        check(get_actor(default_checker) = find(get_id(default_checker), enable_deferred_creation => false), "actor");
+        check(
+          get_logger(default_checker) = get_logger(get_id(default_checker)),
+          "logger of the id"
+        );
+        check(
+          get_actor(default_checker)
+          = find(get_id(default_checker), enable_deferred_creation => false),
+          "actor"
+        );
         check(as_sync(default_checker) = get_actor(default_checker), "as_sync");
-        check(get_logger(get_checker(default_checker)) = get_logger(default_checker), "checker on the logger");
+        check(
+          get_logger(get_checker(default_checker)) = get_logger(default_checker),
+          "checker on the logger"
+        );
 
         disable_stop(get_logger(custom_checker), error);
         disable_stop(get_logger(default_checker), error);
         deselect_too_briefly;
-        check_equal(get_log_count(get_logger(default_checker), error), 1, "violation on the default logger");
+        check_equal(
+          get_log_count(get_logger(default_checker), error),
+          1,
+          "violation on the default logger"
+        );
         reset_log_count(get_logger(default_checker), error);
         reset_log_count(get_logger(custom_checker), error);
 
       elsif run("test_explicit_id_is_used") then
-        check(get_id(explicit_checker) = get_id("tb_qspi_protocol_checker_vci:explicit_checker"), "id");
-        check_equal(get_full_name(get_logger(explicit_checker)), full_name(get_id(explicit_checker)), "logger name");
-        check(get_actor(explicit_checker) = find(get_id(explicit_checker), enable_deferred_creation => false), "actor");
+        check(
+          get_id(explicit_checker) = get_id("tb_qspi_protocol_checker_vci:explicit_checker"),
+          "id"
+        );
+        check_equal(
+          get_full_name(get_logger(explicit_checker)),
+          full_name(get_id(explicit_checker)),
+          "logger name"
+        );
+        check(
+          get_actor(explicit_checker)
+          = find(get_id(explicit_checker), enable_deferred_creation => false),
+          "actor"
+        );
 
       elsif run("test_custom_logger_actor_and_checker_are_used") then
         check(get_logger(custom_protocol_checker) = custom_logger, "logger");
@@ -183,7 +229,11 @@ begin
         disable_stop(get_logger(custom_checker), error);
         disable_stop(get_logger(default_checker), error);
         deselect_too_briefly;
-        check_equal(get_log_count(get_logger(custom_checker), error), 1, "violation on the custom checker");
+        check_equal(
+          get_log_count(get_logger(custom_checker), error),
+          1,
+          "violation on the custom checker"
+        );
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         -- The checker serves the actor that was passed
         wait_until_idle(net, custom_actor);
@@ -193,12 +243,20 @@ begin
         reset_log_count(get_logger(default_checker), error);
 
       elsif run("test_unexpected_message_is_a_check_failure") then
-        check_unexpected_message(get_actor(default_checker), get_logger(default_checker), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_checker),
+          get_logger(default_checker),
+          expect_failure => true
+        );
         -- On the checker of the protocol checker, not on its logger
         check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_checker), get_logger(ignoring_checker), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_checker),
+          get_logger(ignoring_checker),
+          expect_failure => false
+        );
         get_check_count(net, ignoring_checker, qspi_sck_period, count);
         check_equal(count, 0, "the checker answers after the unexpected message");
 
@@ -252,9 +310,13 @@ begin
           to_string(count + 1),
           "the default id after one a master adopted"
         );
-        check(get_id(after_adoption_checker) = get_id(after_adoption_checker), "the same id on every use");
         check(
-          get_actor(after_adoption_checker) = find(get_id(after_adoption_checker), enable_deferred_creation => false),
+          get_id(after_adoption_checker) = get_id(after_adoption_checker),
+          "the same id on every use"
+        );
+        check(
+          get_actor(after_adoption_checker)
+          = find(get_id(after_adoption_checker), enable_deferred_creation => false),
           "the actor of the id"
         );
 
@@ -280,7 +342,10 @@ begin
         );
         check(get_logger(protocol_checker(parent_master)) = adopted_logger, "explicit logger kept");
         check(get_actor(protocol_checker(parent_master)) = adopted_actor, "explicit actor kept");
-        check(get_checker(protocol_checker(parent_master)) = adopted_checker, "explicit checker kept");
+        check(
+          get_checker(protocol_checker(parent_master)) = adopted_checker,
+          "explicit checker kept"
+        );
         check_equal(t_sck_min(protocol_checker(parent_master)), 10 ns, "t_sck_min kept");
         check_equal(t_shsl(protocol_checker(parent_master)), 45 ns, "t_shsl kept");
         check_equal(t_chdx(protocol_checker(parent_master)), 3 ns, "default t_chdx kept");
@@ -291,4 +356,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 20 ms);
+
 end architecture;

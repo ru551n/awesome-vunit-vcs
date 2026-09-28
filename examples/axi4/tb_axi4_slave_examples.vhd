@@ -13,7 +13,8 @@ context awesome_vunit_vcs.axi4_context;
 entity tb_axi4_slave_examples is
   generic (
     runner_cfg : string;
-    tb_path : string);
+    tb_path : string
+  );
 end entity;
 
 architecture tb of tb_axi4_slave_examples is
@@ -29,7 +30,8 @@ architecture tb of tb_axi4_slave_examples is
   constant axi4_bus : axi4_bus_t := new_axi4_bus(data_length => 32, address_length => 32);
   constant read_slave : axi4_slave_t :=
     new_axi4_slave(memory, axi4_bus, min_response_latency => 20 ns, max_response_latency => 60 ns);
-  constant write_slave : axi4_slave_t := new_axi4_slave(memory, axi4_bus, data_stall_probability => 0.3);
+  constant write_slave : axi4_slave_t :=
+    new_axi4_slave(memory, axi4_bus, data_stall_probability => 0.3);
   -- docs-end: slaves
 
   constant master : bus_master_t := new_bus(data_length => 32, address_length => 32);
@@ -158,7 +160,6 @@ begin
     variable count : natural;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
@@ -217,7 +218,6 @@ begin
           get_check_count(net, protocol_checker(monitor), check, count);
           check_equal(count, 0, "violations of " & axi4_check_t'image(check));
         end loop;
-
       end if;
     end loop;
 

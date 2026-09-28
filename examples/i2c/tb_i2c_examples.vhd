@@ -16,15 +16,19 @@ context awesome_vunit_vcs.i2c_context;
 
 entity tb_i2c_examples is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_i2c_examples is
 
   -- docs-start: handles
   constant master : i2c_master_t := new_i2c_master(speed => i2c_fast_mode);
-  constant sensor : i2c_target_t :=
-    new_i2c_target(address => 16#48#, model => "sensor:TemperatureSensor", model_args => kwarg("celsius", 25.0));
+  constant sensor : i2c_target_t := new_i2c_target(
+    address => 16#48#,
+    model => "sensor:TemperatureSensor",
+    model_args => kwarg("celsius", 25.0)
+  );
   constant eeprom : i2c_target_t := new_i2c_target(
     address => 16#50#,
     model => "eeprom",
@@ -40,7 +44,8 @@ architecture tb of tb_i2c_examples is
 
   -- docs-start: fast-master
   -- A master that keeps SCL high for 400 ns only, short of the 600 ns of Fast-mode
-  constant fast_master : i2c_master_t := new_i2c_master(speed => i2c_fast_mode, t_low => 2100 ns, t_high => 400 ns);
+  constant fast_master : i2c_master_t :=
+    new_i2c_master(speed => i2c_fast_mode, t_low => 2100 ns, t_high => 400 ns);
   -- docs-end: fast-master
 
   -- docs-start: bus
@@ -124,7 +129,6 @@ begin
     variable count : natural;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
@@ -254,4 +258,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 20 ms);
+
 end architecture;

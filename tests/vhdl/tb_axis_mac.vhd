@@ -8,19 +8,19 @@
 -- rules drive a second bus directly, observed by a protocol checker of its own.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
 library osvvm;
-  use osvvm.randompkg.randomptype;
+use osvvm.randompkg.randomptype;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
@@ -30,7 +30,8 @@ entity tb_axis_mac is
     runner_cfg : string;
     bytes_per_beat : positive := 8;
     ready_high_percent : natural := 100;
-    valid_low_percent : natural := 0);
+    valid_low_percent : natural := 0
+  );
 end entity;
 
 architecture tb of tb_axis_mac is
@@ -38,9 +39,13 @@ architecture tb of tb_axis_mac is
   constant clk_period : time := 8 ns;
   signal clk : std_ulogic := '0';
 
-  constant source : axis_mac_source_t :=
-    new_axis_mac_source(bytes_per_beat => bytes_per_beat, valid_low_percent => valid_low_percent, seed => 17);
-  constant sink : axis_mac_sink_t := new_axis_mac_sink(ready_high_percent => ready_high_percent, seed => 29);
+  constant source : axis_mac_source_t := new_axis_mac_source(
+    bytes_per_beat => bytes_per_beat,
+    valid_low_percent => valid_low_percent,
+    seed => 17
+  );
+  constant sink : axis_mac_sink_t :=
+    new_axis_mac_sink(ready_high_percent => ready_high_percent, seed => 29);
   constant monitor : axis_mac_monitor_t := new_axis_mac_monitor(
     bytes_per_beat => bytes_per_beat,
     protocol_checker => default_axis_mac_protocol_checker,
@@ -64,16 +69,21 @@ architecture tb of tb_axis_mac is
   signal tuser : std_ulogic_vector(0 downto 0);
 
   -- A bus without FCS
-  constant no_fcs_source : axis_mac_source_t := new_axis_mac_source(bytes_per_beat => 4, has_fcs => false);
-  constant no_fcs_monitor : axis_mac_monitor_t :=
-    new_axis_mac_monitor(bytes_per_beat => 4, has_fcs => false, protocol_checker => default_axis_mac_protocol_checker);
+  constant no_fcs_source : axis_mac_source_t :=
+    new_axis_mac_source(bytes_per_beat => 4, has_fcs => false);
+  constant no_fcs_monitor : axis_mac_monitor_t := new_axis_mac_monitor(
+    bytes_per_beat => 4,
+    has_fcs => false,
+    protocol_checker => default_axis_mac_protocol_checker
+  );
   signal no_fcs_tdata : std_ulogic_vector(31 downto 0);
   signal no_fcs_tkeep : std_ulogic_vector(3 downto 0);
   signal no_fcs_tvalid, no_fcs_tlast : std_ulogic;
   signal no_fcs_tuser : std_ulogic_vector(0 downto 0);
 
   -- A bus the tests of the AXI-Stream rules drive directly
-  constant manual_checker : axis_mac_protocol_checker_t := new_axis_mac_protocol_checker(bytes_per_beat => 4);
+  constant manual_checker : axis_mac_protocol_checker_t :=
+    new_axis_mac_protocol_checker(bytes_per_beat => 4);
   signal manual_tdata : std_ulogic_vector(31 downto 0) := (others => '0');
   signal manual_tkeep : std_ulogic_vector(3 downto 0) := (others => '0');
   signal manual_tvalid, manual_tlast : std_ulogic := '0';
@@ -99,22 +109,23 @@ begin
              & kwarg("malformations", "bad_fcs,runt,giant,phy_error")
              & kwarg("malformed_fraction", 0.3)
              & kwarg("interface", "axis");
-    end;
+    end function;
 
     -- Frame data from the destination address up to the FCS
     impure function frame_data (octets : positive; seed : natural := 0) return std_ulogic_vector is
-
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
 
       for idx in 0 to octets - 1 loop
 
-        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(to_unsigned((7 * idx + seed) mod 256, 8));
+        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(
+          to_unsigned((7 * idx + seed) mod 256, 8)
+        );
       end loop;
 
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
-    end;
+    end function;
 
     procedure wait_until_idle is
     begin
@@ -129,9 +140,9 @@ begin
 
       wait_until_idle(net, as_sync(no_fcs_monitor));
       wait_until_idle(net, as_sync(manual_checker));
-    end;
+    end procedure;
 
-    procedure push_checked_frame (frame : std_ulogic_vector) is
+    procedure push_checked_frame(frame : std_ulogic_vector)is
     begin
 
       for idx in monitors'range loop
@@ -140,10 +151,9 @@ begin
       end loop;
 
       push_ethernet_frame(net, source, frame);
-    end;
+    end procedure;
 
-    procedure check_violations (check : ethernet_check_t; expected : natural) is
-
+    procedure check_violations(check : ethernet_check_t; expected : natural)is
       variable violations : natural;
     begin
 
@@ -164,15 +174,15 @@ begin
         reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
       end loop;
 
-    end;
+    end procedure;
 
     -- One clock of the manually driven bus
-    procedure drive_manual (
+    procedure drive_manual(
       data : std_ulogic_vector(31 downto 0);
       keep : std_ulogic_vector(3 downto 0);
       valid, last : std_ulogic;
       ready : std_ulogic := '1'
-    ) is
+    )is
     begin
 
       manual_tdata <= data;
@@ -181,21 +191,24 @@ begin
       manual_tlast <= last;
       manual_tready <= ready;
       wait until rising_edge(clk);
-    end;
+    end procedure;
 
-    procedure check_manual_violations (check : ethernet_check_t; expected : natural) is
+    procedure check_manual_violations(check : ethernet_check_t; expected : natural)is
     begin
 
       drive_manual(x"00000000", "0000", '0', '0');
       wait_until_idle;
       get_check_count(net, manual_checker, check, count);
       check_equal(count, expected, "Violations of " & ethernet_check_t'image(check));
-      check_equal(get_log_count(get_logger(manual_checker), error), expected, "Errors of the manual protocol checker");
+      check_equal(
+        get_log_count(get_logger(manual_checker), error),
+        expected,
+        "Errors of the manual protocol checker"
+      );
       reset_log_count(get_logger(manual_checker), error);
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
     exec("import sys");
@@ -333,7 +346,13 @@ begin
           );
         end loop;
 
-        push_ethernet_sequence(net, source, traffic_function, traffic_arguments, seed => get_string_seed(runner_cfg));
+        push_ethernet_sequence(
+          net,
+          source,
+          traffic_function,
+          traffic_arguments,
+          seed => get_string_seed(runner_cfg)
+        );
         wait_until_idle;
         for idx in monitors'range loop
 
@@ -358,7 +377,10 @@ begin
             total := total + count;
           end loop;
 
-          check(total > 0, "The sequence has malformed frames, seed " & get_string_seed(runner_cfg));
+          check(
+            total > 0,
+            "The sequence has malformed frames, seed " & get_string_seed(runner_cfg)
+          );
           check_equal(get_log_count(get_logger(get_protocol_checker(monitors(idx))), error), total);
           reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
           check_equal(
@@ -367,7 +389,6 @@ begin
             "Scoreboard errors on monitor " & to_string(idx)
           );
         end loop;
-
       end if;
     end loop;
 

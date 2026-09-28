@@ -16,7 +16,8 @@ context awesome_vunit_vcs.flash_context;
 
 entity tb_qspi_protocol_checker is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_qspi_protocol_checker is
@@ -25,8 +26,10 @@ architecture tb of tb_qspi_protocol_checker is
   constant raw_checker : qspi_protocol_checker_t :=
     new_qspi_protocol_checker(id => get_id("tb_qspi_protocol_checker:raw_checker"));
   -- docs-end: protocol_checker_constructor
-  constant no_deselect_checker : qspi_protocol_checker_t :=
-    new_qspi_protocol_checker(t_shsl => 0 ns, id => get_id("tb_qspi_protocol_checker:no_deselect_checker"));
+  constant no_deselect_checker : qspi_protocol_checker_t := new_qspi_protocol_checker(
+    t_shsl => 0 ns,
+    id => get_id("tb_qspi_protocol_checker:no_deselect_checker")
+  );
   signal raw_m2s : qspi_m2s_t := qspi_m2s_init;
 
   constant master : qspi_master_t := new_qspi_master(sck_period => 20 ns);
@@ -86,7 +89,7 @@ begin
     -- change_offset after the rising edge; the defaults meet every rule with
     -- a margin. CS stays high for 5 ns before the frame, while the lanes are
     -- driven, and for deselect_after after it.
-    procedure send_frame (
+    procedure send_frame(
       high : delay_length := 10 ns;
       low : delay_length := 10 ns;
       slch : delay_length := 10 ns;
@@ -95,7 +98,7 @@ begin
       beats : positive := 2;
       toggled_lane : natural := 0;
       deselect_after : delay_length := 50 ns
-    ) is
+    )is
     begin
 
       raw_m2s.io <= (value => "0000", enable => "0001");
@@ -127,10 +130,14 @@ begin
       raw_m2s.cs_n <= '1';
       raw_m2s.io <= qspi_drive_init;
       wait for deselect_after;
-    end;
+    end procedure;
 
     -- Every count of protocol_checker is 0, except expected for violated
-    procedure check_counts (protocol_checker : qspi_protocol_checker_t; violated : qspi_check_t; expected : natural) is
+    procedure check_counts(
+      protocol_checker : qspi_protocol_checker_t;
+      violated : qspi_check_t;
+      expected : natural
+    )is
     begin
 
       for rule in qspi_check_t loop
@@ -143,13 +150,13 @@ begin
         end if;
       end loop;
 
-    end;
+    end procedure;
 
-    procedure check_no_violations (protocol_checker : qspi_protocol_checker_t) is
+    procedure check_no_violations(protocol_checker : qspi_protocol_checker_t)is
     begin
 
       check_counts(protocol_checker, qspi_check_t'low, 0);
-    end;
+    end procedure;
 
     -- One error on the logger of the raw checker, then clear it
     procedure check_one_error is
@@ -157,10 +164,9 @@ begin
 
       check_equal(get_log_count(get_logger(raw_checker), error), 1, "errors logged");
       reset_log_count(get_logger(raw_checker), error);
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     disable_stop(get_logger(raw_checker), error);
     -- It sees the violations of the raw bus too, which tests check on
@@ -218,7 +224,11 @@ begin
         -- the falling edge after it only 2 ns
         send_frame(chsh => 2 ns);
         check_no_violations(raw_checker);
-        check_equal(get_log_count(get_logger(raw_checker), error), 0, "errors of a compliant CS hold");
+        check_equal(
+          get_log_count(get_logger(raw_checker), error),
+          0,
+          "errors of a compliant CS hold"
+        );
 
       elsif run("test_cs_deselect_violation") then
         -- docs-start: protocol_checker_cs_deselect
@@ -320,4 +330,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 10 ms);
+
 end architecture;

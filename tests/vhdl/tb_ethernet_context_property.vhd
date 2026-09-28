@@ -9,7 +9,8 @@ context awesome_vunit_vcs.ethernet_context;
 
 entity tb_ethernet_context_property is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_ethernet_context_property is
@@ -21,7 +22,6 @@ begin
     variable prop : property_t;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     prop := new_property(
       "property_strategies:payloads",

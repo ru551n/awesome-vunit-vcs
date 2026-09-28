@@ -22,8 +22,8 @@
 -- on with AWESOME_VUNIT_VCS_EXAMPLE_BUGS=1.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
@@ -32,7 +32,8 @@ entity tb_property_axi_ready is
   generic (
     runner_cfg : string;
     -- Turn on the planted bug of the source
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
 end entity;
 
 architecture tb of tb_property_axi_ready is
@@ -81,11 +82,10 @@ begin
         output_path => output_path(runner_cfg),
         search_path => tb_path(runner_cfg) & "python"
       );
-    end;
+    end function;
 
     -- The first bits of a history as text, for example "0110"
     function bits (value : std_ulogic_vector; cycles : natural) return string is
-
       variable result : string(1 to cycles);
     begin
 
@@ -96,14 +96,13 @@ begin
       end loop;
 
       return result;
-    end;
+    end function;
 
     -- docs-start: experiment
     -- Run one experiment and record, cycle by cycle, what both copies saw at each
     -- rising edge. The inputs are the same for both copies, except TREADY in the
     -- fork cycle.
     procedure run_experiment is
-
       constant data : natural := get_integer(prop, "data");
       constant load_cycle : natural := get_integer(prop, "idle");
       constant fork : natural := get_integer(prop, "fork");
@@ -150,14 +149,13 @@ begin
       end loop;
 
       load_valid <= '0';
-    end;
+    end procedure;
 
     -- docs-end: experiment
 
     -- The histories are identical before the fork, and TVALID is low on both
     -- copies in the fork cycle. Only then is the experiment causally clean.
     impure function precondition_holds return boolean is
-
       constant fork : natural := get_integer(prop, "fork");
     begin
 
@@ -172,12 +170,11 @@ begin
       end loop;
 
       return history.tvalid_a(fork) = '0' and history.tvalid_b(fork) = '0';
-    end;
+    end function;
 
     -- The stimulus is what the experiment says it is: TREADY differs in the fork
     -- cycle only, and no transfer happens in the fork cycle
     procedure check_stimulus is
-
       constant fork : natural := get_integer(prop, "fork");
       variable expected_tready_b : std_ulogic;
     begin
@@ -187,12 +184,16 @@ begin
         check_equal(history.tready_a(cycle), '0', "TREADY A in cycle " & integer'image(cycle));
         expected_tready_b := '1' when cycle = fork else
                              '0';
-        check_equal(history.tready_b(cycle), expected_tready_b, "TREADY B in cycle " & integer'image(cycle));
+        check_equal(
+          history.tready_b(cycle),
+          expected_tready_b,
+          "TREADY B in cycle " & integer'image(cycle)
+        );
       end loop;
 
       check_equal(history.handshake_a(fork), '0', "No transfer on A in the fork cycle");
       check_equal(history.handshake_b(fork), '0', "No transfer on B in the fork cycle");
-    end;
+    end procedure;
 
     -- The first cycle where the copies differ, or "none"
     impure function first_divergence return string is
@@ -208,11 +209,10 @@ begin
       end loop;
 
       return "none";
-    end;
+    end function;
 
     -- Everything recorded, for the failure message
     impure function describe return string is
-
       constant cycles : natural := history.cycles;
     begin
 
@@ -239,10 +239,9 @@ begin
              & bits(history.handshake_b, cycles)
              & ", first divergence "
              & first_divergence;
-    end;
+    end function;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 
@@ -295,7 +294,6 @@ begin
             report_example(prop, passed => passed, msg => describe);
           end if;
         end loop;
-
       -- docs-end: known-pending
       end if;
 

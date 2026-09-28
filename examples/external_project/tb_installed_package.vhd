@@ -9,14 +9,15 @@ library python_bridge;
 context python_bridge.python_context;
 
 library awesome_vunit_vcs;
-  use awesome_vunit_vcs.vc_python_pkg.all;
+use awesome_vunit_vcs.vc_python_pkg.all;
 
 -- Uses the installed package: its VHDL library, compiled by add_package, and
 -- its Python modules, imported by the embedded interpreter. Neither is
 -- located through a path.
 entity tb_installed_package is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_installed_package is
@@ -28,7 +29,6 @@ begin
     constant session : python_session_t := new_vc_session(get_id("tb_installed_package:backend"));
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
@@ -58,4 +58,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 10 ms);
+
 end architecture;

@@ -16,25 +16,26 @@
 -- the pins. They share the enables and counts of the rules.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.sync_pkg.all;
 
-  use work.qspi_pkg.all;
-  use work.qspi_protocol_checker_pkg.all;
+use work.qspi_pkg.all;
+use work.qspi_protocol_checker_pkg.all;
 
 entity qspi_protocol_checker is
   generic (
     -- Created with :vhdl:`qspi_protocol_checker_pkg.new_qspi_protocol_checker`
-    protocol_checker : qspi_protocol_checker_t);
+    protocol_checker : qspi_protocol_checker_t
+  );
   port (
     -- Clock, chip select and the IO drive of the master
-    m2s : in  qspi_m2s_t;
+    m2s : in qspi_m2s_t;
     -- The IO drive of the device. Not checked.
-    s2m : in  qspi_s2m_t := qspi_s2m_init
+    s2m : in qspi_s2m_t := qspi_s2m_init
   );
 end entity;
 
@@ -54,7 +55,6 @@ architecture a of qspi_protocol_checker is
   -- uses the resolution of the simulator, which differs between simulators
   -- and is not the unit of a datasheet.
   function ns_image (value : delay_length) return string is
-
     constant value_ps : natural := value / 1 ps;
     constant whole : natural := value_ps / 1000;
     constant fraction : natural := value_ps mod 1000;
@@ -73,13 +73,12 @@ architecture a of qspi_protocol_checker is
       return integer'image(whole) & "." & digits(1 to 2) & " ns";
     end if;
     return integer'image(whole) & "." & digits & " ns";
-  end;
+  end function;
 
   -- The message is only built on a violation: measured can be seconds (an
   -- erase between two commands), which does not fit an integer of
   -- picoseconds, but a violation is below a limit of nanoseconds
-  procedure check_min (measured : time; check : qspi_check_t; what : string) is
-
+  procedure check_min(measured : time; check : qspi_check_t; what : string)is
     constant minimum : delay_length := limit(protocol_checker, check);
     constant idx : natural := qspi_check_t'pos(check);
   begin
@@ -98,7 +97,7 @@ architecture a of qspi_protocol_checker is
         & " minimum"
       );
     end if;
-  end;
+  end procedure;
 
 begin
 
@@ -110,7 +109,6 @@ begin
     variable idx : natural;
 
   begin
-
     loop
 
       receive(net, get_actor(protocol_checker), msg);
@@ -188,7 +186,6 @@ begin
     variable hold_broken : boolean;
 
   begin
-
     loop
 
       wait on m2s, forget_history;
@@ -276,7 +273,8 @@ begin
         hold_broken := false;
         for lane in qspi_io_t'range loop
 
-          if m2s.io.value(lane) /= last_drive.value(lane) or m2s.io.enable(lane) /= last_drive.enable(lane) then
+          if m2s.io.value(lane) /= last_drive.value(lane)
+             or m2s.io.enable(lane) /= last_drive.enable(lane) then
             lane_change_time(lane) := now;
             -- Releasing a driven lane early breaks the hold time like
             -- changing it

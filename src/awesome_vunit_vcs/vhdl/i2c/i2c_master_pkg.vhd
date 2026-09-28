@@ -16,21 +16,21 @@
 -- such as ``x"0012"``.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.vc_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.i2c_pkg.all;
-  use work.vc_python_pkg.arg_text;
-  use work.vc_python_pkg.kwarg_time;
+use work.i2c_pkg.all;
+use work.vc_python_pkg.arg_text;
+use work.vc_python_pkg.kwarg_time;
 
 package i2c_master_pkg is
 
@@ -108,7 +108,7 @@ package i2c_master_pkg is
   -- polling. A byte that is not acknowledged ends the transfer with a STOP
   -- and is a check failure on the checker of the master, as is a lost
   -- arbitration.
-  procedure i2c_write (
+  procedure i2c_write(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -120,7 +120,7 @@ package i2c_master_pkg is
 
   -- Blocking: like :vhdl:`i2c_master_pkg.i2c_write`, with its status instead
   -- of a check failure
-  procedure i2c_write (
+  procedure i2c_write(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -136,7 +136,7 @@ package i2c_master_pkg is
   -- one more byte and checks it as the SMBus PEC. A byte that is not
   -- acknowledged, a lost arbitration or a wrong PEC is a check failure on the
   -- checker of the master.
-  procedure i2c_read (
+  procedure i2c_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -147,7 +147,7 @@ package i2c_master_pkg is
 
   -- Blocking: like :vhdl:`i2c_master_pkg.i2c_read`, with its status instead
   -- of a check failure
-  procedure i2c_read (
+  procedure i2c_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -159,7 +159,7 @@ package i2c_master_pkg is
 
   -- Non-blocking: read ``num_bytes`` bytes, redeemed with
   -- :vhdl:`i2c_master_pkg.await_i2c_read_reply`
-  procedure i2c_read (
+  procedure i2c_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -172,7 +172,7 @@ package i2c_master_pkg is
   -- Blocking: redeem a reference of :vhdl:`i2c_master_pkg.i2c_read` or
   -- :vhdl:`i2c_master_pkg.i2c_write_read`. The bytes read go to the leftmost
   -- bits of data, the rest is 0.
-  procedure await_i2c_read_reply (
+  procedure await_i2c_read_reply(
     signal net : inout network_t;
     variable reference : inout i2c_master_reference_t;
     variable data : out std_ulogic_vector;
@@ -183,7 +183,7 @@ package i2c_master_pkg is
   -- after a repeated START, as a register read does. With ``pec`` the last
   -- byte read is the PEC of the whole transfer. Failures as for
   -- :vhdl:`i2c_master_pkg.i2c_read`.
-  procedure i2c_write_read (
+  procedure i2c_write_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -195,7 +195,7 @@ package i2c_master_pkg is
 
   -- Blocking: like :vhdl:`i2c_master_pkg.i2c_write_read`, with its status
   -- instead of a check failure
-  procedure i2c_write_read (
+  procedure i2c_write_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -208,7 +208,7 @@ package i2c_master_pkg is
 
   -- Non-blocking: write, then read ``num_bytes`` bytes, redeemed with
   -- :vhdl:`i2c_master_pkg.await_i2c_read_reply`
-  procedure i2c_write_read (
+  procedure i2c_write_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -239,7 +239,7 @@ package i2c_master_pkg is
   -- B1010"`` stops in the middle of a byte and ends without a STOP. A NACK
   -- does not end the transfer and nothing is a check failure; the result
   -- tells.
-  procedure i2c_transfer (
+  procedure i2c_transfer(
     signal net : inout network_t;
     master : i2c_master_t;
     ops : string;
@@ -247,14 +247,14 @@ package i2c_master_pkg is
   );
 
   -- Blocking: redeem a reference of :vhdl:`i2c_master_pkg.i2c_transfer`
-  procedure await_i2c_transfer_reply (
+  procedure await_i2c_transfer_reply(
     signal net : inout network_t;
     variable reference : inout i2c_master_reference_t;
     variable result : out i2c_result_t
   );
 
   -- Blocking: :vhdl:`i2c_master_pkg.i2c_transfer` and its result
-  procedure i2c_transfer (
+  procedure i2c_transfer(
     signal net : inout network_t;
     master : i2c_master_t;
     ops : string;
@@ -265,7 +265,7 @@ package i2c_master_pkg is
   -- free, also after a transaction some master left without a STOP.
   -- Transfers requested before the reset run first; one waiting for SCL
   -- held low ends after the stretch timeout.
-  procedure reset (signal net : inout network_t; master : i2c_master_t);
+  procedure reset(signal net : inout network_t; master : i2c_master_t);
 
   -- The message types the procedures above send to the component
   constant run_i2c_transfer_msg : msg_type_t := new_msg_type("run i2c transfer");
@@ -278,7 +278,8 @@ package i2c_master_pkg is
 
   -- Private. A message type no handler took, see
   -- :vhdl:`i2c_pkg.i2c_unexpected_msg_type`
-  procedure unexpected_msg_type (msg_type : msg_type_t; master : i2c_master_t);
+  procedure unexpected_msg_type(msg_type : msg_type_t; master : i2c_master_t);
+
 end package;
 
 package body i2c_master_pkg is
@@ -299,7 +300,6 @@ package body i2c_master_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return i2c_master_t is
-
     variable result : i2c_master_t := (
       p_speed => speed,
       p_t_low => t_low,
@@ -331,49 +331,49 @@ package body i2c_master_pkg is
       result.p_checker := new_checker(result.p_logger);
     end if;
     return result;
-  end;
+  end function;
 
   impure function get_id (master : i2c_master_t) return id_t is
   begin
 
     return master.p_id;
-  end;
+  end function;
 
   impure function get_logger (master : i2c_master_t) return logger_t is
   begin
 
     return master.p_logger;
-  end;
+  end function;
 
   impure function get_actor (master : i2c_master_t) return actor_t is
   begin
 
     return master.p_actor;
-  end;
+  end function;
 
   impure function get_checker (master : i2c_master_t) return checker_t is
   begin
 
     return master.p_checker;
-  end;
+  end function;
 
   impure function as_sync (master : i2c_master_t) return sync_handle_t is
   begin
 
     return master.p_actor;
-  end;
+  end function;
 
   function speed (master : i2c_master_t) return i2c_speed_t is
   begin
 
     return master.p_speed;
-  end;
+  end function;
 
   function stretch_timeout (master : i2c_master_t) return delay_length is
   begin
 
     return master.p_stretch_timeout;
-  end;
+  end function;
 
   impure function backend_arguments (master : i2c_master_t) return arg_t is
   begin
@@ -387,13 +387,13 @@ package body i2c_master_pkg is
            & kwarg_time("t_hd_sta", master.p_t_hd_sta)
            & kwarg_time("t_su_sto", master.p_t_su_sto)
            & kwarg_time("t_buf", master.p_t_buf);
-  end;
+  end function;
 
-  procedure unexpected_msg_type (msg_type : msg_type_t; master : i2c_master_t) is
+  procedure unexpected_msg_type(msg_type : msg_type_t; master : i2c_master_t)is
   begin
 
     i2c_unexpected_msg_type(msg_type, master.p_unexpected_msg_type_policy, master.p_checker);
-  end;
+  end procedure;
 
   -- A transfer request. The component replies when want_reply.
   impure function new_transfer_msg (
@@ -406,7 +406,6 @@ package body i2c_master_pkg is
     expect_ack : boolean;
     want_reply : boolean
   ) return msg_t is
-
     constant values : integer_vector := i2c_bytes(write_data);
     variable msg : msg_t := new_msg(run_i2c_transfer_msg);
   begin
@@ -426,9 +425,9 @@ package body i2c_master_pkg is
     push(msg, stop);
     push(msg, expect_ack);
     return msg;
-  end;
+  end function;
 
-  procedure i2c_write (
+  procedure i2c_write(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -436,15 +435,14 @@ package body i2c_master_pkg is
     ten_bit : boolean := false;
     pec : boolean := false;
     stop : boolean := true
-  ) is
-
+  )is
     variable msg : msg_t := new_transfer_msg(address, data, 0, ten_bit, pec, stop, true, false);
   begin
 
     send(net, master.p_actor, msg);
-  end;
+  end procedure;
 
-  procedure i2c_write (
+  procedure i2c_write(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -453,17 +451,17 @@ package body i2c_master_pkg is
     ten_bit : boolean := false;
     pec : boolean := false;
     stop : boolean := true
-  ) is
-
-    variable reference : i2c_master_reference_t := new_transfer_msg(address, data, 0, ten_bit, pec, stop, false, true);
+  )is
+    variable reference : i2c_master_reference_t :=
+      new_transfer_msg(address, data, 0, ten_bit, pec, stop, false, true);
     variable nothing : std_ulogic_vector(1 to 0);
   begin
 
     send(net, master.p_actor, reference);
     await_i2c_read_reply(net, reference, nothing, status);
-  end;
+  end procedure;
 
-  procedure i2c_read (
+  procedure i2c_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -471,20 +469,19 @@ package body i2c_master_pkg is
     variable reference : inout i2c_master_reference_t;
     ten_bit : boolean := false;
     pec : boolean := false
-  ) is
+  )is
   begin
 
     reference := new_transfer_msg(address, "", num_bytes, ten_bit, pec, true, false, true);
     send(net, master.p_actor, reference);
-  end;
+  end procedure;
 
-  procedure await_i2c_read_reply (
+  procedure await_i2c_read_reply(
     signal net : inout network_t;
     variable reference : inout i2c_master_reference_t;
     variable data : out std_ulogic_vector;
     variable status : out i2c_status_t
-  ) is
-
+  )is
     alias normalized : std_ulogic_vector(0 to data'length - 1) is data;
     variable reply_msg : msg_t;
     variable num_bytes : natural;
@@ -505,15 +502,14 @@ package body i2c_master_pkg is
             normalized(8 * idx + bit_idx) := '1';
           end if;
         end loop;
-
       end if;
     end loop;
 
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure i2c_read (
+  procedure i2c_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -521,24 +517,22 @@ package body i2c_master_pkg is
     variable status : out i2c_status_t;
     ten_bit : boolean := false;
     pec : boolean := false
-  ) is
-
+  )is
     variable reference : i2c_master_reference_t;
   begin
 
     i2c_read(net, master, address, data'length / 8, reference, ten_bit, pec);
     await_i2c_read_reply(net, reference, data, status);
-  end;
+  end procedure;
 
-  procedure i2c_read (
+  procedure i2c_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
     variable data : out std_ulogic_vector;
     ten_bit : boolean := false;
     pec : boolean := false
-  ) is
-
+  )is
     variable reference : i2c_master_reference_t :=
       new_transfer_msg(address, "", data'length / 8, ten_bit, pec, true, true, true);
     variable status : i2c_status_t;
@@ -546,9 +540,9 @@ package body i2c_master_pkg is
 
     send(net, master.p_actor, reference);
     await_i2c_read_reply(net, reference, data, status);
-  end;
+  end procedure;
 
-  procedure i2c_write_read (
+  procedure i2c_write_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -557,14 +551,14 @@ package body i2c_master_pkg is
     variable reference : inout i2c_master_reference_t;
     ten_bit : boolean := false;
     pec : boolean := false
-  ) is
+  )is
   begin
 
     reference := new_transfer_msg(address, write_data, num_bytes, ten_bit, pec, true, false, true);
     send(net, master.p_actor, reference);
-  end;
+  end procedure;
 
-  procedure i2c_write_read (
+  procedure i2c_write_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -573,16 +567,15 @@ package body i2c_master_pkg is
     variable status : out i2c_status_t;
     ten_bit : boolean := false;
     pec : boolean := false
-  ) is
-
+  )is
     variable reference : i2c_master_reference_t;
   begin
 
     i2c_write_read(net, master, address, write_data, read_data'length / 8, reference, ten_bit, pec);
     await_i2c_read_reply(net, reference, read_data, status);
-  end;
+  end procedure;
 
-  procedure i2c_write_read (
+  procedure i2c_write_read(
     signal net : inout network_t;
     master : i2c_master_t;
     address : natural;
@@ -590,8 +583,7 @@ package body i2c_master_pkg is
     variable read_data : out std_ulogic_vector;
     ten_bit : boolean := false;
     pec : boolean := false
-  ) is
-
+  )is
     variable reference : i2c_master_reference_t :=
       new_transfer_msg(address, write_data, read_data'length / 8, ten_bit, pec, true, true, true);
     variable status : i2c_status_t;
@@ -599,14 +591,14 @@ package body i2c_master_pkg is
 
     send(net, master.p_actor, reference);
     await_i2c_read_reply(net, reference, read_data, status);
-  end;
+  end procedure;
 
-  procedure i2c_transfer (
+  procedure i2c_transfer(
     signal net : inout network_t;
     master : i2c_master_t;
     ops : string;
     variable reference : inout i2c_master_reference_t
-  ) is
+  )is
   begin
 
     reference := new_msg(run_i2c_transfer_msg);
@@ -614,14 +606,13 @@ package body i2c_master_pkg is
     push(reference, true);
     push_string(reference, ops);
     send(net, master.p_actor, reference);
-  end;
+  end procedure;
 
-  procedure await_i2c_transfer_reply (
+  procedure await_i2c_transfer_reply(
     signal net : inout network_t;
     variable reference : inout i2c_master_reference_t;
     variable result : out i2c_result_t
-  ) is
-
+  )is
     variable reply_msg : msg_t;
     variable count : natural;
   begin
@@ -644,30 +635,28 @@ package body i2c_master_pkg is
 
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure i2c_transfer (
+  procedure i2c_transfer(
     signal net : inout network_t;
     master : i2c_master_t;
     ops : string;
     variable result : out i2c_result_t
-  ) is
-
+  )is
     variable reference : i2c_master_reference_t;
   begin
 
     i2c_transfer(net, master, ops, reference);
     await_i2c_transfer_reply(net, reference, result);
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; master : i2c_master_t) is
-
+  procedure reset(signal net : inout network_t; master : i2c_master_t)is
     variable request_msg : msg_t := new_msg(reset_i2c_master_msg);
     variable reply_msg : msg_t;
   begin
 
     request(net, master.p_actor, request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
 end package body;

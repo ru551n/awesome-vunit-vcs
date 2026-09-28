@@ -18,8 +18,8 @@
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.vc_pkg.all;
 
 package qspi_protocol_checker_pkg is
 
@@ -160,13 +160,16 @@ package qspi_protocol_checker_pkg is
   function t_chdx (protocol_checker : qspi_protocol_checker_t) return delay_length;
 
   -- The limit of one rule
-  function limit (protocol_checker : qspi_protocol_checker_t; check : qspi_check_t) return delay_length;
+  function limit (
+    protocol_checker : qspi_protocol_checker_t;
+    check : qspi_check_t
+  ) return delay_length;
 
   -- Handle a message type no handler took, following the unexpected message
   -- type policy of the handle like vc_pkg.unexpected_msg_type of VUnit: a
   -- check failure ``Got unexpected message <name>`` on the checker of the
   -- handle unless the policy is ignore or the message was already handled
-  procedure unexpected_msg_type (msg_type : msg_type_t; protocol_checker : qspi_protocol_checker_t);
+  procedure unexpected_msg_type(msg_type : msg_type_t; protocol_checker : qspi_protocol_checker_t);
 
   ---------------------------------------------------------------------------
   -- Rules
@@ -177,7 +180,7 @@ package qspi_protocol_checker_pkg is
   alias qspi_protocol_checker_reference_t is msg_t;
 
   -- Enable or disable one rule. A disabled rule neither reports nor counts.
-  procedure set_check_enabled (
+  procedure set_check_enabled(
     signal net : inout network_t;
     protocol_checker : qspi_protocol_checker_t;
     check : qspi_check_t;
@@ -185,7 +188,7 @@ package qspi_protocol_checker_pkg is
   );
 
   -- Blocking: the violations of a rule found while it was enabled
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : qspi_protocol_checker_t;
     check : qspi_check_t;
@@ -193,7 +196,7 @@ package qspi_protocol_checker_pkg is
   );
 
   -- Non-blocking: request the violation count of a rule
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : qspi_protocol_checker_t;
     check : qspi_check_t;
@@ -202,7 +205,7 @@ package qspi_protocol_checker_pkg is
 
   -- Blocking: redeem a reference of
   -- :vhdl:`qspi_protocol_checker_pkg.get_check_count`
-  procedure await_get_check_count_reply (
+  procedure await_get_check_count_reply(
     signal net : inout network_t;
     variable reference : inout qspi_protocol_checker_reference_t;
     variable count : out natural
@@ -213,7 +216,7 @@ package qspi_protocol_checker_pkg is
   -- forgotten, such as the time CS last rose, so the first command after the
   -- reset is not measured against the edges before it. The rule switches are
   -- kept.
-  procedure reset (signal net : inout network_t; protocol_checker : qspi_protocol_checker_t);
+  procedure reset(signal net : inout network_t; protocol_checker : qspi_protocol_checker_t);
 
   ---------------------------------------------------------------------------
   -- Message types
@@ -226,8 +229,10 @@ package qspi_protocol_checker_pkg is
     new_msg_type("get qspi protocol checker check count");
   constant get_qspi_protocol_checker_check_count_reply_msg : msg_type_t :=
     new_msg_type("get qspi protocol checker check count reply");
-  constant reset_qspi_protocol_checker_msg : msg_type_t := new_msg_type("reset qspi protocol checker");
-  constant reset_qspi_protocol_checker_reply_msg : msg_type_t := new_msg_type("reset qspi protocol checker reply");
+  constant reset_qspi_protocol_checker_msg : msg_type_t :=
+    new_msg_type("reset qspi protocol checker");
+  constant reset_qspi_protocol_checker_reply_msg : msg_type_t :=
+    new_msg_type("reset qspi protocol checker reply");
 
   ---------------------------------------------------------------------------
   -- Private, for the flash and QSPI master constructors
@@ -243,12 +248,15 @@ package qspi_protocol_checker_pkg is
 
   -- Private. The logger and checker of errors in the constructors of the
   -- flash family, such as an id that already has an actor.
-  constant qspi_protocol_checker_pkg_logger : logger_t := get_logger("awesome_vunit_vcs:qspi_protocol_checker_pkg");
-  constant qspi_protocol_checker_pkg_checker : checker_t := new_checker(qspi_protocol_checker_pkg_logger);
+  constant qspi_protocol_checker_pkg_logger : logger_t :=
+    get_logger("awesome_vunit_vcs:qspi_protocol_checker_pkg");
+  constant qspi_protocol_checker_pkg_checker : checker_t :=
+    new_checker(qspi_protocol_checker_pkg_logger);
 
   -- Private. A new actor for id, or an anonymous one after a check failure
   -- when id already has an actor.
   impure function new_vc_actor (id : id_t; pkg_checker : checker_t) return actor_t;
+
 end package;
 
 package body qspi_protocol_checker_pkg is
@@ -261,13 +269,14 @@ package body qspi_protocol_checker_pkg is
       return new_actor;
     end if;
     return new_actor(id);
-  end;
+  end function;
 
   -- The handle with its identity. A checker constructed without an id gets
   -- the default id, and the logger, actor and checker that derive from it,
   -- the first time this is called, and the same identity every time after.
-  impure function resolved (protocol_checker : qspi_protocol_checker_t) return qspi_protocol_checker_t is
-
+  impure function resolved (
+    protocol_checker : qspi_protocol_checker_t
+  ) return qspi_protocol_checker_t is
     constant identity : integer_vector_ptr_t := protocol_checker.p_identity;
     variable result : qspi_protocol_checker_t := protocol_checker;
   begin
@@ -277,7 +286,9 @@ package body qspi_protocol_checker_pkg is
     end if;
 
     if get(identity, 0) < 0 then
-      result.p_id := enumerate(get_id("qspi_protocol_checker", parent => get_id("awesome_vunit_vcs")));
+      result.p_id := enumerate(
+        get_id("qspi_protocol_checker", parent => get_id("awesome_vunit_vcs"))
+      );
       if not result.p_explicit_logger then
         result.p_logger := get_logger(result.p_id);
       end if;
@@ -298,7 +309,7 @@ package body qspi_protocol_checker_pkg is
     result.p_actor := to_actor(get(identity, 2));
     result.p_checker := to_checker(get(identity, 3));
     return result;
-  end;
+  end function;
 
   impure function new_qspi_protocol_checker (
     t_sck_min : delay_length := 7519 ps;
@@ -315,7 +326,6 @@ package body qspi_protocol_checker_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return qspi_protocol_checker_t is
-
     variable result : qspi_protocol_checker_t;
   begin
 
@@ -356,13 +366,12 @@ package body qspi_protocol_checker_pkg is
     end if;
 
     return result;
-  end;
+  end function;
 
   impure function get_valid_protocol_checker (
     protocol_checker : qspi_protocol_checker_t;
     parent : id_t
   ) return qspi_protocol_checker_t is
-
     variable result : qspi_protocol_checker_t := protocol_checker;
   begin
 
@@ -383,119 +392,114 @@ package body qspi_protocol_checker_pkg is
     result.p_identity := null_ptr;
 
     return result;
-  end;
+  end function;
 
   impure function get_id (protocol_checker : qspi_protocol_checker_t) return id_t is
   begin
 
     return resolved(protocol_checker).p_id;
-  end;
+  end function;
 
   impure function get_logger (protocol_checker : qspi_protocol_checker_t) return logger_t is
   begin
 
     return resolved(protocol_checker).p_logger;
-  end;
+  end function;
 
   impure function get_actor (protocol_checker : qspi_protocol_checker_t) return actor_t is
   begin
 
     return resolved(protocol_checker).p_actor;
-  end;
+  end function;
 
   impure function get_checker (protocol_checker : qspi_protocol_checker_t) return checker_t is
   begin
 
     return resolved(protocol_checker).p_checker;
-  end;
+  end function;
 
   impure function as_sync (protocol_checker : qspi_protocol_checker_t) return sync_handle_t is
   begin
 
     return get_actor(protocol_checker);
-  end;
+  end function;
 
   function t_sck_min (protocol_checker : qspi_protocol_checker_t) return delay_length is
   begin
 
     return protocol_checker.p_t_sck_min;
-  end;
+  end function;
 
   function t_sck_high_min (protocol_checker : qspi_protocol_checker_t) return delay_length is
   begin
 
     return protocol_checker.p_t_sck_high_min;
-  end;
+  end function;
 
   function t_sck_low_min (protocol_checker : qspi_protocol_checker_t) return delay_length is
   begin
 
     return protocol_checker.p_t_sck_low_min;
-  end;
+  end function;
 
   function t_slch (protocol_checker : qspi_protocol_checker_t) return delay_length is
   begin
 
     return protocol_checker.p_t_slch;
-  end;
+  end function;
 
   function t_chsh (protocol_checker : qspi_protocol_checker_t) return delay_length is
   begin
 
     return protocol_checker.p_t_chsh;
-  end;
+  end function;
 
   function t_shsl (protocol_checker : qspi_protocol_checker_t) return delay_length is
   begin
 
     return protocol_checker.p_t_shsl;
-  end;
+  end function;
 
   function t_dvch (protocol_checker : qspi_protocol_checker_t) return delay_length is
   begin
 
     return protocol_checker.p_t_dvch;
-  end;
+  end function;
 
   function t_chdx (protocol_checker : qspi_protocol_checker_t) return delay_length is
   begin
 
     return protocol_checker.p_t_chdx;
-  end;
+  end function;
 
-  function limit (protocol_checker : qspi_protocol_checker_t; check : qspi_check_t) return delay_length is
+  function limit (
+    protocol_checker : qspi_protocol_checker_t;
+    check : qspi_check_t
+  ) return delay_length is
   begin
 
     case check is
       when qspi_sck_period =>
-
         return protocol_checker.p_t_sck_min;
       when qspi_sck_high =>
-
         return protocol_checker.p_t_sck_high_min;
       when qspi_sck_low =>
-
         return protocol_checker.p_t_sck_low_min;
       when qspi_cs_setup =>
-
         return protocol_checker.p_t_slch;
       when qspi_cs_hold =>
-
         return protocol_checker.p_t_chsh;
       when qspi_cs_deselect =>
-
         return protocol_checker.p_t_shsl;
       when qspi_data_setup =>
-
         return protocol_checker.p_t_dvch;
       when qspi_data_hold =>
-
         return protocol_checker.p_t_chdx;
     end case;
 
-  end;
+  end function;
 
-  procedure unexpected_msg_type (msg_type : msg_type_t; protocol_checker : qspi_protocol_checker_t) is
+  procedure unexpected_msg_type(msg_type : msg_type_t; protocol_checker : qspi_protocol_checker_t)is
   begin
 
     if is_already_handled(msg_type) or protocol_checker.p_unexpected_msg_type_policy = ignore then
@@ -503,42 +507,40 @@ package body qspi_protocol_checker_pkg is
     else
       check_failed(get_checker(protocol_checker), "Got unexpected message " & name(msg_type));
     end if;
-  end;
+  end procedure;
 
-  procedure set_check_enabled (
+  procedure set_check_enabled(
     signal net : inout network_t;
     protocol_checker : qspi_protocol_checker_t;
     check : qspi_check_t;
     enabled : boolean := true
-  ) is
-
+  )is
     variable msg : msg_t := new_msg(set_qspi_protocol_checker_check_enabled_msg);
   begin
 
     push(msg, qspi_check_t'pos(check));
     push(msg, enabled);
     send(net, get_actor(protocol_checker), msg);
-  end;
+  end procedure;
 
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : qspi_protocol_checker_t;
     check : qspi_check_t;
     variable reference : inout qspi_protocol_checker_reference_t
-  ) is
+  )is
   begin
 
     reference := new_msg(get_qspi_protocol_checker_check_count_msg);
     push(reference, qspi_check_t'pos(check));
     send(net, get_actor(protocol_checker), reference);
-  end;
+  end procedure;
 
-  procedure await_get_check_count_reply (
+  procedure await_get_check_count_reply(
     signal net : inout network_t;
     variable reference : inout qspi_protocol_checker_reference_t;
     variable count : out natural
-  ) is
-
+  )is
     variable reply_msg : msg_t;
   begin
 
@@ -546,30 +548,28 @@ package body qspi_protocol_checker_pkg is
     count := pop(reply_msg);
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : qspi_protocol_checker_t;
     check : qspi_check_t;
     variable count : out natural
-  ) is
-
+  )is
     variable reference : qspi_protocol_checker_reference_t;
   begin
 
     get_check_count(net, protocol_checker, check, reference);
     await_get_check_count_reply(net, reference, count);
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; protocol_checker : qspi_protocol_checker_t) is
-
+  procedure reset(signal net : inout network_t; protocol_checker : qspi_protocol_checker_t)is
     variable request_msg : msg_t := new_msg(reset_qspi_protocol_checker_msg);
     variable reply_msg : msg_t;
   begin
 
     request(net, get_actor(protocol_checker), request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
 end package body;

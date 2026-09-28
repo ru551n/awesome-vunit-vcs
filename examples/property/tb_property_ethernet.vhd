@@ -13,7 +13,8 @@ context awesome_vunit_vcs.ethernet_context;
 
 entity tb_property_ethernet is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_property_ethernet is
@@ -51,7 +52,6 @@ begin
 
   -- docs-end: frame-variables
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 
@@ -66,7 +66,11 @@ begin
         while next_example(prop) loop
 
           -- A frame of the header and a payload of the drawn length
-          push_ethernet_frame(net, source, header & std_ulogic_vector'(1 to 8 * get_integer(prop) => '1'));
+          push_ethernet_frame(
+            net,
+            source,
+            header & std_ulogic_vector'(1 to 8 * get_integer(prop) => '1')
+          );
           -- The received frame data and its length in octets
           pop_ethernet_frame(net, monitor, received, length);
           report_example(prop, passed => length = header'length / 8 + get_integer(prop));
@@ -90,7 +94,8 @@ begin
           report_example(
             prop,
             passed =>
-              length = get_length(prop) and received(0 to 8 * length - 1) = get_unsigned(prop, "", 8 * get_length(prop))
+              length = get_length(prop)
+              and received(0 to 8 * length - 1) = get_unsigned(prop, "", 8 * get_length(prop))
           );
         end loop;
 
@@ -107,14 +112,24 @@ begin
         );
         while next_example(prop) loop
 
-          set_ready_pattern(net, axis_sink, get_integer(prop, "ready_high_percent"), get_integer(prop, "seed"));
-          push_ethernet_frame(net, axis_source, get_unsigned(prop, "frame", 8 * get_length(prop, "frame")));
+          set_ready_pattern(
+            net,
+            axis_sink,
+            get_integer(prop, "ready_high_percent"),
+            get_integer(prop, "seed")
+          );
+          push_ethernet_frame(
+            net,
+            axis_source,
+            get_unsigned(prop, "frame", 8 * get_length(prop, "frame"))
+          );
           pop_ethernet_frame(net, axis_monitor, received, length);
           report_example(
             prop,
             passed =>
               length = get_length(prop, "frame")
-              and received(0 to 8 * length - 1) = get_unsigned(prop, "frame", 8 * get_length(prop, "frame"))
+              and received(0 to 8 * length - 1)
+                  = get_unsigned(prop, "frame", 8 * get_length(prop, "frame"))
           );
         end loop;
 

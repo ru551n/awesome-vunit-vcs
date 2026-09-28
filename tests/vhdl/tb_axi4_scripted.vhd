@@ -12,12 +12,14 @@ context awesome_vunit_vcs.axi4_context;
 
 entity tb_axi4_scripted is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_axi4_scripted is
 
-  constant axi4_bus : axi4_bus_t := new_axi4_bus(data_length => 32, address_length => 32, id_length => 4);
+  constant axi4_bus : axi4_bus_t :=
+    new_axi4_bus(data_length => 32, address_length => 32, id_length => 4);
   constant monitor : axi4_monitor_t := new_axi4_monitor(
     axi4_bus,
     protocol_checker => new_axi4_protocol_checker(timeout_cycles => 20),
@@ -109,7 +111,7 @@ begin
     variable statistics : axi4_statistics_t;
     variable msg : msg_t;
 
-    procedure cycles (count : positive := 1) is
+    procedure cycles(count : positive := 1)is
     begin
 
       for idx in 1 to count loop
@@ -117,10 +119,10 @@ begin
         wait until rising_edge(aclk);
       end loop;
 
-    end;
+    end procedure;
 
     -- One handshake on each channel, after stall cycles with VALID and not READY
-    procedure aw (
+    procedure aw(
       id : natural;
       addr : natural;
       len : natural := 0;
@@ -129,7 +131,7 @@ begin
       lock : std_ulogic := '0';
       cache : std_ulogic_vector(3 downto 0) := "0000";
       stall : natural := 0
-    ) is
+    )is
     begin
 
       awvalid <= '1';
@@ -148,14 +150,14 @@ begin
       cycles;
       awvalid <= '0';
       awready <= '0';
-    end;
+    end procedure;
 
-    procedure w (
+    procedure w(
       data : std_ulogic_vector(31 downto 0);
       strb : std_ulogic_vector(3 downto 0) := "1111";
       last : std_ulogic := '1';
       stall : natural := 0
-    ) is
+    )is
     begin
 
       wvalid <= '1';
@@ -170,9 +172,9 @@ begin
       cycles;
       wvalid <= '0';
       wready <= '0';
-    end;
+    end procedure;
 
-    procedure b (id : natural; resp : std_ulogic_vector(1 downto 0) := "00"; stall : natural := 0) is
+    procedure b(id : natural; resp : std_ulogic_vector(1 downto 0) := "00"; stall : natural := 0)is
     begin
 
       bvalid <= '1';
@@ -186,9 +188,9 @@ begin
       cycles;
       bvalid <= '0';
       bready <= '0';
-    end;
+    end procedure;
 
-    procedure ar (
+    procedure ar(
       id : natural;
       addr : natural;
       len : natural := 0;
@@ -196,7 +198,7 @@ begin
       burst : std_ulogic_vector(1 downto 0) := "01";
       lock : std_ulogic := '0';
       stall : natural := 0
-    ) is
+    )is
     begin
 
       arvalid <= '1';
@@ -214,15 +216,15 @@ begin
       cycles;
       arvalid <= '0';
       arready <= '0';
-    end;
+    end procedure;
 
-    procedure r (
+    procedure r(
       id : natural;
       data : std_ulogic_vector(31 downto 0);
       resp : std_ulogic_vector(1 downto 0) := "00";
       last : std_ulogic := '1';
       stall : natural := 0
-    ) is
+    )is
     begin
 
       rvalid <= '1';
@@ -238,12 +240,11 @@ begin
       cycles;
       rvalid <= '0';
       rready <= '0';
-    end;
+    end procedure;
 
     -- The violations of check since the last call, as counts of the
     -- protocol checker and errors on its logger
-    procedure expect_violations (check : axi4_check_t; expected : natural := 1) is
-
+    procedure expect_violations(check : axi4_check_t; expected : natural := 1)is
       constant logger : logger_t := get_logger(get_checker(checker_handle));
       variable count : natural;
     begin
@@ -251,18 +252,21 @@ begin
       wait_until_idle(net, as_sync(checker_handle));
       get_check_count(net, checker_handle, check, count);
       check_equal(count, expected, "violations of " & axi4_check_t'image(check));
-      check_equal(get_log_count(logger, error), expected, "errors logged for " & axi4_check_t'image(check));
+      check_equal(
+        get_log_count(logger, error),
+        expected,
+        "errors logged for " & axi4_check_t'image(check)
+      );
       reset_log_count(logger, error);
-    end;
+    end procedure;
 
-    procedure check_byte (data : integer_array_t; idx : natural; expected : natural; what : string) is
+    procedure check_byte(data : integer_array_t; idx : natural; expected : natural; what : string)is
     begin
 
       check_equal(get(data, idx), expected, what & " byte " & integer'image(idx));
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     disable_stop(get_logger(get_checker(checker_handle)), error);
     cycles(2);
@@ -297,7 +301,10 @@ begin
         pop_axi4_transaction(net, monitor, transaction);
         check(not transaction.is_write, "then the read");
         check_equal(transaction.resp, axi_resp_okay, "RRESP");
-        check(transaction.last_data_time - transaction.address_time = 40 ns, "four beats after the address");
+        check(
+          transaction.last_data_time - transaction.address_time = 40 ns,
+          "four beats after the address"
+        );
         deallocate(transaction.data);
         deallocate(transaction.strobe);
         -- The read returned what the write wrote: no scoreboard error
@@ -381,7 +388,15 @@ begin
 
       elsif run("test_check_axi4_transaction") then
         disable_stop(get_logger(monitor), error);
-        check_axi4_transaction(net, monitor, true, x"00000040", x"01020304", id => 6, resp => axi_resp_okay);
+        check_axi4_transaction(
+          net,
+          monitor,
+          true,
+          x"00000040",
+          x"01020304",
+          id => 6,
+          resp => axi_resp_okay
+        );
         check_axi4_transaction(net, monitor, false, x"00000040", x"010203FF", msg => "wrong data");
         aw(id => 6, addr => 16#40#);
         w(x"04030201");
@@ -513,4 +528,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 1 ms);
+
 end architecture;

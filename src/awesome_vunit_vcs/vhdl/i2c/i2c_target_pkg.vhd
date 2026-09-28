@@ -12,22 +12,22 @@
 -- send. Clock stretching and NACK injection are set from VHDL or Python.
 
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.string_ptr_pkg.all;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.string_ptr_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.vc_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.i2c_pkg.all;
-  use work.vc_python_pkg.arg_text;
-  use work.vc_python_pkg.kwarg_time;
+use work.i2c_pkg.all;
+use work.vc_python_pkg.arg_text;
+use work.vc_python_pkg.kwarg_time;
 
 package i2c_target_pkg is
 
@@ -100,16 +100,24 @@ package i2c_target_pkg is
 
   -- Stretch SCL for this long before the acknowledge bit of every byte the
   -- target acknowledges from now on, 0 ns to stop stretching
-  procedure set_i2c_target_stretch (signal net : inout network_t; target : i2c_target_t; stretch : delay_length);
+  procedure set_i2c_target_stretch(
+    signal net : inout network_t;
+    target : i2c_target_t;
+    stretch : delay_length
+  );
 
   -- Do not acknowledge byte ``byte_index`` of the next transfer to the
   -- target, whatever the model says. Byte 0 is the address; a 10-bit
   -- address is bytes 0 and 1.
-  procedure inject_i2c_target_nack (signal net : inout network_t; target : i2c_target_t; byte_index : natural);
+  procedure inject_i2c_target_nack(
+    signal net : inout network_t;
+    target : i2c_target_t;
+    byte_index : natural
+  );
 
   -- Write the memory of the model at ``address`` directly, leftmost byte
   -- first. A model without memory reports a failure.
-  procedure i2c_target_preload (
+  procedure i2c_target_preload(
     signal net : inout network_t;
     target : i2c_target_t;
     address : natural;
@@ -119,7 +127,7 @@ package i2c_target_pkg is
   -- Compare the memory of the model at ``address`` with ``expected``. A
   -- difference is a check failure on the checker of the target, prefixed with
   -- msg.
-  procedure i2c_target_check_memory (
+  procedure i2c_target_check_memory(
     signal net : inout network_t;
     target : i2c_target_t;
     address : natural;
@@ -131,7 +139,7 @@ package i2c_target_pkg is
   alias i2c_target_reference_t is msg_t;
 
   -- Non-blocking: read ``num_bytes`` bytes of the memory of the model
-  procedure i2c_target_read_memory (
+  procedure i2c_target_read_memory(
     signal net : inout network_t;
     target : i2c_target_t;
     address : natural;
@@ -141,14 +149,14 @@ package i2c_target_pkg is
 
   -- Blocking: redeem a reference of :vhdl:`i2c_target_pkg.i2c_target_read_memory`
   -- into the leftmost bits of data
-  procedure await_i2c_target_read_memory_reply (
+  procedure await_i2c_target_read_memory_reply(
     signal net : inout network_t;
     variable reference : inout i2c_target_reference_t;
     variable data : out std_ulogic_vector
   );
 
   -- Blocking: read ``data'length / 8`` bytes of the memory of the model
-  procedure i2c_target_read_memory (
+  procedure i2c_target_read_memory(
     signal net : inout network_t;
     target : i2c_target_t;
     address : natural;
@@ -157,7 +165,7 @@ package i2c_target_pkg is
 
   -- Blocking: recover a target. It releases SCL and SDA and forgets a
   -- transfer in progress; the model keeps its memory.
-  procedure reset (signal net : inout network_t; target : i2c_target_t);
+  procedure reset(signal net : inout network_t; target : i2c_target_t);
 
   -- The message types the procedures above send to the component
   constant set_i2c_target_stretch_msg : msg_type_t := new_msg_type("set i2c target stretch");
@@ -165,7 +173,8 @@ package i2c_target_pkg is
   constant preload_i2c_target_memory_msg : msg_type_t := new_msg_type("preload i2c target memory");
   constant check_i2c_target_memory_msg : msg_type_t := new_msg_type("check i2c target memory");
   constant read_i2c_target_memory_msg : msg_type_t := new_msg_type("read i2c target memory");
-  constant read_i2c_target_memory_reply_msg : msg_type_t := new_msg_type("read i2c target memory reply");
+  constant read_i2c_target_memory_reply_msg : msg_type_t :=
+    new_msg_type("read i2c target memory reply");
   constant reset_i2c_target_msg : msg_type_t := new_msg_type("reset i2c target");
   constant reset_i2c_target_reply_msg : msg_type_t := new_msg_type("reset i2c target reply");
 
@@ -177,7 +186,8 @@ package i2c_target_pkg is
 
   -- Private. A message type no handler took, see
   -- :vhdl:`i2c_pkg.i2c_unexpected_msg_type`
-  procedure unexpected_msg_type (msg_type : msg_type_t; target : i2c_target_t);
+  procedure unexpected_msg_type(msg_type : msg_type_t; target : i2c_target_t);
+
 end package;
 
 package body i2c_target_pkg is
@@ -198,7 +208,6 @@ package body i2c_target_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return i2c_target_t is
-
     variable result : i2c_target_t := (
       p_address => address,
       p_ten_bit => ten_bit,
@@ -231,49 +240,49 @@ package body i2c_target_pkg is
       result.p_checker := new_checker(result.p_logger);
     end if;
     return result;
-  end;
+  end function;
 
   impure function get_id (target : i2c_target_t) return id_t is
   begin
 
     return target.p_id;
-  end;
+  end function;
 
   impure function get_logger (target : i2c_target_t) return logger_t is
   begin
 
     return target.p_logger;
-  end;
+  end function;
 
   impure function get_actor (target : i2c_target_t) return actor_t is
   begin
 
     return target.p_actor;
-  end;
+  end function;
 
   impure function get_checker (target : i2c_target_t) return checker_t is
   begin
 
     return target.p_checker;
-  end;
+  end function;
 
   impure function as_sync (target : i2c_target_t) return sync_handle_t is
   begin
 
     return target.p_actor;
-  end;
+  end function;
 
   function address (target : i2c_target_t) return natural is
   begin
 
     return target.p_address;
-  end;
+  end function;
 
   function t_hd_dat (target : i2c_target_t) return delay_length is
   begin
 
     return target.p_t_hd_dat;
-  end;
+  end function;
 
   impure function backend_arguments (target : i2c_target_t) return arg_t is
   begin
@@ -285,46 +294,54 @@ package body i2c_target_pkg is
            & kwarg("pec", target.p_pec)
            & kwarg("pec_read_bytes", target.p_pec_read_bytes)
            & kwarg_time("stretch", target.p_stretch);
-  end;
+  end function;
 
   impure function model (target : i2c_target_t) return string is
   begin
 
     return to_string(target.p_model);
-  end;
+  end function;
 
   impure function model_arguments (target : i2c_target_t) return arg_t is
   begin
 
-    return (name => to_string(target.p_model_args_name), value => to_string(target.p_model_args_value));
-  end;
+    return (
+      name => to_string(target.p_model_args_name),
+      value => to_string(target.p_model_args_value)
+    );
+  end function;
 
-  procedure unexpected_msg_type (msg_type : msg_type_t; target : i2c_target_t) is
+  procedure unexpected_msg_type(msg_type : msg_type_t; target : i2c_target_t)is
   begin
 
     i2c_unexpected_msg_type(msg_type, target.p_unexpected_msg_type_policy, target.p_checker);
-  end;
+  end procedure;
 
-  procedure set_i2c_target_stretch (signal net : inout network_t; target : i2c_target_t; stretch : delay_length) is
-
+  procedure set_i2c_target_stretch(
+    signal net : inout network_t;
+    target : i2c_target_t;
+    stretch : delay_length
+  )is
     variable msg : msg_t := new_msg(set_i2c_target_stretch_msg);
   begin
 
     push(msg, stretch);
     send(net, target.p_actor, msg);
-  end;
+  end procedure;
 
-  procedure inject_i2c_target_nack (signal net : inout network_t; target : i2c_target_t; byte_index : natural) is
-
+  procedure inject_i2c_target_nack(
+    signal net : inout network_t;
+    target : i2c_target_t;
+    byte_index : natural
+  )is
     variable msg : msg_t := new_msg(inject_i2c_target_nack_msg);
   begin
 
     push(msg, byte_index);
     send(net, target.p_actor, msg);
-  end;
+  end procedure;
 
-  procedure push_bytes (msg : msg_t; data : std_ulogic_vector) is
-
+  procedure push_bytes(msg : msg_t; data : std_ulogic_vector)is
     constant values : integer_vector := i2c_bytes(data);
   begin
 
@@ -334,31 +351,29 @@ package body i2c_target_pkg is
       push(msg, values(idx));
     end loop;
 
-  end;
+  end procedure;
 
-  procedure i2c_target_preload (
+  procedure i2c_target_preload(
     signal net : inout network_t;
     target : i2c_target_t;
     address : natural;
     data : std_ulogic_vector
-  ) is
-
+  )is
     variable msg : msg_t := new_msg(preload_i2c_target_memory_msg);
   begin
 
     push(msg, address);
     push_bytes(msg, data);
     send(net, target.p_actor, msg);
-  end;
+  end procedure;
 
-  procedure i2c_target_check_memory (
+  procedure i2c_target_check_memory(
     signal net : inout network_t;
     target : i2c_target_t;
     address : natural;
     expected : std_ulogic_vector;
     msg : string := ""
-  ) is
-
+  )is
     variable request_msg : msg_t := new_msg(check_i2c_target_memory_msg);
   begin
 
@@ -366,29 +381,28 @@ package body i2c_target_pkg is
     push_bytes(request_msg, expected);
     push_string(request_msg, msg);
     send(net, target.p_actor, request_msg);
-  end;
+  end procedure;
 
-  procedure i2c_target_read_memory (
+  procedure i2c_target_read_memory(
     signal net : inout network_t;
     target : i2c_target_t;
     address : natural;
     num_bytes : natural;
     variable reference : inout i2c_target_reference_t
-  ) is
+  )is
   begin
 
     reference := new_msg(read_i2c_target_memory_msg);
     push(reference, address);
     push(reference, num_bytes);
     send(net, target.p_actor, reference);
-  end;
+  end procedure;
 
-  procedure await_i2c_target_read_memory_reply (
+  procedure await_i2c_target_read_memory_reply(
     signal net : inout network_t;
     variable reference : inout i2c_target_reference_t;
     variable data : out std_ulogic_vector
-  ) is
-
+  )is
     alias normalized : std_ulogic_vector(0 to data'length - 1) is data;
     variable reply_msg : msg_t;
     variable num_bytes : natural;
@@ -408,36 +422,33 @@ package body i2c_target_pkg is
             normalized(8 * idx + bit_idx) := '1';
           end if;
         end loop;
-
       end if;
     end loop;
 
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure i2c_target_read_memory (
+  procedure i2c_target_read_memory(
     signal net : inout network_t;
     target : i2c_target_t;
     address : natural;
     variable data : out std_ulogic_vector
-  ) is
-
+  )is
     variable reference : i2c_target_reference_t;
   begin
 
     i2c_target_read_memory(net, target, address, data'length / 8, reference);
     await_i2c_target_read_memory_reply(net, reference, data);
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; target : i2c_target_t) is
-
+  procedure reset(signal net : inout network_t; target : i2c_target_t)is
     variable request_msg : msg_t := new_msg(reset_i2c_target_msg);
     variable reply_msg : msg_t;
   begin
 
     request(net, target.p_actor, request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
 end package body;

@@ -15,7 +15,8 @@ context awesome_vunit_vcs.axi4_context;
 
 entity tb_axi4_monitor_vci is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_axi4_monitor_vci is
@@ -30,7 +31,8 @@ architecture tb of tb_axi4_monitor_vci is
 
   constant custom_logger : logger_t := get_logger("tb_axi4_monitor_vci:custom_logger");
   constant custom_actor : actor_t := new_actor("tb_axi4_monitor_vci:custom_actor");
-  constant custom_checker : checker_t := new_checker(get_logger("tb_axi4_monitor_vci:custom_checker"));
+  constant custom_checker : checker_t :=
+    new_checker(get_logger("tb_axi4_monitor_vci:custom_checker"));
   constant custom_monitor : axi4_monitor_t := new_axi4_monitor(
     default_axi4_bus,
     id => get_id("tb_axi4_monitor_vci:custom_monitor"),
@@ -69,7 +71,8 @@ architecture tb of tb_axi4_monitor_vci is
 
   type monitor_array_t is array (natural range <>) of axi4_monitor_t;
 
-  constant monitors : monitor_array_t(0 to 3) := (default_monitor, checked_monitor, custom_monitor, ignoring_monitor);
+  constant monitors : monitor_array_t(0 to 3) :=
+    (default_monitor, checked_monitor, custom_monitor, ignoring_monitor);
 
   signal aclk : std_ulogic := '0';
   signal awvalid : std_ulogic := '0';
@@ -107,7 +110,7 @@ begin
         bready => bready
       );
 
-  end generate monitors_gen;
+  end generate;
 
   narrow_monitor_inst : entity awesome_vunit_vcs.axi4_monitor
     generic map (
@@ -157,8 +160,11 @@ begin
     variable start : time;
     variable start_count : natural;
 
-    procedure check_unexpected_message (actor : actor_t; logger : logger_t; expect_failure : boolean) is
-
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
 
@@ -172,10 +178,10 @@ begin
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
 
     -- A single beat write: AW and W in one cycle, B in the next
-    procedure write (address : natural; data : std_ulogic_vector(31 downto 0)) is
+    procedure write(address : natural; data : std_ulogic_vector(31 downto 0))is
     begin
 
       awvalid <= '1';
@@ -193,10 +199,9 @@ begin
       bvalid <= '0';
       bready <= '0';
       wait until rising_edge(aclk);
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     wait until rising_edge(aclk);
 
@@ -204,31 +209,66 @@ begin
 
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_monitor))) >= 1, "the default id is enumerated");
-        check_equal(name(get_parent(get_id(default_monitor))), "axi4_monitor", "name of its parent");
-        check(get_parent(get_parent(get_id(default_monitor))) = get_id("awesome_vunit_vcs"), "grandparent");
+        check_equal(
+          name(get_parent(get_id(default_monitor))),
+          "axi4_monitor",
+          "name of its parent"
+        );
+        check(
+          get_parent(get_parent(get_id(default_monitor))) = get_id("awesome_vunit_vcs"),
+          "grandparent"
+        );
         check(get_id(checked_monitor) /= get_id(default_monitor), "a second default id differs");
-        check(protocol_checker(default_monitor) = null_axi4_protocol_checker, "no protocol checker");
+        check(
+          protocol_checker(default_monitor) = null_axi4_protocol_checker,
+          "no protocol checker"
+        );
         check(get_bus(default_monitor) = default_axi4_bus, "its bus");
 
       elsif run("test_default_logger_actor_and_checker_are_used") then
-        check(get_logger(default_monitor) = get_logger(get_id(default_monitor)), "logger of the id");
-        check(get_actor(default_monitor) = find(get_id(default_monitor), enable_deferred_creation => false), "actor");
+        check(
+          get_logger(default_monitor) = get_logger(get_id(default_monitor)),
+          "logger of the id"
+        );
+        check(
+          get_actor(default_monitor)
+          = find(get_id(default_monitor), enable_deferred_creation => false),
+          "actor"
+        );
         check(as_sync(default_monitor) = get_actor(default_monitor), "as_sync");
-        check(get_logger(get_checker(default_monitor)) = get_logger(default_monitor), "checker on the logger");
+        check(
+          get_logger(get_checker(default_monitor)) = get_logger(default_monitor),
+          "checker on the logger"
+        );
 
       elsif run("test_explicit_id_is_used") then
         check(get_id(explicit_monitor) = get_id("tb_axi4_monitor_vci:explicit_monitor"), "id");
-        check_equal(get_full_name(get_logger(explicit_monitor)), full_name(get_id(explicit_monitor)), "logger name");
+        check_equal(
+          get_full_name(get_logger(explicit_monitor)),
+          full_name(get_id(explicit_monitor)),
+          "logger name"
+        );
 
       elsif run("test_custom_logger_actor_and_checker_are_used") then
         check(get_logger(custom_monitor) = custom_logger, "logger");
         check(get_actor(custom_monitor) = custom_actor, "actor");
         check(get_checker(custom_monitor) = custom_checker, "checker");
         disable_stop(get_logger(custom_checker), error);
-        check_axi4_transaction(net, custom_monitor, true, x"00000010", x"99999999", msg => "custom");
+        check_axi4_transaction(
+          net,
+          custom_monitor,
+          true,
+          x"00000010",
+          x"99999999",
+          msg => "custom"
+        );
         write(16#10#, x"00000000");
         wait_until_idle(net, custom_actor);
-        check_equal(get_log_count(get_logger(custom_checker), error), 1, "a scoreboard difference on the checker");
+        check_equal(
+          get_log_count(get_logger(custom_checker), error),
+          1,
+          "a scoreboard difference on the checker"
+        );
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         reset_log_count(get_logger(custom_checker), error);
 
@@ -237,14 +277,26 @@ begin
           get_parent(get_id(protocol_checker(checked_monitor))) = get_id(checked_monitor),
           "the checker is a child of the monitor"
         );
-        check_equal(name(get_id(protocol_checker(checked_monitor))), "protocol_checker", "its name");
+        check_equal(
+          name(get_id(protocol_checker(checked_monitor))),
+          "protocol_checker",
+          "its name"
+        );
 
       elsif run("test_unexpected_message_is_a_check_failure") then
-        check_unexpected_message(get_actor(default_monitor), get_logger(default_monitor), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_monitor),
+          get_logger(default_monitor),
+          expect_failure => true
+        );
         check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_monitor), get_logger(ignoring_monitor), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_monitor),
+          get_logger(ignoring_monitor),
+          expect_failure => false
+        );
 
       elsif run("test_wait_until_idle_and_wait_for_time") then
         start := now;
@@ -285,7 +337,11 @@ begin
         get_axi4_statistics(net, default_monitor, reference);
         await_get_axi4_statistics_reply(net, reference, reference_statistics);
         check_equal(statistics.write_transactions, 2, "writes");
-        check_equal(reference_statistics.write_transactions, statistics.write_transactions, "reference writes");
+        check_equal(
+          reference_statistics.write_transactions,
+          statistics.write_transactions,
+          "reference writes"
+        );
         check_equal(reference_statistics.write_bytes, 8, "reference bytes");
 
       elsif run("test_metavalues_without_a_protocol_checker") then
@@ -304,8 +360,16 @@ begin
         wait_until_idle(net, as_sync(custom_monitor));
         wait_until_idle(net, as_sync(ignoring_monitor));
         wait_until_idle(net, as_sync(protocol_checker(checked_monitor)));
-        check_equal(get_log_count(get_logger(default_monitor), error), 1, "the monitor reports the metavalue");
-        check_equal(get_log_count(get_logger(checked_monitor), error), 0, "a monitor with a checker leaves it to it");
+        check_equal(
+          get_log_count(get_logger(default_monitor), error),
+          1,
+          "the monitor reports the metavalue"
+        );
+        check_equal(
+          get_log_count(get_logger(checked_monitor), error),
+          0,
+          "a monitor with a checker leaves it to it"
+        );
         check_equal(
           get_log_count(get_logger(get_checker(protocol_checker(checked_monitor))), error),
           1,
@@ -382,4 +446,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 1 ms);
+
 end architecture;

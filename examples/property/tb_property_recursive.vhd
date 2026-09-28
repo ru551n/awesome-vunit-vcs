@@ -7,8 +7,8 @@
 -- postfix program and fed to a stack-machine evaluator, one instruction per clock cycle.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
@@ -16,7 +16,8 @@ context awesome_vunit_vcs.property_context;
 entity tb_property_recursive is
   generic (
     runner_cfg : string;
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
 end entity;
 
 architecture tb of tb_property_recursive is
@@ -44,10 +45,9 @@ begin
         return "program(" & integer'image(idx) & ")";
       end if;
       return "program(" & integer'image(idx) & ")." & name;
-    end;
+    end function;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 
@@ -69,7 +69,9 @@ begin
           for idx in 0 to get_length(prop, "program") - 1 loop
 
             if get_string(prop, instruction(idx, "op")) = "const" then
-              operand <= std_ulogic_vector(to_unsigned(get_integer(prop, instruction(idx, "value")), 8));
+              operand <= std_ulogic_vector(
+                to_unsigned(get_integer(prop, instruction(idx, "value")), 8)
+              );
               op <= "00";
             elsif get_string(prop, instruction(idx, "op")) = "add" then
               op <= "01";
@@ -84,7 +86,10 @@ begin
           end loop;
 
           wait for 1 ns;
-          report_example(prop, passed => to_integer(unsigned(result)) = get_integer(prop, "expected"));
+          report_example(
+            prop,
+            passed => to_integer(unsigned(result)) = get_integer(prop, "expected")
+          );
         end loop;
 
         check_property(prop);

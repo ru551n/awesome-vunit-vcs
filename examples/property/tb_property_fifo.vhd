@@ -7,8 +7,8 @@
 -- loses a word when inject_bug is set. The strategy is python/fifo_strategies.py.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
@@ -16,7 +16,8 @@ context awesome_vunit_vcs.property_context;
 entity tb_property_fifo is
   generic (
     runner_cfg : string;
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
 end entity;
 
 architecture tb of tb_property_fifo is
@@ -45,7 +46,6 @@ begin
     variable passed : boolean;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 

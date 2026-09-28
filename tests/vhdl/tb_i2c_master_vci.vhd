@@ -14,7 +14,8 @@ context awesome_vunit_vcs.i2c_context;
 
 entity tb_i2c_master_vci is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_i2c_master_vci is
@@ -23,11 +24,13 @@ architecture tb of tb_i2c_master_vci is
   constant default_master : i2c_master_t := new_i2c_master(speed => i2c_fast_mode_plus);
   constant second_default_master : i2c_master_t := new_i2c_master;
 
-  constant explicit_master : i2c_master_t := new_i2c_master(id => get_id("tb_i2c_master_vci:explicit_master"));
+  constant explicit_master : i2c_master_t :=
+    new_i2c_master(id => get_id("tb_i2c_master_vci:explicit_master"));
 
   constant custom_logger : logger_t := get_logger("tb_i2c_master_vci:custom_logger");
   constant custom_actor : actor_t := new_actor("tb_i2c_master_vci:custom_actor");
-  constant custom_checker : checker_t := new_checker(get_logger("tb_i2c_master_vci:custom_checker"));
+  constant custom_checker : checker_t :=
+    new_checker(get_logger("tb_i2c_master_vci:custom_checker"));
   constant custom_master : i2c_master_t := new_i2c_master(
     speed => i2c_fast_mode_plus,
     stretch_timeout => 100 us,
@@ -37,8 +40,10 @@ architecture tb of tb_i2c_master_vci is
     checker => custom_checker
   );
 
-  constant ignoring_master : i2c_master_t :=
-    new_i2c_master(id => get_id("tb_i2c_master_vci:ignoring_master"), unexpected_msg_type_policy => ignore);
+  constant ignoring_master : i2c_master_t := new_i2c_master(
+    id => get_id("tb_i2c_master_vci:ignoring_master"),
+    unexpected_msg_type_policy => ignore
+  );
 
   constant target : i2c_target_t := new_i2c_target(address => 16#50#);
 
@@ -98,8 +103,11 @@ begin
     variable start : time;
 
     -- A message of an unknown type, like the VCI tests of the other VCs
-    procedure check_unexpected_message (actor : actor_t; logger : logger_t; expect_failure : boolean) is
-
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
 
@@ -113,10 +121,9 @@ begin
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
@@ -124,27 +131,52 @@ begin
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_master))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_master))), "i2c_master", "name of its parent");
-        check(get_parent(get_parent(get_id(default_master))) = get_id("awesome_vunit_vcs"), "grandparent");
-        check(get_id(second_default_master) /= get_id(default_master), "a second default id differs");
+        check(
+          get_parent(get_parent(get_id(default_master))) = get_id("awesome_vunit_vcs"),
+          "grandparent"
+        );
+        check(
+          get_id(second_default_master) /= get_id(default_master),
+          "a second default id differs"
+        );
         check(speed(default_master) = i2c_fast_mode_plus, "speed");
         check_equal(stretch_timeout(default_master), 25 ms, "default stretch timeout");
 
       elsif run("test_default_logger_actor_and_checker_are_used") then
         check(get_logger(default_master) = get_logger(get_id(default_master)), "logger of the id");
-        check(get_actor(default_master) = find(get_id(default_master), enable_deferred_creation => false), "actor");
+        check(
+          get_actor(default_master)
+          = find(get_id(default_master), enable_deferred_creation => false),
+          "actor"
+        );
         check(as_sync(default_master) = get_actor(default_master), "as_sync");
-        check(get_logger(get_checker(default_master)) = get_logger(default_master), "checker on the logger");
+        check(
+          get_logger(get_checker(default_master)) = get_logger(default_master),
+          "checker on the logger"
+        );
         -- No target at 0x51: a check failure on the default logger
         disable_stop(get_logger(default_master), error);
         i2c_write(net, default_master, 16#51#, x"00");
         wait_until_idle(net, as_sync(default_master));
-        check_equal(get_log_count(get_logger(default_master), error), 1, "address NACK on the default logger");
+        check_equal(
+          get_log_count(get_logger(default_master), error),
+          1,
+          "address NACK on the default logger"
+        );
         reset_log_count(get_logger(default_master), error);
 
       elsif run("test_explicit_id_is_used") then
         check(get_id(explicit_master) = get_id("tb_i2c_master_vci:explicit_master"), "id");
-        check_equal(get_full_name(get_logger(explicit_master)), full_name(get_id(explicit_master)), "logger name");
-        check(get_actor(explicit_master) = find(get_id(explicit_master), enable_deferred_creation => false), "actor");
+        check_equal(
+          get_full_name(get_logger(explicit_master)),
+          full_name(get_id(explicit_master)),
+          "logger name"
+        );
+        check(
+          get_actor(explicit_master)
+          = find(get_id(explicit_master), enable_deferred_creation => false),
+          "actor"
+        );
 
       elsif run("test_custom_logger_actor_and_checker_are_used") then
         check(get_logger(custom_master) = custom_logger, "logger");
@@ -155,17 +187,29 @@ begin
         i2c_write(net, custom_master, 16#51#, x"00");
         -- The master serves the actor that was passed
         wait_until_idle(net, custom_actor);
-        check_equal(get_log_count(get_logger(custom_checker), error), 1, "address NACK on the custom checker");
+        check_equal(
+          get_log_count(get_logger(custom_checker), error),
+          1,
+          "address NACK on the custom checker"
+        );
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         reset_log_count(get_logger(custom_checker), error);
 
       elsif run("test_unexpected_message_is_a_check_failure") then
-        check_unexpected_message(get_actor(default_master), get_logger(default_master), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_master),
+          get_logger(default_master),
+          expect_failure => true
+        );
         -- On the checker of the master, not on its logger
         check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_master), get_logger(ignoring_master), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_master),
+          get_logger(ignoring_master),
+          expect_failure => false
+        );
         i2c_write(net, ignoring_master, 16#50#, x"00", status);
         check(status = i2c_ok, "the master works after the unexpected message");
 
@@ -214,7 +258,11 @@ begin
         reset(net, custom_master);
         check(now - start <= 101 us, "the transfer ends after the stretch timeout");
         -- The timeout, and the status the write did not expect
-        check_equal(get_log_count(get_logger(custom_checker), error), 2, "SCL held low is a check failure");
+        check_equal(
+          get_log_count(get_logger(custom_checker), error),
+          2,
+          "SCL held low is a check failure"
+        );
         reset_log_count(get_logger(custom_checker), error);
         scl <= 'Z';
       end if;
@@ -224,4 +272,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 20 ms);
+
 end architecture;

@@ -6,18 +6,19 @@
 -- 0xFF, which the property reports as a timeout and shrinks to [255, 0].
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 
 library awesome_vunit_vcs;
-  use awesome_vunit_vcs.property_pkg.all;
+use awesome_vunit_vcs.property_pkg.all;
 
 entity tb_property_lockup is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_property_lockup is
@@ -42,7 +43,6 @@ begin
 
   -- docs-end: property-variables
   begin
-
     test_runner_setup(runner, runner_cfg);
     -- docs-start: lockup
     prop := new_property(
@@ -56,7 +56,9 @@ begin
       timed_out := false;
       for idx in 0 to get_length(prop) - 1 loop
 
-        data <= std_ulogic_vector(to_unsigned(get_integer(prop, "(" & integer'image(idx) & ")"), 8));
+        data <= std_ulogic_vector(
+          to_unsigned(get_integer(prop, "(" & integer'image(idx) & ")"), 8)
+        );
         valid <= '1';
         wait until rising_edge(clk) and ready = '1' for example_budget(10 ns, 10 ns, 1);
         valid <= '0';
@@ -68,7 +70,12 @@ begin
       wait until rising_edge(clk);
       rst <= '0';
       wait for 1 ns;
-      report_example(prop, passed => not timed_out, timed_out => timed_out, recovered => ready = '1');
+      report_example(
+        prop,
+        passed => not timed_out,
+        timed_out => timed_out,
+        recovered => ready = '1'
+      );
     end loop;
 
     check_equal(get_outcome(prop), "failed");

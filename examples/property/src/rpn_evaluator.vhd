@@ -8,20 +8,21 @@
 -- A planted bug: inject_bug swaps subtract's operand order, computing b - a instead of a - b.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity rpn_evaluator is
   generic (
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
   port (
-    clk : in  std_ulogic;
-    rst : in  std_ulogic;
-    push : in  std_ulogic;
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    push : in std_ulogic;
     -- "00" const, "01" add, "10" subtract, "11" negate
-    op : in  std_ulogic_vector(1 downto 0);
+    op : in std_ulogic_vector(1 downto 0);
     -- The value to push for const, don't-care otherwise
-    operand : in  std_ulogic_vector(7 downto 0);
+    operand : in std_ulogic_vector(7 downto 0);
     -- The top of the stack, valid one cycle after each push
     result : out std_ulogic_vector(7 downto 0)
   );
@@ -39,12 +40,11 @@ begin
   result <= std_ulogic_vector(stack(sp - 1)) when sp > 0 else
             (others => '0');
 
-  main : process (clk)
+  main : process(clk)
 
     variable a, b : unsigned(7 downto 0);
 
   begin
-
     if rising_edge(clk) then
       if rst = '1' then
         sp <= 0;

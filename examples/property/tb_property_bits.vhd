@@ -7,8 +7,8 @@
 -- strategies are in python/bits_strategies.py, built from python/bit_patterns.py.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
@@ -18,7 +18,8 @@ entity tb_property_bits is
     runner_cfg : string;
     -- Plants the popcount_adder_tree and field_unpacker bugs: see
     -- examples/property/src/popcount_adder_tree.vhd and field_pack_unpack.vhd
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
 end entity;
 
 architecture tb of tb_property_bits is
@@ -48,10 +49,9 @@ begin
         output_path => output_path(runner_cfg),
         search_path => tb_path(runner_cfg) & "python"
       );
-    end;
+    end function;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 
@@ -90,7 +90,10 @@ begin
           address_in <= std_ulogic_vector(to_unsigned(get_integer(prop, "address"), 6));
           value_in <= std_ulogic_vector(to_unsigned(get_integer(prop, "value"), 5));
           wait for 1 ns;
-          passed := opcode_out = opcode_in and flag_out = flag_in and address_out = address_in and value_out = value_in;
+          passed := opcode_out = opcode_in
+                    and flag_out = flag_in
+                    and address_out = address_in
+                    and value_out = value_in;
           report_example(
             prop,
             passed => passed,

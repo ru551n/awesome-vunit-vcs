@@ -9,17 +9,18 @@
 -- reserved-bits check.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity packet_parser is
   generic (
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
   port (
-    clk : in  std_ulogic;
-    rst : in  std_ulogic;
-    valid : in  std_ulogic;
-    data : in  std_ulogic_vector(7 downto 0);
+    clk : in std_ulogic;
+    rst : in std_ulogic;
+    valid : in std_ulogic;
+    data : in std_ulogic_vector(7 downto 0);
     accepted : out std_ulogic;
     rejected : out std_ulogic
   );
@@ -37,9 +38,8 @@ architecture a of packet_parser is
 
 begin
 
-  main : process (clk)
+  main : process(clk)
   begin
-
     if rising_edge(clk) then
       accepted <= '0';
       rejected <= '0';
@@ -51,15 +51,12 @@ begin
 
         case state is
           when magic_byte =>
-
             magic_ok <= data = magic;
             state <= length_byte;
           when length_byte =>
-
             payload_left <= to_integer(unsigned(data));
             state <= flags_byte;
           when flags_byte =>
-
             reserved_ok <= inject_bug or data(7 downto 1) = "0000000";
             if payload_left = 0 then
               state <= checksum_byte;
@@ -67,14 +64,12 @@ begin
               state <= payload;
             end if;
           when payload =>
-
             if payload_left <= 1 then
               state <= checksum_byte;
             else
               payload_left <= payload_left - 1;
             end if;
           when checksum_byte =>
-
             if magic_ok and reserved_ok and unsigned(data) = running_sum then
               accepted <= '1';
             else
@@ -82,7 +77,6 @@ begin
             end if;
             state <= magic_byte;
         end case;
-
       end if;
     end if;
   end process;

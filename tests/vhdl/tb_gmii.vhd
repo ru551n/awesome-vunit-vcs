@@ -8,26 +8,27 @@
 -- expecting violations counts them on both protocol checkers.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
+use vunit_lib.sync_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
 library osvvm;
-  use osvvm.randompkg.randomptype;
+use osvvm.randompkg.randomptype;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.ethernet_context;
 
 entity tb_gmii is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_gmii is
@@ -39,10 +40,14 @@ architecture tb of tb_gmii is
   signal dv, er : std_ulogic;
 
   constant source : gmii_source_t := new_gmii_source;
-  constant monitor : gmii_monitor_t :=
-    new_gmii_monitor(protocol_checker => default_gmii_protocol_checker, id => get_id("tb_gmii:monitor"));
-  constant second_monitor : gmii_monitor_t :=
-    new_gmii_monitor(protocol_checker => default_gmii_protocol_checker, id => get_id("tb_gmii:second_monitor"));
+  constant monitor : gmii_monitor_t := new_gmii_monitor(
+    protocol_checker => default_gmii_protocol_checker,
+    id => get_id("tb_gmii:monitor")
+  );
+  constant second_monitor : gmii_monitor_t := new_gmii_monitor(
+    protocol_checker => default_gmii_protocol_checker,
+    id => get_id("tb_gmii:second_monitor")
+  );
 
   type gmii_monitor_vec_t is array (natural range <>) of gmii_monitor_t;
 
@@ -64,28 +69,32 @@ begin
     begin
 
       return kwarg("count", 60)
-             & kwarg("malformations", "bad_fcs,short_preamble,long_preamble,bad_sfd,runt,giant,phy_error,short_ifg")
+             & kwarg(
+               "malformations",
+               "bad_fcs,short_preamble,long_preamble,bad_sfd,runt,giant,phy_error,short_ifg"
+             )
              & kwarg("malformed_fraction", 0.3)
              & kwarg("interface", "gmii");
-    end;
+    end function;
 
     variable statistics : ethernet_statistics_t;
 
     -- Frame data from the destination address up to the FCS: addresses, the
     -- local experimental EtherType and a counting payload
     impure function frame_data (octets : positive; seed : natural := 0) return std_ulogic_vector is
-
       variable result : std_ulogic_vector(0 to 8 * octets - 1);
     begin
 
       for idx in 0 to octets - 1 loop
 
-        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(to_unsigned((7 * idx + seed) mod 256, 8));
+        result(8 * idx to 8 * idx + 7) := std_ulogic_vector(
+          to_unsigned((7 * idx + seed) mod 256, 8)
+        );
       end loop;
 
       result(0 to 111) := x"020000000001" & x"020000000002" & x"88B5";
       return result;
-    end;
+    end function;
 
     procedure wait_until_idle is
     begin
@@ -97,10 +106,10 @@ begin
         wait_until_idle(net, as_sync(get_protocol_checker(monitors(idx))));
       end loop;
 
-    end;
+    end procedure;
 
     -- Push a frame both monitors check that they receive unchanged
-    procedure push_checked_frame (frame : std_ulogic_vector; ifg_octets : natural := 12) is
+    procedure push_checked_frame(frame : std_ulogic_vector; ifg_octets : natural := 12)is
     begin
 
       for idx in monitors'range loop
@@ -109,12 +118,11 @@ begin
       end loop;
 
       push_ethernet_frame(net, source, frame, frame_options(ifg_octets => ifg_octets));
-    end;
+    end procedure;
 
     -- Check that each protocol checker found exactly expected violations of
     -- check and that they were the only errors logged
-    procedure check_violations (check : ethernet_check_t; expected : natural) is
-
+    procedure check_violations(check : ethernet_check_t; expected : natural)is
       variable violations : natural;
     begin
 
@@ -135,10 +143,9 @@ begin
         reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
       end loop;
 
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(get_string_seed(runner_cfg));
     -- The Python functions of the traffic tests
@@ -175,7 +182,14 @@ begin
           check_ethernet_frame(net, monitors(idx), frame_data(60), blocking => false);
         end loop;
 
-        push_ethernet_frame(net, source, x"020000000001", x"020000000002", x"88B5", frame_data(60)(112 to 479));
+        push_ethernet_frame(
+          net,
+          source,
+          x"020000000001",
+          x"020000000002",
+          x"88B5",
+          frame_data(60)(112 to 479)
+        );
         check_violations(eth_scoreboard, 0);
         check_equal(get_log_count(get_logger(monitor), error), 0);
 
@@ -301,8 +315,14 @@ begin
         -- The backend of a monitor is the object vc in the session with the
         -- identity of the monitor
         check_true(eval_boolean("vc.last_packet().haslayer('UDP')", new_session(get_id(monitor))));
-        check_equal(eval_integer("vc.last_packet()['UDP'].dport", new_session(get_id(monitor))), 1234);
-        check_equal(eval_string("vc.last_packet().dst", new_session(get_id(monitor))), "02:00:00:00:00:01");
+        check_equal(
+          eval_integer("vc.last_packet()['UDP'].dport", new_session(get_id(monitor))),
+          1234
+        );
+        check_equal(
+          eval_string("vc.last_packet().dst", new_session(get_id(monitor))),
+          "02:00:00:00:00:01"
+        );
 
       elsif run("test_transmit_and_reconstruct") then
         push_checked_frame(frame_data(333, seed => 3));
@@ -356,7 +376,13 @@ begin
           );
         end loop;
 
-        push_ethernet_sequence(net, source, traffic_function, traffic_arguments, seed => get_string_seed(runner_cfg));
+        push_ethernet_sequence(
+          net,
+          source,
+          traffic_function,
+          traffic_arguments,
+          seed => get_string_seed(runner_cfg)
+        );
         wait_until_idle;
         for idx in monitors'range loop
 
@@ -381,7 +407,10 @@ begin
             total := total + count;
           end loop;
 
-          check(total > 0, "The sequence has malformed frames, seed " & get_string_seed(runner_cfg));
+          check(
+            total > 0,
+            "The sequence has malformed frames, seed " & get_string_seed(runner_cfg)
+          );
           check_equal(get_log_count(get_logger(get_protocol_checker(monitors(idx))), error), total);
           reset_log_count(get_logger(get_protocol_checker(monitors(idx))), error);
           check_equal(
@@ -394,7 +423,10 @@ begin
       elsif run("test_randomized_traffic") then
         for idx in 1 to 200 loop
 
-          push_checked_frame(frame_data(rnd.RandInt(60, 1514), seed => idx), ifg_octets => rnd.RandInt(12, 40));
+          push_checked_frame(
+            frame_data(rnd.RandInt(60, 1514), seed => idx),
+            ifg_octets => rnd.RandInt(12, 40)
+          );
         end loop;
 
         wait_until_idle;

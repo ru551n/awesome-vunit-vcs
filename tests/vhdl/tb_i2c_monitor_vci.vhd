@@ -15,7 +15,8 @@ context awesome_vunit_vcs.i2c_context;
 
 entity tb_i2c_monitor_vci is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_i2c_monitor_vci is
@@ -25,11 +26,13 @@ architecture tb of tb_i2c_monitor_vci is
   constant checked_monitor : i2c_monitor_t :=
     new_i2c_monitor(protocol_checker => new_i2c_protocol_checker(speed => i2c_fast_mode_plus));
 
-  constant explicit_monitor : i2c_monitor_t := new_i2c_monitor(id => get_id("tb_i2c_monitor_vci:explicit_monitor"));
+  constant explicit_monitor : i2c_monitor_t :=
+    new_i2c_monitor(id => get_id("tb_i2c_monitor_vci:explicit_monitor"));
 
   constant custom_logger : logger_t := get_logger("tb_i2c_monitor_vci:custom_logger");
   constant custom_actor : actor_t := new_actor("tb_i2c_monitor_vci:custom_actor");
-  constant custom_checker : checker_t := new_checker(get_logger("tb_i2c_monitor_vci:custom_checker"));
+  constant custom_checker : checker_t :=
+    new_checker(get_logger("tb_i2c_monitor_vci:custom_checker"));
   constant custom_monitor : i2c_monitor_t := new_i2c_monitor(
     id => get_id("tb_i2c_monitor_vci:custom_monitor"),
     logger => custom_logger,
@@ -37,8 +40,10 @@ architecture tb of tb_i2c_monitor_vci is
     checker => custom_checker
   );
 
-  constant ignoring_monitor : i2c_monitor_t :=
-    new_i2c_monitor(id => get_id("tb_i2c_monitor_vci:ignoring_monitor"), unexpected_msg_type_policy => ignore);
+  constant ignoring_monitor : i2c_monitor_t := new_i2c_monitor(
+    id => get_id("tb_i2c_monitor_vci:ignoring_monitor"),
+    unexpected_msg_type_policy => ignore
+  );
 
   constant master : i2c_master_t := new_i2c_master(speed => i2c_fast_mode_plus);
   constant target : i2c_target_t := new_i2c_target(address => 16#50#);
@@ -48,7 +53,8 @@ architecture tb of tb_i2c_monitor_vci is
 
   type monitor_array_t is array (natural range <>) of i2c_monitor_t;
 
-  constant monitors : monitor_array_t(0 to 3) := (default_monitor, checked_monitor, custom_monitor, ignoring_monitor);
+  constant monitors : monitor_array_t(0 to 3) :=
+    (default_monitor, checked_monitor, custom_monitor, ignoring_monitor);
 
   signal scl : std_logic := 'H';
   signal sda : std_logic := 'H';
@@ -86,7 +92,7 @@ begin
         sda => sda
       );
 
-  end generate monitors_gen;
+  end generate;
 
   main : process
 
@@ -98,8 +104,11 @@ begin
     variable msg : msg_t;
     variable start : time;
 
-    procedure check_unexpected_message (actor : actor_t; logger : logger_t; expect_failure : boolean) is
-
+    procedure check_unexpected_message(
+      actor : actor_t;
+      logger : logger_t;
+      expect_failure : boolean
+    )is
       variable request_msg : msg_t;
     begin
 
@@ -113,10 +122,9 @@ begin
         check_no_log;
       end if;
       unmock(logger);
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
@@ -124,19 +132,36 @@ begin
       if run("test_default_id_is_enumerated") then
         check(integer'value(name(get_id(default_monitor))) >= 1, "the default id is enumerated");
         check_equal(name(get_parent(get_id(default_monitor))), "i2c_monitor", "name of its parent");
-        check(get_parent(get_parent(get_id(default_monitor))) = get_id("awesome_vunit_vcs"), "grandparent");
+        check(
+          get_parent(get_parent(get_id(default_monitor))) = get_id("awesome_vunit_vcs"),
+          "grandparent"
+        );
         check(get_id(checked_monitor) /= get_id(default_monitor), "a second default id differs");
         check(protocol_checker(default_monitor) = null_i2c_protocol_checker, "no protocol checker");
 
       elsif run("test_default_logger_actor_and_checker_are_used") then
-        check(get_logger(default_monitor) = get_logger(get_id(default_monitor)), "logger of the id");
-        check(get_actor(default_monitor) = find(get_id(default_monitor), enable_deferred_creation => false), "actor");
+        check(
+          get_logger(default_monitor) = get_logger(get_id(default_monitor)),
+          "logger of the id"
+        );
+        check(
+          get_actor(default_monitor)
+          = find(get_id(default_monitor), enable_deferred_creation => false),
+          "actor"
+        );
         check(as_sync(default_monitor) = get_actor(default_monitor), "as_sync");
-        check(get_logger(get_checker(default_monitor)) = get_logger(default_monitor), "checker on the logger");
+        check(
+          get_logger(get_checker(default_monitor)) = get_logger(default_monitor),
+          "checker on the logger"
+        );
 
       elsif run("test_explicit_id_is_used") then
         check(get_id(explicit_monitor) = get_id("tb_i2c_monitor_vci:explicit_monitor"), "id");
-        check_equal(get_full_name(get_logger(explicit_monitor)), full_name(get_id(explicit_monitor)), "logger name");
+        check_equal(
+          get_full_name(get_logger(explicit_monitor)),
+          full_name(get_id(explicit_monitor)),
+          "logger name"
+        );
 
       elsif run("test_custom_logger_actor_and_checker_are_used") then
         check(get_logger(custom_monitor) = custom_logger, "logger");
@@ -147,7 +172,11 @@ begin
         i2c_write(net, master, 16#50#, x"00");
         wait_until_idle(net, as_sync(master));
         wait_until_idle(net, custom_actor);
-        check_equal(get_log_count(get_logger(custom_checker), error), 1, "a scoreboard difference on the checker");
+        check_equal(
+          get_log_count(get_logger(custom_checker), error),
+          1,
+          "a scoreboard difference on the checker"
+        );
         check_equal(get_log_count(custom_logger, error), 0, "errors on the custom logger");
         reset_log_count(get_logger(custom_checker), error);
 
@@ -156,14 +185,26 @@ begin
           get_parent(get_id(protocol_checker(checked_monitor))) = get_id(checked_monitor),
           "the checker is a child of the monitor"
         );
-        check_equal(name(get_id(protocol_checker(checked_monitor))), "protocol_checker", "its name");
+        check_equal(
+          name(get_id(protocol_checker(checked_monitor))),
+          "protocol_checker",
+          "its name"
+        );
 
       elsif run("test_unexpected_message_is_a_check_failure") then
-        check_unexpected_message(get_actor(default_monitor), get_logger(default_monitor), expect_failure => true);
+        check_unexpected_message(
+          get_actor(default_monitor),
+          get_logger(default_monitor),
+          expect_failure => true
+        );
         check_unexpected_message(custom_actor, get_logger(custom_checker), expect_failure => true);
 
       elsif run("test_unexpected_message_is_ignored") then
-        check_unexpected_message(get_actor(ignoring_monitor), get_logger(ignoring_monitor), expect_failure => false);
+        check_unexpected_message(
+          get_actor(ignoring_monitor),
+          get_logger(ignoring_monitor),
+          expect_failure => false
+        );
 
       elsif run("test_wait_until_idle_and_wait_for_time") then
         start := now;
@@ -215,8 +256,16 @@ begin
         wait_until_idle(net, as_sync(default_monitor));
         wait_until_idle(net, as_sync(checked_monitor));
         wait_until_idle(net, as_sync(protocol_checker(checked_monitor)));
-        check_equal(get_log_count(get_logger(default_monitor), error), 1, "the monitor reports the metavalue");
-        check_equal(get_log_count(get_logger(checked_monitor), error), 0, "a monitor with a checker leaves it to it");
+        check_equal(
+          get_log_count(get_logger(default_monitor), error),
+          1,
+          "the monitor reports the metavalue"
+        );
+        check_equal(
+          get_log_count(get_logger(checked_monitor), error),
+          0,
+          "a monitor with a checker leaves it to it"
+        );
         check_equal(
           get_log_count(get_logger(get_checker(protocol_checker(checked_monitor))), error),
           1,
@@ -248,4 +297,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 20 ms);
+
 end architecture;

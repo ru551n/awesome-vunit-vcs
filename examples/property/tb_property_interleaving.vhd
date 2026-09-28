@@ -8,8 +8,8 @@
 -- and grant integrity every cycle. The strategy is interleaving_strategies.py.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use std.textio.all;
+use ieee.std_logic_1164.all;
+use std.textio.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.property_context;
@@ -17,7 +17,8 @@ context awesome_vunit_vcs.property_context;
 entity tb_property_interleaving is
   generic (
     runner_cfg : string;
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
 end entity;
 
 architecture tb of tb_property_interleaving is
@@ -46,12 +47,11 @@ begin
     begin
 
       return "events(" & integer'image(idx) & ")." & name;
-    end;
+    end function;
 
     -- "cycle 0: A request, cycle 1: A cancel, ..." for the current example, in cycle order
     -- (the events themselves are unsorted, for Hypothesis to shrink freely)
     impure function describe_schedule return string is
-
       variable result : line;
       variable first : boolean := true;
     begin
@@ -83,10 +83,10 @@ begin
         return "";
       end if;
       return result.all;
-    end;
+    end function;
 
     -- Apply cycle's events: a request goes high on "request", low on "cancel" or "release"
-    procedure apply (cycle : natural) is
+    procedure apply(cycle : natural)is
     begin
 
       for idx in 0 to num_events - 1 loop
@@ -102,10 +102,10 @@ begin
         end if;
       end loop;
 
-    end;
+    end procedure;
 
     -- Fail the example, once, with the schedule and the failing cycle in the message
-    procedure verify (ok : boolean; cycle : natural; text : string) is
+    procedure verify(ok : boolean; cycle : natural; text : string)is
     begin
 
       if passed and not ok then
@@ -116,10 +116,9 @@ begin
           msg => describe_schedule & " -- cycle " & integer'image(cycle) & ": " & text
         );
       end if;
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     while test_suite loop
 
@@ -151,8 +150,16 @@ begin
             wait until rising_edge(clk);
             wait for 1 ns;
             verify(not (grant_a = '1' and grant_b = '1'), cycle, "both grant_a and grant_b are 1");
-            verify(not (grant_a = '1' and request_a = '0'), cycle, "grant_a is asserted though request_a is 0");
-            verify(not (grant_b = '1' and request_b = '0'), cycle, "grant_b is asserted though request_b is 0");
+            verify(
+              not (grant_a = '1' and request_a = '0'),
+              cycle,
+              "grant_a is asserted though request_a is 0"
+            );
+            verify(
+              not (grant_b = '1' and request_b = '0'),
+              cycle,
+              "grant_b is asserted though request_b is 0"
+            );
             verify(
               not (held_a and request_a = '1' and grant_a = '0'),
               cycle,

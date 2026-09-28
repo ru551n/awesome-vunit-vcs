@@ -18,14 +18,14 @@
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.vc_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.axi4_pkg.all;
-  use work.vc_python_pkg.arg_text;
+use work.axi4_pkg.all;
+use work.vc_python_pkg.arg_text;
 
 package axi4_protocol_checker_pkg is
 
@@ -111,7 +111,7 @@ package axi4_protocol_checker_pkg is
 
   -- Enable or disable one check. A disabled check neither reports nor counts.
   -- ``axi4_scoreboard`` belongs to the monitor and is a failure here.
-  procedure set_check_enabled (
+  procedure set_check_enabled(
     signal net : inout network_t;
     protocol_checker : axi4_protocol_checker_t;
     check : axi4_check_t;
@@ -119,7 +119,7 @@ package axi4_protocol_checker_pkg is
   );
 
   -- Blocking: the violations of a check found while it was enabled
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : axi4_protocol_checker_t;
     check : axi4_check_t;
@@ -127,7 +127,7 @@ package axi4_protocol_checker_pkg is
   );
 
   -- Non-blocking: request the violation count of a check
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : axi4_protocol_checker_t;
     check : axi4_check_t;
@@ -136,7 +136,7 @@ package axi4_protocol_checker_pkg is
 
   -- Blocking: redeem a reference of
   -- :vhdl:`axi4_protocol_checker_pkg.get_check_count`
-  procedure await_get_check_count_reply (
+  procedure await_get_check_count_reply(
     signal net : inout network_t;
     variable reference : inout axi4_protocol_checker_reference_t;
     variable count : out natural
@@ -145,14 +145,17 @@ package axi4_protocol_checker_pkg is
   -- Blocking: recover the checker, for example after a reset of the design.
   -- The violation counts return to 0 and the history of the bus, outstanding
   -- transactions included, is forgotten; the check switches are kept.
-  procedure reset (signal net : inout network_t; protocol_checker : axi4_protocol_checker_t);
+  procedure reset(signal net : inout network_t; protocol_checker : axi4_protocol_checker_t);
 
   -- The message types the procedures above send to the component
   constant set_axi4_check_enabled_msg : msg_type_t := new_msg_type("set axi4 check enabled");
   constant get_axi4_check_count_msg : msg_type_t := new_msg_type("get axi4 check count");
-  constant get_axi4_check_count_reply_msg : msg_type_t := new_msg_type("get axi4 check count reply");
-  constant reset_axi4_protocol_checker_msg : msg_type_t := new_msg_type("reset axi4 protocol checker");
-  constant reset_axi4_protocol_checker_reply_msg : msg_type_t := new_msg_type("reset axi4 protocol checker reply");
+  constant get_axi4_check_count_reply_msg : msg_type_t :=
+    new_msg_type("get axi4 check count reply");
+  constant reset_axi4_protocol_checker_msg : msg_type_t :=
+    new_msg_type("reset axi4 protocol checker");
+  constant reset_axi4_protocol_checker_reply_msg : msg_type_t :=
+    new_msg_type("reset axi4 protocol checker reply");
 
   -- Private. The handle a monitor with id parent instantiates on a bus: null
   -- stays null, the bus becomes that of the monitor, and the id, logger,
@@ -169,15 +172,17 @@ package axi4_protocol_checker_pkg is
 
   -- Private. A message type no handler took, see
   -- :vhdl:`axi4_pkg.axi4_unexpected_msg_type`
-  procedure unexpected_msg_type (msg_type : msg_type_t; protocol_checker : axi4_protocol_checker_t);
+  procedure unexpected_msg_type(msg_type : msg_type_t; protocol_checker : axi4_protocol_checker_t);
+
 end package;
 
 package body axi4_protocol_checker_pkg is
 
   -- The handle with its identity, made the first time it is needed for a
   -- checker constructed without an id
-  impure function resolved (protocol_checker : axi4_protocol_checker_t) return axi4_protocol_checker_t is
-
+  impure function resolved (
+    protocol_checker : axi4_protocol_checker_t
+  ) return axi4_protocol_checker_t is
     constant identity : integer_vector_ptr_t := protocol_checker.p_identity;
     variable result : axi4_protocol_checker_t := protocol_checker;
   begin
@@ -187,7 +192,9 @@ package body axi4_protocol_checker_pkg is
     end if;
 
     if get(identity, 0) < 0 then
-      result.p_id := enumerate(get_id("axi4_protocol_checker", parent => get_id("awesome_vunit_vcs")));
+      result.p_id := enumerate(
+        get_id("axi4_protocol_checker", parent => get_id("awesome_vunit_vcs"))
+      );
       if not result.p_explicit_logger then
         result.p_logger := get_logger(result.p_id);
       end if;
@@ -208,11 +215,13 @@ package body axi4_protocol_checker_pkg is
     result.p_actor := to_actor(get(identity, 2));
     result.p_checker := to_checker(get(identity, 3));
     return result;
-  end;
+  end function;
 
   -- The logger, actor and checker of id that were not given explicitly
-  impure function derived (protocol_checker : axi4_protocol_checker_t; id : id_t) return axi4_protocol_checker_t is
-
+  impure function derived (
+    protocol_checker : axi4_protocol_checker_t;
+    id : id_t
+  ) return axi4_protocol_checker_t is
     variable result : axi4_protocol_checker_t := protocol_checker;
   begin
 
@@ -228,7 +237,7 @@ package body axi4_protocol_checker_pkg is
     end if;
     result.p_identity := null_ptr;
     return result;
-  end;
+  end function;
 
   impure function new_axi4_protocol_checker (
     axi4_bus : axi4_bus_t := default_axi4_bus;
@@ -239,7 +248,6 @@ package body axi4_protocol_checker_pkg is
     checker : checker_t := null_checker;
     unexpected_msg_type_policy : unexpected_msg_type_policy_t := fail
   ) return axi4_protocol_checker_t is
-
     variable result : axi4_protocol_checker_t;
   begin
 
@@ -264,14 +272,13 @@ package body axi4_protocol_checker_pkg is
       return result;
     end if;
     return derived(result, id);
-  end;
+  end function;
 
   impure function get_valid_protocol_checker (
     protocol_checker : axi4_protocol_checker_t;
     parent : id_t;
     axi4_bus : axi4_bus_t
   ) return axi4_protocol_checker_t is
-
     variable result : axi4_protocol_checker_t := protocol_checker;
   begin
 
@@ -283,49 +290,49 @@ package body axi4_protocol_checker_pkg is
       return result;
     end if;
     return derived(result, get_id("protocol_checker", parent => parent));
-  end;
+  end function;
 
   impure function get_id (protocol_checker : axi4_protocol_checker_t) return id_t is
   begin
 
     return resolved(protocol_checker).p_id;
-  end;
+  end function;
 
   impure function get_logger (protocol_checker : axi4_protocol_checker_t) return logger_t is
   begin
 
     return resolved(protocol_checker).p_logger;
-  end;
+  end function;
 
   impure function get_actor (protocol_checker : axi4_protocol_checker_t) return actor_t is
   begin
 
     return resolved(protocol_checker).p_actor;
-  end;
+  end function;
 
   impure function get_checker (protocol_checker : axi4_protocol_checker_t) return checker_t is
   begin
 
     return resolved(protocol_checker).p_checker;
-  end;
+  end function;
 
   impure function as_sync (protocol_checker : axi4_protocol_checker_t) return sync_handle_t is
   begin
 
     return get_actor(protocol_checker);
-  end;
+  end function;
 
   function get_bus (protocol_checker : axi4_protocol_checker_t) return axi4_bus_t is
   begin
 
     return protocol_checker.p_bus;
-  end;
+  end function;
 
   function timeout_cycles (protocol_checker : axi4_protocol_checker_t) return natural is
   begin
 
     return protocol_checker.p_timeout_cycles;
-  end;
+  end function;
 
   impure function backend_arguments (protocol_checker : axi4_protocol_checker_t) return arg_t is
   begin
@@ -333,48 +340,50 @@ package body axi4_protocol_checker_pkg is
     return arg_text(full_name(get_id(protocol_checker)))
            & backend_bus_arguments(protocol_checker.p_bus)
            & kwarg("timeout_cycles", protocol_checker.p_timeout_cycles);
-  end;
+  end function;
 
-  procedure unexpected_msg_type (msg_type : msg_type_t; protocol_checker : axi4_protocol_checker_t) is
+  procedure unexpected_msg_type(msg_type : msg_type_t; protocol_checker : axi4_protocol_checker_t)is
   begin
 
-    axi4_unexpected_msg_type(msg_type, protocol_checker.p_unexpected_msg_type_policy, get_checker(protocol_checker));
-  end;
+    axi4_unexpected_msg_type(
+      msg_type,
+      protocol_checker.p_unexpected_msg_type_policy,
+      get_checker(protocol_checker)
+    );
+  end procedure;
 
-  procedure set_check_enabled (
+  procedure set_check_enabled(
     signal net : inout network_t;
     protocol_checker : axi4_protocol_checker_t;
     check : axi4_check_t;
     enabled : boolean := true
-  ) is
-
+  )is
     variable msg : msg_t := new_msg(set_axi4_check_enabled_msg);
   begin
 
     push(msg, axi4_check_t'pos(check));
     push(msg, enabled);
     send(net, get_actor(protocol_checker), msg);
-  end;
+  end procedure;
 
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : axi4_protocol_checker_t;
     check : axi4_check_t;
     variable reference : inout axi4_protocol_checker_reference_t
-  ) is
+  )is
   begin
 
     reference := new_msg(get_axi4_check_count_msg);
     push(reference, axi4_check_t'pos(check));
     send(net, get_actor(protocol_checker), reference);
-  end;
+  end procedure;
 
-  procedure await_get_check_count_reply (
+  procedure await_get_check_count_reply(
     signal net : inout network_t;
     variable reference : inout axi4_protocol_checker_reference_t;
     variable count : out natural
-  ) is
-
+  )is
     variable reply_msg : msg_t;
   begin
 
@@ -382,30 +391,28 @@ package body axi4_protocol_checker_pkg is
     count := pop(reply_msg);
     delete(reference);
     delete(reply_msg);
-  end;
+  end procedure;
 
-  procedure get_check_count (
+  procedure get_check_count(
     signal net : inout network_t;
     protocol_checker : axi4_protocol_checker_t;
     check : axi4_check_t;
     variable count : out natural
-  ) is
-
+  )is
     variable reference : axi4_protocol_checker_reference_t;
   begin
 
     get_check_count(net, protocol_checker, check, reference);
     await_get_check_count_reply(net, reference, count);
-  end;
+  end procedure;
 
-  procedure reset (signal net : inout network_t; protocol_checker : axi4_protocol_checker_t) is
-
+  procedure reset(signal net : inout network_t; protocol_checker : axi4_protocol_checker_t)is
     variable request_msg : msg_t := new_msg(reset_axi4_protocol_checker_msg);
     variable reply_msg : msg_t;
   begin
 
     request(net, get_actor(protocol_checker), request_msg, reply_msg);
     delete(reply_msg);
-  end;
+  end procedure;
 
 end package body;

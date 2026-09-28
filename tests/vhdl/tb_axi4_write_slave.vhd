@@ -8,18 +8,19 @@
 -- failures on the checker of the slave here.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library osvvm;
-  use osvvm.randompkg.all;
+use osvvm.randompkg.all;
 
 library awesome_vunit_vcs;
 context awesome_vunit_vcs.axi4_context;
 
 entity tb_axi4_write_slave is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_axi4_write_slave is
@@ -59,7 +60,10 @@ begin
     constant logger : logger_t := get_logger(axi_slave);
     variable rnd : randomptype;
 
-    procedure read_response (id : std_ulogic_vector; resp : std_ulogic_vector(1 downto 0) := axi_resp_okay) is
+    procedure read_response(
+      id : std_ulogic_vector;
+      resp : std_ulogic_vector(1 downto 0) := axi_resp_okay
+    )is
     begin
 
       bready <= '1';
@@ -67,15 +71,15 @@ begin
       check_equal(bresp, resp, "bresp");
       check_equal(bid, id, "bid");
       bready <= '0';
-    end;
+    end procedure;
 
-    procedure write_addr (
+    procedure write_addr(
       id : std_ulogic_vector;
       addr : natural;
       len : natural;
       log_size : natural;
       burst : std_ulogic_vector(1 downto 0)
-    ) is
+    )is
     begin
 
       awvalid <= '1';
@@ -86,12 +90,16 @@ begin
       awburst <= burst;
       wait until (awvalid and awready) = '1' and rising_edge(clk);
       awvalid <= '0';
-    end;
+    end procedure;
 
     -- An INCR burst of ``num_bytes`` random bytes from the base of buf, which
     -- the bytes must be written to
-    procedure transfer_data (id : std_ulogic_vector; buf : axi4_buffer_t; log_size : natural; num_bytes : natural) is
-
+    procedure transfer_data(
+      id : std_ulogic_vector;
+      buf : axi4_buffer_t;
+      log_size : natural;
+      num_bytes : natural
+    )is
       variable size : natural;
       variable len : natural;
       variable address : natural;
@@ -126,15 +134,20 @@ begin
         wdata <= (others => '0');
       end loop;
 
-    end;
+    end procedure;
 
-    procedure transfer (id : std_ulogic_vector; buf : axi4_buffer_t; log_size : natural; num_bytes : natural) is
+    procedure transfer(
+      id : std_ulogic_vector;
+      buf : axi4_buffer_t;
+      log_size : natural;
+      num_bytes : natural
+    )is
     begin
 
       transfer_data(id, buf, log_size, num_bytes);
       read_response(id, axi_resp_okay);
       check_expected_was_written(buf);
-    end;
+    end procedure;
 
     variable buf : axi4_buffer_t;
     variable size, log_size : natural;
@@ -152,7 +165,6 @@ begin
     constant large_latency : time := 1 us;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     rnd.InitSeed(rnd'instance_name);
 
@@ -237,7 +249,11 @@ begin
       wait until (wvalid and wready) = '1' and rising_edge(clk);
       wvalid <= '0';
       read_response(x"0", axi_resp_okay);
-      check_only_log(logger, "Writing to " & describe_address(memory, 1) & ". Got 0 expected 77", error);
+      check_only_log(
+        logger,
+        "Writing to " & describe_address(memory, 1) & ". Got 0 expected 77",
+        error
+      );
       unmock(logger);
       -- A slave writes the byte anyway, as VUnit's does
       check_equal(read_byte(memory, 1), 0);
@@ -274,8 +290,16 @@ begin
         transfer_data(x"2", buf, log_data_size, num_bytes(buf));
         if i = 1 then
           wait for large_latency - 10 ns;
-          check_equal(read_byte(memory, base_address(buf)), dummy_byte, "Data should not be set yet");
-          check_equal(read_byte(memory, last_address(buf)), dummy_byte, "Data should not be set yet");
+          check_equal(
+            read_byte(memory, base_address(buf)),
+            dummy_byte,
+            "Data should not be set yet"
+          );
+          check_equal(
+            read_byte(memory, last_address(buf)),
+            dummy_byte,
+            "Data should not be set yet"
+          );
         end if;
         read_response(x"2", axi_resp_okay);
         check_expected_was_written(buf);
@@ -321,7 +345,11 @@ begin
 
       mock(logger, error);
       set_write_response_fifo_depth(net, axi_slave, 2);
-      check_only_log(logger, "New write response fifo depth 2 is smaller than current content size 3", error);
+      check_only_log(
+        logger,
+        "New write response fifo depth 2 is smaller than current content size 3",
+        error
+      );
       unmock(logger);
       for j in 0 to 3 loop
 
@@ -384,7 +412,11 @@ begin
       wait until (wvalid and wready) = '1' and rising_edge(clk);
       wvalid <= '0';
       read_response(x"0");
-      check_only_log(logger, "Metavalue in WDATA lane 1 of beat 0 of write burst #0 for id 0, written as 0", error);
+      check_only_log(
+        logger,
+        "Metavalue in WDATA lane 1 of beat 0 of write burst #0 for id 0, written as 0",
+        error
+      );
       unmock(logger);
 
     elsif run("test_error_on_missing_wlast_fixed") then
@@ -432,7 +464,11 @@ begin
       mock(logger, error);
       write_addr(x"2", base_address(buf), 1, 0, "11");
       wait until mock_queue_length > 0 and rising_edge(clk);
-      check_only_log(logger, "Unsupported burst type 0b11 (reserved) of write burst #0 for id 2", error);
+      check_only_log(
+        logger,
+        "Unsupported burst type 0b11 (reserved) of write burst #0 for id 2",
+        error
+      );
       unmock(logger);
       wvalid <= '1';
       wlast <= '1';
@@ -446,7 +482,11 @@ begin
       mock(logger, error);
       write_addr(x"2", base_address(buf) + 4000, 256, 0, axi_burst_type_incr);
       wait until mock_queue_length > 0 and rising_edge(clk);
-      check_only_log(logger, "Crossing 4KByte boundary. First page = 0 (4000/4096), last page = 1 (4255/4096)", error);
+      check_only_log(
+        logger,
+        "Crossing 4KByte boundary. First page = 0 (4000/4096), last page = 1 (4255/4096)",
+        error
+      );
       unmock(logger);
 
     elsif run("test_no_error_on_4kbyte_boundary_crossing_with_disabled_check") then
@@ -488,7 +528,11 @@ begin
       set_address_fifo_depth(net, axi_slave, 16);
       mock(logger, error);
       set_address_fifo_depth(net, axi_slave, 1);
-      check_only_log(logger, "New address fifo depth 1 is smaller than current content size 16", error);
+      check_only_log(
+        logger,
+        "New address fifo depth 1 is smaller than current content size 16",
+        error
+      );
       unmock(logger);
 
     elsif run("test_address_stall_probability") then
@@ -539,11 +583,23 @@ begin
       wvalid <= '1';
       wlast <= '1';
       check_equal(wready, '0');
-      write_addr(x"0", base_address(buf), len => 1, log_size => log_data_size, burst => axi_burst_type_incr);
+      write_addr(
+        x"0",
+        base_address(buf),
+        len => 1,
+        log_size => log_data_size,
+        burst => axi_burst_type_incr
+      );
       wvalid <= '1';
       wlast <= '1';
       check_equal(wready, '0');
-      write_addr(x"0", base_address(buf), len => 2, log_size => log_data_size, burst => axi_burst_type_incr);
+      write_addr(
+        x"0",
+        base_address(buf),
+        len => 2,
+        log_size => log_data_size,
+        burst => axi_burst_type_incr
+      );
       wvalid <= '1';
       wlast <= '0';
       check_equal(wready, '1');
@@ -576,7 +632,13 @@ begin
       wvalid <= '1';
       wlast <= '0';
       check_equal(wready, '0');
-      write_addr(x"0", base_address(buf), len => 3, log_size => log_data_size, burst => axi_burst_type_incr);
+      write_addr(
+        x"0",
+        base_address(buf),
+        len => 3,
+        log_size => log_data_size,
+        burst => axi_burst_type_incr
+      );
       wvalid <= '1';
       wlast <= '0';
       check_equal(wready, '0');
@@ -620,8 +682,18 @@ begin
       mock(logger, error);
       bready <= '1';
       wait until rising_edge(clk);
-      write_addr(x"0", base_address(buf), len => 2, log_size => log_data_size, burst => axi_burst_type_incr);
-      check_only_log(logger, "Burst not well behaved, wvalid was not high during active burst", error);
+      write_addr(
+        x"0",
+        base_address(buf),
+        len => 2,
+        log_size => log_data_size,
+        burst => axi_burst_type_incr
+      );
+      check_only_log(
+        logger,
+        "Burst not well behaved, wvalid was not high during active burst",
+        error
+      );
       unmock(logger);
 
     elsif run("test_well_behaved_check_fails_when_bready_not_high_during_active_burst") then
@@ -630,8 +702,18 @@ begin
       mock(logger, error);
       wvalid <= '1';
       wait until rising_edge(clk);
-      write_addr(x"0", base_address(buf), len => 2, log_size => log_data_size, burst => axi_burst_type_incr);
-      check_only_log(logger, "Burst not well behaved, bready was not high during active burst", error);
+      write_addr(
+        x"0",
+        base_address(buf),
+        len => 2,
+        log_size => log_data_size,
+        burst => axi_burst_type_incr
+      );
+      check_only_log(
+        logger,
+        "Burst not well behaved, bready was not high during active burst",
+        error
+      );
       unmock(logger);
 
     elsif run("test_well_behaved_check_fails_when_wvalid_not_high_and_awready_is_low") then
@@ -652,7 +734,11 @@ begin
       wait until rising_edge(clk);
       check_equal(awready, '0');
       wait until mock_queue_length > 0 for 0 ns;
-      check_only_log(logger, "Burst not well behaved, wvalid was not high during active burst", error);
+      check_only_log(
+        logger,
+        "Burst not well behaved, wvalid was not high during active burst",
+        error
+      );
       unmock(logger);
     end if;
 
@@ -664,7 +750,6 @@ begin
   -- The payload of B is X while BVALID is 0
   check_not_valid : process
   begin
-
     wait until rising_edge(clk);
     if bvalid = '0' then
       check_equal(bid, std_ulogic_vector'("XXXX"), "BID not X when BVALID low");

@@ -8,19 +8,20 @@
 
 -- docs-start: spi-boot-reader
 library ieee;
-  use ieee.std_logic_1164.all;
+use ieee.std_logic_1164.all;
 
 library awesome_vunit_vcs;
-  use awesome_vunit_vcs.qspi_pkg.all;
+use awesome_vunit_vcs.qspi_pkg.all;
 
 entity spi_boot_reader is
   generic (
-    num_bytes : positive := 4);
+    num_bytes : positive := 4
+  );
   port (
-    clk : in  std_ulogic;
-    rst_n : in  std_ulogic;
+    clk : in std_ulogic;
+    rst_n : in std_ulogic;
     m2s : out qspi_m2s_t := qspi_m2s_init;
-    s2m : in  qspi_s2m_t;
+    s2m : in qspi_s2m_t;
     data : out std_ulogic_vector(0 to 8 * num_bytes - 1) := (others => '0');
     done : out std_ulogic := '0'
   );
@@ -34,9 +35,8 @@ architecture a of spi_boot_reader is
 
 begin
 
-  main : process (clk)
+  main : process(clk)
   begin
-
     if rising_edge(clk) then
       if rst_n = '0' then
         m2s <= qspi_m2s_init;

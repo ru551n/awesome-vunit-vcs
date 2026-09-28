@@ -7,22 +7,23 @@
 -- bus reconstructs the accepted frames.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.math_real.all;
+use ieee.std_logic_1164.all;
+use ieee.math_real.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.sync_pkg.all;
-  use vunit_lib.vc_pkg.all;
+use vunit_lib.sync_pkg.all;
+use vunit_lib.vc_pkg.all;
 
-  use work.axis_mac_pkg.all;
+use work.axis_mac_pkg.all;
 
 entity axis_mac_sink is
   generic (
-    sink : axis_mac_sink_t);
+    sink : axis_mac_sink_t
+  );
   port (
-    clk : in  std_ulogic;
+    clk : in std_ulogic;
     tready : out std_ulogic := '1'
   );
 end entity;
@@ -40,15 +41,14 @@ begin
     variable msg, reply_msg : msg_t;
     variable msg_type : msg_type_t;
 
-    procedure set_seed (seed : natural) is
+    procedure set_seed(seed : natural)is
     begin
 
       seed1 := 1 + seed mod 2147483562;
       seed2 := 1 + (seed / 2147483562) mod 2147483398;
-    end;
+    end procedure;
 
   begin
-
     set_seed(get_ready_seed(sink));
     tready <= '1' when ready_high_percent >= 100 else
               '0';

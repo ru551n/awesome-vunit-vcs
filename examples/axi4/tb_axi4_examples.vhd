@@ -17,7 +17,8 @@ context awesome_vunit_vcs.axi4_context;
 
 entity tb_axi4_examples is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_axi4_examples is
@@ -35,7 +36,8 @@ architecture tb of tb_axi4_examples is
   -- docs-start: handles
   -- A 64-bit AXI4 interface with 4-bit IDs, statistics per ID and a protocol
   -- checker that reports a transaction waiting 100 cycles for its response
-  constant axi4_bus : axi4_bus_t := new_axi4_bus(data_length => 64, address_length => 32, id_length => 4);
+  constant axi4_bus : axi4_bus_t :=
+    new_axi4_bus(data_length => 64, address_length => 32, id_length => 4);
   constant monitor : axi4_monitor_t := new_axi4_monitor(
     axi4_bus,
     protocol_checker => new_axi4_protocol_checker(timeout_cycles => 100),
@@ -303,7 +305,7 @@ begin
 
     -- The burst master of this testbench: a write of beats 64-bit beats of
     -- first, first + 1, ... from address, then its response
-    procedure write_burst (id : natural; address : natural; beats : positive; first : natural := 0) is
+    procedure write_burst(id : natural; address : natural; beats : positive; first : natural := 0)is
     begin
 
       awvalid <= '1';
@@ -325,10 +327,10 @@ begin
       bready <= '1';
       wait until rising_edge(aclk) and bvalid = '1';
       bready <= '0';
-    end;
+    end procedure;
 
     -- Read addresses without waiting for the data
-    procedure read_address (id : natural; address : natural; beats : positive) is
+    procedure read_address(id : natural; address : natural; beats : positive)is
     begin
 
       arvalid <= '1';
@@ -337,10 +339,10 @@ begin
       arlen <= std_logic_vector(to_unsigned(beats - 1, 8));
       wait until rising_edge(aclk) and arready = '1';
       arvalid <= '0';
-    end;
+    end procedure;
 
     -- Take read data beats until the last beat of beats bursts
-    procedure read_data (bursts : positive) is
+    procedure read_data(bursts : positive)is
     begin
 
       rready <= '1';
@@ -350,10 +352,9 @@ begin
       end loop;
 
       rready <= '0';
-    end;
+    end procedure;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     buffer_ref := allocate(memory, 16#4000#, permissions => read_and_write);
 
@@ -435,4 +436,5 @@ begin
   end process;
 
   test_runner_watchdog(runner, 100 us);
+
 end architecture;

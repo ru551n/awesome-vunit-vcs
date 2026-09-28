@@ -6,15 +6,16 @@
 -- implementation genuinely different from popcount_loop.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity popcount_adder_tree is
   generic (
     -- A planted bug: the MSB is dropped before counting
-    inject_bug : boolean := false);
+    inject_bug : boolean := false
+  );
   port (
-    data_in : in  std_ulogic_vector(15 downto 0);
+    data_in : in std_ulogic_vector(15 downto 0);
     count : out std_ulogic_vector(4 downto 0)
   );
 end entity;
@@ -39,10 +40,11 @@ begin
                    + resize(unsigned'("" & counted(4 * grp + 1)), 3)
                    + resize(unsigned'("" & counted(4 * grp + 2)), 3)
                    + resize(unsigned'("" & counted(4 * grp + 3)), 3);
-  end generate stage1_gen;
+  end generate;
 
   stage2(0) <= resize(stage1(0), 4) + resize(stage1(1), 4);
   stage2(1) <= resize(stage1(2), 4) + resize(stage1(3), 4);
 
   count <= std_ulogic_vector(resize(stage2(0), 5) + resize(stage2(1), 5));
+
 end architecture;

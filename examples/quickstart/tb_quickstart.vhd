@@ -8,7 +8,8 @@ context awesome_vunit_vcs.ethernet_context;
 
 entity tb_quickstart is
   generic (
-    runner_cfg : string);
+    runner_cfg : string
+  );
 end entity;
 
 architecture tb of tb_quickstart is
@@ -21,7 +22,8 @@ architecture tb of tb_quickstart is
   signal out_er : std_ulogic := '0';
 
   constant source : gmii_source_t := new_gmii_source;
-  constant monitor : gmii_monitor_t := new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
+  constant monitor : gmii_monitor_t :=
+    new_gmii_monitor(protocol_checker => default_gmii_protocol_checker);
 
 begin
 
@@ -33,7 +35,6 @@ begin
     variable statistics : ethernet_statistics_t;
 
   begin
-
     test_runner_setup(runner, runner_cfg);
     start_capture(net, monitor, output_path(runner_cfg) & "quickstart.pcapng");
 

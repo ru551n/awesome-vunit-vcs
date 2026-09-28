@@ -10,50 +10,51 @@
 -- response; this entity drives the handshakes and the timing.
 
 library ieee;
-  use ieee.std_logic_1164.all;
-  use ieee.numeric_std.all;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
 context vunit_lib.com_context;
-  use vunit_lib.integer_array_pkg.all;
-  use vunit_lib.queue_pkg.all;
+use vunit_lib.integer_array_pkg.all;
+use vunit_lib.queue_pkg.all;
 
 library python_bridge;
 context python_bridge.python_context;
 
-  use work.axi4_pkg.all;
-  use work.axi4_memory_pkg.all;
-  use work.axi4_slave_pkg.all;
-  use work.vc_python_pkg.all;
+use work.axi4_pkg.all;
+use work.axi4_memory_pkg.all;
+use work.axi4_slave_pkg.all;
+use work.vc_python_pkg.all;
 
 entity axi4_write_slave is
   generic (
     -- Created with :vhdl:`axi4_slave_pkg.new_axi4_slave`
-    axi_slave : axi4_slave_t);
+    axi_slave : axi4_slave_t
+  );
   port (
     -- The clock; the slave samples and drives at its rising edges
-    aclk : in  std_ulogic;
+    aclk : in std_ulogic;
     -- The active low reset, 1 when left open. At 0 the slave drops its bursts
     -- and deasserts AWREADY, WREADY and BVALID.
-    aresetn : in  std_ulogic := '1';
+    aresetn : in std_ulogic := '1';
     -- The write address channel. AWLEN is 8 bits for AXI4 and 4 for AXI3.
-    awvalid : in  std_ulogic;
+    awvalid : in std_ulogic;
     awready : out std_ulogic := '0';
-    awid : in  std_ulogic_vector(id_length(get_bus(axi_slave)) - 1 downto 0) := (others => '0');
-    awaddr : in  std_ulogic_vector(address_length(get_bus(axi_slave)) - 1 downto 0);
-    awlen : in  std_ulogic_vector;
-    awsize : in  std_ulogic_vector(2 downto 0) := full_size(get_bus(axi_slave));
-    awburst : in  std_ulogic_vector(1 downto 0) := "01";
+    awid : in std_ulogic_vector(id_length(get_bus(axi_slave)) - 1 downto 0) := (others => '0');
+    awaddr : in std_ulogic_vector(address_length(get_bus(axi_slave)) - 1 downto 0);
+    awlen : in std_ulogic_vector;
+    awsize : in std_ulogic_vector(2 downto 0) := full_size(get_bus(axi_slave));
+    awburst : in std_ulogic_vector(1 downto 0) := "01";
     -- The write data channel
-    wvalid : in  std_ulogic;
+    wvalid : in std_ulogic;
     wready : out std_ulogic := '0';
-    wdata : in  std_ulogic_vector(data_length(get_bus(axi_slave)) - 1 downto 0);
-    wstrb : in  std_ulogic_vector(byte_lanes(get_bus(axi_slave)) - 1 downto 0) := (others => '1');
-    wlast : in  std_ulogic := '1';
+    wdata : in std_ulogic_vector(data_length(get_bus(axi_slave)) - 1 downto 0);
+    wstrb : in std_ulogic_vector(byte_lanes(get_bus(axi_slave)) - 1 downto 0) := (others => '1');
+    wlast : in std_ulogic := '1';
     -- The write response channel
     bvalid : out std_ulogic := '0';
-    bready : in  std_ulogic;
+    bready : in std_ulogic;
     bid : out std_ulogic_vector(id_length(get_bus(axi_slave)) - 1 downto 0);
     bresp : out std_ulogic_vector(1 downto 0)
   );
@@ -99,10 +100,9 @@ begin
         bid <= (bid'range => config.drive_invalid_val);
         bresp <= (bresp'range => config.drive_invalid_val);
       end if;
-    end;
+    end procedure;
 
     procedure drop_bursts is
-
       variable dropped : integer_array_t;
     begin
 
@@ -136,10 +136,9 @@ begin
       wready <= '0';
       bvalid <= '0';
       drive_b_invalid;
-    end;
+    end procedure;
 
     procedure accept_burst is
-
       variable values : integer_array_t;
     begin
 
@@ -161,10 +160,9 @@ begin
       push_std_ulogic_vector(bursts, std_ulogic_vector(resize(u_unsigned'(known(awaddr)), 64)));
       deallocate(values);
       state.queued_bursts := state.queued_bursts + 1;
-    end;
+    end procedure;
 
     procedure receive_beat is
-
       variable value : natural;
     begin
 
@@ -201,10 +199,9 @@ begin
         push_integer_array_t_ref(responses, data);
         state.queued_responses := state.queued_responses + 1;
       end if;
-    end;
+    end procedure;
 
     procedure respond is
-
       variable values, burst_data : integer_array_t;
       variable response_id : natural;
     begin
@@ -212,14 +209,18 @@ begin
       response_id := pop(responses);
       burst_data := pop_integer_array_t_ref(responses);
       state.queued_responses := state.queued_responses - 1;
-      values := backend_call_integer_array(session, "write_burst", arg(port_index) & arg(burst_data));
+      values := backend_call_integer_array(
+        session,
+        "write_burst",
+        arg(port_index) & arg(burst_data)
+      );
       deallocate(burst_data);
       log_slave_reports(axi_slave, port_index, get(values, 0));
       bvalid <= '1';
       bid <= std_ulogic_vector(to_unsigned(response_id, bid'length));
       bresp <= std_ulogic_vector(to_unsigned(get(values, 1), 2));
       deallocate(values);
-    end;
+    end procedure;
 
     -- One rising edge of ACLK, in the order of VUnit's axi_write_slave
     procedure cycle is
@@ -263,7 +264,9 @@ begin
       end if;
 
       draw_stall(random, state.data_stall_probability, stall);
-      if beats > 0 and not (beats = 1 and state.queued_responses >= state.write_response_fifo_depth) and not stall then
+      if beats > 0
+         and not (beats = 1 and state.queued_responses >= state.write_response_fifo_depth)
+         and not stall then
         wready <= '1';
       else
         wready <= '0';
@@ -275,10 +278,9 @@ begin
       else
         awready <= '1';
       end if;
-    end;
+    end procedure;
 
   begin
-
     drive_b_invalid;
     session := memory_session(get_memory(axi_slave));
     port_index := attach_axi4_slave(axi_slave, is_write => true);
@@ -303,7 +305,8 @@ begin
         axi_slave,
         port_index,
         state,
-        idle => state.queued_bursts = 0 and beats = 0 and state.queued_responses = 0 and bvalid = '0'
+        idle =>
+          state.queued_bursts = 0 and beats = 0 and state.queued_responses = 0 and bvalid = '0'
       );
       if state.reset_requested then
         drop_bursts;
@@ -328,7 +331,6 @@ begin
     variable num_beats_now : integer;
 
   begin
-
     wait until rising_edge(aclk);
     num_beats_now := num_beats;
     if to_x01(awvalid) = '1' then

@@ -1,0 +1,226 @@
+# Copied from https://github.com/ru551n/vhdl-skills skills/shared/speja.yaml (8f3a43c).
+# House layout for speja (https://github.com/ru551n/speja), the VHDL formatter.
+#
+# Encodes the layout half of HouseStyle.md: the tsfpga/hdl-modules conventions. Derived from
+# hdl-modules' own code (commit 0271e3b, 181 hand-written files, generated register packages
+# left out): starting from speja's defaults, each rule that code violates often was given the
+# option value it follows, or disabled where it follows none consistently, so speja leaves that
+# choice to the author.
+#
+# Use it only when the user or the project has chosen speja. Copy it into the project as
+# `speja.yaml` so the editor, the command line and CI all read it:
+#
+#   speja --fix <files>
+#   speja --check style,lint <files>
+#
+# speja is a canonical formatter: it folds long lines to the width below and does not keep
+# hand-placed line breaks. Everything else here follows hdl-modules.
+rule:
+  group:
+    # No column alignment of ":", ":=", "=>" or "<=" (HouseStyle: Declaration and port-map
+    # formatting).
+    alignment:
+      disable: true
+
+  # hdl-modules' line width. Lines longer than this are folded.
+  length_001:
+    length: 100
+
+  # One space after the port mode: `in std_ulogic`, `out std_ulogic`.
+  port_007:
+    spaces_after: 1
+  port_008:
+    spaces_after: 1
+  port_009:
+    spaces_after: 1
+
+  # No space before the parenthesis: `process(all)`, `procedure name(`.
+  process_002:
+    number_of_spaces: 0
+  procedure_100:
+    number_of_spaces: 0
+
+  # `process` without `is`, and closing keywords and labels left out: `end process;`,
+  # `end entity;`, `end architecture;`, `end function;`, `end generate;`.
+  architecture_024:
+    action: remove
+  block_002:
+    action: remove
+  block_007:
+    action: remove
+  entity_019:
+    action: remove
+  function_020:
+    action: remove
+  generate_011:
+    action: remove
+  instantiation_036:
+    action: remove
+  package_014:
+    action: remove
+  package_body_003:
+    action: remove
+  procedure_014:
+    action: remove
+  process_012:
+    action: remove
+  process_018:
+    action: remove
+  record_type_definition_005:
+    action: remove
+
+  # Instantiation by entity, not by component.
+  instantiation_034:
+    method: entity
+
+  # No blank line directly after `begin` or before the closing `end`.
+  block_201:
+    style: no_blank_line
+  case_200:
+    style: no_blank_line
+  process_022:
+    style: no_blank_line
+  subprogram_body_201:
+    style: no_blank_line
+
+  # Up to two blank lines between sections, as hdl-modules separates its design units and
+  # comment banners.
+  whitespace_200:
+    blank_lines_allowed: 2
+
+  # Choices hdl-modules makes both ways, or does not follow at all: left to the author.
+  # Among them: default values on signals, variables and ports (signal_007, variable_007,
+  # port_012), several names in one declaration (signal_015), conditions without parentheses
+  # (if_002), and the blank lines around statements.
+  architecture_015:
+    disable: true
+  architecture_016:
+    disable: true
+  assert_003:
+    disable: true
+  assert_005:
+    disable: true
+  block_200:
+    disable: true
+  block_202:
+    disable: true
+  block_205:
+    disable: true
+  case_009:
+    disable: true
+  case_010:
+    disable: true
+  case_201:
+    disable: true
+  element_association_101:
+    disable: true
+  entity_003:
+    disable: true
+  function_006:
+    disable: true
+  generate_003:
+    disable: true
+  generate_004:
+    disable: true
+  generic_003:
+    disable: true
+  generic_map_002:
+    disable: true
+  generic_map_006:
+    disable: true
+  if_002:
+    disable: true
+  if_007:
+    disable: true
+  if_010:
+    disable: true
+  if_030:
+    disable: true
+  if_031:
+    disable: true
+  instantiation_019:
+    disable: true
+  library_007:
+    disable: true
+  loop_statement_200:
+    disable: true
+  loop_statement_201:
+    disable: true
+  loop_statement_202:
+    disable: true
+  loop_statement_203:
+    disable: true
+  package_003:
+    disable: true
+  package_007:
+    disable: true
+  package_011:
+    disable: true
+  package_body_002:
+    disable: true
+  port_003:
+    disable: true
+  port_012:
+    disable: true
+  port_map_002:
+    disable: true
+  port_map_006:
+    disable: true
+  procedure_004:
+    disable: true
+  procedure_200:
+    disable: true
+  procedure_call_101:
+    disable: true
+  process_011:
+    disable: true
+  process_023:
+    disable: true
+  process_026:
+    disable: true
+  process_027:
+    disable: true
+  signal_007:
+    disable: true
+  signal_015:
+    disable: true
+  subprogram_body_202:
+    disable: true
+  subprogram_body_203:
+    disable: true
+  subprogram_body_204:
+    disable: true
+  subprogram_body_205:
+    disable: true
+  subtype_201:
+    disable: true
+  subtype_202:
+    disable: true
+  type_005:
+    disable: true
+  type_010:
+    disable: true
+  type_011:
+    disable: true
+  type_mark_500:
+    disable: true
+  use_clause_501:
+    disable: true
+  use_clause_502:
+    disable: true
+  variable_007:
+    disable: true
+  variable_015:
+    disable: true
+  whitespace_003:
+    disable: true
+  whitespace_011:
+    disable: true
+
+# `use` clauses are not indented under their `library` clause.
+indent:
+  tokens:
+    use_clause:
+      keyword:
+        token_after_library_clause: current
+        token_if_no_matching_library_clause: current

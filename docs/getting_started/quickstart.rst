@@ -22,16 +22,16 @@ and open the captured traffic in Wireshark.
          pip install -r tests/packaging/unreleased-requirements.txt
          pip install .
 
-   .. tab-item:: From PyPI (once released)
+   .. tab-item:: From PyPI (pre-release)
 
       .. code-block:: bash
          :caption: Terminal
 
-         pip install awesome-vunit-vcs
+         pip install --pre awesome-vunit-vcs
 
 .. warning::
 
-   The package and its dependencies are not released yet, so install from the repository. You also
+   Only pre-releases of the package are on PyPI; the repository has the latest version. You also
    need GHDL or NVC, and on Linux or macOS a C compiler; see :doc:`installation`.
 
 2. Write the run script

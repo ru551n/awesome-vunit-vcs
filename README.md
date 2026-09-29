@@ -65,7 +65,8 @@ for the full list.
 ## Install
 
 Requirements: CPython 3.10–3.14, GHDL or NVC, and on Linux or macOS a C compiler with the Python
-development headers. The package is not on PyPI yet, and it needs two unreleased dependencies, pinned
+development headers. Pre-releases are on PyPI (`pip install --pre awesome-vunit-vcs`). The development
+version on GitHub needs two unreleased dependencies, pinned
 to tested commits: VUnit with package setup hooks and
 [vunit-python-bridge](https://github.com/ru551n/vunit-python-bridge). Install them, then the package,
 from GitHub:

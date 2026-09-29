@@ -7,7 +7,7 @@ testbench stays in VHDL; Python does the frame work behind the components.
 
 **VHDL handles simulation timing. Python handles verification semantics.**
 
-The project is alpha: the APIs can still change, and the package is not on PyPI yet.
+The project is alpha: the APIs can still change, and only pre-releases are on PyPI.
 
 Status
 ------

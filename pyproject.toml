@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "awesome-vunit-vcs"
-version = "0.1.0.dev0"
+version = "0.1.0a1"
 description = "Third-party VUnit verification components: VHDL pin timing, Python verification semantics."
 readme = "README.md"
 license = "MPL-2.0"

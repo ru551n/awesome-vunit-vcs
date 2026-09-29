@@ -186,7 +186,7 @@ def build(docs: Path, output: Path, base_url: str) -> list[Path]:
     lines += [
         "Verification components for VUnit testbenches: Ethernet (GMII, MII, RGMII, RMII, XGMII, "
         "AXI-Stream), a QSPI NOR flash with QSPI master and protocol checker, I2C (master, target, "
-        "monitor, protocol checker), an AXI4 and AXI4-Lite monitor and protocol checker, and "
+        "monitor, protocol checker), MDIO (PHY, master), an AXI4 and AXI4-Lite monitor and protocol checker, and "
         "property-based testing with Hypothesis inside a simulation. "
         "Testbenches are VHDL; Python builds frames and "
         "strategies. Every link below is a Markdown version of a documentation page; llms-full.txt has "

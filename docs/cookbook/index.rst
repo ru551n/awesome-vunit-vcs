@@ -124,6 +124,11 @@ The examples
        monitor with statistics, and timing violations counted by a protocol checker.
      - GHDL, NVC
      - ``python examples/i2c/run.py --output-path ../vunit_out``
+   * - ``examples/mdio``
+     - An MDIO master with a PHY register file, a PHY modelled in Python at the slowest
+       clock-to-output delay, and a malformed frame counted by the PHY.
+     - GHDL, NVC
+     - ``python examples/mdio/run.py --output-path ../vunit_out``
    * - ``examples/gmii``
      - A realistic GMII testbench: monitors on both sides of a design, random frames, a Python
        subscriber and Scapy.

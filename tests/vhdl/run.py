@@ -26,7 +26,7 @@ from record_types import Link  # noqa: E402
 
 write_vhdl([Link], "record_types_pkg", ROOT / "generated" / "record_types_pkg.vhd")
 
-# The device models of tb_i2c are imported by name in the simulator
+# The device models of tb_i2c and tb_mdio_phy_vci are imported by name in the simulator
 os.environ["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT / "python"), os.environ.get("PYTHONPATH")]))
 
 vu = VUnit.from_argv()

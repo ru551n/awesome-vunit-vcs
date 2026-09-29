@@ -20,7 +20,7 @@ from .errors import AwesomeVunitVcsError
 
 __all__ = ["VHDL_LIBRARY_NAME", "VUNIT_PACKAGE_NAME", "AwesomeVunitVcsError", "__version__"]
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.1.0a1"
 
 #: Name to pass to ``VUnit.add_package``
 VUNIT_PACKAGE_NAME = "awesome-vunit-vcs"

@@ -49,9 +49,9 @@ Install the package
       .. code-block:: bash
          :caption: Terminal
 
-         pip install awesome-vunit-vcs
+         pip install --pre awesome-vunit-vcs
 
-      Not released yet. Use the repository until the first release.
+      Only pre-releases are published so far, so ``--pre`` or an exact version is needed.
 
 Add optional extras
 -------------------

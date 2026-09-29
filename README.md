@@ -8,7 +8,7 @@
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](https://github.com/ru551n/awesome-vunit-vcs#status)
 
 **Verification components for [VUnit](https://vunit.github.io/) that feel like VUnit's own:
-Ethernet, QSPI flash, I2C, AXI4 monitoring and slaves, and property-based testing with Hypothesis inside the
+Ethernet, QSPI flash, I2C, MDIO, AXI4 monitoring and slaves, and property-based testing with Hypothesis inside the
 simulation.**
 
 Connect a component to the pins of your design and it sends, receives and checks traffic for you. Your
@@ -30,7 +30,7 @@ testbench stays in VHDL, and the components do the protocol work in Python behin
   percentiles, bandwidth and backpressure next to VUnit's own AXI components.
 - **Property-based testing in VHDL.** Hypothesis draws the stimulus, your testbench runs it through the
   design, and a failure shrinks to the smallest input that still fails.
-- **Python where it helps.** Build frames, model a flash or I2C device or write strategies in plain
+- **Python where it helps.** Build frames, model a flash, I2C or MDIO device or write strategies in plain
   Python, including in `pytest` without a simulator.
 
 ## What's inside
@@ -42,6 +42,7 @@ testbench stays in VHDL, and the components do the protocol work in Python behin
 | | AXI-Stream MAC client, any width, with backpressure | source, sink, monitor, protocol checker |
 | **Flash** | QSPI NOR flash, x1, x2 and x4 lanes | flash responder, QSPI master, QSPI protocol checker |
 | **I2C** | Standard-mode, Fast-mode, Fast-mode Plus; 7- and 10-bit addresses; SMBus PEC | master, target with Python device models (registers, 24Cxx EEPROM, your own), monitor, protocol checker |
+| **MDIO** | Clause 22 management frames of Ethernet PHYs | PHY with a register file or a Python device model and a clock-to-output delay, master |
 | **AXI4** | AXI4 and AXI4-Lite, data 8 to 1024 bits, IDs, FIXED/INCR/WRAP bursts, narrow and unaligned transfers | monitor with shadow memory scoreboard and performance statistics, protocol checker, read and write slaves on a sparse 64-bit memory |
 | **Property-based testing** | Any design | `property_pkg`: Hypothesis strategies, stateful tests, scores, lockup handling, replay |
 
@@ -64,7 +65,8 @@ for the full list.
 ## Install
 
 Requirements: CPython 3.10–3.14, GHDL or NVC, and on Linux or macOS a C compiler with the Python
-development headers. The package is not on PyPI yet, and it needs two unreleased dependencies, pinned
+development headers. Pre-releases are on PyPI (`pip install --pre awesome-vunit-vcs`). The development
+version on GitHub needs two unreleased dependencies, pinned
 to tested commits: VUnit with package setup hooks and
 [vunit-python-bridge](https://github.com/ru551n/vunit-python-bridge). Install them, then the package,
 from GitHub:

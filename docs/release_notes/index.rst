@@ -11,3 +11,8 @@ Unreleased
 
 .. Released versions are added here by the release step, newest first, as
    ".. include:: <version>.rst" below a "<version>" heading.
+
+0.1.0a1
+-------
+
+.. include:: 0.1.0a1.rst

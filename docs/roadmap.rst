@@ -88,6 +88,11 @@ Other VC families
        Python device models (register map, 24Cxx EEPROM, your own), a monitor and a protocol checker
        of the timing of each speed mode. See :doc:`i2c/index`.
      - Done
+   * - MDIO
+     - A Clause 22 PHY with a register file or Python device models, frame checks (preamble, OP, TA,
+       contention, metavalues) and a clock-to-output delay up to 300 ns, and a master with malformed
+       frames. See :doc:`mdio/index`.
+     - Done
 
    * - AXI4
      - A passive AXI4 and AXI4-Lite monitor (transactions per ID, FIXED, INCR and WRAP bursts, narrow
@@ -99,7 +104,8 @@ Other VC families
 
 Later, for I2C: High-speed mode, Ultra Fast-mode, the rise and fall time and data valid time checks,
 and SMBus timeouts and block protocols. Later, for AXI4: AXI3 and AXI5 signals, the exclusive access
-monitor across transactions, exclusive accesses in the slaves, and an AXI4 master of this package.
+monitor across transactions, exclusive accesses in the slaves, and an AXI4 master of this package. Later, for MDIO: Clause 45 frames, and a protocol checker of the
+MDC period and the setup and hold times of MDIO.
 
-New families follow :doc:`contributing/new_family`. Ideas such as MDIO or SPI are welcome as issues or
+New families follow :doc:`contributing/new_family`. Ideas such as SPI are welcome as issues or
 pull requests.

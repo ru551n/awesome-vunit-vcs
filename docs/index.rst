@@ -7,7 +7,7 @@ testbench stays in VHDL; Python does the frame work behind the components.
 
 **VHDL handles simulation timing. Python handles verification semantics.**
 
-The project is alpha: the APIs can still change, and the package is not on PyPI yet.
+The project is alpha: the APIs can still change, and only pre-releases are on PyPI.
 
 Status
 ------
@@ -52,6 +52,10 @@ Status
      - 100 kHz, 400 kHz, 1 MHz
      - Done
      - ``i2c_master``, ``i2c_target``, ``i2c_monitor``, ``i2c_protocol_checker``
+   * - MDIO
+     - Clause 22
+     - Done
+     - ``mdio_phy``, ``mdio_master``
    * - AXI4, AXI4-Lite
      - Data 8 to 1024 bits
      - Done
@@ -121,6 +125,12 @@ Components
 
       An I2C master, a target with device models in Python, a monitor and a protocol checker.
 
+   .. grid-item-card:: MDIO
+      :link: mdio/index
+      :link-type: doc
+
+      A PHY with a register file or a device model in Python, and a master of Clause 22 frames.
+
    .. grid-item-card:: AXI4
       :link: axi4/index
       :link-type: doc
@@ -186,6 +196,13 @@ declaration, signature and cookbook example.
    :hidden:
 
    i2c/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: MDIO
+   :hidden:
+
+   mdio/index
 
 .. toctree::
    :maxdepth: 2

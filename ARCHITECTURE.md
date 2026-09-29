@@ -18,6 +18,7 @@ the models follow. User documentation lives at <https://awesome-vunit-vcs.readth
 - [Active sources and responders](#active-sources-and-responders)
   - [The flash responder](#the-flash-responder)
   - [The I2C family](#the-i2c-family)
+  - [The MDIO family](#the-mdio-family)
   - [The AXI4 family](#the-axi4-family)
   - [The AXI4 read and write slaves](#the-axi4-read-and-write-slaves)
 - [Design decisions](#design-decisions)
@@ -269,6 +270,22 @@ acknowledge bit of a byte it transmitted, and at a STOP. Each call returns `[act
 stretch_ps, num_reports]` as an `integer_array_t`, so no packed layout needs a version handshake. The
 main process, which serves the messages of the testbench, waits one delta cycle after receiving a
 message, so a STOP in the same time step reaches the model before a memory check that follows it.
+
+### The MDIO family
+
+MDIO has one responder, `mdio_phy`, and a master in VHDL only. The PHY samples MDIO on rising MDC edges
+and calls its backend twice per frame: after REGAD with `(preamble_ones, header, metavalues, now)`,
+getting `[action, data, num_reports]` back, and after the last data bit with the TA and data of a
+write or the TA and contention findings of a read. `awesome_vunit_vcs.mdio.phy.MdioPhy` decides
+whether the frame is for the PHY and runs the checks; the device model decides what a register holds.
+
+In a read the PHY drives each bit with `transport ... after clock_to_output_delay`, so a delay longer
+than the MDC period queues bits instead of dropping them, and mirrors the level on an internal signal.
+The contention check compares MDIO with that mirror at every rising edge from the second TA bit on, so
+a master that samples before the delay reads stale bits without a false contention report. The
+master changes MDIO when MDC falls and samples it in the same delta cycle as it raises MDC, before a
+PHY with no delay reacts to the edge. It needs no Python: a frame is a vector of bits, and
+`mdio_frame` builds the standard ones.
 
 ### The AXI4 family
 
@@ -859,6 +876,15 @@ VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*s
 - Sample times are rounded down to 1 ps.
 - `I2C_F_SCL` leaves out SCL periods across a START or STOP; tSU;STA and tHD;STA cover them.
 
+### MDIO PHY and master
+
+- Clause 22 only: a Clause 45 frame (ST 00) is ignored, and a PHY answers one address.
+- The pin timing is not checked: the MDC period, and the setup and hold times of MDIO around the
+  rising MDC edge. A protocol checker entity would hold these.
+- The contention check compares MDIO with the value the PHY drives, so a master driving the same value
+  is not caught; a metavalue in the idle line between frames is not reported.
+- The master's reset waits for the frame in progress, and `transfer_mdio` sends at most 4096 bits.
+
 ### AXI4 monitor
 
 - Latencies, utilization and timeouts count cycles as time / the latest measured clock period, so a
@@ -906,6 +932,9 @@ VUNIT_SIMULATOR=nvc python benchmarks/run.py -p 1 --output-path ../vunit_out "*s
   3.1.13 (10-bit addressing), and Table 10 (characteristics of the SDA and SCL bus lines for
   Standard-mode, Fast-mode and Fast-mode Plus), from which `awesome_vunit_vcs.i2c.timing` takes its
   limits.
+- **MDIO:** IEEE 802.3 Clause 22, 22.2.2.13 and 22.2.2.14 (MDC and MDIO), 22.2.4.5 (the management
+  frame structure: PRE, ST, OP, PHYAD, REGAD, TA, DATA, IDLE; preamble suppression) and 22.3.4 (MDIO
+  timing: an MDC period of at least 400 ns, and a PHY clock-to-output delay of 0 ns to 300 ns).
 - **SMBus:** System Management Bus Specification 3.2, 6.4 (Packet Error Checking): CRC-8 with the
   polynomial x^8 + x^2 + x + 1 over every byte of the transaction, address bytes included. The check
   value of CRC-8/SMBUS over "123456789" is 0xF4.

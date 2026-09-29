@@ -24,4 +24,4 @@
      ``axi_burst_type_*`` and ``axi_resp_*``.
 
    The family context clause (``ethernet_context``, ``flash_context``, ``i2c_context``,
-   ``axi4_context`` or ``property_context``) makes the VUnit names visible.
+   ``mdio_context``, ``axi4_context`` or ``property_context``) makes the VUnit names visible.

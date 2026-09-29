@@ -42,6 +42,12 @@ The first release is being prepared. Nothing has been released yet.
   expected data, words, ``integer_array_t``) on a sparse 64-bit address space, with ``fill`` and
   ``load_image`` of the flash family's image formats. ``awesome_vunit_vcs.axi4`` has the
   ``MemoryModel`` and ``Axi4Slave`` for plain Python.
+* MDIO: an ``mdio_phy`` answering the Clause 22 management frames of Ethernet at its address from a file of 32
+  registers or a Python device model (``MdioDevice``), with a clock-to-output delay up to 300 ns and
+  the checks ``mdio_preamble``, ``mdio_op``, ``mdio_ta``, ``mdio_contention``, ``mdio_metavalue`` and
+  ``mdio_register``, and an ``mdio_master`` with reads, writes and ``transfer_mdio`` for malformed
+  frames. ``mdio_context`` is the one context clause of an MDIO testbench, and ``awesome_vunit_vcs.mdio``
+  has the PHY engine and device models for plain Python.
 * Common: ``awesome_vunit_vcs.common.sparse_memory.SparseMemory``, the sparse byte store of the flash
   array, now shared with the AXI4 memory.
 * Installable VUnit package: ``vu.add_package("awesome-vunit-vcs")``.
